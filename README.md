@@ -1,4 +1,4 @@
-# Spotidownloader
+# Trackhound
 
 Скачивает альбомы, синглы, плейлисты и отдельные треки по ссылке из Spotify, Apple Music, YouTube, SoundCloud, Last.fm и с сайтов вроде Bandcamp.
 
@@ -20,7 +20,7 @@
 
 Для каждой ссылки появляется карточка с обложкой и списком треков. По каждому треку видно, что происходит: ищется, качается (с процентами), готов, уже был в папке, не найден или ошибка. У готовых треков указан источник — YouTube Music, SoundCloud или видео YouTube. Пока идёт загрузка, можно добавлять новые ссылки: они встанут в очередь. Кнопка «Остановить» прерывает загрузку, а «Продолжить» на карточке докачивает оставшееся.
 
-В разделе «Дополнительно» можно проверить, что найдётся, ничего не скачивая, и выбрать, сколько треков качать одновременно. Тема оформления: как в системе, светлая или тёмная. Настройки хранятся в `%USERPROFILE%\.spotidownloader.json`.
+В разделе «Дополнительно» можно проверить, что найдётся, ничего не скачивая, и выбрать, сколько треков качать одновременно. Тема оформления: как в системе, светлая или тёмная. Настройки хранятся в `%USERPROFILE%\.trackhound.json`.
 
 ## Командная строка
 
@@ -32,7 +32,7 @@
 
 | Параметр | Значение |
 |---|---|
-| `-o`, `--output` | папка (по умолчанию `%USERPROFILE%\Music\Spotify Downloader`) |
+| `-o`, `--output` | папка (по умолчанию `%USERPROFILE%\Music\Trackhound`) |
 | `-f`, `--format` | `m4a` (по умолчанию), `mp3`, `opus` |
 | `-t`, `--threads` | сколько треков качать одновременно, по умолчанию 3 |
 | `--dry-run` | только показать найденные совпадения |
@@ -53,7 +53,7 @@
 ## Куда сохраняется
 
 ```
-Spotify Downloader\
+Trackhound\
   Daft Punk - Discovery (2001)\
     01. One More Time.m4a
     02. Aerodynamic.m4a
@@ -84,20 +84,20 @@ YouTube отдаёт аудио примерно 130–160 кбит/с, SoundClo
 ## Если что-то сломалось
 
 - **Ошибки загрузки с YouTube.** Обновите yt-dlp — запустите `install.bat` ещё раз. YouTube меняется часто.
-- **«Spotify изменил формат страницы».** Нужна правка разбора в `spotidownloader/spotify.py`.
+- **«Spotify изменил формат страницы».** Нужна правка разбора в `trackhound/spotify.py`.
 - **`music.youtube.com` недоступен в сети.** Программа сама переключается на `www.youtube.com`.
 - **Нужен прокси.** Перед запуском задайте переменную окружения в той же консоли: `set HTTPS_PROXY=http://127.0.0.1:1080`.
 
 ## Устройство
 
-- `spotidownloader/sources.py` — разбор ссылок всех сервисов и поиск релиза по названию
-- `spotidownloader/spotify.py` — метаданные Spotify
-- `spotidownloader/models.py`, `spotidownloader/net.py` — общие структуры данных и HTTP
-- `spotidownloader/matcher.py` — поиск и выбор совпадения на YouTube Music, SoundCloud и YouTube
-- `spotidownloader/downloader.py` — скачивание (yt-dlp), конвертация (ffmpeg), теги (mutagen)
-- `spotidownloader/gui.py` — окно (pywebview) и связь интерфейса с загрузчиком
-- `spotidownloader/web/` — интерфейс: `index.html`, `style.css`, `app.js`; шрифт Nunito в `fonts/` (лицензия SIL OFL, `fonts/OFL.txt`)
-- `spotidownloader/cli.py`, `main.py` — командная строка и точка входа
+- `trackhound/sources.py` — разбор ссылок всех сервисов и поиск релиза по названию
+- `trackhound/spotify.py` — метаданные Spotify
+- `trackhound/models.py`, `trackhound/net.py` — общие структуры данных и HTTP
+- `trackhound/matcher.py` — поиск и выбор совпадения на YouTube Music, SoundCloud и YouTube
+- `trackhound/downloader.py` — скачивание (yt-dlp), конвертация (ffmpeg), теги (mutagen)
+- `trackhound/gui.py` — окно (pywebview) и связь интерфейса с загрузчиком
+- `trackhound/web/` — интерфейс: `index.html`, `style.css`, `app.js`; шрифт Nunito в `fonts/` (лицензия SIL OFL, `fonts/OFL.txt`)
+- `trackhound/cli.py`, `main.py` — командная строка и точка входа
 
 ## Важно
 

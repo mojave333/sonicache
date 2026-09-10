@@ -11,7 +11,7 @@ from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="spotidownloader",
+        prog="trackhound",
         description="Скачивание альбомов, синглов и треков по ссылке из Spotify, Apple Music, "
                     "YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp.",
     )

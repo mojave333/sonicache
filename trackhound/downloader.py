@@ -29,7 +29,7 @@ from .models import Album, Track
 from .net import BROWSER_UA
 
 FORMATS = ("m4a", "mp3", "opus")
-DEFAULT_OUTPUT_DIR = Path.home() / "Music" / "Spotify Downloader"
+DEFAULT_OUTPUT_DIR = Path.home() / "Music" / "Trackhound"
 KINDS = {"album": "альбом", "single": "сингл", "ep": "EP", "compilation": "сборник", "playlist": "плейлист"}
 
 _UNSAFE_CHARS = str.maketrans({

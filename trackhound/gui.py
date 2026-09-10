@@ -19,9 +19,9 @@ import webview
 from . import __version__
 from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
 
-TITLE = "Spotidownloader"
+TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
-SETTINGS_FILE = Path.home() / ".spotidownloader.json"
+SETTINGS_FILE = Path.home() / ".trackhound.json"
 THEMES = ("system", "light", "dark")
 
 
