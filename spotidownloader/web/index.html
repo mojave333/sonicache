@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spotidownloader</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 17.5V6.5l10-2v11"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1.5"/><path d="M16 5h1.5A2.5 2.5 0 0 1 20 7.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-11A2.5 2.5 0 0 1 6.5 5H8"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.6a2 2 0 0 1 1.5.7L12.5 7H18a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.2 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2.5"/><path d="M9 20h6M12 16.5V20"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/></symbol>
+    <symbol id="i-spinner" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/></symbol>
+    <symbol id="i-retry" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4.5V11h-6.5"/></symbol>
+  </svg>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo"><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></span>
+        <span>Spotidownloader</span>
+      </div>
+      <div id="theme" class="theme" role="radiogroup" aria-label="Тема оформления">
+        <button type="button" role="radio" data-theme-choice="system" title="Как в системе" aria-label="Тема как в системе"><svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg></button>
+        <button type="button" role="radio" data-theme-choice="light" title="Светлая" aria-label="Светлая тема"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg></button>
+        <button type="button" role="radio" data-theme-choice="dark" title="Тёмная" aria-label="Тёмная тема"><svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero card" aria-labelledby="hero-title">
+        <h1 id="hero-title">Скачать музыку по ссылке</h1>
+        <p class="lead">Вставьте ссылку на альбом, сингл или трек из Spotify, Apple Music, YouTube, SoundCloud или Last.fm — найдём песни и сохраним их с обложкой и тегами.</p>
+
+        <form id="form" class="linkbar" novalidate>
+          <div class="field">
+            <label for="link" class="sr-only">Ссылка на альбом или трек</label>
+            <svg class="icon field-icon" aria-hidden="true"><use href="#i-link"/></svg>
+            <input id="link" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+                   placeholder="Ссылка на альбом, плейлист или трек" aria-describedby="link-hint">
+            <button type="button" id="paste" class="btn soft small paste"><svg class="icon sm" aria-hidden="true"><use href="#i-clipboard"/></svg>Вставить</button>
+          </div>
+          <button type="submit" id="submit" class="btn primary"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span id="submit-label">Скачать</span></button>
+        </form>
+        <p id="link-error" class="field-error" role="alert" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg><span id="link-error-text"></span></p>
+        <p id="link-hint" class="hint">Можно вставить сразу несколько ссылок или просто перетащить ссылку в окно.</p>
+
+        <div class="options">
+          <div class="option">
+            <span class="option-label" id="format-label">Формат</span>
+            <div id="formats" class="segmented" role="radiogroup" aria-labelledby="format-label">
+              <button type="button" role="radio" data-format="m4a">m4a</button>
+              <button type="button" role="radio" data-format="mp3">mp3</button>
+              <button type="button" role="radio" data-format="opus">opus</button>
+            </div>
+          </div>
+          <div class="option grow">
+            <span class="option-label" id="folder-label">Папка для музыки</span>
+            <button type="button" id="folder" class="folder-chip" aria-describedby="folder-label">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>
+              <span id="folder-path" class="folder-path"></span>
+              <span class="chip-action">Изменить</span>
+            </button>
+          </div>
+        </div>
+        <p id="format-hint" class="hint"></p>
+
+        <details class="more">
+          <summary><svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg>Дополнительно</summary>
+          <div class="more-body">
+            <label class="switch">
+              <input type="checkbox" id="dry-run">
+              <span class="switch-track" aria-hidden="true"></span>
+              <span>Только проверить, что найдётся, — ничего не скачивать</span>
+            </label>
+            <div class="stepper-row">
+              <span id="threads-label">Сколько треков качать одновременно</span>
+              <div class="stepper" role="group" aria-labelledby="threads-label">
+                <button type="button" data-step="-1" aria-label="Меньше">−</button>
+                <output id="threads" aria-live="polite">3</output>
+                <button type="button" data-step="1" aria-label="Больше">+</button>
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section id="problems" class="banner" role="status" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+        <div><strong>Кое-что стоит поправить</strong><ul id="problems-list"></ul></div>
+      </section>
+
+      <section class="queue" aria-labelledby="queue-title">
+        <div class="queue-head">
+          <h2 id="queue-title">Загрузки</h2>
+          <div class="queue-actions">
+            <button type="button" id="clear" class="btn ghost small" hidden>Убрать завершённые</button>
+            <button type="button" id="stop" class="btn danger small" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-stop"/></svg>Остановить</button>
+          </div>
+        </div>
+        <div id="empty" class="empty">
+          <svg class="empty-art" viewBox="0 0 160 120" aria-hidden="true">
+            <ellipse class="art-shadow" cx="80" cy="110" rx="44" ry="5"/>
+            <circle class="art-bg" cx="80" cy="56" r="50"/>
+            <circle class="art-disc" cx="72" cy="56" r="31"/>
+            <circle class="art-groove" cx="72" cy="56" r="23"/>
+            <circle class="art-groove" cx="72" cy="56" r="15"/>
+            <circle class="art-label" cx="72" cy="56" r="7"/>
+            <circle class="art-badge" cx="107" cy="82" r="16"/>
+            <path class="art-arrow" d="M107 74v14m-6-6 6 6 6-6"/>
+          </svg>
+          <p class="empty-title">Здесь появятся ваши загрузки</p>
+          <p class="empty-text">Альбомы, синглы, EP и отдельные треки. Уже скачанные песни пропускаются, так что прерванную загрузку можно просто запустить снова.</p>
+        </div>
+        <ol id="jobs" class="jobs"></ol>
+      </section>
+    </main>
+
+    <footer class="footer">Названия, обложки и номера треков — со страницы по ссылке, звук — оттуда же, если он там открыт, или с YouTube Music и SoundCloud · <span id="version"></span></footer>
+    <p id="live" class="sr-only" aria-live="polite"></p>
+  </div>
+
+  <template id="job-template">
+    <li class="job card">
+      <div class="job-head">
+        <div class="cover"><img alt="" hidden><svg class="icon cover-placeholder" aria-hidden="true"><use href="#i-note"/></svg></div>
+        <div class="job-info">
+          <p class="job-kind"></p>
+          <h3 class="job-title"></h3>
+          <p class="job-sub"></p>
+          <div class="progress" role="progressbar" aria-label="Прогресс" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="progress-fill"></span></div>
+          <p class="job-status"><span class="status-dot" aria-hidden="true"></span><span class="status-text"></span></p>
+        </div>
+        <div class="job-actions">
+          <button type="button" class="btn ghost small retry" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span class="retry-label">Повторить</span></button>
+          <button type="button" class="btn soft small open" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Открыть папку</button>
+          <button type="button" class="icon-btn toggle" aria-expanded="false" aria-label="Показать треки" hidden><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+        </div>
+      </div>
+      <ol class="tracks" hidden></ol>
+    </li>
+  </template>
+
+  <template id="track-template">
+    <li class="track">
+      <span class="track-num"></span>
+      <div class="track-main">
+        <p class="track-title"></p>
+        <p class="track-meta"></p>
+        <p class="track-note"></p>
+      </div>
+      <div class="track-side">
+        <span class="track-dur"></span>
+        <span class="badge"><svg class="icon" aria-hidden="true"><use href="#i-dot"/></svg><span class="badge-text"></span></span>
+      </div>
+    </li>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
