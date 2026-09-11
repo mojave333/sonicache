@@ -4,10 +4,12 @@
 const LINK_RE = /https?:\/\/[^\s"'<>]+|(?:[a-z0-9-]+\.)+(?:com|ru|fm|be|link|fi)\/[^\s"'<>]+|spotify:(?:album|track):[A-Za-z0-9]{22}/gi;
 
 const FORMAT_HINTS = {
-  m4a: "m4a — звук как есть, без перекодирования. Подходит почти всем плеерам.",
-  mp3: "mp3 — для старых плееров и магнитол. Перекодируется, файлы получаются чуть больше.",
-  opus: "opus — компактнее при том же качестве, но понимают его не все плееры.",
+  m4a: "m4a — звук как есть, без перекодирования. Подходит почти всем плеерам",
+  mp3: "mp3 — для старых плееров и магнитол. Перекодируется, файлы чуть больше",
+  opus: "opus — компактнее при том же качестве, но понимают его не все плееры",
 };
+
+const VIEWS = ["download", "library", "queue", "settings"];
 
 const TRACK_UI = {
   waiting: { label: "В очереди", icon: "dot", tone: "muted" },
@@ -20,14 +22,49 @@ const TRACK_UI = {
   error: { label: "Ошибка", icon: "alert", tone: "danger" },
   cancel: { label: "Отменён", icon: "stop", tone: "muted" },
 };
+const TRACK_ACTIVE = new Set(["waiting", "search", "download"]);
+const TRACK_FAILED = new Set(["missing", "error"]);
 
-const JOB_STATES = ["queued", "running", "done", "partial", "error", "cancelled"];
+const QUEUE_FILTERS = {
+  all: () => true,
+  active: (track) => TRACK_ACTIVE.has(track.state),
+  done: (track) => ["done", "found", "skip"].includes(track.state),
+  problems: (track) => TRACK_FAILED.has(track.state),
+};
+const QUEUE_EMPTY = {
+  all: "Очередь пуста",
+  active: "Сейчас ничего не качается",
+  done: "Готовых треков пока нет",
+  problems: "Проблемных треков нет",
+};
+
 const ACTIVE = new Set(["queued", "running"]);
 
-const state = { settings: null, jobs: new Map(), orphans: [] };
+const state = {
+  settings: null,
+  problems: [],
+  view: "download",
+  jobs: new Map(),
+  tracks: [], // every track of every job, in the order the releases arrived
+  orphans: [],
+  dirty: new Set(),
+  queueFilter: "all",
+  run: null, // jobs added since the queue was last idle; the status bar sums them up
+  library: { items: [], folder: null, stale: true, loading: false, token: 0 },
+  covers: new Map(),
+};
 const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
 const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => root.querySelectorAll(selector);
 const api = () => window.pywebview.api;
+
+const coverObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    coverObserver.unobserve(entry.target);
+    showLibraryCover(entry.target);
+  }
+}, { root: $("#library-scroll"), rootMargin: "200px" });
 
 applyTheme();
 
@@ -35,7 +72,10 @@ let booted = false;
 function boot() {
   if (booted) return;
   booted = true;
-  init().catch((error) => renderProblems([`Интерфейс не запустился: ${error}`]));
+  init().catch((error) => {
+    state.problems = [`Интерфейс не запустился: ${error}`];
+    renderProblems();
+  });
 }
 if (window.pywebview?.api?.init) boot();
 else window.addEventListener("pywebviewready", boot);
@@ -43,11 +83,14 @@ else window.addEventListener("pywebviewready", boot);
 async function init() {
   const data = await api().init();
   state.settings = data.settings;
+  state.problems = data.problems;
   $("#version").textContent = `v${data.version}`;
-  renderProblems(data.problems);
+  renderProblems();
   renderSettings();
   bindUi();
-  $("#link").focus();
+  showView("download");
+  renderChrome();
+  setInterval(renderStatusBar, 1000);
   pollLoop();
 }
 
@@ -58,16 +101,19 @@ function renderSettings() {
   applyTheme();
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   syncRadios($("#formats"), "data-format", settings.format);
-  $("#format-hint").textContent = FORMAT_HINTS[settings.format];
-  $("#folder-path").textContent = shortPath(settings.folder);
-  $("#folder").title = settings.folder;
+  syncRadios($("#mode-menu"), "data-dry-run", String(settings.dry_run));
+  const folder = $("#folder");
+  $("#folder-name").textContent = settings.folder.split(/[\\/]+/).filter(Boolean).pop() || settings.folder;
+  folder.title = `${settings.folder}\nНажмите, чтобы выбрать другую папку`;
+  folder.setAttribute("aria-label", `Папка для музыки: ${settings.folder}`);
   $("#threads").textContent = settings.threads;
-  $("#dry-run").checked = settings.dry_run;
   $("#submit-label").textContent = settings.dry_run ? "Проверить" : "Скачать";
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
+  renderStatusBar();
 }
 
 function updateSettings(patch) {
+  if (patch.folder && patch.folder !== state.settings.folder) state.library.stale = true;
   Object.assign(state.settings, patch);
   renderSettings();
   api().save_settings(state.settings);
@@ -79,17 +125,35 @@ function applyTheme() {
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
 
+function renderProblems() {
+  const problems = state.problems;
+  const items = () => problems.map((text) => Object.assign(document.createElement("li"), { textContent: text }));
+  $("#problems-list").replaceChildren(...items());
+  $("#problems").hidden = !problems.length;
+  $("#settings-dot").hidden = !problems.length;
+  $("#env-title").textContent = problems.length ? "Не хватает компонентов" : "Всё необходимое установлено";
+  $("#env-list").replaceChildren(...(problems.length ? items()
+    : [Object.assign(document.createElement("li"), { textContent: "ffmpeg, Deno или Node.js, yt-dlp-ejs" })]));
+  $("#env-icon use").setAttribute("href", problems.length ? "#i-alert" : "#i-check");
+  $("#env-icon").classList.toggle("warn", problems.length > 0);
+  renderStatusBar();
+}
+
 function bindUi() {
+  for (const button of $$("[data-view]")) {
+    button.addEventListener("click", () => showView(button.dataset.view));
+  }
+  for (const button of $$("#formats [data-format]")) button.title = FORMAT_HINTS[button.dataset.format];
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
+  radioGroup($("#queue-filter"), "data-filter", setQueueFilter);
   darkMedia.addEventListener("change", applyTheme);
 
   $("#folder").addEventListener("click", async () => {
     const folder = await api().choose_folder(state.settings.folder);
     if (folder) updateSettings({ folder });
   });
-  $("#dry-run").addEventListener("change", (event) => updateSettings({ dry_run: event.target.checked }));
-  for (const button of document.querySelectorAll("[data-step]")) {
+  for (const button of $$("[data-step]")) {
     button.addEventListener("click", () => {
       const threads = Math.min(8, Math.max(1, state.settings.threads + Number(button.dataset.step)));
       updateSettings({ threads });
@@ -99,16 +163,91 @@ function bindUi() {
   $("#paste").addEventListener("click", pasteFromClipboard);
   $("#link").addEventListener("input", clearLinkError);
   $("#form").addEventListener("submit", submitLinks);
-  $("#stop").addEventListener("click", stopAll);
+  bindModeMenu();
+  for (const button of $$(".stop")) button.addEventListener("click", stopAll);
   $("#clear").addEventListener("click", clearFinished);
+  $("#status-problems").addEventListener("click", () => showView("settings"));
 
+  $("#library-filter").addEventListener("input", renderLibrary);
+  $("#library-refresh").addEventListener("click", loadLibrary);
+  $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
+
+  document.addEventListener("keydown", onShortcut);
+  document.addEventListener("paste", (event) => {
+    if (event.target instanceof Element && event.target.closest("input, textarea")) return;
+    const text = event.clipboardData.getData("text/plain").trim();
+    if (!text) return;
+    event.preventDefault();
+    showView("download");
+    appendLinks(text);
+  });
   // A dropped link would otherwise navigate the whole window away
   document.addEventListener("dragover", (event) => event.preventDefault());
   document.addEventListener("drop", (event) => {
     event.preventDefault();
     const text = event.dataTransfer.getData("text/uri-list") || event.dataTransfer.getData("text/plain");
-    if (text) setLinkInput(text.trim());
+    if (!text.trim()) return;
+    showView("download");
+    appendLinks(text.trim());
   });
+}
+
+function onShortcut(event) {
+  if (event.key === "Escape" && !$("#mode-menu").hidden) {
+    setMenuOpen(false);
+  } else if (event.ctrlKey && !event.altKey && !event.shiftKey && /^[1-4]$/.test(event.key)) {
+    event.preventDefault();
+    showView(VIEWS[Number(event.key) - 1]);
+  } else if (event.key === "F5" || (event.ctrlKey && event.code === "KeyR")) {
+    event.preventDefault(); // reloading the page would lose the download list
+    if (state.view === "library") loadLibrary();
+  }
+}
+
+function showView(name) {
+  state.view = name;
+  for (const button of $$("[data-view]")) {
+    if (button.dataset.view === name) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  }
+  for (const view of $$(".view")) view.hidden = view.id !== `view-${name}`;
+  setMenuOpen(false, false);
+  if (name === "download") $("#link").focus();
+  if (name === "library") {
+    if (state.library.stale || state.library.folder !== state.settings.folder) loadLibrary();
+    $("#library-filter").focus();
+  }
+}
+
+function bindModeMenu() {
+  const menu = $("#mode-menu");
+  $("#mode").addEventListener("click", () => setMenuOpen(menu.hidden));
+  menu.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-dry-run]");
+    if (!item) return;
+    updateSettings({ dry_run: item.dataset.dryRun === "true" });
+    setMenuOpen(false, false);
+    $("#link").focus();
+  });
+  menu.addEventListener("keydown", (event) => {
+    const step = { ArrowUp: -1, ArrowDown: 1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const items = [...$$("[role=menuitemradio]", menu)];
+    items[(items.indexOf(document.activeElement) + step + items.length) % items.length].focus();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!menu.hidden && !event.target.closest(".split")) setMenuOpen(false, false);
+  });
+}
+
+function setMenuOpen(open, restoreFocus = true) {
+  const menu = $("#mode-menu");
+  const wasOpen = !menu.hidden;
+  menu.hidden = !open;
+  $("#mode").setAttribute("aria-expanded", String(open));
+  if (open) ($("[aria-checked=true]", menu) || $("button", menu)).focus();
+  else if (wasOpen && restoreFocus) $("#mode").focus();
 }
 
 function radioGroup(group, attribute, onSelect) {
@@ -145,13 +284,13 @@ async function pasteFromClipboard() {
     showLinkError("В буфере обмена пусто. Скопируйте ссылку на альбом или трек: «Поделиться» → «Копировать ссылку».");
     return;
   }
-  const current = $("#link").value.trim();
-  setLinkInput(current ? `${current} ${text}` : text);
+  appendLinks(text);
 }
 
-function setLinkInput(value) {
+function appendLinks(text) {
   const input = $("#link");
-  input.value = value;
+  const current = input.value.trim();
+  input.value = current ? `${current} ${text}` : text;
   clearLinkError();
   input.focus();
 }
@@ -171,10 +310,10 @@ async function submitLinks(event) {
   const submit = $("#submit");
   submit.disabled = true;
   try {
-    const dryRun = state.settings.dry_run;
+    const { dry_run: dryRun, format } = state.settings;
     const jobs = await api().download(links, state.settings);
     input.value = "";
-    for (const { job, link } of jobs) addJob(job, link, dryRun);
+    for (const { job, link } of jobs) addJob(job, link, dryRun, format);
   } finally {
     submit.disabled = false;
   }
@@ -188,59 +327,124 @@ function explainBadLink(raw) {
 
 function showLinkError(message) {
   $("#link").setAttribute("aria-invalid", "true");
+  $("#link").closest(".field").classList.add("invalid");
   $("#link-error-text").textContent = message;
   $("#link-error").hidden = false;
 }
 
 function clearLinkError() {
   $("#link").removeAttribute("aria-invalid");
+  $("#link").closest(".field").classList.remove("invalid");
   $("#link-error").hidden = true;
 }
 
 /* Jobs */
 
-function addJob(id, link, dryRun) {
+function addJob(id, link, dryRun, format) {
+  if (!hasActiveJobs()) state.run = { jobs: new Set(), workStart: 0 };
+  state.run.jobs.add(id);
+
   const node = $("#job-template").content.firstElementChild.cloneNode(true);
   const job = {
     id, link, dryRun, node,
-    state: "queued", title: prettyLink(link), folder: "", done: 0, total: 0,
-    tracks: new Map(), expanded: false,
+    state: "queued", stopping: false, title: prettyLink(link), sub: "", message: "", folder: "",
+    done: 0, total: 0, result: null, summary: "", tracks: new Map(), expanded: false,
   };
-  $(".job-title", node).textContent = job.title;
-  $(".job-kind", node).textContent = dryRun ? "Проверка" : "Загрузка";
-  $(".toggle", node).addEventListener("click", () => setExpanded(job, !job.expanded));
+  $(".tag", node).textContent = dryRun ? "проверка" : format;
+  $(".job-row", node).addEventListener("click", (event) => {
+    if (!event.target.closest(".cell-actions") && job.tracks.size) setExpanded(job, !job.expanded);
+  });
   $(".open", node).addEventListener("click", () => api().open_folder(job.folder));
   $(".retry", node).addEventListener("click", () => retryJob(job));
   state.jobs.set(id, job);
   $("#jobs").prepend(node);
-  setJobState(job, "queued", "В очереди");
+  renderJob(job);
 
   // Events can arrive before download() has returned the job id
   const early = state.orphans.filter((event) => event.job === id);
   state.orphans = state.orphans.filter((event) => event.job !== id);
   early.forEach(handleEvent);
+  flushRender();
 }
 
-function setJobState(job, value, text) {
-  job.state = value;
-  job.node.classList.remove(...JOB_STATES.map((name) => `is-${name}`));
-  job.node.classList.add(`is-${value}`);
-  if (text !== undefined) setStatus(job, text);
-  const finished = !ACTIVE.has(value);
-  $(".retry", job.node).hidden = !["error", "cancelled", "partial"].includes(value);
-  $(".retry-label", job.node).textContent =
-    value === "cancelled" ? (job.total ? "Продолжить" : "Запустить") : "Повторить";
-  $(".open", job.node).hidden = !(finished && !job.dryRun && job.folder && value !== "error");
-  updateQueueChrome();
+function hasActiveJobs() {
+  return [...state.jobs.values()].some((job) => ACTIVE.has(job.state));
 }
 
-function setStatus(job, text) {
-  $(".status-text", job.node).textContent = text;
+function renderJob(job) {
+  const { node } = job;
+  const status = jobStatus(job);
+  node.className = `job is-${job.state}${job.tracks.size ? " has-tracks" : ""}`;
+  $(".job-row", node).className = `row job-row tone-${status.tone}`;
+  const title = $(".title", node);
+  title.textContent = job.title;
+  title.title = job.title;
+  $(".sub", node).textContent = job.state === "error" ? job.message : job.sub;
+  setStatusCell($(".cell-status", node), status);
+
+  const finished = !ACTIVE.has(job.state);
+  const retry = $(".retry", node);
+  retry.hidden = !["error", "cancelled", "partial"].includes(job.state);
+  const retryLabel = job.state === "cancelled" ? (job.total ? "Продолжить" : "Запустить") : "Повторить";
+  retry.title = retryLabel;
+  retry.setAttribute("aria-label", retryLabel);
+  $(".open", node).hidden = !(finished && !job.dryRun && job.folder && job.state !== "error");
+}
+
+function jobStatus(job) {
+  switch (job.state) {
+    case "running": {
+      if (!job.total) {
+        return { icon: "spinner", tone: "muted", text: job.stopping ? "Останавливаем…" : "Читаем ссылку…", progress: "indeterminate" };
+      }
+      const ratio = jobProgress(job);
+      const text = job.stopping ? "Останавливаем…" : `${job.done} из ${job.total} · ${Math.floor(ratio * 100)}%`;
+      return { icon: "spinner", tone: "primary", text, progress: ratio };
+    }
+    case "done": {
+      const { ok, skipped } = job.result;
+      const text = job.dryRun ? "Всё найдено" : !ok && skipped ? "Уже скачано" : "Готово";
+      return { icon: "check", tone: "success", text, tip: job.summary };
+    }
+    case "partial":
+      return { icon: "alert", tone: "warning", text: `${job.dryRun ? "Не найдено" : "Не скачано"}: ${job.result.failed}`, tip: job.summary };
+    case "error":
+      return { icon: "alert", tone: "danger", text: "Ошибка", tip: job.message };
+    case "cancelled":
+      return { icon: "stop", tone: "muted", text: job.total ? `Остановлено · ${job.done} из ${job.total}` : "Отменено" };
+    default:
+      return { icon: "dot", tone: "muted", text: "В очереди" };
+  }
+}
+
+function jobProgress(job) {
+  let downloading = 0;
+  for (const track of job.tracks.values()) {
+    if (track.state === "download") downloading += track.percent / 100;
+  }
+  return Math.min(1, (job.done + downloading) / job.total);
+}
+
+function setStatusCell(cell, { icon, text, tip = "", progress }) {
+  const statusIcon = $(".status-icon", cell);
+  $("use", statusIcon).setAttribute("href", `#i-${icon}`);
+  statusIcon.classList.toggle("spin", icon === "spinner");
+  $(".status-text", cell).textContent = text;
+  cell.title = tip;
+  const bar = $(".bar", cell);
+  bar.hidden = progress === undefined;
+  bar.classList.toggle("indeterminate", progress === "indeterminate");
+  if (typeof progress === "number") {
+    bar.style.setProperty("--p", progress);
+    bar.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
+  }
 }
 
 async function pollLoop() {
   try {
-    for (const event of await api().poll()) handleEvent(event);
+    const events = await api().poll();
+    events.forEach(handleEvent);
+    if (events.length) flushRender();
   } catch (error) {
     console.error(error);
   }
@@ -257,41 +461,47 @@ function handleEvent(event) {
   if (event.type === "job") onJobEvent(job, event);
   else if (event.type === "release") onRelease(job, event);
   else if (event.type === "track") onTrack(job, event);
-  else if (event.type === "progress") onProgress(job, event);
+  else if (event.type === "progress") Object.assign(job, { done: event.done, total: event.total });
+  state.dirty.add(job);
+}
+
+// Events come in bursts; rows and counters are redrawn once per burst
+function flushRender() {
+  for (const job of state.dirty) renderJob(job);
+  state.dirty.clear();
+  renderChrome();
 }
 
 function onJobEvent(job, event) {
-  switch (event.state) {
-    case "running":
-      job.node.classList.add("loading");
-      $(".progress", job.node).classList.add("indeterminate");
-      setJobState(job, "running", "Читаем ссылку…");
-      break;
-    case "error":
-      stopLoading(job);
-      $(".job-kind", job.node).textContent = "Не получилось";
-      setJobState(job, "error", event.message);
-      announce(`Ошибка: ${event.message}`);
-      break;
-    case "cancelled":
-      stopLoading(job);
-      setJobState(job, "cancelled", job.total ? `Остановлено · ${job.done} из ${job.total}` : "Отменено");
-      break;
-    case "done": {
-      stopLoading(job);
-      const text = summaryText(event);
-      const partial = event.failed > 0;
-      setJobState(job, partial ? "partial" : "done", text);
-      if (!partial && !event.dry_run) setExpanded(job, false);
-      announce(`${job.title}: ${text}`);
-      break;
+  if (event.state === "running") {
+    job.state = "running";
+    return;
+  }
+  job.stopping = false;
+  if (event.state === "error") {
+    job.state = "error";
+    job.message = event.message;
+    announce(`Ошибка: ${event.message}`);
+  } else if (event.state === "cancelled") {
+    job.state = "cancelled";
+  } else if (event.state === "done") {
+    job.result = event;
+    job.summary = summaryText(event);
+    job.state = event.failed > 0 ? "partial" : "done";
+    if (!event.failed && !event.dry_run) setExpanded(job, false);
+    announce(`${job.title}: ${job.summary}`);
+  }
+  // Tracks that never started get no event of their own
+  for (const track of job.tracks.values()) {
+    if (TRACK_ACTIVE.has(track.state)) {
+      track.state = "cancel";
+      renderTrack(track);
     }
   }
-}
-
-function stopLoading(job) {
-  job.node.classList.remove("loading");
-  $(".progress", job.node).classList.remove("indeterminate");
+  if (!job.dryRun && job.folder) {
+    state.library.stale = true;
+    if (state.view === "library") loadLibrary();
+  }
 }
 
 function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
@@ -305,141 +515,309 @@ function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
 
 function onRelease(job, event) {
   Object.assign(job, { folder: event.folder, title: event.title, total: event.tracks.length });
-  stopLoading(job);
   const kind = event.kind.charAt(0).toUpperCase() + event.kind.slice(1);
   const fromAlbum = event.kind === "трек" && event.album && event.album !== event.title && `из «${event.album}»`;
-  const details = [kind, fromAlbum, event.year, event.service];
-  $(".job-kind", job.node).textContent = details.filter(Boolean).join(" · ");
-  const title = $(".job-title", job.node);
-  title.textContent = event.title;
-  title.title = event.title;
-  $(".job-sub", job.node).textContent = event.artist;
-
-  if (event.cover) {
-    const image = $(".cover img", job.node);
-    image.addEventListener("load", () => {
-      image.hidden = false;
-      $(".cover-placeholder", job.node).setAttribute("hidden", "");
-    }, { once: true });
-    image.src = event.cover;
-  }
+  job.sub = [event.artist, kind, fromAlbum, event.year, event.service].filter(Boolean).join(" · ");
+  if (event.cover) loadCover($(".cover", job.node), event.cover);
 
   const multiDisc = event.tracks.some((track) => track.disc > 1);
-  const rows = event.tracks.map((track) => {
-    const row = createTrackRow(track, event.artist, multiDisc);
-    job.tracks.set(track.id, row);
-    return row;
-  });
+  const rows = [];
+  const queueRows = [];
+  for (const info of event.tracks) {
+    const track = {
+      job, number: multiDisc ? `${info.disc}-${info.number}` : info.number,
+      title: info.title, artists: info.artists, duration: info.duration,
+      state: "waiting", percent: 0, source: "", text: "",
+    };
+    track.row = createTrackRow(track, info.artists === event.artist ? "" : info.artists);
+    track.queueRow = createTrackRow(track, info.artists, event.title);
+    track.queueRow.addEventListener("dblclick", () => {
+      showView("download");
+      setExpanded(job, true);
+      track.row.scrollIntoView({ block: "center" });
+    });
+    renderTrack(track);
+    job.tracks.set(info.id, track);
+    state.tracks.push(track);
+    rows.push(track.row);
+    queueRows.push(track.queueRow);
+  }
   $(".tracks", job.node).replaceChildren(...rows);
-  $(".toggle", job.node).hidden = false;
+  $("#queue").append(...queueRows);
   setExpanded(job, true);
-  onProgress(job, { done: 0, total: job.total });
 }
 
-function createTrackRow(track, releaseArtist, multiDisc) {
+function createTrackRow(track, artists, release = "") {
   const row = $("#track-template").content.firstElementChild.cloneNode(true);
-  $(".track-num", row).textContent = multiDisc ? `${track.disc}-${track.number}` : track.number;
-  const title = $(".track-title", row);
+  $(".num", row).textContent = track.number;
+  const title = $(".title", row);
   title.textContent = track.title;
   title.title = track.title;
-  $(".track-meta", row).textContent = track.artists === releaseArtist ? "" : track.artists;
-  $(".track-dur", row).textContent = track.duration;
-  setTrackState(row, "waiting");
+  $(".sub", row).dataset.artists = artists;
+  const releaseCell = $(".cell-release", row);
+  releaseCell.textContent = release;
+  releaseCell.title = release;
+  $(".cell-dur", row).textContent = track.duration;
   return row;
 }
 
 function onTrack(job, event) {
-  const row = job.tracks.get(event.id);
-  if (row) setTrackState(row, event.state, event);
+  const track = job.tracks.get(event.id);
+  if (!track) return;
+  Object.assign(track, { state: event.state, text: event.text || "", percent: event.percent || 0 });
+  if (event.source) track.source = event.source;
+  if (event.state !== "skip" && state.run?.jobs.has(job.id) && !state.run.workStart) state.run.workStart = Date.now();
+  renderTrack(track);
 }
 
-function setTrackState(row, name, { text = "", source = "", percent = 0 } = {}) {
-  const ui = TRACK_UI[name] || TRACK_UI.waiting;
-  row.className = `track tone-${ui.tone}`;
-  const icon = $(".badge .icon", row);
-  $("use", icon).setAttribute("href", `#i-${ui.icon}`);
-  icon.classList.toggle("spin", ui.icon === "spinner");
-  $(".badge-text", row).textContent = name === "download" ? `${ui.label} ${percent}%` : ui.label;
-  $(".track-note", row).textContent = trackNote(name, text, source);
+function renderTrack(track) {
+  const ui = TRACK_UI[track.state] || TRACK_UI.waiting;
+  const note = trackNote(track);
+  const downloading = track.state === "download";
+  for (const row of [track.row, track.queueRow]) {
+    row.className = `row track tone-${ui.tone}`;
+    const sub = $(".sub", row);
+    sub.textContent = note || sub.dataset.artists;
+    sub.classList.toggle("danger", TRACK_FAILED.has(track.state));
+    $(".cell-source", row).textContent = track.source;
+    setStatusCell($(".cell-status", row), {
+      icon: ui.icon,
+      text: downloading ? `${ui.label} ${track.percent}%` : ui.label,
+      tip: track.state === "skip" ? "Файл уже есть в папке" : "",
+      progress: downloading ? track.percent / 100 : undefined,
+    });
+  }
+  track.queueRow.hidden = !QUEUE_FILTERS[state.queueFilter](track);
 }
 
-function trackNote(name, text, source) {
+function trackNote({ state: name, text }) {
   switch (name) {
-    case "download": return source && `Источник: ${source}`;
-    case "done": return source;
-    case "found": return `${text} · ${source}`;
-    case "skip": return "Файл уже есть в папке";
+    case "found": return `Найдено: ${text}`;
     case "missing": return "Нет в открытом доступе на YouTube Music и SoundCloud";
     case "error": return text;
     default: return "";
   }
 }
 
-function onProgress(job, { done, total }) {
-  Object.assign(job, { done, total });
-  const ratio = total ? done / total : 0;
-  const bar = $(".progress", job.node);
-  bar.style.setProperty("--p", ratio);
-  bar.setAttribute("aria-valuenow", String(Math.round(ratio * 100)));
-  if (job.state === "running" && total) {
-    const verb = job.dryRun ? "Проверено" : "Готово";
-    setStatus(job, `${verb} ${done} из ${total} ${plural(total, "трека", "треков", "треков")}`);
-  }
-}
-
 function setExpanded(job, expanded) {
   job.expanded = expanded;
   $(".tracks", job.node).hidden = !(expanded && job.tracks.size);
-  const toggle = $(".toggle", job.node);
-  const label = expanded ? "Скрыть треки" : "Показать треки";
+  const toggle = $(".expander", job.node);
   toggle.setAttribute("aria-expanded", String(expanded));
-  toggle.setAttribute("aria-label", label);
-  toggle.title = label;
-}
-
-function updateQueueChrome() {
-  const jobs = [...state.jobs.values()];
-  $("#empty").hidden = jobs.length > 0;
-  $("#stop").hidden = !jobs.some((job) => ACTIVE.has(job.state));
-  $("#clear").hidden = !jobs.some((job) => !ACTIVE.has(job.state));
+  toggle.setAttribute("aria-label", expanded ? "Скрыть треки" : "Показать треки");
 }
 
 function stopAll() {
   api().stop();
   for (const job of state.jobs.values()) {
-    if (job.state === "running") setStatus(job, "Останавливаем…");
+    if (job.state === "running") {
+      job.stopping = true;
+      renderJob(job);
+    }
   }
 }
 
 function clearFinished() {
-  for (const [id, job] of state.jobs) {
-    if (!ACTIVE.has(job.state)) {
-      job.node.remove();
-      state.jobs.delete(id);
-    }
+  for (const job of [...state.jobs.values()]) {
+    if (!ACTIVE.has(job.state)) removeJob(job);
   }
-  updateQueueChrome();
+  renderChrome();
+}
+
+function removeJob(job) {
+  job.node.remove();
+  for (const track of job.tracks.values()) track.queueRow.remove();
+  state.tracks = state.tracks.filter((track) => track.job !== job);
+  state.jobs.delete(job.id);
 }
 
 async function retryJob(job) {
   const jobs = await api().download([job.link], { ...state.settings, dry_run: job.dryRun });
-  job.node.remove();
-  state.jobs.delete(job.id);
-  for (const { job: id, link } of jobs) addJob(id, link, job.dryRun);
+  const format = $(".tag", job.node).textContent;
+  removeJob(job);
+  for (const { job: id, link } of jobs) addJob(id, link, job.dryRun, format);
+}
+
+/* Queue */
+
+function setQueueFilter(name) {
+  state.queueFilter = name;
+  syncRadios($("#queue-filter"), "data-filter", name);
+  for (const track of state.tracks) track.queueRow.hidden = !QUEUE_FILTERS[name](track);
+  renderChrome();
+}
+
+/* Window chrome: counters, badges, status bar */
+
+function renderChrome() {
+  const jobs = [...state.jobs.values()];
+  const active = jobs.some((job) => ACTIVE.has(job.state));
+  $("#empty").hidden = jobs.length > 0;
+  $("#jobs-count").textContent = jobs.length || "";
+  for (const button of $$(".stop")) button.hidden = !active;
+  $("#clear").hidden = !jobs.some((job) => !ACTIVE.has(job.state));
+
+  const counts = Object.fromEntries(Object.keys(QUEUE_FILTERS).map((name) => [name, 0]));
+  for (const track of state.tracks) {
+    for (const [name, test] of Object.entries(QUEUE_FILTERS)) if (test(track)) counts[name] += 1;
+  }
+  syncRadios($("#queue-filter"), "data-filter", state.queueFilter);
+  for (const button of $$("#queue-filter [data-filter]")) {
+    $(".count", button).textContent = counts[button.dataset.filter] || "";
+  }
+  $("#queue-empty").hidden = counts[state.queueFilter] > 0;
+  $("#queue-empty .empty-title").textContent = state.tracks.length ? QUEUE_EMPTY[state.queueFilter] : QUEUE_EMPTY.all;
+  const badge = $("#queue-badge");
+  badge.textContent = counts.active > 99 ? "99+" : counts.active;
+  badge.hidden = !counts.active;
+  renderStatusBar();
+}
+
+function renderStatusBar() {
+  if (!state.settings) return;
+  $("#status-text").textContent = statusText();
+  const { format, threads, dry_run: dryRun } = state.settings;
+  $("#status-mode").textContent = `${dryRun ? "только проверка" : format} · ${threads} ${plural(threads, "поток", "потока", "потоков")}`;
+  const problems = $("#status-problems");
+  problems.hidden = !state.problems.length;
+  $("span", problems).textContent = `Проблемы: ${state.problems.length}`;
+}
+
+function statusText() {
+  const jobs = state.run ? [...state.run.jobs].map((id) => state.jobs.get(id)).filter(Boolean) : [];
+  if (!jobs.length) return "Нет загрузок";
+  const tracks = jobs.flatMap((job) => [...job.tracks.values()]);
+  const finished = tracks.filter((track) => !TRACK_ACTIVE.has(track.state));
+  const failed = tracks.filter((track) => TRACK_FAILED.has(track.state)).length;
+  const dryRun = jobs.every((job) => job.dryRun);
+  const parts = [];
+
+  if (jobs.some((job) => ACTIVE.has(job.state))) {
+    const queued = jobs.filter((job) => job.state === "queued").length;
+    if (tracks.length) parts.push(`${dryRun ? "Проверено" : "Загружено"} ${finished.length} из ${tracks.length}`);
+    const eta = estimate(tracks, finished);
+    if (eta) parts.push(`осталось ${eta}`);
+    if (failed) parts.push(`${dryRun ? "не найдено" : "не удалось"}: ${failed}`);
+    if (jobs.some((job) => job.state === "running" && !job.total)) parts.push("читаем ссылку…");
+    if (queued) parts.push(`ещё ${queued} ${plural(queued, "ссылка", "ссылки", "ссылок")} в очереди`);
+    const text = parts.join(" · ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  const count = (...names) => tracks.filter((track) => names.includes(track.state)).length;
+  const errors = jobs.filter((job) => job.state === "error").length;
+  if (jobs.some((job) => job.state === "cancelled")) parts.push("Остановлено");
+  if (dryRun && tracks.length) {
+    parts.push(`найдено ${count("found")} из ${tracks.length}`);
+  } else if (tracks.length) {
+    const ok = count("done");
+    const skipped = count("skip");
+    parts.push(`скачано ${ok} ${plural(ok, "трек", "трека", "треков")}`);
+    if (skipped) parts.push(`уже были: ${skipped}`);
+    if (failed) parts.push(`не удалось: ${failed}`);
+  }
+  if (errors) parts.push(`${plural(errors, "ссылка", "ссылки", "ссылок")} с ошибкой: ${errors}`);
+  const text = parts.join(" · ") || "Нет загрузок";
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+// Remaining time from the pace so far; skipped files take no time and would inflate it
+function estimate(tracks, finished) {
+  const remaining = tracks.length - finished.length;
+  const worked = finished.filter((track) => track.state !== "skip" && track.state !== "cancel").length;
+  const elapsed = (Date.now() - state.run.workStart) / 1000;
+  if (!state.run.workStart || !remaining || worked < 2 || elapsed < 5) return "";
+  const seconds = (remaining * elapsed) / worked;
+  if (seconds < 60) return `~${Math.max(5, Math.round(seconds / 5) * 5)} сек`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `~${minutes} мин`;
+  return `~${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
+}
+
+/* Library */
+
+async function loadLibrary() {
+  const library = state.library;
+  const folder = state.settings.folder;
+  const token = ++library.token;
+  if (library.folder !== folder) library.items = [];
+  library.loading = true;
+  renderLibrary();
+  let items;
+  try {
+    items = await api().library(folder);
+  } catch (error) {
+    console.error(error);
+    items = [];
+  }
+  if (token !== library.token) return;
+  Object.assign(library, { items, folder, stale: false, loading: false });
+  renderLibrary();
+}
+
+function renderLibrary() {
+  const { items, loading } = state.library;
+  const query = $("#library-filter").value.trim();
+  const needle = query.toLocaleLowerCase("ru");
+  const shown = needle
+    ? items.filter((item) => `${item.artist} ${item.title}`.toLocaleLowerCase("ru").includes(needle))
+    : items;
+  $("#library").replaceChildren(...shown.map(createLibraryRow));
+
+  const empty = $("#library-empty");
+  empty.hidden = shown.length > 0;
+  let [title, text] = ["Ничего не найдено", `По запросу «${query}»`];
+  if (!items.length) [title, text] = loading ? ["Читаем папку…", ""] : ["В папке пока нет музыки", state.settings.folder];
+  $(".empty-title", empty).textContent = title;
+  $(".empty-text", empty).textContent = text;
+}
+
+function createLibraryRow(item) {
+  const row = $("#library-template").content.firstElementChild.cloneNode(true);
+  const title = $(".title", row);
+  title.textContent = item.title;
+  title.title = item.path;
+  $(".sub", row).textContent = item.album ? item.artist : [item.artist, "трек"].filter(Boolean).join(" · ");
+  $(".cell-year", row).textContent = item.year;
+  $(".cell-count", row).textContent = item.tracks;
+  $(".cell-size", row).textContent = formatSize(item.size);
+  $(".cell-date", row).textContent = new Date(item.modified * 1000).toLocaleDateString("ru-RU");
+  const open = () => api().open_folder(item.path);
+  row.addEventListener("dblclick", open);
+  row.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") open();
+  });
+  $(".open", row).addEventListener("click", (event) => {
+    event.stopPropagation();
+    open();
+  });
+  if (item.cover) {
+    row.dataset.path = item.path;
+    coverObserver.observe(row);
+  }
+  return row;
+}
+
+async function showLibraryCover(row) {
+  const { path } = row.dataset;
+  if (!state.covers.has(path)) state.covers.set(path, api().cover(path));
+  const src = await state.covers.get(path);
+  if (src) loadCover($(".cover", row), src);
+}
+
+function loadCover(cover, src) {
+  const image = $("img", cover);
+  image.addEventListener("load", () => { image.hidden = false; }, { once: true });
+  image.src = src;
 }
 
 /* Helpers */
 
-function renderProblems(problems) {
-  if (!problems.length) return;
-  const items = problems.map((text) => Object.assign(document.createElement("li"), { textContent: text }));
-  $("#problems-list").append(...items);
-  $("#problems").hidden = false;
-}
-
-function shortPath(path) {
-  const parts = path.split(/[\\/]+/).filter(Boolean);
-  return parts.length > 3 ? `…\\${parts.slice(-2).join("\\")}` : path;
+function formatSize(bytes) {
+  const megabytes = bytes / 1048576;
+  if (megabytes < 1) return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+  if (megabytes < 1024) return `${Math.round(megabytes)} МБ`;
+  return `${(megabytes / 1024).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} ГБ`;
 }
 
 function prettyLink(link) {

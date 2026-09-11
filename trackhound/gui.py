@@ -6,9 +6,11 @@ download events. Downloads run one link at a time in a background thread.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -23,6 +25,10 @@ TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
 SETTINGS_FILE = Path.home() / ".trackhound.json"
 THEMES = ("system", "light", "dark")
+AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
+# Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
+_ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
+_TRACK_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+)$")
 
 
 class Api:
@@ -78,6 +84,9 @@ class Api:
 
     def open_folder(self, path: str) -> bool:
         folder = Path(path).expanduser()
+        if folder.is_file() and sys.platform == "win32":
+            subprocess.Popen(f'explorer /select,"{folder}"')
+            return True
         while not folder.is_dir() and folder.parent != folder:
             folder = folder.parent  # a dry run never creates the album folder
         try:
@@ -88,6 +97,34 @@ class Api:
         except OSError:
             return False
         return True
+
+    def library(self, folder: str) -> list[dict]:
+        """Album folders and single tracks in the music folder, newest first."""
+        try:
+            children = list(Path(folder).expanduser().iterdir())
+        except OSError:
+            return []
+        items = []
+        for path in children:
+            try:
+                if path.is_dir():
+                    files = [file for file in path.iterdir() if _is_audio(file)]
+                    if files:
+                        items.append(_library_item(path, files))
+                elif _is_audio(path):
+                    items.append(_library_item(path, [path]))
+            except OSError:
+                continue  # removed or locked while scanning
+        items.sort(key=lambda item: item["modified"], reverse=True)
+        return items
+
+    def cover(self, folder: str) -> str | None:
+        try:
+            data = (Path(folder) / "cover.jpg").read_bytes()
+        except OSError:
+            return None
+        mime = "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
+        return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
 
     def poll(self) -> list[dict]:
         events = []
@@ -128,6 +165,28 @@ class Api:
         emit(type="job", state="cancelled" if self._stop.is_set() else "done",
              ok=len(report.ok), skipped=len(report.skipped), failed=len(report.failed),
              dry_run=options.dry_run)
+
+
+def _is_audio(path: Path) -> bool:
+    # _part_ files are tracks still being downloaded
+    return path.suffix.lower() in AUDIO_SUFFIXES and not path.name.startswith("_part_") and path.is_file()
+
+
+def _library_item(path: Path, files: list[Path]) -> dict:
+    album = path.is_dir()
+    stats = [file.stat() for file in files]
+    match = (_ALBUM_NAME if album else _TRACK_NAME).match(path.name if album else path.stem)
+    return {
+        "album": album,
+        "title": match["title"] if match else (path.name if album else path.stem),
+        "artist": match["artist"] if match else "",
+        "year": (match["year"] or "") if match and album else "",
+        "path": str(path),
+        "tracks": len(files),
+        "size": sum(stat.st_size for stat in stats),
+        "modified": max(stat.st_mtime for stat in stats),
+        "cover": album and (path / "cover.jpg").is_file(),
+    }
 
 
 def _normalize(settings: dict) -> dict:
@@ -211,10 +270,10 @@ def main() -> None:
         TITLE,
         url=str(WEB_DIR / "index.html"),
         js_api=api,
-        width=960,
-        height=820,
-        min_size=(620, 600),
-        background_color="#171311" if dark else "#FFFBF5",  # no white flash before CSS loads
+        width=980,
+        height=680,
+        min_size=(640, 440),
+        background_color="#151210" if dark else "#FBFAF8",  # no white flash before CSS loads
         text_select=True,
     )
     webview.start(http_server=True)
