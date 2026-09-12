@@ -270,9 +270,9 @@ def main() -> None:
         TITLE,
         url=str(WEB_DIR / "index.html"),
         js_api=api,
-        width=980,
-        height=680,
-        min_size=(640, 440),
+        width=1080,
+        height=740,
+        min_size=(680, 480),
         background_color="#151210" if dark else "#FBFAF8",  # no white flash before CSS loads
         text_select=True,
     )
