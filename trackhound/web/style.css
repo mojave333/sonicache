@@ -93,7 +93,7 @@ p { margin: 0; }
   display: grid; place-items: center; width: 30px; height: 30px; margin-bottom: 12px;
   border-radius: 6px; background: var(--accent); color: var(--on-accent);
 }
-.logo .icon { width: 17px; height: 17px; stroke-width: 2.25; }
+.logo .icon { width: 20px; height: 20px; fill: currentColor; stroke: none; }
 .nav-item {
   position: relative; display: grid; place-items: center; width: 42px; height: 42px;
   border-radius: var(--radius); color: var(--text-subtle);
