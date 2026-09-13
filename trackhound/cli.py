@@ -24,13 +24,17 @@ def main(argv: list[str] | None = None) -> int:
                         help="сколько треков качать одновременно (по умолчанию 3)")
     parser.add_argument("--dry-run", action="store_true",
                         help="только показать найденные совпадения, ничего не скачивать")
+    parser.add_argument("--cookies-from-browser", default="", metavar="БРАУЗЕР",
+                        help="брать cookies из браузера (chrome, edge, firefox…): нужно для видео "
+                             "с возрастным ограничением")
     args = parser.parse_args(argv)
 
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="replace")
 
-    options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run)
+    options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run,
+                      args.cookies_from_browser)
     downloader = Downloader(options, log=lambda message: print(message, flush=True))
     for problem in downloader.environment_problems():
         print(f"⚠ {problem}", file=sys.stderr)

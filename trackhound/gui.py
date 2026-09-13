@@ -25,6 +25,8 @@ TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
 SETTINGS_FILE = Path.home() / ".trackhound.json"
 THEMES = ("system", "light", "dark")
+# Browsers yt-dlp can read cookies from; "" means it takes none
+COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera", "vivaldi")
 AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
@@ -63,7 +65,7 @@ class Api:
         settings = _normalize(settings)
         _save_settings(settings)
         options = Options(Path(settings["folder"]).expanduser(), settings["format"],
-                          settings["threads"], settings["dry_run"])
+                          settings["threads"], settings["dry_run"], settings["cookies_browser"])
         jobs = []
         with self._lock:
             for link in links:
@@ -200,6 +202,8 @@ def _normalize(settings: dict) -> dict:
         "threads": threads,
         "theme": settings.get("theme") if settings.get("theme") in THEMES else "system",
         "dry_run": bool(settings.get("dry_run", False)),
+        "cookies_browser": (settings.get("cookies_browser")
+                            if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
     }
 
 

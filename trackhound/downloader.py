@@ -49,6 +49,9 @@ class Options:
     audio_format: str = "m4a"
     threads: int = 3
     dry_run: bool = False  # only search and print matches
+    # Browser to take YouTube cookies from ("chrome", "firefox"...); age-restricted
+    # videos are only served to a signed-in account. Empty means no cookies.
+    cookies_browser: str = ""
 
 
 @dataclass
@@ -294,6 +297,8 @@ class Downloader:
         }
         if self.js_runtimes:
             opts["js_runtimes"] = self.js_runtimes
+        if self.options.cookies_browser and match.source != "soundcloud":
+            opts["cookiesfrombrowser"] = (self.options.cookies_browser,)
         if self.ffmpeg:
             opts["ffmpeg_location"] = self.ffmpeg
             opts["postprocessors"] = [{
@@ -339,10 +344,24 @@ def _clear_partials(folder: Path, stem: str) -> None:
         leftover.unlink(missing_ok=True)
 
 
+# yt-dlp explains itself in English and at length; these cases have a short answer
+_KNOWN_ERRORS = (
+    ("confirm your age", "видео с возрастным ограничением: нужен вход в аккаунт YouTube "
+                         "(cookies браузера в настройках)"),
+    ("age-restricted", "видео с возрастным ограничением: нужен вход в аккаунт YouTube "
+                       "(cookies браузера в настройках)"),
+    ("could not copy", "не удалось прочитать cookies: закройте браузер и повторите"),
+    ("failed to decrypt", "не удалось расшифровать cookies браузера; в Firefox они читаются надёжнее"),
+    ("no cookies found", "в браузере нет cookies YouTube: войдите в аккаунт в этом браузере"),
+)
+
+
 def _error_text(error: Exception) -> str:
     text = re.sub(r"^ERROR:\s*", "", str(error)).strip()
-    if "confirm your age" in text or "age-restricted" in text.lower():
-        return "видео с возрастным ограничением — YouTube отдаёт его только тем, кто вошёл в аккаунт"
+    lowered = text.lower()
+    for needle, message in _KNOWN_ERRORS:
+        if needle in lowered:
+            return message
     return text or type(error).__name__
 
 

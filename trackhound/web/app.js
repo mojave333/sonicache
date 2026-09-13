@@ -107,6 +107,7 @@ function renderSettings() {
   folder.title = `${settings.folder}\nНажмите, чтобы выбрать другую папку`;
   folder.setAttribute("aria-label", `Папка для музыки: ${settings.folder}`);
   $("#threads").textContent = settings.threads;
+  $("#cookies").value = settings.cookies_browser;
   $("#submit-label").textContent = settings.dry_run ? "Проверить" : "Скачать";
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
   renderStatusBar();
@@ -160,6 +161,7 @@ function bindUi() {
     });
   }
 
+  $("#cookies").addEventListener("change", (event) => updateSettings({ cookies_browser: event.target.value }));
   $("#paste").addEventListener("click", pasteFromClipboard);
   $("#link").addEventListener("input", clearLinkError);
   $("#form").addEventListener("submit", submitLinks);
