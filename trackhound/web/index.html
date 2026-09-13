@@ -28,6 +28,7 @@
     <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
     <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/></symbol>
     <symbol id="i-spinner" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15"/><path d="M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M6.5 7v11.5A1.5 1.5 0 0 0 8 20h8a1.5 1.5 0 0 0 1.5-1.5V7"/><path d="M10.5 11v5M13.5 11v5"/></symbol>
     <symbol id="i-retry" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4.5V11h-6.5"/></symbol>
     <symbol id="i-brand" viewBox="440 115 525 430">
       <g transform="translate(0,768) scale(0.1,-0.1)" fill="currentColor" stroke="none">
@@ -177,6 +178,9 @@
             <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
             <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Поиск по исполнителю или названию" aria-label="Поиск">
           </div>
+          <button type="button" id="library-delete" class="tool-btn danger" hidden>
+            <svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg><span>Удалить</span>
+          </button>
           <div class="btn-group">
             <button type="button" id="library-folder" class="tool-btn" title="Открыть папку в проводнике">
               <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Открыть папку</span>
@@ -186,8 +190,8 @@
             </button>
           </div>
         </div>
-        <div class="list-head columns library-grid" aria-hidden="true">
-          <span></span><span>Название</span><span class="num">Год</span><span class="num">Треков</span><span class="num col-size">Размер</span><span class="col-date">Изменён</span><span></span>
+        <div class="list-head columns library-grid" role="row">
+          <span></span><span role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="title">Название<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="year">Год<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="tracks">Треков<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num col-size" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="size">Размер<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="col-date" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="modified">Изменён<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span></span>
         </div>
         <div class="list-scroll" id="library-scroll">
           <div id="library-empty" class="empty">
@@ -195,7 +199,7 @@
             <p class="empty-title"></p>
             <p class="empty-text"></p>
           </div>
-          <ol id="library" class="rows"></ol>
+          <ol id="library" class="rows" role="listbox" aria-multiselectable="true" aria-label="Альбомы и треки"></ol>
         </div>
       </section>
 
@@ -310,6 +314,16 @@
         <span id="status-mode"></span>
       </footer>
     </div>
+    <dialog id="confirm" class="confirm" aria-labelledby="confirm-title">
+      <div class="confirm-body">
+        <p id="confirm-title" class="confirm-title"></p>
+        <p id="confirm-text" class="confirm-text"></p>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="btn" id="confirm-cancel">Отмена</button>
+        <button type="button" class="btn danger" id="confirm-ok"></button>
+      </div>
+    </dialog>
     <p id="live" class="sr-only" aria-live="polite"></p>
   </div>
 
@@ -350,7 +364,7 @@
   </template>
 
   <template id="library-template">
-    <li class="row library-row library-grid" tabindex="0">
+    <li class="row library-row library-grid" tabindex="0" role="option" aria-selected="false">
       <div class="cover"><img alt="" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg></div>
       <div class="cell-main"><p class="title"></p><p class="sub"></p></div>
       <span class="num cell-year"></span>

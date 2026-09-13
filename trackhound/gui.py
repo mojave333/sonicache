@@ -7,10 +7,12 @@ download events. Downloads run one link at a time in a background thread.
 from __future__ import annotations
 
 import base64
+import ctypes
 import json
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -126,6 +128,17 @@ class Api:
         items.sort(key=lambda item: item["modified"], reverse=True)
         return items
 
+    def delete(self, paths: list[str]) -> dict:
+        """Send albums and tracks to the recycle bin; a wrong pick stays undoable."""
+        failed = []
+        for raw in paths:
+            path = Path(raw).expanduser()
+            try:
+                _recycle(path)
+            except OSError:
+                failed.append(path.name)
+        return {"deleted": len(paths) - len(failed), "failed": failed}
+
     def latest_release(self) -> dict | None:
         """The newest published version, or None when this one is current.
 
@@ -205,6 +218,40 @@ def _newer(candidate: str, current: str) -> bool:
         return [int(piece) for piece in re.findall(r"\d+", version)] or [0]
 
     return parts(candidate) > parts(current)
+
+
+class _FileOperation(ctypes.Structure):
+    """SHFILEOPSTRUCTW: the shell call that knows about the recycle bin."""
+
+    _fields_ = [
+        ("hwnd", ctypes.c_void_p),
+        ("wFunc", ctypes.c_uint),
+        ("pFrom", ctypes.c_wchar_p),
+        ("pTo", ctypes.c_wchar_p),
+        ("fFlags", ctypes.c_uint16),
+        ("fAnyOperationsAborted", ctypes.c_int),
+        ("hNameMappings", ctypes.c_void_p),
+        ("lpszProgressTitle", ctypes.c_wchar_p),
+    ]
+
+
+_FO_DELETE = 3
+# Undoable, and quiet: the window asks for confirmation itself
+_FOF_FLAGS = 0x0040 | 0x0010 | 0x0004 | 0x0400  # ALLOWUNDO | NOCONFIRMATION | SILENT | NOERRORUI
+
+
+def _recycle(path: Path) -> None:
+    if sys.platform != "win32":
+        # No recycle bin to hand the files to, so they go for good
+        shutil.rmtree(path) if path.is_dir() else path.unlink()
+        return
+    operation = _FileOperation(
+        wFunc=_FO_DELETE,
+        pFrom=f"{path.resolve()}\0\0",  # the shell wants a double-null terminated list
+        fFlags=_FOF_FLAGS,
+    )
+    if ctypes.windll.shell32.SHFileOperationW(ctypes.byref(operation)):
+        raise OSError(f"не удалось удалить {path}")
 
 
 def _is_audio(path: Path) -> bool:

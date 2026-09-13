@@ -40,6 +40,17 @@ const QUEUE_EMPTY = {
 
 const ACTIVE = new Set(["queued", "running"]);
 
+// Library columns that can be sorted. Text starts ascending, numbers and dates
+// descending, because that is the useful end of each.
+const COLLATOR = new Intl.Collator("ru", { numeric: true, sensitivity: "base" });
+const LIBRARY_SORTS = {
+  title: { dir: 1, value: (item) => `${item.title} ${item.artist}` },
+  year: { dir: -1, value: (item) => Number(item.year) || 0 },
+  tracks: { dir: -1, value: (item) => item.tracks },
+  size: { dir: -1, value: (item) => item.size },
+  modified: { dir: -1, value: (item) => item.modified },
+};
+
 const state = {
   settings: null,
   problems: [],
@@ -50,7 +61,13 @@ const state = {
   dirty: new Set(),
   queueFilter: "all",
   run: null, // jobs added since the queue was last idle; the status bar sums them up
-  library: { items: [], folder: null, stale: true, loading: false, token: 0 },
+  library: {
+    items: [], folder: null, stale: true, loading: false, token: 0,
+    sort: { key: "modified", dir: -1 }, // newest first, the way the folder itself is read
+    shown: [], // paths in the order drawn, so Shift-click knows what a range covers
+    selected: new Set(),
+    anchor: null,
+  },
   covers: new Map(),
   update: null, // { version, url } once a newer release is published
 };
@@ -243,6 +260,11 @@ function bindUi() {
   $("#library-filter").addEventListener("input", renderLibrary);
   $("#library-refresh").addEventListener("click", loadLibrary);
   $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
+  $("#library-delete").addEventListener("click", deleteSelected);
+  $("#library").addEventListener("click", onLibraryClick);
+  for (const button of $$("#view-library .sort")) {
+    button.addEventListener("click", () => sortLibraryBy(button.dataset.sort));
+  }
 
   document.addEventListener("keydown", onShortcut);
   document.addEventListener("paste", (event) => {
@@ -277,6 +299,22 @@ function onShortcut(event) {
     // the library search box is not focused automatically, so give it a shortcut
     event.preventDefault();
     if (state.view === "library") $("#library-filter").focus();
+  } else if (state.view === "library" && !(event.target instanceof Element && event.target.closest("input, textarea"))) {
+    onLibraryShortcut(event);
+  }
+}
+
+function onLibraryShortcut(event) {
+  const { selected, shown } = state.library;
+  if (event.ctrlKey && !event.altKey && event.code === "KeyA") {
+    event.preventDefault();
+    state.library.selected = new Set(shown);
+    renderSelection();
+  } else if (event.key === "Delete" && selected.size) {
+    event.preventDefault();
+    deleteSelected();
+  } else if (event.key === "Escape" && selected.size) {
+    clearSelection();
   }
 }
 
@@ -291,7 +329,10 @@ function showView(name) {
   if (name === "download") $("#link").focus();
   if (name === "library") {
     if (state.library.stale || state.library.folder !== state.settings.folder) loadLibrary();
+  } else {
+    clearSelection();
   }
+  renderStatusBar(); // the library speaks about itself, the other views about downloads
 }
 
 function bindModeMenu() {
@@ -750,7 +791,10 @@ function renderChrome() {
 
 function renderStatusBar() {
   if (!state.settings) return;
-  $("#status-text").textContent = statusText();
+  const library = state.view === "library";
+  const status = $("#status-text");
+  status.textContent = library ? libraryStatus() : statusText();
+  status.title = library ? state.settings.folder : "";
   const { format, threads, dry_run: dryRun } = state.settings;
   $("#status-mode").textContent = `${dryRun ? "только проверка" : format} · ${threads} ${plural(threads, "поток", "потока", "потоков")}`;
   const problems = $("#status-problems");
@@ -811,6 +855,25 @@ function estimate(tracks, finished) {
 
 /* Library */
 
+// The status bar talks about downloads everywhere else; on this tab it counts
+// what the folder holds, and what is picked out of it.
+function libraryStatus() {
+  const { items, selected, shown, loading } = state.library;
+  if (loading && !items.length) return "Читаем папку…";
+  if (selected.size) {
+    const size = items.filter((item) => selected.has(item.path)).reduce((total, item) => total + item.size, 0);
+    return `Выбрано: ${selected.size} · ${formatSize(size)}`;
+  }
+  if (!items.length) return "В папке пока нет музыки";
+  if (shown.length < items.length) return `Найдено: ${shown.length} из ${items.length}`;
+  const albums = items.filter((item) => item.album).length;
+  const tracks = items.reduce((total, item) => total + item.tracks, 0);
+  const size = items.reduce((total, item) => total + item.size, 0);
+  const parts = albums ? [`${albums} ${plural(albums, "альбом", "альбома", "альбомов")}`] : [];
+  parts.push(`${tracks} ${plural(tracks, "трек", "трека", "треков")}`, formatSize(size));
+  return parts.join(" · ");
+}
+
 async function loadLibrary() {
   const library = state.library;
   const folder = state.settings.folder;
@@ -831,13 +894,22 @@ async function loadLibrary() {
 }
 
 function renderLibrary() {
-  const { items, loading } = state.library;
+  const library = state.library;
+  const { items, loading, selected } = library;
   const query = $("#library-filter").value.trim();
   const needle = query.toLocaleLowerCase("ru");
-  const shown = needle
+  const found = needle
     ? items.filter((item) => `${item.artist} ${item.title}`.toLocaleLowerCase("ru").includes(needle))
     : items;
+  const shown = sortLibrary(found);
+  library.shown = shown.map((item) => item.path);
+  // A row that the filter hides must not stay selected: a batch delete would
+  // then take away something nobody can see.
+  const visible = new Set(library.shown);
+  for (const path of selected) if (!visible.has(path)) selected.delete(path);
   $("#library").replaceChildren(...shown.map(createLibraryRow));
+  renderSortHeader();
+  renderSelection();
 
   const empty = $("#library-empty");
   empty.hidden = shown.length > 0;
@@ -845,6 +917,131 @@ function renderLibrary() {
   if (!items.length) [title, text] = loading ? ["Читаем папку…", ""] : ["В папке пока нет музыки", state.settings.folder];
   $(".empty-title", empty).textContent = title;
   $(".empty-text", empty).textContent = text;
+}
+
+function sortLibrary(items) {
+  const { key, dir } = state.library.sort;
+  const { value } = LIBRARY_SORTS[key];
+  return [...items].sort((a, b) => dir * compare(value(a), value(b)) || COLLATOR.compare(a.title, b.title));
+}
+
+function compare(a, b) {
+  return typeof a === "number" ? a - b : COLLATOR.compare(a, b);
+}
+
+function sortLibraryBy(key) {
+  const sort = state.library.sort;
+  sort.dir = sort.key === key ? -sort.dir : LIBRARY_SORTS[key].dir;
+  sort.key = key;
+  renderLibrary();
+}
+
+function renderSortHeader() {
+  const { key, dir } = state.library.sort;
+  for (const button of $$("#view-library .sort")) {
+    const active = button.dataset.sort === key;
+    const order = dir > 0 ? "ascending" : "descending";
+    button.closest("[role=columnheader]").setAttribute("aria-sort", active ? order : "none");
+  }
+}
+
+/* Selection: click picks one row, Ctrl adds, Shift takes the range — as in Explorer */
+
+function onLibraryClick(event) {
+  const row = event.target.closest(".library-row");
+  if (row) selectRow(row.dataset.path, event);
+}
+
+function selectRow(path, { ctrlKey = false, shiftKey = false } = {}) {
+  const library = state.library;
+  const { selected, shown, anchor } = library;
+  if (shiftKey && anchor && shown.includes(anchor)) {
+    const from = shown.indexOf(anchor);
+    const to = shown.indexOf(path);
+    const range = shown.slice(Math.min(from, to), Math.max(from, to) + 1);
+    library.selected = new Set(ctrlKey ? [...selected, ...range] : range);
+  } else if (ctrlKey) {
+    if (selected.has(path)) selected.delete(path);
+    else selected.add(path);
+    library.anchor = path;
+  } else {
+    library.selected = new Set([path]);
+    library.anchor = path;
+  }
+  renderSelection();
+}
+
+function clearSelection() {
+  if (!state.library.selected.size) return;
+  state.library.selected.clear();
+  state.library.anchor = null;
+  renderSelection();
+}
+
+function renderSelection() {
+  const { selected } = state.library;
+  for (const row of $$("#library .library-row")) {
+    const picked = selected.has(row.dataset.path);
+    row.classList.toggle("is-selected", picked);
+    row.setAttribute("aria-selected", String(picked));
+  }
+  $("#library-delete").hidden = !selected.size;
+  renderStatusBar();
+}
+
+async function deleteSelected() {
+  const { items, selected } = state.library;
+  const chosen = items.filter((item) => selected.has(item.path));
+  if (!chosen.length) return;
+  const size = formatSize(chosen.reduce((total, item) => total + item.size, 0));
+  const what = chosen.length === 1
+    ? `«${chosen[0].title}»`
+    : `${chosen.length} ${plural(chosen.length, "запись", "записи", "записей")}`;
+  const ok = await askConfirm({
+    title: `Удалить ${what}?`,
+    text: `${size} уйдёт в корзину — оттуда файлы можно вернуть.`,
+    action: "Удалить",
+  });
+  if (!ok) return;
+  let result;
+  try {
+    result = await api().delete(chosen.map((item) => item.path));
+  } catch (error) {
+    console.error(error);
+    result = { deleted: 0, failed: chosen.map((item) => item.title) };
+  }
+  clearSelection();
+  announce(result.failed.length
+    ? `Не удалось удалить: ${result.failed.join(", ")}`
+    : `Удалено: ${result.deleted}`);
+  loadLibrary();
+}
+
+// A window-level confirm() would be a bare system box, so the dialog is ours.
+// The buttons answer directly: WebView2 does not always raise the close event.
+function askConfirm({ title, text, action }) {
+  const dialog = $("#confirm");
+  const yes = $("#confirm-ok");
+  const no = $("#confirm-cancel");
+  $("#confirm-title").textContent = title;
+  $("#confirm-text").textContent = text;
+  yes.textContent = action;
+  return new Promise((resolve) => {
+    const answer = (agreed) => {
+      yes.removeEventListener("click", onYes);
+      no.removeEventListener("click", onNo);
+      dialog.removeEventListener("cancel", onNo);
+      if (dialog.open) dialog.close();
+      resolve(agreed);
+    };
+    const onYes = () => answer(true);
+    const onNo = () => answer(false);
+    yes.addEventListener("click", onYes);
+    no.addEventListener("click", onNo);
+    dialog.addEventListener("cancel", onNo); // Escape
+    dialog.showModal();
+    no.focus(); // the safe button is the one under the finger
+  });
 }
 
 function createLibraryRow(item) {
@@ -857,19 +1054,21 @@ function createLibraryRow(item) {
   $(".cell-count", row).textContent = item.tracks;
   $(".cell-size", row).textContent = formatSize(item.size);
   $(".cell-date", row).textContent = new Date(item.modified * 1000).toLocaleDateString("ru-RU");
+  row.dataset.path = item.path;
   const open = () => api().open_folder(item.path);
   row.addEventListener("dblclick", open);
   row.addEventListener("keydown", (event) => {
     if (event.key === "Enter") open();
+    if (event.key === " ") {
+      event.preventDefault(); // the list must not scroll under the pressed row
+      selectRow(item.path, { ctrlKey: true });
+    }
   });
   $(".open", row).addEventListener("click", (event) => {
     event.stopPropagation();
     open();
   });
-  if (item.cover) {
-    row.dataset.path = item.path;
-    coverObserver.observe(row);
-  }
+  if (item.cover) coverObserver.observe(row);
   return row;
 }
 
