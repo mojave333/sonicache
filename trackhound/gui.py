@@ -412,8 +412,9 @@ def main() -> None:
         url=str(WEB_DIR / "index.html"),
         js_api=api,
         width=1160,
-        height=800,
+        height=800,  # the size the window returns to when it is un-maximized
         min_size=(720, 520),
+        maximized=True,
         background_color="#151210" if dark else "#FBFAF8",  # no white flash before CSS loads
         text_select=True,
     )
