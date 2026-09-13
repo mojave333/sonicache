@@ -11,6 +11,12 @@ from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Every message here is in Russian, which a console or a redirect on an
+    # English Windows cannot encode; --help must not die over that.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(
         prog="trackhound",
         description="Скачивание альбомов, синглов и треков по ссылке из Spotify, Apple Music, "
@@ -31,10 +37,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true",
                         help="показать версию и какие ffmpeg и Deno нашлись, ничего не скачивая")
     args = parser.parse_args(argv)
-
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(errors="replace")
 
     options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run,
                       args.cookies_from_browser)
