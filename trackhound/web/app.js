@@ -273,6 +273,10 @@ function onShortcut(event) {
   } else if (event.key === "F5" || (event.ctrlKey && event.code === "KeyR")) {
     event.preventDefault(); // reloading the page would lose the download list
     if (state.view === "library") loadLibrary();
+  } else if (event.ctrlKey && !event.altKey && event.code === "KeyF") {
+    // the library search box is not focused automatically, so give it a shortcut
+    event.preventDefault();
+    if (state.view === "library") $("#library-filter").focus();
   }
 }
 
@@ -287,7 +291,6 @@ function showView(name) {
   if (name === "download") $("#link").focus();
   if (name === "library") {
     if (state.library.stale || state.library.folder !== state.settings.folder) loadLibrary();
-    $("#library-filter").focus();
   }
 }
 

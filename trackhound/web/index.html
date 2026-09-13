@@ -177,15 +177,17 @@
             <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
             <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Поиск по исполнителю или названию" aria-label="Поиск">
           </div>
-          <button type="button" id="library-folder" class="tool-btn" title="Открыть папку в проводнике">
-            <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Открыть папку</span>
-          </button>
-          <button type="button" id="library-refresh" class="tool-btn icon-only" title="Обновить (F5)" aria-label="Обновить">
-            <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg>
-          </button>
+          <div class="btn-group">
+            <button type="button" id="library-folder" class="tool-btn" title="Открыть папку в проводнике">
+              <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Открыть папку</span>
+            </button>
+            <button type="button" id="library-refresh" class="tool-btn icon-only" title="Обновить (F5)" aria-label="Обновить">
+              <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg>
+            </button>
+          </div>
         </div>
         <div class="list-head columns library-grid" aria-hidden="true">
-          <span></span><span>Название</span><span class="num">Год</span><span class="num">Треков</span><span class="num col-size">Размер</span><span class="num col-date">Изменён</span><span></span>
+          <span></span><span>Название</span><span class="num">Год</span><span class="num">Треков</span><span class="num col-size">Размер</span><span class="col-date">Изменён</span><span></span>
         </div>
         <div class="list-scroll" id="library-scroll">
           <div id="library-empty" class="empty">
@@ -354,7 +356,7 @@
       <span class="num cell-year"></span>
       <span class="num cell-count"></span>
       <span class="num cell-size col-size"></span>
-      <span class="num cell-date col-date"></span>
+      <span class="cell-date col-date"></span>
       <div class="cell-actions">
         <button type="button" class="icon-btn open" title="Показать в проводнике" aria-label="Показать в проводнике" tabindex="-1"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
       </div>
