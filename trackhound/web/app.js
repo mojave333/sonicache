@@ -111,6 +111,8 @@ async function init() {
   setInterval(renderStatusBar, 1000);
   pollLoop();
   checkForUpdate();
+  // Only now, so the saved panel width is in place before it can be animated
+  setTimeout(() => document.documentElement.classList.add("motion-ready"), 0);
 }
 
 // Nothing is downloaded or installed here: it only points at the releases page
@@ -490,7 +492,13 @@ function hasActiveJobs() {
 function renderJob(job) {
   const { node } = job;
   const status = jobStatus(job);
-  node.className = `job is-${job.state}${job.tracks.size ? " has-tracks" : ""}`;
+  // Derived, not toggled: this line rewrites className, so anything imperative
+  // set elsewhere would be wiped on the next event.
+  const classes = ["job", `is-${job.state}`];
+  if (job.tracks.size) classes.push("has-tracks");
+  if (job.expanded && job.tracks.size) classes.push("open");
+  if (job.tracks.size > SMOOTH_TRACKS) classes.push("instant");
+  node.className = classes.join(" ");
   $(".job-row", node).className = `row job-row tone-${status.tone}`;
   const title = $(".title", node);
   title.textContent = job.title;
@@ -715,9 +723,23 @@ function trackNote({ state: name, text }) {
   }
 }
 
+// Animating an unknown height costs a layout pass per frame; past this many
+// rows the jerk would be worse than the jump, so long releases just snap open.
+const SMOOTH_TRACKS = 40;
+const COLLAPSE_MS = 260;
+
 function setExpanded(job, expanded) {
   job.expanded = expanded;
-  $(".tracks", job.node).hidden = !(expanded && job.tracks.size);
+  const tracks = $(".tracks", job.node);
+  if (expanded && job.tracks.size) {
+    tracks.hidden = false;
+    void tracks.offsetHeight; // settle the closed height first, or there is nothing to grow from
+  } else {
+    setTimeout(() => {
+      if (!job.expanded) tracks.hidden = true; // out of the tab order once it is really closed
+    }, COLLAPSE_MS);
+  }
+  renderJob(job);
   const toggle = $(".expander", job.node);
   toggle.setAttribute("aria-expanded", String(expanded));
   toggle.setAttribute("aria-label", expanded ? "Скрыть треки" : "Показать треки");
@@ -735,16 +757,23 @@ function stopAll() {
 
 function clearFinished() {
   for (const job of [...state.jobs.values()]) {
-    if (!ACTIVE.has(job.state)) removeJob(job);
+    if (!ACTIVE.has(job.state)) removeJob(job, true);
   }
   renderChrome();
 }
 
-function removeJob(job) {
-  job.node.remove();
+function removeJob(job, fade = false) {
+  // Bookkeeping happens at once; only the row itself lingers to fade out, so a
+  // second click can never act on a job that is already gone.
   for (const track of job.tracks.values()) track.queueRow.remove();
   state.tracks = state.tracks.filter((track) => track.job !== job);
   state.jobs.delete(job.id);
+  if (!fade) {
+    job.node.remove();
+    return;
+  }
+  job.node.classList.add("leaving");
+  setTimeout(() => job.node.remove(), COLLAPSE_MS);
 }
 
 async function retryJob(job) {

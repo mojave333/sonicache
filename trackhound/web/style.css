@@ -25,6 +25,20 @@
   --radius: 5px;
   --sidebar: 64px; /* the script overrides this as the panel is dragged */
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+
+  /* Motion settles like a critically damped spring: quick, no overshoot.
+     Nothing here bounces — a flick would earn that, a state change does not. */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --press: 90ms;
+  --quick: 140ms;
+  --settle: 220ms;
+}
+
+/* Registered so the panel width can be animated when it is not being dragged */
+@property --sidebar {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 64px;
 }
 
 :root[data-theme="dark"] {
@@ -102,6 +116,10 @@ p { margin: 0; }
 .resizer:hover::after, .resizer:focus-visible::after, :root[data-resizing] .resizer::after { opacity: 1; }
 .resizer:focus-visible { outline: none; }
 :root[data-resizing] { cursor: col-resize; }
+/* A double click or an arrow key glides the panel; a drag must stay glued to
+   the pointer, so the transition is off while one is in progress. */
+:root.motion-ready { transition: --sidebar var(--settle) var(--ease); }
+:root[data-resizing] { transition: none; }
 
 .brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; }
 .logo { display: grid; place-items: center; flex: none; color: #000000; }
@@ -141,7 +159,8 @@ p { margin: 0; }
 /* Columns react to the content width, which a widened side panel narrows */
 .main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0;
   container: content / inline-size; }
-.view { display: flex; flex-direction: column; min-height: 0; }
+.view { display: flex; flex-direction: column; min-height: 0; animation: view-in var(--quick) ease-out; }
+@keyframes view-in { from { opacity: 0; } }
 
 /* Toolbar */
 /* Controls keep their size and wrap onto a second line rather than being cut
@@ -209,6 +228,13 @@ p { margin: 0; }
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none;
   height: 34px; padding: 0 14px; border-radius: var(--radius); white-space: nowrap;
 }
+/* Feedback belongs to the press, not the release */
+.btn, .tool-btn, .icon-btn, .nav-item, .segmented button, .stepper button, .menu button {
+  transition: background-color var(--press) ease-out, color var(--press) ease-out,
+              border-color var(--press) ease-out, transform var(--press) var(--ease);
+}
+.btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
+.nav-item:active, .stepper button:active { transform: scale(0.97); }
 .btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
 .btn.danger { background: var(--danger); color: var(--on-accent); font-weight: 600; }
@@ -323,7 +349,7 @@ p { margin: 0; }
 .bar { position: relative; height: 4px; overflow: hidden; border-radius: 2px; background: var(--divider); }
 .bar-fill {
   position: absolute; inset: 0; background: var(--accent);
-  transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform 300ms ease-out;
+  transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform 260ms var(--ease);
 }
 .bar.indeterminate .bar-fill { animation: indeterminate 1.3s ease-in-out infinite; }
 @keyframes indeterminate {
@@ -335,13 +361,34 @@ p { margin: 0; }
 .job-row { grid-template-columns: 24px 34px minmax(0, 1fr) auto 210px 72px; }
 .expander { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; color: var(--text-subtle); }
 .expander:hover { color: var(--text); }
-.expander .icon { transition: transform 150ms ease-out; }
+.expander .icon { transition: transform var(--settle) var(--ease); }
 .expander[aria-expanded="true"] .icon { transform: rotate(90deg); }
 .job:not(.has-tracks) .expander { visibility: hidden; }
 .job.has-tracks .job-row { cursor: pointer; }
 .job.is-error .sub { color: var(--danger); white-space: normal; user-select: text; }
 
-.tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); }
+/* Tracks grow out of the row that owns them instead of appearing at once.
+   The grid row from 0fr to 1fr is the portable way to animate an unknown
+   height; where the engine can interpolate to auto, plain height is used
+   instead, because fr units move most of their pixels at one end and make
+   opening and closing feel lopsided. */
+.job { display: grid; grid-template-rows: auto 0fr; animation: row-in var(--quick) var(--ease); }
+.job.open { grid-template-rows: auto 1fr; }
+.job:not(.instant) { transition: grid-template-rows var(--settle) var(--ease); }
+.job.leaving { opacity: 0; transform: translateY(-4px); transition: opacity var(--quick) ease-out, transform var(--quick) ease-out; }
+@keyframes row-in { from { opacity: 0; transform: translateY(-6px); } }
+
+.tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); overflow: hidden; min-height: 0; }
+.job:not(.open) .tracks { visibility: hidden; }
+
+@supports (interpolate-size: allow-keywords) {
+  :root { interpolate-size: allow-keywords; }
+  .job, .job.open { display: block; grid-template-rows: none; }
+  .job:not(.instant) { transition: none; }
+  .job:not(.instant) .tracks { transition: height var(--settle) var(--ease); }
+  .tracks { height: 0; }
+  .job.open .tracks { height: auto; }
+}
 .track { grid-template-columns: 24px 34px minmax(0, 1fr) 140px 52px 210px 72px; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
 .track::before { content: ""; }
 .track .num { color: var(--text-subtle); font-size: 13px; }
@@ -449,10 +496,14 @@ p { margin: 0; }
   .icon-btn { width: 26px; }
 }
 
+/* Reduced motion is not "no feedback": movement goes, fades and the spinner
+   stay, so it is still clear that something is happening. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-  }
+  *, *::before, *::after { transition-duration: 1ms !important; }
+  .job, .view { animation: fade-in var(--quick) ease-out; }
+  .job:not(.instant) { transition: none; }
+  .btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
+  .nav-item:active, .stepper button:active { transform: none; }
+  .expander[aria-expanded="true"] .icon { transition: none; }
+  @keyframes fade-in { from { opacity: 0; } }
 }
