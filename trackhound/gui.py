@@ -196,6 +196,10 @@ def _normalize(settings: dict) -> dict:
         threads = min(8, max(1, int(settings.get("threads", 3))))
     except (TypeError, ValueError):
         threads = 3
+    try:  # older versions stored a boolean here
+        sidebar = min(320, max(64, int(settings.get("sidebar", 64))))
+    except (TypeError, ValueError):
+        sidebar = 64
     return {
         "folder": str(settings.get("folder") or DEFAULT_OUTPUT_DIR),
         "format": settings.get("format") if settings.get("format") in FORMATS else "m4a",
@@ -204,7 +208,7 @@ def _normalize(settings: dict) -> dict:
         "dry_run": bool(settings.get("dry_run", False)),
         "cookies_browser": (settings.get("cookies_browser")
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
-        "sidebar": bool(settings.get("sidebar", False)),  # the side panel is expanded
+        "sidebar": sidebar,  # width of the side panel in pixels, 64 is the icon rail
     }
 
 

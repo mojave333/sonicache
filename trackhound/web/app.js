@@ -99,7 +99,7 @@ async function init() {
 function renderSettings() {
   const settings = state.settings;
   applyTheme();
-  applySidebar();
+  applySidebar(settings.sidebar);
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   syncRadios($("#formats"), "data-format", settings.format);
   syncRadios($("#mode-menu"), "data-dry-run", String(settings.dry_run));
@@ -127,14 +127,55 @@ function applyTheme() {
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
 
-function applySidebar() {
-  const open = Boolean(state.settings?.sidebar);
-  document.documentElement.dataset.sidebar = open ? "open" : "closed";
-  const toggle = $("#sidebar-toggle");
-  const label = open ? "Свернуть панель (Ctrl+B)" : "Развернуть панель (Ctrl+B)";
-  toggle.setAttribute("aria-expanded", String(open));
-  toggle.title = label;
-  toggle.setAttribute("aria-label", label);
+// The rail is dragged wider by its right edge; below SIDEBAR_SNAP it springs back to icons only
+const SIDEBAR_RAIL = 64;
+const SIDEBAR_SNAP = 110;
+const SIDEBAR_MAX = 320;
+
+function applySidebar(width) {
+  const limit = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_RAIL, Math.round(window.innerWidth * 0.4)));
+  const size = Math.min(limit, Math.max(SIDEBAR_RAIL, Math.round(width)));
+  document.documentElement.style.setProperty("--sidebar", `${size}px`);
+  $("#resizer").setAttribute("aria-valuenow", String(size));
+  return size;
+}
+
+function sidebarWidth() {
+  return $(".sidebar").getBoundingClientRect().width;
+}
+
+function bindSidebarResize() {
+  const resizer = $("#resizer");
+  let dragging = false;
+
+  resizer.addEventListener("pointerdown", (event) => {
+    dragging = true;
+    resizer.setPointerCapture(event.pointerId);
+    document.documentElement.dataset.resizing = "";
+    event.preventDefault();
+  });
+  resizer.addEventListener("pointermove", (event) => {
+    if (dragging) applySidebar(event.clientX);
+  });
+  resizer.addEventListener("pointerup", (event) => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.releasePointerCapture(event.pointerId);
+    delete document.documentElement.dataset.resizing;
+    const width = sidebarWidth();
+    updateSettings({ sidebar: applySidebar(width < SIDEBAR_SNAP ? SIDEBAR_RAIL : width) });
+  });
+  // A double click flips between the icon rail and a comfortable labelled width
+  resizer.addEventListener("dblclick", () => {
+    updateSettings({ sidebar: applySidebar(sidebarWidth() > SIDEBAR_RAIL ? SIDEBAR_RAIL : 208) });
+  });
+  resizer.addEventListener("keydown", (event) => {
+    const step = { ArrowLeft: -24, ArrowRight: 24 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const width = sidebarWidth() + step;
+    updateSettings({ sidebar: applySidebar(width < SIDEBAR_SNAP && step < 0 ? SIDEBAR_RAIL : width) });
+  });
 }
 
 function renderProblems() {
@@ -155,7 +196,7 @@ function bindUi() {
   for (const button of $$("[data-view]")) {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
-  $("#sidebar-toggle").addEventListener("click", toggleSidebar);
+  bindSidebarResize();
   for (const button of $$("#formats [data-format]")) button.title = FORMAT_HINTS[button.dataset.format];
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
@@ -206,16 +247,9 @@ function bindUi() {
   });
 }
 
-function toggleSidebar() {
-  updateSettings({ sidebar: !state.settings.sidebar });
-}
-
 function onShortcut(event) {
   if (event.key === "Escape" && !$("#mode-menu").hidden) {
     setMenuOpen(false);
-  } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyB") {
-    event.preventDefault();
-    toggleSidebar();
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && /^[1-4]$/.test(event.key)) {
     event.preventDefault();
     showView(VIEWS[Number(event.key) - 1]);

@@ -29,7 +29,6 @@
     <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/></symbol>
     <symbol id="i-spinner" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/></symbol>
     <symbol id="i-retry" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4.5V11h-6.5"/></symbol>
-    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></symbol>
     <symbol id="i-brand" viewBox="440 115 525 430">
       <g transform="translate(0,768) scale(0.1,-0.1)" fill="currentColor" stroke="none">
         <path d="M8080 6329 c-228 -124 -389 -329 -465 -594 -35 -122 -44 -293 -21
@@ -88,10 +87,6 @@
       <div class="brand">
         <span class="logo" aria-hidden="true"><svg class="icon"><use href="#i-brand"/></svg></span>
         <span class="brand-name">Trackhound</span>
-        <button type="button" id="sidebar-toggle" class="nav-item toggle" aria-expanded="false"
-                title="Развернуть панель (Ctrl+B)" aria-label="Развернуть панель">
-          <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
-        </button>
       </div>
       <button type="button" class="nav-item" data-view="download" title="Загрузка (Ctrl+1)" aria-label="Загрузка">
         <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
@@ -112,6 +107,8 @@
         <span class="nav-label">Настройки</span>
         <span id="settings-dot" class="nav-dot" hidden></span>
       </button>
+      <div id="resizer" class="resizer" role="separator" aria-orientation="vertical" tabindex="0"
+           title="Потяните, чтобы изменить ширину панели" aria-label="Ширина панели"></div>
     </nav>
 
     <div class="main">

@@ -23,10 +23,9 @@
   --menu-shadow: 0 8px 24px rgb(40 25 10 / 0.16);
 
   --radius: 5px;
-  --sidebar: 64px;
+  --sidebar: 64px; /* the script overrides this as the panel is dragged */
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
 }
-:root[data-sidebar="open"] { --sidebar: 208px; }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -90,15 +89,23 @@ p { margin: 0; }
    .list-scroll instead of stretching the whole frame past the bottom edge. */
 .app { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100vh; }
 .sidebar {
-  display: flex; flex-direction: column; gap: 4px; padding: 12px 8px;
+  position: relative; display: flex; flex-direction: column; gap: 4px; padding: 12px 8px;
   background: var(--chrome); border-right: 1px solid var(--divider);
+  container: sidebar / inline-size; /* labels appear once dragged wide enough */
 }
+.resizer { position: absolute; top: 0; right: -3px; bottom: 0; width: 7px; z-index: 5; cursor: col-resize; }
+.resizer::after {
+  content: ""; position: absolute; inset: 0 3px; border-radius: 2px;
+  background: var(--accent); opacity: 0; transition: opacity 120ms ease-out;
+}
+.resizer:hover::after, .resizer:focus-visible::after, :root[data-resizing] .resizer::after { opacity: 1; }
+.resizer:focus-visible { outline: none; }
+:root[data-resizing] { cursor: col-resize; }
+
 .brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; }
-.logo {
-  display: grid; place-items: center; flex: none; width: 44px; height: 44px;
-  border-radius: 10px; background: var(--accent); color: var(--on-accent);
-}
-.logo .icon { width: 32px; height: 32px; fill: currentColor; stroke: none; }
+.logo { display: grid; place-items: center; flex: none; color: #000000; }
+:root[data-theme="dark"] .logo { color: #FFFFFF; }
+.logo .icon { width: 40px; height: 33px; fill: currentColor; stroke: none; }
 .brand-name { display: none; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
 .nav-item {
   position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -121,18 +128,18 @@ p { margin: 0; }
   border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--chrome);
 }
 
-/* Expanded: the rail turns into a labelled column */
-:root[data-sidebar="open"] .brand { flex-direction: row; padding-left: 4px; }
-:root[data-sidebar="open"] .brand-name { display: block; flex: 1; }
-:root[data-sidebar="open"] .nav-item { justify-content: flex-start; padding: 0 12px; }
-:root[data-sidebar="open"] .nav-item.toggle { flex: none; padding: 0; width: 44px; justify-content: center; }
-:root[data-sidebar="open"] .nav-label { display: block; flex: 1; }
-:root[data-sidebar="open"] .nav-badge,
-:root[data-sidebar="open"] .nav-dot { position: static; flex: none; }
+/* Dragged past this width, the rail becomes a labelled column */
+@container sidebar (min-width: 150px) {
+  .brand { flex-direction: row; padding-left: 6px; gap: 10px; }
+  .brand-name { display: block; flex: 1; }
+  .nav-item { justify-content: flex-start; padding: 0 12px; }
+  .nav-label { display: block; flex: 1; }
+  .nav-badge, .nav-dot { position: static; flex: none; }
+}
 
-/* Columns react to the content width, which the expanded side panel narrows */
+/* Columns react to the content width, which a widened side panel narrows */
 .main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0;
-  container-type: inline-size; }
+  container: content / inline-size; }
 .view { display: flex; flex-direction: column; min-height: 0; }
 
 /* Toolbar */
@@ -360,7 +367,7 @@ p { margin: 0; }
 ::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 6px; background: var(--border-strong); background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--text-subtle); }
 
-@container (max-width: 956px) {
+@container content (max-width: 956px) {
   .track { grid-template-columns: 24px 44px minmax(0, 1fr) 52px 180px 72px; }
   .track .cell-source { display: none; }
   .track .cell-status { grid-column: 5; }
@@ -371,7 +378,7 @@ p { margin: 0; }
   .library-grid { grid-template-columns: 44px minmax(0, 1fr) 54px 64px 104px 38px; }
   .col-size { display: none; }
 }
-@container (max-width: 796px) {
+@container content (max-width: 796px) {
   #folder span { display: none; }
   #folder { flex: none; }
   .queue .track, .queue-grid { grid-template-columns: 44px minmax(0, 1fr) 52px 170px; }
