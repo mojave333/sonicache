@@ -105,8 +105,16 @@ def ytmusic() -> YTMusic:
 
 class Matcher:
     def find(self, track: Track, album: Album) -> Match | None:
+        matches = self.find_all(track, album)
+        return matches[0] if matches else None
+
+    def find_all(self, track: Track, album: Album, exhaustive: bool = False) -> list[Match]:
+        """Every candidate good enough to be this track, best first. The next one
+        is worth trying when the best refuses to download: age-gated videos,
+        dead links and region blocks all look fine until yt-dlp reaches them.
+        An exhaustive search asks every source even when the first one nails it."""
         query = f"{track.artists} {track.title}"
-        best = None
+        best: dict[str, Match] = {}  # by url: the same song can appear in two searches
         errors = []
         for search in (self._youtube_music_songs, self._soundcloud, self._youtube_videos):
             try:
@@ -116,15 +124,15 @@ class Matcher:
                 continue
             for candidate in candidates:
                 match = _score(candidate, track, album)
-                if match and (best is None or match.score > best.score):
-                    best = match
-            if best and best.score >= GOOD_SCORE:
+                if match and match.score >= MIN_SCORE:
+                    known = best.get(match.url)
+                    if known is None or match.score > known.score:
+                        best[match.url] = match
+            if not exhaustive and any(match.score >= GOOD_SCORE for match in best.values()):
                 break
-        if best and best.score >= MIN_SCORE:
-            return best
-        if errors:  # "not found" would hide the real reason
+        if not best and errors:  # "not found" would hide the real reason
             raise errors[0]
-        return None
+        return sorted(best.values(), key=lambda match: match.score, reverse=True)
 
     def _youtube_music_songs(self, query: str) -> list[dict]:
         return self._youtube_music(query, "songs")

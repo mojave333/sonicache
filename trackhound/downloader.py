@@ -179,10 +179,25 @@ class Downloader:
 
         stem = f"_part_{track.id}"
         direct = _direct_match(track)
-        if direct is None:
-            self._track_event(track, "search")
+        tried: set[str] = set()
+        pool: list[Match] = []
+        searches = 0  # 1: the quick search, which stops at the first great hit; 2: every source
+
+        def next_match() -> Match | None:
+            nonlocal pool, searches
+            while not pool and searches < 2:
+                searches += 1
+                self._track_event(track, "search")
+                pool = [found for found in self.matcher.find_all(track, album, searches == 2)
+                        if found.url not in tried]
+            if not pool:
+                return None
+            match = pool.pop(0)
+            tried.add(match.url)
+            return match
+
         try:
-            match = direct or self.matcher.find(track, album)
+            match = direct or next_match()
             if match is None:
                 self.log(f"✗ Не найдено ни на YouTube Music, ни на SoundCloud: {label}")
                 self._track_event(track, "missing")
@@ -194,21 +209,22 @@ class Downloader:
                          f"{match.page_url}")
                 self._track_event(track, "found", f"{match.artists} — {match.title}", source)
                 return "ok", label
-            try:
-                path = self._fetch(match, folder, stem, track, source)
-            except DownloadCancelled:
-                raise
-            except Exception as e:
-                if match is not direct:
+            while True:
+                try:
+                    path = self._fetch(match, folder, stem, track, source)
+                    break
+                except DownloadCancelled:
                     raise
-                # The link's own audio failed (e.g. a 30-second preview): look elsewhere
-                self.log(f"! {label}: по ссылке не скачалось ({_error_text(e)}), ищу в других источниках")
-                self._track_event(track, "search")
-                match = self.matcher.find(track, album)
-                if match is None:
-                    raise
-                source = SOURCE_NAMES.get(match.source) or album.service
-                path = self._fetch(match, folder, stem, track, source)
+                except Exception as e:
+                    # This one refuses (age-gated video, preview only, dead link):
+                    # the next candidate is usually the same song somewhere else.
+                    following = next_match()
+                    if following is None:
+                        raise
+                    self.log(f"! {label}: не скачалось с {source or 'исходной ссылки'} "
+                             f"({_error_text(e)}), пробую другой источник")
+                    _clear_partials(folder, stem)
+                    match, source = following, SOURCE_NAMES.get(following.source) or album.service
             _write_tags(path, album, track, cover)
             os.replace(path, target)
         except DownloadCancelled:
@@ -221,8 +237,7 @@ class Downloader:
             return "failed", f"{label}: {message}"
         finally:
             if not self.options.dry_run:
-                for leftover in folder.glob(f"{stem}.*"):
-                    leftover.unlink(missing_ok=True)
+                _clear_partials(folder, stem)
         self.log(f"✓ {target.name}" + ("" if match.source == "song" else f"  ({source})"))
         self._track_event(track, "done", source=source)
         return "ok", label
@@ -319,8 +334,16 @@ def _direct_match(track: Track) -> Match | None:
                  track.title, track.artists, track.duration, 1.0)
 
 
+def _clear_partials(folder: Path, stem: str) -> None:
+    for leftover in folder.glob(f"{stem}.*"):
+        leftover.unlink(missing_ok=True)
+
+
 def _error_text(error: Exception) -> str:
-    return re.sub(r"^ERROR:\s*", "", str(error)).strip() or type(error).__name__
+    text = re.sub(r"^ERROR:\s*", "", str(error)).strip()
+    if "confirm your age" in text or "age-restricted" in text.lower():
+        return "видео с возрастным ограничением — YouTube отдаёт его только тем, кто вошёл в аккаунт"
+    return text or type(error).__name__
 
 
 def _check_duration(path: Path, track: Track) -> None:
