@@ -204,6 +204,7 @@ def _normalize(settings: dict) -> dict:
         "dry_run": bool(settings.get("dry_run", False)),
         "cookies_browser": (settings.get("cookies_browser")
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
+        "sidebar": bool(settings.get("sidebar", False)),  # the side panel is expanded
     }
 
 
@@ -274,9 +275,9 @@ def main() -> None:
         TITLE,
         url=str(WEB_DIR / "index.html"),
         js_api=api,
-        width=1080,
-        height=740,
-        min_size=(680, 480),
+        width=1160,
+        height=800,
+        min_size=(720, 520),
         background_color="#151210" if dark else "#FBFAF8",  # no white flash before CSS loads
         text_select=True,
     )

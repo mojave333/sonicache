@@ -99,6 +99,7 @@ async function init() {
 function renderSettings() {
   const settings = state.settings;
   applyTheme();
+  applySidebar();
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   syncRadios($("#formats"), "data-format", settings.format);
   syncRadios($("#mode-menu"), "data-dry-run", String(settings.dry_run));
@@ -126,6 +127,16 @@ function applyTheme() {
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
 
+function applySidebar() {
+  const open = Boolean(state.settings?.sidebar);
+  document.documentElement.dataset.sidebar = open ? "open" : "closed";
+  const toggle = $("#sidebar-toggle");
+  const label = open ? "Свернуть панель (Ctrl+B)" : "Развернуть панель (Ctrl+B)";
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.title = label;
+  toggle.setAttribute("aria-label", label);
+}
+
 function renderProblems() {
   const problems = state.problems;
   const items = () => problems.map((text) => Object.assign(document.createElement("li"), { textContent: text }));
@@ -144,6 +155,7 @@ function bindUi() {
   for (const button of $$("[data-view]")) {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
+  $("#sidebar-toggle").addEventListener("click", toggleSidebar);
   for (const button of $$("#formats [data-format]")) button.title = FORMAT_HINTS[button.dataset.format];
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
@@ -194,9 +206,16 @@ function bindUi() {
   });
 }
 
+function toggleSidebar() {
+  updateSettings({ sidebar: !state.settings.sidebar });
+}
+
 function onShortcut(event) {
   if (event.key === "Escape" && !$("#mode-menu").hidden) {
     setMenuOpen(false);
+  } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyB") {
+    event.preventDefault();
+    toggleSidebar();
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && /^[1-4]$/.test(event.key)) {
     event.preventDefault();
     showView(VIEWS[Number(event.key) - 1]);
