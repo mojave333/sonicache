@@ -1,0 +1,79 @@
+name: Release
+
+# Tag a commit to publish a build:
+#
+#     git tag v1.1.0 && git push origin v1.1.0
+#
+# The tag has to match __version__, otherwise the job stops before building.
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Check the tag against __version__
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $source = (Select-String -Path trackhound/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          $tag = "${{ github.ref_name }}".TrimStart("v")
+          Write-Output "tag $tag, __version__ $source"
+          if ($source -ne $tag) { throw "Tag $tag does not match __version__ $source in trackhound/__init__.py" }
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Fetch ffmpeg and Deno
+        shell: pwsh
+        run: ./scripts/fetch-vendor.ps1
+
+      - name: Build
+        run: pyinstaller --noconfirm trackhound.spec
+
+      - name: Check the build starts
+        shell: pwsh
+        run: |
+          $out = & ./dist/Trackhound/Trackhound-cli.exe --help
+          if ($LASTEXITCODE -ne 0) { throw "Trackhound-cli.exe --help exited with $LASTEXITCODE" }
+          foreach ($file in "dist/Trackhound/Trackhound.exe", "dist/Trackhound/_internal/trackhound/web/index.html",
+                            "dist/Trackhound/_internal/bin/ffmpeg.exe", "dist/Trackhound/_internal/bin/deno.exe") {
+            if (-not (Test-Path $file)) { throw "missing from the build: $file" }
+          }
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          $name = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "dev" }
+          Compress-Archive -Path dist/Trackhound/* -DestinationPath "Trackhound-$name-windows-x64.zip"
+          "archive=Trackhound-$name-windows-x64.zip" >> $env:GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Trackhound-windows-x64
+          path: ${{ env.archive }}
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.archive }}
+          draft: true
+          generate_release_notes: true
+          body: |
+            Скачайте архив ниже, распакуйте и запустите `Trackhound.exe`.
+            Ничего доустанавливать не нужно: ffmpeg и Deno лежат внутри.
+
+            `Trackhound-cli.exe` — та же программа для командной строки.

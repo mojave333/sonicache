@@ -13,7 +13,10 @@ import queue
 import re
 import subprocess
 import sys
+import tempfile
 import threading
+import urllib.request
+import webbrowser
 from pathlib import Path
 
 import webview
@@ -24,6 +27,9 @@ from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
 SETTINGS_FILE = Path.home() / ".trackhound.json"
+REPO = "mojave333/trackhound"
+RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
+WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 THEMES = ("system", "light", "dark")
 # Browsers yt-dlp can read cookies from; "" means it takes none
 COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera", "vivaldi")
@@ -120,6 +126,31 @@ class Api:
         items.sort(key=lambda item: item["modified"], reverse=True)
         return items
 
+    def latest_release(self) -> dict | None:
+        """The newest published version, or None when this one is current.
+
+        Called from the window after startup; a failure here is never shown.
+        """
+        request = urllib.request.Request(
+            f"https://api.github.com/repos/{REPO}/releases/latest",
+            headers={"Accept": "application/vnd.github+json", "User-Agent": f"Trackhound/{__version__}"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except Exception:
+            return None
+        version = str(data.get("tag_name") or "").lstrip("vV")
+        if not _newer(version, __version__):
+            return None
+        return {"version": version, "url": data.get("html_url") or RELEASES_PAGE}
+
+    def open_url(self, url: str) -> bool:
+        if not url.startswith("https://github.com/"):
+            return False
+        webbrowser.open(url)
+        return True
+
     def cover(self, folder: str) -> str | None:
         try:
             data = (Path(folder) / "cover.jpg").read_bytes()
@@ -167,6 +198,13 @@ class Api:
         emit(type="job", state="cancelled" if self._stop.is_set() else "done",
              ok=len(report.ok), skipped=len(report.skipped), failed=len(report.failed),
              dry_run=options.dry_run)
+
+
+def _newer(candidate: str, current: str) -> bool:
+    def parts(version: str) -> list[int]:
+        return [int(piece) for piece in re.findall(r"\d+", version)] or [0]
+
+    return parts(candidate) > parts(current)
 
 
 def _is_audio(path: Path) -> bool:
@@ -271,7 +309,54 @@ def _system_dark() -> bool:
         return False
 
 
+def _webview2_installed() -> bool:
+    """The window is drawn by Edge WebView2, which Windows 10 may not have."""
+    if sys.platform != "win32":
+        return True
+    import winreg
+
+    # The runtime registers itself per machine (32-bit view) or per user
+    client = r"Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+    places = [
+        (winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\WOW6432Node\{client}"),
+        (winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\{client}"),
+        (winreg.HKEY_CURRENT_USER, rf"SOFTWARE\{client}"),
+    ]
+    for root, path in places:
+        try:
+            with winreg.OpenKey(root, path) as key:
+                if winreg.QueryValueEx(key, "pv")[0] not in ("", "0.0.0.0"):
+                    return True
+        except OSError:
+            continue
+    return False
+
+
+def _offer_webview2() -> bool:
+    """Asks to install the runtime and runs Microsoft's installer if allowed."""
+    from tkinter import messagebox
+
+    agreed = messagebox.askyesno(
+        TITLE,
+        "Для окна программы нужен компонент Microsoft Edge WebView2, его нет в системе.\n\n"
+        "Скачать и установить его сейчас? Установщик официальный, с сайта Microsoft.",
+    )
+    if not agreed:
+        return False
+    try:
+        setup = Path(tempfile.gettempdir()) / "MicrosoftEdgeWebview2Setup.exe"
+        urllib.request.urlretrieve(WEBVIEW2_SETUP_URL, setup)
+        subprocess.run([str(setup)], check=True)
+    except Exception as e:  # network, antivirus, cancelled elevation prompt
+        messagebox.showerror(TITLE, f"Не удалось установить WebView2 ({e}).\n\n"
+                                    "Скачайте его вручную: https://go.microsoft.com/fwlink/p/?LinkId=2124703")
+        return False
+    return _webview2_installed()
+
+
 def main() -> None:
+    if not _webview2_installed() and not _offer_webview2():
+        return
     api = Api()
     theme = _load_settings()["theme"]
     dark = theme == "dark" or (theme == "system" and _system_dark())

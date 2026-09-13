@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
 
 
@@ -15,7 +16,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Скачивание альбомов, синглов и треков по ссылке из Spotify, Apple Music, "
                     "YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp.",
     )
-    parser.add_argument("links", nargs="+", help="ссылки на альбомы, плейлисты или треки")
+    parser.add_argument("links", nargs="*", help="ссылки на альбомы, плейлисты или треки")
     parser.add_argument("-o", "--output", type=Path, default=DEFAULT_OUTPUT_DIR,
                         help=f"папка для музыки (по умолчанию {DEFAULT_OUTPUT_DIR})")
     parser.add_argument("-f", "--format", choices=FORMATS, default="m4a",
@@ -27,6 +28,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cookies-from-browser", default="", metavar="БРАУЗЕР",
                         help="брать cookies из браузера (chrome, edge, firefox…): нужно для видео "
                              "с возрастным ограничением")
+    parser.add_argument("--check", action="store_true",
+                        help="показать версию и какие ffmpeg и Deno нашлись, ничего не скачивая")
     args = parser.parse_args(argv)
 
     for stream in (sys.stdout, sys.stderr):
@@ -36,6 +39,19 @@ def main(argv: list[str] | None = None) -> int:
     options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run,
                       args.cookies_from_browser)
     downloader = Downloader(options, log=lambda message: print(message, flush=True))
+
+    if args.check:
+        print(f"Trackhound {__version__}")
+        print(f"ffmpeg: {downloader.ffmpeg or 'не найден'}")
+        for name in ("deno", "node"):
+            print(f"{name}: {downloader.js_runtimes.get(name, {}).get('path', 'не найден')}")
+        print(f"папка для музыки: {options.output_dir}")
+        for problem in downloader.environment_problems():
+            print(f"⚠ {problem}")
+        return 0
+    if not args.links:
+        parser.error("укажите хотя бы одну ссылку (или --check, чтобы проверить установку)")
+
     for problem in downloader.environment_problems():
         print(f"⚠ {problem}", file=sys.stderr)
 

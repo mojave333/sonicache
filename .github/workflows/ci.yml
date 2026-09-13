@@ -1,0 +1,39 @@
+name: Build
+
+# Catches a broken build early: same PyInstaller run as the release, minus the
+# bundled tools (250 MB of downloads) and minus publishing.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Compile every module
+        run: python -m compileall -q trackhound main.py
+
+      - name: Build
+        run: pyinstaller --noconfirm trackhound.spec
+
+      - name: Check the build starts
+        shell: pwsh
+        run: |
+          $out = & ./dist/Trackhound/Trackhound-cli.exe --help
+          if ($LASTEXITCODE -ne 0) { throw "Trackhound-cli.exe --help exited with $LASTEXITCODE" }
+          foreach ($file in "dist/Trackhound/Trackhound.exe", "dist/Trackhound/_internal/trackhound/web/index.html",
+                            "dist/Trackhound/_internal/trackhound/web/app.js", "dist/Trackhound/_internal/trackhound/web/style.css") {
+            if (-not (Test-Path $file)) { throw "missing from the build: $file" }
+          }

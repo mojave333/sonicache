@@ -4,17 +4,22 @@
 
 Со страницы по ссылке берутся названия, исполнители, номера треков, год и обложка — без аккаунтов и API-ключей. Если сервис сам отдаёт звук открыто (YouTube, SoundCloud, Bandcamp), трек скачивается прямо оттуда. Если нет (Spotify, Apple Music, Last.fm), тот же трек ищется на YouTube Music, SoundCloud и среди видео YouTube. Скачивает yt-dlp, после чего файлы получают теги и обложку.
 
-## Что нужно
+## Установка
 
-- Windows, Python 3.10+
-- ffmpeg: `winget install Gyan.FFmpeg`
-- Node.js 22+ или Deno: YouTube не отдаёт аудио без JavaScript-движка (`winget install DenoLand.Deno`)
-- Microsoft Edge WebView2 Runtime — в Windows 11 уже установлен, на Windows 10 обычно тоже
+1. Скачайте `Trackhound-vX.Y.Z-windows-x64.zip` со страницы [Releases](https://github.com/mojave333/trackhound/releases/latest).
+2. Распакуйте архив куда угодно — например в `%LOCALAPPDATA%\Trackhound`.
+3. Запустите `Trackhound.exe`.
 
-## Установка и запуск
+Больше ничего ставить не нужно: Python, ffmpeg и Deno уже внутри архива. Нужна Windows 10 или 11, 64 бита; из-за встроенных ffmpeg и Deno распакованная папка занимает около 320 МБ.
 
-1. `install.bat` — создаёт `.venv` и ставит зависимости.
-2. `run.bat` — открывает окно программы.
+Два уточнения про первый запуск:
+
+- **SmartScreen.** Сборка не подписана сертификатом, поэтому Windows может показать синее окно «Система Windows защитила ваш компьютер». Нажмите «Подробнее» → «Выполнить в любом случае».
+- **WebView2.** Окно программы рисует компонент Microsoft Edge WebView2. В Windows 11 он есть всегда, в Windows 10 обычно тоже; если его нет, программа предложит скачать и установить его с сайта Microsoft.
+
+Проверить, что всё на месте, можно командой `Trackhound-cli.exe --check` — она печатает версию и пути к найденным ffmpeg и Deno.
+
+## Как пользоваться
 
 Слева — разделы: Загрузка, Библиотека, Очередь и Настройки (Ctrl+1…4). Панель тянется за правый край: чем шире, тем раньше появляются подписи; узкая возвращается к одним значкам, двойной щелчок по краю переключает между значками и подписями. Ширина запоминается.
 
@@ -24,16 +29,18 @@
 
 **Очередь** — все треки текущих загрузок одним списком с фильтром: в работе, готово, проблемы.
 
-**Настройки** — тема (как в системе, светлая или тёмная), сколько треков качать одновременно, cookies из браузера и проверка, установлены ли ffmpeg и Deno/Node.js. Настройки хранятся в `%USERPROFILE%\.trackhound.json`.
+**Настройки** — тема (как в системе, светлая или тёмная), сколько треков качать одновременно, cookies из браузера и проверка, что все компоненты на месте. Там же появляется строка о новой версии, если она вышла: программа раз в запуск спрашивает GitHub и показывает ссылку, ничего не скачивая сама. Настройки хранятся в `%USERPROFILE%\.trackhound.json`.
 
 Треки с возрастным ограничением YouTube отдаёт только тем, кто вошёл в аккаунт. Обычно программа просто берёт такую песню из другого источника, но если нужного варианта нет, выберите в настройках браузер, из которого брать cookies: подойдёт тот, где вы вошли в YouTube. Браузер при этом лучше закрыть, иначе он держит файл cookies занятым; из Firefox они читаются надёжнее всего.
 
 ## Командная строка
 
+`Trackhound-cli.exe` — та же программа для терминала: она печатает ход загрузки и не открывает окно.
+
 ```bat
-.venv\Scripts\python.exe main.py https://open.spotify.com/album/2noRn2Aes5aoNVsU6iWThc
-.venv\Scripts\python.exe main.py LINK1 LINK2 -f mp3 -o D:\Music -t 4
-.venv\Scripts\python.exe main.py --dry-run LINK
+Trackhound-cli.exe https://open.spotify.com/album/2noRn2Aes5aoNVsU6iWThc
+Trackhound-cli.exe LINK1 LINK2 -f mp3 -o D:\Music -t 4
+Trackhound-cli.exe --dry-run LINK
 ```
 
 | Параметр | Значение |
@@ -43,6 +50,7 @@
 | `-t`, `--threads` | сколько треков качать одновременно, по умолчанию 3 |
 | `--dry-run` | только показать найденные совпадения |
 | `--cookies-from-browser` | брать cookies из браузера (`chrome`, `edge`, `firefox`…) — для треков с возрастным ограничением |
+| `--check` | версия, пути к ffmpeg и Deno, папка для музыки |
 
 ## Ссылки
 
@@ -86,14 +94,44 @@ YouTube отдаёт аудио примерно 130–160 кбит/с, SoundClo
 2. SoundCloud — там часто выкладываются небольшие артисты, которых нет на YouTube Music;
 3. обычные видео YouTube.
 
-Как только найден уверенный вариант, остальные источники не опрашиваются. Кандидаты оцениваются по названию (с учётом транслитерации кириллицы), исполнителям, длительности и альбому. Live, remix, cover, demo и подобные версии отсеиваются, если этих слов нет в названии на Spotify. Если подходящего варианта нет, трек попадает в список ошибок — случайная запись не скачивается. Если скачанный файл заметно короче трека на Spotify (например, 30-секундное превью SoundCloud Go+), он тоже считается ошибкой. В логе у треков не с YouTube Music указан источник.
+Как только найден уверенный вариант, остальные источники не опрашиваются. Кандидаты оцениваются по названию (с учётом транслитерации кириллицы), исполнителям, длительности и альбому. Live, remix, cover, demo и подобные версии отсеиваются, если этих слов нет в названии на Spotify. Если найденный вариант не скачивается — например, видео закрыто по возрасту, — программа берёт следующего кандидата, при необходимости расширяя поиск на остальные источники. Если подходящего нет совсем, трек попадает в список ошибок: случайная запись не скачивается. Слишком короткий файл (например, 30-секундное превью SoundCloud Go+) тоже считается ошибкой.
 
 ## Если что-то сломалось
 
-- **Ошибки загрузки с YouTube.** Обновите yt-dlp — запустите `install.bat` ещё раз. YouTube меняется часто.
+- **Ошибки загрузки с YouTube.** YouTube меняется часто, а вместе с ним yt-dlp. Обновитесь до свежего релиза Trackhound; при запуске из исходников достаточно ещё раз запустить `install.bat`.
 - **«Spotify изменил формат страницы».** Нужна правка разбора в `trackhound/spotify.py`.
 - **`music.youtube.com` недоступен в сети.** Программа сама переключается на `www.youtube.com`.
 - **Нужен прокси.** Перед запуском задайте переменную окружения в той же консоли: `set HTTPS_PROXY=http://127.0.0.1:1080`.
+
+## Запуск из исходников
+
+Нужны Windows и Python 3.10+; ffmpeg и Deno при этом не входят в комплект — положите `ffmpeg.exe` и `deno.exe` в папку `vendor\` рядом с проектом (`powershell -ExecutionPolicy Bypass -File scripts\fetch-vendor.ps1` скачает их сам) или установите глобально:
+
+```bat
+winget install Gyan.FFmpeg
+winget install DenoLand.Deno
+```
+
+Дальше:
+
+1. `install.bat` — создаёт `.venv` и ставит зависимости.
+2. `run.bat` — открывает окно программы.
+
+Командная строка при запуске из исходников: `.venv\Scripts\python.exe main.py LINK`.
+
+## Сборка exe
+
+```bat
+pip install -r requirements.txt -r requirements-dev.txt
+powershell -ExecutionPolicy Bypass -File scripts\fetch-vendor.ps1
+pyinstaller --noconfirm trackhound.spec
+```
+
+Готовая папка — `dist\Trackhound`. Внутри два exe (`Trackhound.exe` и `Trackhound-cli.exe`) из одного и того же кода: у первого нет консоли, у второго есть. Всё остальное лежит в `_internal`, туда же попадают `bin\ffmpeg.exe` и `bin\deno.exe` из `vendor\`; программа сначала ищет их там и только потом в `PATH`.
+
+Сборка без `vendor\` тоже работает — получится вариант «полегче», который берёт ffmpeg и Deno из системы.
+
+Релиз собирается сам: тег вида `v1.2.3` запускает [`.github/workflows/release.yml`](.github/workflows/release.yml), который проверяет, что тег совпадает с `__version__` в `trackhound/__init__.py`, собирает архив и создаёт черновик релиза. Каждый пуш в `main` проверяется более лёгким [`ci.yml`](.github/workflows/ci.yml) — он собирает то же самое без встроенных ffmpeg и Deno.
 
 ## Устройство
 
@@ -103,8 +141,17 @@ YouTube отдаёт аудио примерно 130–160 кбит/с, SoundClo
 - `trackhound/matcher.py` — поиск и выбор совпадения на YouTube Music, SoundCloud и YouTube
 - `trackhound/downloader.py` — скачивание (yt-dlp), конвертация (ffmpeg), теги (mutagen)
 - `trackhound/gui.py` — окно (pywebview) и связь интерфейса с загрузчиком
-- `trackhound/web/` — интерфейс: `index.html`, `style.css`, `app.js`; шрифт Nunito в `fonts/` (лицензия SIL OFL, `fonts/OFL.txt`)
+- `trackhound/web/` — интерфейс: `index.html`, `style.css`, `app.js`, значок `icon.ico`
 - `trackhound/cli.py`, `main.py` — командная строка и точка входа
+- `trackhound.spec`, `scripts/fetch-vendor.ps1` — сборка exe
+
+## Лицензия
+
+[GPL-2.0-or-later](LICENSE). Программа импортирует mutagen (GPL-2.0-or-later), а это связывание, а не просто соседство файлов, поэтому copyleft распространяется на весь проект.
+
+Остальные зависимости: yt-dlp и yt-dlp-ejs — Unlicense, ytmusicapi — MIT, pywebview — BSD-3-Clause.
+
+В архив релиза кладутся две отдельные программы, каждая под своей лицензией: `ffmpeg.exe` из сборок [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) (GPL, исходники — [ffmpeg.org](https://ffmpeg.org/download.html)) и `deno.exe` из [denoland/deno](https://github.com/denoland/deno) (MIT). Trackhound запускает их как внешние процессы.
 
 ## Важно
 

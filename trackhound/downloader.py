@@ -7,6 +7,7 @@ import importlib.util
 import os
 import re
 import shutil
+import sys
 import threading
 import urllib.error
 import urllib.request
@@ -41,6 +42,32 @@ _RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)
 
 class DownloaderError(Exception):
     pass
+
+
+def tool_dirs() -> list[Path]:
+    """Where a copy of ffmpeg or deno shipped with the program would sit.
+
+    A build made with trackhound.spec keeps them in _internal\\bin; a copy the
+    user drops next to the exe wins over it, and a checkout uses vendor\\ so
+    that running from source behaves the same way.
+    """
+    roots = []
+    if getattr(sys, "frozen", False):
+        roots.append(Path(sys.executable).parent)
+        roots.append(Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)))
+    else:
+        roots.append(Path(__file__).resolve().parent.parent / "vendor")
+    return [folder for root in roots for folder in (root / "bin", root)]
+
+
+def find_tool(name: str) -> str | None:
+    """A copy shipped with the program wins over one installed system-wide."""
+    filename = f"{name}.exe" if os.name == "nt" else name
+    for folder in tool_dirs():
+        candidate = folder / filename
+        if candidate.is_file():
+            return str(candidate)
+    return shutil.which(name)
 
 
 @dataclass
@@ -82,11 +109,11 @@ class Downloader:
         self.events = events or (lambda kind, data: None)
         self.stop_event = stop_event or threading.Event()
         self.matcher = Matcher()
-        self.ffmpeg = shutil.which("ffmpeg")
+        self.ffmpeg = find_tool("ffmpeg")
         # yt-dlp needs a JavaScript runtime to solve YouTube challenges; only
         # deno is enabled by default, node has to be passed explicitly.
         self.js_runtimes = {name: {"path": path} for name in ("deno", "node")
-                            if (path := shutil.which(name))}
+                            if (path := find_tool(name))}
 
     def environment_problems(self) -> list[str]:
         problems = []

@@ -21,3 +21,6 @@ Thumbs.db
 *.log
 downloads/
 output/
+
+# Build: ffmpeg.exe and deno.exe fetched by scripts/fetch-vendor.ps1
+vendor/

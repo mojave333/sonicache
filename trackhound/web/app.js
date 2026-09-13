@@ -52,6 +52,7 @@ const state = {
   run: null, // jobs added since the queue was last idle; the status bar sums them up
   library: { items: [], folder: null, stale: true, loading: false, token: 0 },
   covers: new Map(),
+  update: null, // { version, url } once a newer release is published
 };
 const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -92,6 +93,22 @@ async function init() {
   renderChrome();
   setInterval(renderStatusBar, 1000);
   pollLoop();
+  checkForUpdate();
+}
+
+// Nothing is downloaded or installed here: it only points at the releases page
+async function checkForUpdate() {
+  const release = await api().latest_release();
+  if (!release) return;
+  state.update = release;
+  $("#update-title").textContent = `Доступна версия ${release.version}`;
+  $("#update").hidden = false;
+  $("#update-open").addEventListener("click", () => api().open_url(release.url));
+  renderSettingsDot();
+}
+
+function renderSettingsDot() {
+  $("#settings-dot").hidden = !state.problems.length && !state.update;
 }
 
 /* Settings */
@@ -183,7 +200,7 @@ function renderProblems() {
   const items = () => problems.map((text) => Object.assign(document.createElement("li"), { textContent: text }));
   $("#problems-list").replaceChildren(...items());
   $("#problems").hidden = !problems.length;
-  $("#settings-dot").hidden = !problems.length;
+  renderSettingsDot();
   $("#env-title").textContent = problems.length ? "Не хватает компонентов" : "Всё необходимое установлено";
   $("#env-list").replaceChildren(...(problems.length ? items()
     : [Object.assign(document.createElement("li"), { textContent: "ffmpeg, Deno или Node.js, yt-dlp-ejs" })]));

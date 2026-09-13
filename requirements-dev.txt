@@ -1,0 +1,2 @@
+# Only needed to build the exe; the program itself runs on requirements.txt
+pyinstaller>=6.10
