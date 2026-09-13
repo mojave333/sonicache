@@ -84,7 +84,9 @@ p { margin: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Frame */
-.app { display: grid; grid-template-columns: 56px minmax(0, 1fr); height: 100vh; }
+/* The single row is capped at the window height, so long lists scroll inside
+   .list-scroll instead of stretching the whole frame past the bottom edge. */
+.app { display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100vh; }
 .sidebar {
   display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0;
   background: var(--chrome); border-right: 1px solid var(--divider);
@@ -114,7 +116,7 @@ p { margin: 0; }
   border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--chrome);
 }
 
-.main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; }
+.main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
 .view { display: flex; flex-direction: column; min-height: 0; }
 
 /* Toolbar */
