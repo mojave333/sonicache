@@ -23,12 +23,20 @@ _FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
 log = logging.getLogger("trackhound")
 
 
-def log_dir() -> Path:
-    """%LOCALAPPDATA%\\Trackhound\\logs on Windows, ~/.trackhound/logs elsewhere."""
+def data_dir() -> Path:
+    """Where the program keeps what it writes for itself.
+
+    %LOCALAPPDATA%\\Trackhound on Windows, ~/.trackhound elsewhere. Settings
+    stay in the home folder, where they have always been.
+    """
     if sys.platform == "win32":
         root = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
-        return root / "Trackhound" / "logs"
-    return Path.home() / ".trackhound" / "logs"
+        return root / "Trackhound"
+    return Path.home() / ".trackhound"
+
+
+def log_dir() -> Path:
+    return data_dir() / "logs"
 
 
 def log_file() -> Path:

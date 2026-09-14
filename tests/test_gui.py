@@ -104,6 +104,70 @@ class TestReleaseAge:
         assert gui._release_age("2026.9.20") == 0  # a build from the future is not negative
 
 
+class TestHistory:
+    """What the Downloads list showed has to survive the window closing."""
+
+    @pytest.fixture
+    def data_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(gui.logs, "data_dir", lambda: tmp_path)
+        return tmp_path
+
+    def test_nothing_remembered_yet_reads_as_empty(self, data_dir):
+        assert gui._load_history() == []
+
+    def test_a_broken_file_is_not_fatal(self, data_dir):
+        (data_dir / "history.json").write_text("{ not json", encoding="utf-8")
+        assert gui._load_history() == []
+
+    def test_an_entry_is_saved_and_read_back(self, data_dir):
+        api = gui.Api()
+        api._remember({"job": 1, "link": "https://x.test/a", "state": "queued"})
+        assert gui._load_history() == [{"job": 1, "link": "https://x.test/a", "state": "queued"}]
+
+    def test_the_same_job_is_updated_not_duplicated(self, data_dir):
+        api = gui.Api()
+        api._remember({"job": 1, "link": "https://x.test/a", "state": "queued"})
+        api._remember({"job": 1, "state": "done", "ok": 12})
+        assert gui._load_history() == [
+            {"job": 1, "link": "https://x.test/a", "state": "done", "ok": 12}]
+
+    def test_only_the_last_hundred_are_kept(self, data_dir):
+        api = gui.Api()
+        for number in range(gui.HISTORY_LIMIT + 20):
+            api._remember({"job": number, "state": "done"})
+        history = gui._load_history()
+        assert len(history) == gui.HISTORY_LIMIT
+        assert history[0]["job"] == 20
+
+    def test_job_numbering_carries_on_after_a_restart(self, data_dir):
+        gui.Api()._remember({"job": 7, "state": "done"})
+        assert gui.Api()._job_counter == 7
+
+    def test_what_was_running_comes_back_as_stopped(self, data_dir):
+        api = gui.Api()
+        api._remember({"job": 1, "state": "running"})
+        api._remember({"job": 2, "state": "queued"})
+        api._remember({"job": 3, "state": "done"})
+        states = [entry["state"] for entry in gui.Api().init()["history"]]
+        assert states == ["cancelled", "cancelled", "done"]
+
+    def test_clearing_the_finished_cards_forgets_them(self, data_dir):
+        api = gui.Api()
+        api._remember({"job": 1, "state": "done"})
+        api._remember({"job": 2, "state": "running"})
+        api.forget_history()
+        assert [entry["job"] for entry in gui._load_history()] == [2]
+
+    def test_an_unwritable_folder_costs_the_history_not_the_download(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(gui.logs, "data_dir", lambda: tmp_path / "nope")
+
+        def refuse(*args, **kwargs):
+            raise OSError("read-only")
+
+        monkeypatch.setattr("pathlib.Path.mkdir", refuse)
+        gui.Api()._remember({"job": 1, "state": "done"})  # must not raise
+
+
 class TestLibrary:
     def album(self, root, name, tracks=("01. One.m4a", "02. Two.m4a")):
         folder = root / name

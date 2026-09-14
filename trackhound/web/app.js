@@ -107,6 +107,7 @@ async function init() {
   renderProblems();
   renderSettings();
   bindUi();
+  restoreHistory(data.history || []);
   showView("download");
   renderChrome();
   setInterval(renderStatusBar, 1000);
@@ -512,6 +513,33 @@ function addJob(id, link, dryRun, format) {
   flushRender();
 }
 
+// What the window showed last time: finished releases stay as a history, and
+// anything cut short by closing the window comes back with its retry button.
+function restoreHistory(history) {
+  for (const entry of history) {
+    addJob(entry.job, entry.link, Boolean(entry.dry_run), entry.format || state.settings.format);
+    const job = state.jobs.get(entry.job);
+    job.restored = true;
+    job.state = entry.state === "queued" || entry.state === "running" ? "cancelled" : entry.state;
+    job.title = entry.title || prettyLink(entry.link);
+    job.folder = entry.folder || "";
+    job.message = entry.message || "";
+    job.total = entry.total || 0;
+    job.done = entry.ok === undefined ? 0 : entry.ok + entry.skipped + entry.failed;
+    if (entry.title) {
+      const kind = entry.kind ? entry.kind.charAt(0).toUpperCase() + entry.kind.slice(1) : "";
+      job.sub = [entry.artist, kind, entry.year, entry.service].filter(Boolean).join(" · ");
+    }
+    if (entry.ok !== undefined) {
+      job.result = { ok: entry.ok, skipped: entry.skipped, failed: entry.failed };
+      job.summary = summaryText({ ...job.result, dry_run: job.dryRun });
+      if (entry.failed) job.state = "partial";
+    }
+    if (entry.cover) loadCover($(".cover", job.node), entry.cover);
+    renderJob(job);
+  }
+}
+
 function hasActiveJobs() {
   return [...state.jobs.values()].some((job) => ACTIVE.has(job.state));
 }
@@ -791,6 +819,7 @@ function clearFinished() {
   for (const job of [...state.jobs.values()]) {
     if (!ACTIVE.has(job.state)) removeJob(job, true);
   }
+  api().forget_history(); // cleared here means cleared next time too
   renderChrome();
 }
 

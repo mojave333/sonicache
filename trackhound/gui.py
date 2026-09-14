@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.request
 import webbrowser
 from pathlib import Path
@@ -30,6 +31,7 @@ from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
 SETTINGS_FILE = Path.home() / ".trackhound.json"
+HISTORY_LIMIT = 100  # releases remembered between runs
 REPO = "mojave333/trackhound"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
@@ -50,14 +52,28 @@ class Api:
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._worker: threading.Thread | None = None
-        self._job_counter = 0
+        self._history = _load_history()
+        self._job_counter = max((entry.get("job") or 0 for entry in self._history), default=0)
 
     def init(self) -> dict:
+        # Anything that was still running when the window closed is offered
+        # again rather than silently lost.
+        for entry in self._history:
+            if entry.get("state") in ("queued", "running"):
+                entry["state"] = "cancelled"
         return {
             "version": __version__,
             "settings": _load_settings(),
             "problems": Downloader(Options(DEFAULT_OUTPUT_DIR)).environment_problems(),
+            "history": self._history,
         }
+
+    def forget_history(self) -> None:
+        """Clearing the finished cards clears what is remembered about them."""
+        with self._lock:
+            self._history = [entry for entry in self._history
+                             if entry.get("state") in ("queued", "running")]
+            _save_history(self._history)
 
     def save_settings(self, settings: dict) -> None:
         _save_settings(_normalize(settings))
@@ -81,6 +97,9 @@ class Api:
                 self._job_counter += 1
                 jobs.append({"job": self._job_counter, "link": link})
                 self._jobs.put((self._job_counter, link, options))
+                self._remember({"job": self._job_counter, "link": link, "state": "queued",
+                                "format": settings["format"], "dry_run": settings["dry_run"],
+                                "time": time.time()})
             if self._worker is None:
                 self._worker = threading.Thread(target=self._work, daemon=True)
                 self._worker.start()
@@ -216,8 +235,15 @@ class Api:
     def _run(self, job: int, link: str, options: Options) -> None:
         def emit(**event) -> None:
             self._events.put({"job": job, **event})
+            if event.get("type") == "release":  # the card's title, kept for next time
+                self._remember({"job": job, "link": link, "state": "running", "title": event["title"],
+                                "artist": event["artist"], "kind": event["kind"], "year": event["year"],
+                                "service": event["service"], "album": event["album"],
+                                "cover": event["cover"], "folder": event["folder"],
+                                "total": len(event["tracks"])})
 
         emit(type="job", state="running")
+        self._remember({"job": job, "state": "running"})
         downloader = Downloader(
             options,
             log=lambda message: None,
@@ -230,11 +256,46 @@ class Api:
             report = downloader.download_link(link)
         except Exception as e:  # shown on the card, the next link still runs
             logs.log.exception("ссылка не скачалась: %s", link)
-            emit(type="job", state="error", message=str(e) or type(e).__name__)
+            message = str(e) or type(e).__name__
+            emit(type="job", state="error", message=message)
+            self._remember({"job": job, "state": "error", "message": message})
             return
-        emit(type="job", state="cancelled" if self._stop.is_set() else "done",
-             ok=len(report.ok), skipped=len(report.skipped), failed=len(report.failed),
-             dry_run=options.dry_run)
+        state = "cancelled" if self._stop.is_set() else "done"
+        counts = {"ok": len(report.ok), "skipped": len(report.skipped), "failed": len(report.failed)}
+        emit(type="job", state=state, dry_run=options.dry_run, **counts)
+        self._remember({"job": job, "state": state, "dry_run": options.dry_run, **counts})
+
+
+    def _remember(self, entry: dict) -> None:
+        """Adds to, or updates, what is known about a job, and saves it."""
+        with self._lock:
+            known = next((item for item in self._history if item.get("job") == entry.get("job")), None)
+            if known is None:
+                self._history.append(entry)
+            else:
+                known.update(entry)
+            del self._history[:-HISTORY_LIMIT]
+            _save_history(self._history)
+
+
+def _history_file() -> Path:
+    return logs.data_dir() / "history.json"
+
+
+def _load_history() -> list[dict]:
+    try:
+        data = json.loads(_history_file().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [entry for entry in data if isinstance(entry, dict)] if isinstance(data, list) else []
+
+
+def _save_history(history: list[dict]) -> None:
+    try:
+        _history_file().parent.mkdir(parents=True, exist_ok=True)
+        _history_file().write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass  # a read-only profile costs the history, not the download
 
 
 def _release_age(version: str) -> int:
