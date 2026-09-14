@@ -22,7 +22,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Скачивание альбомов, синглов и треков по ссылке из Spotify, Apple Music, "
                     "YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp.",
     )
-    parser.add_argument("links", nargs="*", help="ссылки на альбомы, плейлисты или треки")
+    parser.add_argument("links", nargs="*",
+                        help="ссылки на альбомы, плейлисты или треки — либо название: «Исполнитель - Альбом»")
     parser.add_argument("-o", "--output", type=Path, default=DEFAULT_OUTPUT_DIR,
                         help=f"папка для музыки (по умолчанию {DEFAULT_OUTPUT_DIR})")
     parser.add_argument("-f", "--format", choices=FORMATS, default="m4a",
@@ -55,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"⚠ {problem}")
         return 0
     if not args.links:
-        parser.error("укажите хотя бы одну ссылку (или --check, чтобы проверить установку)")
+        parser.error("укажите ссылку или название (или --check, чтобы проверить установку)")
 
     for problem in downloader.environment_problems():
         print(f"⚠ {problem}", file=sys.stderr)

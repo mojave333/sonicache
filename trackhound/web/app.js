@@ -445,8 +445,10 @@ async function submitLinks(event) {
   const input = $("#link");
   const raw = input.value.trim();
   // Spotify adds a tracking ?si= parameter; other services keep ids in the query (?v=, ?list=, ?i=)
-  const links = [...new Set((raw.match(LINK_RE) || []).map((link) =>
+  const found = [...new Set((raw.match(LINK_RE) || []).map((link) =>
     link.replace(/^https?:\/\//i, "").replace(/(spotify\.com\/\S*?)\?.*$/, "$1")))];
+  // No link in the field: the text is a name to search for, one release at a time
+  const links = found.length ? found : (raw ? [raw] : []);
   if (!links.length) {
     showLinkError(explainBadLink(raw));
     input.focus();
@@ -465,9 +467,7 @@ async function submitLinks(event) {
 }
 
 function explainBadLink(raw) {
-  if (!raw) return "Вставьте ссылку на альбом, сингл или трек.";
-  return "Не похоже на ссылку. Подойдут ссылки из Spotify, Apple Music, YouTube, SoundCloud и Last.fm: "
-    + "в приложении нажмите «Поделиться» → «Копировать ссылку» и вставьте её сюда.";
+  return "Вставьте ссылку на альбом, сингл или трек — или напишите, что искать: «Исполнитель - Альбом».";
 }
 
 function showLinkError(message) {

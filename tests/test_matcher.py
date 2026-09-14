@@ -50,6 +50,10 @@ class TestSimilarity:
     def test_substring_counts_as_a_near_match(self):
         assert _similarity("one more time", "daft punk one more time") >= 0.85
 
+    def test_a_short_name_inside_a_long_one_is_not_a_match(self):
+        # "Never" is an album of its own, not "Never Gonna Give You Up"
+        assert _similarity("never gonna give you up", "never") < 0.6
+
 
 class TestArtistScore:
     def test_main_artist_found(self):

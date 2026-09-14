@@ -222,8 +222,12 @@ def _similarity(a: str, b: str) -> float:
         return 0.0
     ratio = max(SequenceMatcher(None, a, b).ratio(),
                 SequenceMatcher(None, a.translate(_TRANSLIT), b.translate(_TRANSLIT)).ratio())
+    # One name inside the other is usually the same release with something
+    # appended ("one more time" in "daft punk one more time"). It is not when
+    # the shorter name is a fraction of the longer: "never" sits inside "never
+    # gonna give you up" and is a different song.
     shorter, longer = sorted((f" {a} ", f" {b} "), key=len)
-    if shorter in longer:
+    if shorter in longer and len(shorter) >= 0.5 * len(longer):
         ratio = max(ratio, 0.85)
     return ratio
 

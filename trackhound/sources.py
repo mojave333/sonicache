@@ -42,7 +42,7 @@ def resolve(link: str) -> Release:
     parts = urllib.parse.urlsplit(url)
     host = (parts.hostname or "").lower()
     if "." not in host or " " in link:
-        raise SourceError(f"Не похоже на ссылку: {link}")
+        return search(link)  # a name rather than a link
 
     def on(*domains: str) -> bool:
         return any(host == domain or host.endswith(f".{domain}") for domain in domains)
@@ -380,6 +380,31 @@ def _lastfm_tracklist(url: str, artist: str, album_name: str) -> Release:
     album = Album(id=url, name=album_name, artist=artist, release_date=released.group(1) if released else "",
                   cover_url=cover.group(1) if cover else "", tracks=tracks, service="Last.fm")
     return Release(album, tracks)
+
+
+def search(query: str) -> Release:
+    """A release found by name: "Исполнитель - Альбом", or just a title.
+
+    Typed instead of a link. An album wins over a track of the same name,
+    because a person who means one song usually says so in the title.
+    """
+    query = " ".join(query.split())
+    if not query:
+        raise SourceError("Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»")
+    artist, title = _split_query(query)
+    album = find_album(artist, title, "поиск") if title else None
+    if album:
+        return album
+    return find_track(artist, title or query, "поиск")
+
+
+def _split_query(query: str) -> tuple[str, str]:
+    """Splits "Artist - Title" on the dash people actually type."""
+    for separator in (" - ", " — ", " – ", " -- "):
+        artist, found, title = query.partition(separator)
+        if found and artist.strip() and title.strip():
+            return artist.strip(), title.strip()
+    return "", query
 
 
 # Finding a release by name, for links that carry nothing else

@@ -28,9 +28,11 @@ def split(url):
 
 
 class TestResolveRouting:
-    def test_plain_text_is_not_a_link(self):
-        with pytest.raises(SourceError, match="Не похоже на ссылку"):
-            sources.resolve("Daft Punk Discovery")
+    def test_plain_text_is_searched_for(self, monkeypatch):
+        asked = []
+        monkeypatch.setattr(sources, "search", lambda query: asked.append(query) or "release")
+        assert sources.resolve("Daft Punk Discovery") == "release"
+        assert asked == ["Daft Punk Discovery"]
 
     def test_vk_explains_itself(self):
         with pytest.raises(SourceError, match="VK"):
@@ -48,6 +50,47 @@ class TestResolveRouting:
     def test_a_bare_domain_still_resolves(self, monkeypatch):
         monkeypatch.setattr(sources, "_apple", lambda parts: "apple")
         assert sources.resolve("music.apple.com/us/album/discovery/697194953") == "apple"
+
+
+class TestSearchByName:
+    """Typed instead of a link: "Исполнитель - Альбом"."""
+
+    @pytest.mark.parametrize("query, expected", [
+        ("Daft Punk - Discovery", ("Daft Punk", "Discovery")),
+        ("Кино — Группа крови", ("Кино", "Группа крови")),
+        ("Portishead – Dummy", ("Portishead", "Dummy")),
+        ("Daft Punk -- Discovery", ("Daft Punk", "Discovery")),
+        ("Discovery", ("", "Discovery")),
+        ("AC/DC - Back in Black", ("AC/DC", "Back in Black")),
+        ("Wham! - Last Christmas - Single", ("Wham!", "Last Christmas - Single")),
+    ])
+    def test_the_artist_is_split_off(self, query, expected):
+        assert sources._split_query(query) == expected
+
+    def test_an_album_is_preferred(self, monkeypatch):
+        monkeypatch.setattr(sources, "find_album", lambda artist, title, service: "album")
+        monkeypatch.setattr(sources, "find_track", lambda *a, **k: "track")
+        assert sources.search("Daft Punk - Discovery") == "album"
+
+    def test_a_track_is_the_fallback(self, monkeypatch):
+        monkeypatch.setattr(sources, "find_album", lambda artist, title, service: None)
+        monkeypatch.setattr(sources, "find_track",
+                            lambda artist, title, service, album="": (artist, title, service))
+        assert sources.search("Rick Astley - Never Gonna Give You Up") == (
+            "Rick Astley", "Never Gonna Give You Up", "поиск")
+
+    def test_a_bare_title_is_searched_without_an_artist(self, monkeypatch):
+        asked = []
+        monkeypatch.setattr(sources, "find_album",
+                            lambda artist, title, service: asked.append((artist, title)) or None)
+        monkeypatch.setattr(sources, "find_track",
+                            lambda artist, title, service, album="": (artist, title))
+        assert sources.search("Never Gonna Give You Up") == ("", "Never Gonna Give You Up")
+        assert asked == [("", "Never Gonna Give You Up")]
+
+    def test_an_empty_query_says_what_to_type(self):
+        with pytest.raises(SourceError, match="Исполнитель"):
+            sources.search("   ")
 
 
 class TestApple:
