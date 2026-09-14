@@ -134,6 +134,46 @@ class TestGuards:
         assert [p.name for p in tmp_path.iterdir()] == ["keep.m4a"]
 
 
+class TestPause:
+    """Pausing holds back the next track; what is downloading is left alone."""
+
+    def loader(self, tmp_path, **kwargs):
+        return downloader.Downloader(Options(tmp_path), log=lambda message: None, **kwargs)
+
+    def test_a_fresh_downloader_is_not_paused(self, tmp_path):
+        assert self.loader(tmp_path).resume_event.is_set()
+
+    def test_a_paused_track_waits_before_it_starts(self, tmp_path):
+        import threading
+
+        resume = threading.Event()  # cleared: paused
+        loader = self.loader(tmp_path, resume_event=resume)
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        started = threading.Event()
+        done = threading.Event()
+
+        def run():
+            started.set()
+            loader._process(album(), track, tmp_path, False, None)
+            done.set()
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        started.wait(1)
+        assert not done.wait(0.3)  # still held back
+        loader.stop_event.set()  # let it go without downloading anything
+        assert done.wait(2)
+
+    def test_stopping_releases_a_paused_track(self, tmp_path):
+        import threading
+
+        resume = threading.Event()
+        loader = self.loader(tmp_path, resume_event=resume)
+        loader.stop_event.set()
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        assert loader._process(album(), track, tmp_path, False, None) is None
+
+
 class TestMarker:
     """The album folder keeps the link it came from, for the library to reuse."""
 

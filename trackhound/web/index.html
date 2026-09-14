@@ -20,6 +20,8 @@
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.2 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9.5 6v12M14.5 6v12"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
     <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
@@ -160,6 +162,7 @@
           <span class="list-title">Загрузки</span><span id="jobs-count" class="count"></span>
           <span class="spacer"></span>
           <button type="button" id="clear" class="btn ghost" hidden>Убрать завершённые</button>
+          <button type="button" class="btn ghost pause" hidden aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-pause"/></svg><span>Пауза</span></button>
           <button type="button" class="btn ghost stop" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-stop"/></svg>Остановить</button>
         </div>
         <div class="list-scroll">
@@ -215,6 +218,7 @@
             <button type="button" role="radio" data-filter="problems">Проблемы <span class="count"></span></button>
           </div>
           <span class="spacer"></span>
+          <button type="button" class="btn ghost pause" hidden aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-pause"/></svg><span>Пауза</span></button>
           <button type="button" class="btn ghost stop" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-stop"/></svg>Остановить</button>
         </div>
         <div class="list-head columns queue-grid" aria-hidden="true">
@@ -255,6 +259,31 @@
                   <button type="button" data-step="-1" aria-label="Меньше">−</button>
                   <output id="threads" aria-live="polite">3</output>
                   <button type="button" data-step="1" aria-label="Больше">+</button>
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting-label">
+                  <p><label for="rate">Ограничение скорости</label></p>
+                  <p class="setting-desc">Чтобы загрузка не занимала весь канал</p>
+                </div>
+                <select id="rate" class="select">
+                  <option value="0">Без ограничения</option>
+                  <option value="512000">500 КБ/с</option>
+                  <option value="1048576">1 МБ/с</option>
+                  <option value="2097152">2 МБ/с</option>
+                  <option value="5242880">5 МБ/с</option>
+                  <option value="10485760">10 МБ/с</option>
+                </select>
+              </div>
+              <div class="setting">
+                <div class="setting-label">
+                  <p><label for="proxy">Прокси</label></p>
+                  <p class="setting-desc">Для метаданных и загрузки: <code>http://127.0.0.1:1080</code>
+                    или <code>socks5://127.0.0.1:1080</code>. Пусто — как настроено в системе</p>
+                </div>
+                <div class="field proxy-field">
+                  <input id="proxy" type="text" autocomplete="off" spellcheck="false"
+                         placeholder="http://127.0.0.1:1080" aria-label="Прокси">
                 </div>
               </div>
               <div class="setting">

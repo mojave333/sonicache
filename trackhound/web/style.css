@@ -457,6 +457,7 @@ p { margin: 0; }
   background: var(--field); color: var(--text);
 }
 .select:hover { border-color: var(--border-strong); }
+.proxy-field { flex: none; width: 240px; padding-right: 10px; }
 .stepper {
   display: inline-flex; align-items: center; height: 32px; overflow: hidden;
   border: 1px solid var(--border); border-radius: var(--radius);

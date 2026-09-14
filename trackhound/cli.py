@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 from . import __version__, logs
-from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
+from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options, use_proxy
+
+
+def _rate(value: str, parser: argparse.ArgumentParser) -> int:
+    """"500K", "2M", "1.5m" — bytes per second; empty means no limit."""
+    if not value:
+        return 0
+    m = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*([kmg]?)b?/?s?\s*", value, re.I)
+    if not m:
+        parser.error(f"непонятная скорость: {value}. Примеры: 500K, 2M")
+    scale = {"": 1, "k": 1024, "m": 1024 ** 2, "g": 1024 ** 3}[m.group(2).lower()]
+    return int(float(m.group(1).replace(",", ".")) * scale)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,13 +47,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cookies-from-browser", default="", metavar="БРАУЗЕР",
                         help="брать cookies из браузера (chrome, edge, firefox…): нужно для видео "
                              "с возрастным ограничением")
+    parser.add_argument("--limit-rate", default="", metavar="СКОРОСТЬ",
+                        help="ограничить скорость: 500K, 2M (по умолчанию без ограничения)")
+    parser.add_argument("--proxy", default="", metavar="АДРЕС",
+                        help="прокси для метаданных и загрузки: http://127.0.0.1:1080, socks5://…")
     parser.add_argument("--check", action="store_true",
                         help="показать версию и какие ffmpeg и Deno нашлись, ничего не скачивая")
     args = parser.parse_args(argv)
     logs.setup(console=False)  # warnings already reach the console as text
 
     options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run,
-                      args.cookies_from_browser)
+                      args.cookies_from_browser, _rate(args.limit_rate, parser), args.proxy)
+    use_proxy(options.proxy)
     downloader = Downloader(options, log=lambda message: print(message, flush=True))
 
     if args.check:

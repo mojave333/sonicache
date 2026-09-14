@@ -85,6 +85,9 @@ class Options:
     # Browser to take YouTube cookies from ("chrome", "firefox"...); age-restricted
     # videos are only served to a signed-in account. Empty means no cookies.
     cookies_browser: str = ""
+    # Bytes per second for the whole program, 0 for as fast as it goes
+    rate_limit: int = 0
+    proxy: str = ""  # "http://127.0.0.1:1080", "socks5://…"; empty uses the system settings
 
 
 @dataclass
@@ -107,6 +110,7 @@ class Downloader:
         progress: Callable[[int, int], None] | None = None,
         stop_event: threading.Event | None = None,
         events: Callable[[str, dict], None] | None = None,
+        resume_event: threading.Event | None = None,
     ):
         self.options = options
         self.log = _tee(log)
@@ -114,6 +118,11 @@ class Downloader:
         # structured updates for the window: "release" once, then "track" on every state change
         self.events = events or (lambda kind, data: None)
         self.stop_event = stop_event or threading.Event()
+        # Cleared while paused: tracks already downloading finish, new ones wait.
+        # A caller's event is left as it is — a job started during a pause stays paused.
+        self.resume_event = resume_event or threading.Event()
+        if resume_event is None:
+            self.resume_event.set()
         self.matcher = Matcher()
         self.ffmpeg = find_tool("ffmpeg")
         # yt-dlp needs a JavaScript runtime to solve YouTube challenges; only
@@ -209,6 +218,9 @@ class Downloader:
 
     def _process(self, album: Album, track: Track, folder: Path, single: bool,
                  cover: bytes | None) -> tuple[str, str] | None:
+        while not self.resume_event.wait(timeout=0.5):
+            if self.stop_event.is_set():
+                break  # stopping while paused must not wait for a resume
         if self.stop_event.is_set():
             self._track_event(track, "cancel")
             return None
@@ -331,6 +343,11 @@ class Downloader:
         }
         if self.js_runtimes:
             opts["js_runtimes"] = self.js_runtimes
+        if self.options.rate_limit:
+            # Shared between threads, so the limit is what the program uses in total
+            opts["ratelimit"] = self.options.rate_limit / max(1, self.options.threads)
+        if self.options.proxy:
+            opts["proxy"] = self.options.proxy
         if self.options.cookies_browser and match.source != "soundcloud":
             opts["cookiesfrombrowser"] = (self.options.cookies_browser,)
         if self.ffmpeg:
@@ -414,6 +431,19 @@ def _direct_match(track: Track) -> Match | None:
         return None
     return Match(track.audio_source or "web", track.audio_url, track.audio_url,
                  track.title, track.artists, track.duration, 1.0)
+
+
+def use_proxy(proxy: str) -> None:
+    """Points everything that speaks HTTP at the proxy, or back at the system.
+
+    The metadata comes through urllib and requests, the audio through yt-dlp;
+    all three read these variables, which keeps one setting enough.
+    """
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+        if proxy:
+            os.environ[name] = proxy
+        else:
+            os.environ.pop(name, None)
 
 
 def _write_marker(folder: Path, album: Album, link: str) -> None:

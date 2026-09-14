@@ -18,6 +18,8 @@ class TestNormalize:
             "theme": "system",
             "dry_run": False,
             "cookies_browser": "",
+            "rate_limit": 0,
+            "proxy": "",
             "sidebar": 64,
         }
 
@@ -47,6 +49,47 @@ class TestNormalize:
                                                  ("x", 64)])
     def test_the_side_panel_width_is_clamped(self, given, expected):
         assert gui._normalize({"sidebar": given})["sidebar"] == expected
+
+
+class TestSpeedAndProxy:
+    @pytest.mark.parametrize("given, expected", [
+        (0, 0), (1_048_576, 1_048_576), (5_242_880, 5_242_880),
+        (777, 0),          # not one of the offered speeds
+        ("1048576", 1_048_576),
+        ("fast", 0), (None, 0),
+    ])
+    def test_only_the_offered_speeds_survive(self, given, expected):
+        assert gui._normalize({"rate_limit": given})["rate_limit"] == expected
+
+    @pytest.mark.parametrize("given, expected", [
+        ("http://127.0.0.1:1080", "http://127.0.0.1:1080"),
+        ("socks5://localhost:9050", "socks5://localhost:9050"),
+        ("SOCKS5H://proxy.test:1080", "SOCKS5H://proxy.test:1080"),
+        ("  http://127.0.0.1:1080  ", "http://127.0.0.1:1080"),
+        ("127.0.0.1:1080", ""),        # no scheme: yt-dlp would not take it either
+        ("http://", ""),
+        ("javascript:alert(1)", ""),
+        (None, ""),
+    ])
+    def test_a_proxy_has_to_look_like_an_address(self, given, expected):
+        assert gui._normalize({"proxy": given})["proxy"] == expected
+
+
+class TestProxyEnvironment:
+    def test_setting_a_proxy_fills_the_variables(self, monkeypatch):
+        monkeypatch.delenv("HTTPS_PROXY", raising=False)
+        gui.use_proxy("http://127.0.0.1:1080")
+        import os
+
+        assert os.environ["HTTPS_PROXY"] == "http://127.0.0.1:1080"
+        assert os.environ["http_proxy"] == "http://127.0.0.1:1080"
+
+    def test_clearing_it_takes_them_away(self, monkeypatch):
+        import os
+
+        monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:1080")
+        gui.use_proxy("")
+        assert "HTTPS_PROXY" not in os.environ
 
 
 class TestSettingsFile:

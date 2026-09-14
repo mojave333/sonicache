@@ -11,6 +11,9 @@ const FORMAT_HINTS = {
 
 const VIEWS = ["download", "library", "queue", "settings"];
 
+// What the backend accepts as a proxy; anything else is refused there anyway
+const PROXY_RE = /^(?:https?|socks4|socks5h?):\/\/[^\s/]+$/i;
+
 const TRACK_UI = {
   waiting: { label: "В очереди", icon: "dot", tone: "muted" },
   search: { label: "Ищем", icon: "spinner", tone: "muted" },
@@ -71,6 +74,7 @@ const state = {
   covers: new Map(),
   update: null, // { version, url } once a newer release is published
   diagnostics: null, // log path and yt-dlp version, read once at startup
+  paused: false,
 };
 const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -162,6 +166,8 @@ function renderSettings() {
   folder.setAttribute("aria-label", `Папка для музыки: ${settings.folder}`);
   $("#threads").textContent = settings.threads;
   $("#cookies").value = settings.cookies_browser;
+  $("#rate").value = String(settings.rate_limit);
+  if ($("#proxy") !== document.activeElement) $("#proxy").value = settings.proxy;
   $("#submit-label").textContent = settings.dry_run ? "Проверить" : "Скачать";
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
   renderStatusBar();
@@ -277,11 +283,19 @@ function bindUi() {
   }
 
   $("#cookies").addEventListener("change", (event) => updateSettings({ cookies_browser: event.target.value }));
+  $("#rate").addEventListener("change", (event) => updateSettings({ rate_limit: Number(event.target.value) }));
+  // A proxy is typed rather than picked, so it is taken once the field is left
+  $("#proxy").addEventListener("change", (event) => updateSettings({ proxy: event.target.value.trim() }));
+  $("#proxy").addEventListener("input", (event) => {
+    const value = event.target.value.trim();
+    event.target.closest(".field").classList.toggle("invalid", Boolean(value) && !PROXY_RE.test(value));
+  });
   $("#paste").addEventListener("click", pasteFromClipboard);
   $("#link").addEventListener("input", clearLinkError);
   $("#form").addEventListener("submit", submitLinks);
   bindModeMenu();
   for (const button of $$(".stop")) button.addEventListener("click", stopAll);
+  for (const button of $$(".pause")) button.addEventListener("click", togglePause);
   $("#clear").addEventListener("click", clearFinished);
   $("#status-problems").addEventListener("click", () => showView("settings"));
   $("#log-open").addEventListener("click", () => api().open_logs());
@@ -806,7 +820,25 @@ function setExpanded(job, expanded) {
   toggle.setAttribute("aria-label", expanded ? "Скрыть треки" : "Показать треки");
 }
 
+// Paused means "start nothing new": a track already downloading is finished,
+// so nothing is thrown away and the queue picks up where it stood.
+function togglePause() {
+  setPaused(!state.paused);
+  announce(state.paused ? "Загрузка на паузе" : "Загрузка продолжается");
+}
+
+function setPaused(paused) {
+  state.paused = paused;
+  api().pause(paused);
+  for (const button of $$(".pause")) {
+    button.setAttribute("aria-pressed", String(paused));
+    $("span", button).textContent = paused ? "Продолжить" : "Пауза";
+    $("use", button).setAttribute("href", paused ? "#i-play" : "#i-pause");
+  }
+}
+
 function stopAll() {
+  if (state.paused) setPaused(false); // stopping a paused queue must not hang it
   api().stop();
   for (const job of state.jobs.values()) {
     if (job.state === "running") {
@@ -862,6 +894,8 @@ function renderChrome() {
   $("#empty").hidden = jobs.length > 0;
   $("#jobs-count").textContent = jobs.length || "";
   for (const button of $$(".stop")) button.hidden = !active;
+  for (const button of $$(".pause")) button.hidden = !active;
+  if (!active && state.paused) setPaused(false); // nothing left to hold back
   $("#clear").hidden = !jobs.some((job) => !ACTIVE.has(job.state));
 
   const counts = Object.fromEntries(Object.keys(QUEUE_FILTERS).map((name) => [name, 0]));

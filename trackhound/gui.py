@@ -26,7 +26,8 @@ from pathlib import Path
 import webview
 
 from . import __version__, logs
-from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, MARKER_NAME, Downloader, Options
+from .downloader import (DEFAULT_OUTPUT_DIR, FORMATS, MARKER_NAME, Downloader, Options,
+                         use_proxy)
 
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
@@ -38,6 +39,9 @@ WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 THEMES = ("system", "light", "dark")
 # Browsers yt-dlp can read cookies from; "" means it takes none
 COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera", "vivaldi")
+# Speeds offered in the settings, bytes per second; 0 is no limit
+RATE_LIMITS = (0, 512_000, 1_048_576, 2_097_152, 5_242_880, 10_485_760)
+_PROXY_RE = re.compile(r"^(?:https?|socks4|socks5h?)://[^\s/]+$", re.I)
 AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
@@ -50,6 +54,8 @@ class Api:
         self._events: queue.Queue[dict] = queue.Queue()
         self._jobs: queue.Queue[tuple[int, str, Options]] = queue.Queue()
         self._stop = threading.Event()
+        self._resume = threading.Event()
+        self._resume.set()
         self._lock = threading.Lock()
         self._worker: threading.Thread | None = None
         self._history = _load_history()
@@ -76,7 +82,9 @@ class Api:
             _save_history(self._history)
 
     def save_settings(self, settings: dict) -> None:
-        _save_settings(_normalize(settings))
+        settings = _normalize(settings)
+        use_proxy(settings["proxy"])  # metadata requests start using it at once
+        _save_settings(settings)
 
     def choose_folder(self, current: str) -> str | None:
         start = current if current and Path(current).is_dir() else str(Path.home())
@@ -90,7 +98,8 @@ class Api:
         settings = _normalize(settings)
         _save_settings(settings)
         options = Options(Path(settings["folder"]).expanduser(), settings["format"],
-                          settings["threads"], settings["dry_run"], settings["cookies_browser"])
+                          settings["threads"], settings["dry_run"], settings["cookies_browser"],
+                          settings["rate_limit"], settings["proxy"])
         jobs = []
         with self._lock:
             for link in links:
@@ -105,9 +114,19 @@ class Api:
                 self._worker.start()
         return jobs
 
+    def pause(self, paused: bool) -> bool:
+        """Pauses between tracks: what is downloading finishes, the rest waits."""
+        if paused:
+            self._resume.clear()
+        else:
+            self._resume.set()
+        logs.log.info("пауза" if paused else "продолжаем")
+        return paused
+
     def stop(self) -> None:
         with self._lock:
             self._stop.set()
+            self._resume.set()  # a paused queue still has to be able to stop
             while not self._jobs.empty():
                 job, _, _ = self._jobs.get_nowait()
                 self._events.put({"type": "job", "job": job, "state": "cancelled"})
@@ -250,6 +269,7 @@ class Api:
             progress=lambda done, total: emit(type="progress", done=done, total=total),
             events=lambda kind, data: emit(type=kind, **data),
             stop_event=self._stop,
+            resume_event=self._resume,
         )
         logs.log.info("ссылка: %s", link)
         try:
@@ -398,6 +418,15 @@ def _normalize(settings: dict) -> dict:
         sidebar = min(320, max(64, int(settings.get("sidebar", 64))))
     except (TypeError, ValueError):
         sidebar = 64
+    try:
+        rate_limit = int(settings.get("rate_limit") or 0)
+    except (TypeError, ValueError):
+        rate_limit = 0
+    if rate_limit not in RATE_LIMITS:
+        rate_limit = 0
+    proxy = str(settings.get("proxy") or "").strip()
+    if not _PROXY_RE.match(proxy):
+        proxy = ""
     return {
         "folder": str(settings.get("folder") or DEFAULT_OUTPUT_DIR),
         "format": settings.get("format") if settings.get("format") in FORMATS else "m4a",
@@ -406,6 +435,8 @@ def _normalize(settings: dict) -> dict:
         "dry_run": bool(settings.get("dry_run", False)),
         "cookies_browser": (settings.get("cookies_browser")
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
+        "rate_limit": rate_limit,
+        "proxy": proxy,
         "sidebar": sidebar,  # width of the side panel in pixels, 64 is the icon rail
     }
 
@@ -545,6 +576,7 @@ def _offer_webview2() -> bool:
 
 def main() -> None:
     logs.setup()
+    use_proxy(_load_settings()["proxy"])
     if not _webview2_installed() and not _offer_webview2():
         return
     api = Api()
