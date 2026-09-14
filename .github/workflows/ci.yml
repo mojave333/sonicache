@@ -62,3 +62,12 @@ jobs:
                             "dist/Trackhound/_internal/trackhound/web/app.js", "dist/Trackhound/_internal/trackhound/web/style.css") {
             if (-not (Test-Path $file)) { throw "missing from the build: $file" }
           }
+
+      # So that a broken trackhound.iss shows up here and not on release day
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $found = (Get-Command iscc.exe -ErrorAction SilentlyContinue) -or
+                   (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")
+          if (-not $found) { choco install innosetup --no-progress -y }
+          ./scripts/build-installer.ps1

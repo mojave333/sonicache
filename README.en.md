@@ -8,15 +8,18 @@ Titles, artists, track numbers, the year and the cover come from the page behind
 
 ## Installing
 
-1. Download `Trackhound-vX.Y.Z-windows-x64.zip` from the [Releases](https://github.com/mojave333/trackhound/releases/latest) page.
-2. Unpack it anywhere — `%LOCALAPPDATA%\Trackhound`, for example.
-3. Run `Trackhound.exe`.
+1. Download `Trackhound-vX.Y.Z-windows-x64-setup.exe` from the [Releases](https://github.com/mojave333/trackhound/releases/latest) page.
+2. Run it. The installer asks where to put the program, offers tick boxes for a desktop shortcut and for `Trackhound-cli` on the `PATH`, and finishes by offering to start it.
 
-Nothing else has to be installed: Python, ffmpeg and Deno are inside the archive. Windows 10 or 11, 64-bit; the unpacked folder takes about 320 MB because of the bundled ffmpeg and Deno. On macOS and Linux the program runs from source — see [macOS and Linux](#macos-and-linux).
+No administrator rights are needed: by default the program is installed for you alone, in `%LOCALAPPDATA%\Programs\Trackhound`. An administrator is additionally offered the machine-wide install. It uninstalls like any other program, through Settings → Apps, and asks on the way out whether to delete the settings and the log file (downloaded music is left alone either way).
+
+If you would rather not use an installer, the `Trackhound-vX.Y.Z-windows-x64.zip` archive sits next to it: unpack it anywhere and run `Trackhound.exe`.
+
+Nothing else has to be installed: Python, ffmpeg and Deno are already inside. Windows 10 or 11, 64-bit; the installed folder takes about 320 MB because of the bundled ffmpeg and Deno. On macOS and Linux the program runs from source — see [macOS and Linux](#macos-and-linux).
 
 Three notes about the first run:
 
-- **SmartScreen.** The build is not signed with a certificate, so Windows may show its blue "Windows protected your PC" window. Click "More info" → "Run anyway". Only a certificate from an authority removes that window — a self-signed one does nothing for SmartScreen — and a new signature earns its reputation through downloads. The cheapest option today is Azure Trusted Signing, about $10 a month plus verification of an organisation; a plain OV certificate starts at $200 a year, EV costs more but starts with a reputation.
+- **SmartScreen.** Neither the installer nor the program itself is signed with a certificate, so Windows may show its blue "Windows protected your PC" window. Click "More info" → "Run anyway". Only a certificate from an authority removes that window — a self-signed one does nothing for SmartScreen — and a new signature earns its reputation through downloads. The cheapest option today is Azure Trusted Signing, about $10 a month plus verification of an organisation; a plain OV certificate starts at $200 a year, EV costs more but starts with a reputation.
 - **Antivirus.** Windows Defender sometimes flags `Trackhound.exe` as `Trojan:Win32/Sabsik.EN.D!ml`. The `!ml` suffix means no signature of a known virus matched — machine learning did, on circumstantial evidence, and the evidence against this build is genuinely poor: an unsigned exe that unpacks a bundled Python of several hundred files as it starts. Nearly everything built with PyInstaller gets caught this way. It is a false positive, but while the file sits in quarantine the archive will not finish unpacking and `Trackhound.exe` disappears from the folder right after extraction. To fix it: open Windows Security → Virus & threat protection → Protection history, find the Trackhound entry, expand it, choose "Allow on device", then unpack the archive again. If you would rather check the program than allow it, upload the archive to [VirusTotal](https://www.virustotal.com/) — the other engines stay quiet — and compare its SHA-256 with the one printed in the release notes, using `Get-FileHash Trackhound-v1.0.0-windows-x64.zip`. The detection itself is worth reporting to Microsoft through their [file submission form](https://www.microsoft.com/en-us/wdsi/filesubmission): such a report gets it cleared for everyone, usually within a day or two. The permanent cure is the signature from the note above.
 - **WebView2.** The window is drawn by the Microsoft Edge WebView2 component. Windows 11 always has it and Windows 10 usually does; if it is missing, the program offers to download and install it from Microsoft.
 
@@ -160,13 +163,16 @@ The tests are offline: the Spotify, Apple Music and Last.fm pages come from `tes
 pip install -r requirements.txt -r requirements-dev.txt
 powershell -ExecutionPolicy Bypass -File scripts\fetch-vendor.ps1
 pyinstaller --noconfirm trackhound.spec
+powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
 ```
+
+The last line is optional: it wraps the finished folder into `dist\Trackhound-X.Y.Z-windows-x64-setup.exe`. [Inno Setup 6.3 or newer](https://jrsoftware.org/isdl.php) does the wrapping, following [`trackhound.iss`](trackhound.iss); when it is not installed, the script says which command installs it (`winget install --id JRSoftware.InnoSetup`). The version comes from `trackhound/__init__.py`, so there is nothing to keep in step by hand.
 
 The finished folder is `dist\Trackhound`, holding two exes (`Trackhound.exe` and `Trackhound-cli.exe`) built from the same code: the first has no console, the second has one. Everything else lives in `_internal`, including `bin\ffmpeg.exe` and `bin\deno.exe` from `vendor\`; the program looks there first and only then in `PATH`.
 
 Building without `vendor\` works too and produces a lighter variant that takes ffmpeg and Deno from the system.
 
-Releases build themselves: a `v1.2.3` tag starts [`release.yml`](.github/workflows/release.yml), which checks that the tag matches `__version__` in `trackhound/__init__.py`, builds the archive and creates a draft release.
+Releases build themselves: a `v1.2.3` tag starts [`release.yml`](.github/workflows/release.yml), which checks that the tag matches `__version__` in `trackhound/__init__.py`, builds the archive and the installer, and creates a draft release.
 
 ## How it is put together
 
@@ -182,6 +188,7 @@ Releases build themselves: a `v1.2.3` tag starts [`release.yml`](.github/workflo
 - `trackhound/cli.py`, `main.py` — the command line and the entry point
 - `tests/` — offline tests of the link parsing, the matching and the file names
 - `trackhound.spec`, `scripts/fetch-vendor.ps1` — building the exe
+- `trackhound.iss`, `scripts/build-installer.ps1` — building the installer
 
 ## Licence
 
