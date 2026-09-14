@@ -59,6 +59,10 @@ jobs:
           $name = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "dev" }
           Compress-Archive -Path dist/Trackhound/* -DestinationPath "Trackhound-$name-windows-x64.zip"
           "archive=Trackhound-$name-windows-x64.zip" >> $env:GITHUB_ENV
+          # Published in the release notes: the build is unsigned, so the hash is
+          # the only way a reader can tell a download apart from someone's reupload.
+          $hash = (Get-FileHash "Trackhound-$name-windows-x64.zip" -Algorithm SHA256).Hash.ToLower()
+          "sha256=$hash" >> $env:GITHUB_ENV
 
       - uses: actions/upload-artifact@v4
         with:
@@ -77,3 +81,11 @@ jobs:
             Ничего доустанавливать не нужно: ffmpeg и Deno лежат внутри.
 
             `Trackhound-cli.exe` — та же программа для командной строки.
+
+            Защитник Windows может назвать неподписанную сборку `Trojan:Win32/Sabsik.EN.D!ml`
+            — это ложное срабатывание машинного обучения на любой программе, собранной
+            PyInstaller. Что с ним делать, написано в разделе
+            [«Установка»](https://github.com/mojave333/trackhound#установка).
+
+            SHA-256 архива — `${{ env.sha256 }}`; проверить свою копию можно командой
+            `Get-FileHash ${{ env.archive }}`.
