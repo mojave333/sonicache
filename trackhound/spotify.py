@@ -33,8 +33,6 @@ _NEXT_DATA_RE = re.compile(
 _META_RE = re.compile(r"<meta\s[^>]*>", re.I)
 _ATTR_RE = re.compile(r'([\w:-]+)="([^"]*)"')
 
-SpotifyError = SourceError
-
 
 def parse_link(link: str) -> tuple[str, str]:
     """Return ("album" | "track", id) for a Spotify link or URI."""

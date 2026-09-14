@@ -104,10 +104,6 @@ def ytmusic() -> YTMusic:
 
 
 class Matcher:
-    def find(self, track: Track, album: Album) -> Match | None:
-        matches = self.find_all(track, album)
-        return matches[0] if matches else None
-
     def find_all(self, track: Track, album: Album, exhaustive: bool = False) -> list[Match]:
         """Every candidate good enough to be this track, best first. The next one
         is worth trying when the best refuses to download: age-gated videos,

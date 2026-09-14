@@ -315,32 +315,18 @@ def _save_settings(settings: dict) -> None:
 
 
 def _clipboard_text() -> str:
-    if sys.platform != "win32":
-        return ""
-    import ctypes
-    from ctypes import wintypes
+    """Tk owns a hidden root of its own here: the window itself is WebView2,
+    which gives Python no clipboard of its own to ask."""
+    from tkinter import Tk
 
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    user32.GetClipboardData.restype = wintypes.HANDLE
-    kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
-    kernel32.GlobalLock.restype = wintypes.LPVOID
-    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
-    cf_unicodetext = 13
-
-    if not user32.OpenClipboard(None):
-        return ""
+    root = Tk()
+    root.withdraw()  # created and hidden before it can ever be drawn
     try:
-        handle = user32.GetClipboardData(cf_unicodetext)
-        pointer = kernel32.GlobalLock(handle) if handle else None
-        if not pointer:
-            return ""
-        try:
-            return ctypes.wstring_at(pointer)
-        finally:
-            kernel32.GlobalUnlock(handle)
+        return root.clipboard_get()
+    except Exception:  # empty, or holding something that is not text
+        return ""
     finally:
-        user32.CloseClipboard()
+        root.destroy()
 
 
 def _system_dark() -> bool:
