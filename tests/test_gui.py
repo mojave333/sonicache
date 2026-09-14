@@ -340,4 +340,7 @@ class TestClipboard:
 
     def test_copy_answers_false(self, without_tkinter, monkeypatch):
         monkeypatch.setattr(gui.sys, "platform", "linux")  # the win32 path never reaches Tk
+        # A desktop with neither pbcopy, wl-copy, xclip nor xsel: the runner
+        # this test lands on decides which of them exist, so none of them do.
+        monkeypatch.setattr(gui.shutil, "which", lambda name: None)
         assert gui._copy_to_clipboard("https://open.spotify.com/album/x") is False
