@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -31,6 +32,8 @@ from .models import Album, Track
 from .net import BROWSER_UA
 
 FORMATS = ("m4a", "mp3", "opus")
+# Written into every album folder: where the album came from
+MARKER_NAME = ".trackhound.json"
 DEFAULT_OUTPUT_DIR = Path.home() / "Music" / "Trackhound"
 # A 1000x1000 cover is about a megabyte; past this it is not artwork any more
 MAX_COVER_BYTES = 8 * 1024 * 1024
@@ -162,13 +165,16 @@ class Downloader:
             "tracks": [{"id": t.id, "number": t.track_number, "disc": t.disc_number, "title": t.title,
                         "artists": t.artists, "duration": _mmss(t.duration)} for t in tracks],
         })
-        return self._download_tracks(album, tracks, folder, single)
+        return self._download_tracks(album, tracks, folder, single, link)
 
-    def _download_tracks(self, album: Album, tracks: list[Track], folder: Path, single: bool) -> Report:
+    def _download_tracks(self, album: Album, tracks: list[Track], folder: Path, single: bool,
+                         link: str = "") -> Report:
         report = Report()
         cover = None
         if not self.options.dry_run:
             folder.mkdir(parents=True, exist_ok=True)
+            if not single:
+                _write_marker(folder, album, link)
             cover = self._fetch_cover(album.cover_url)
             if cover and not single and not (folder / "cover.jpg").exists():
                 (folder / "cover.jpg").write_bytes(cover)
@@ -408,6 +414,31 @@ def _direct_match(track: Track) -> Match | None:
         return None
     return Match(track.audio_source or "web", track.audio_url, track.audio_url,
                  track.title, track.artists, track.duration, 1.0)
+
+
+def _write_marker(folder: Path, album: Album, link: str) -> None:
+    """Leaves the link the album came from inside its folder.
+
+    The library reads it to offer the album again — to fill in tracks that
+    failed the first time, or to fetch it in another format — without anybody
+    having to find the link a second time.
+    """
+    if not link:
+        return
+    marker = {
+        "link": link,
+        "artist": album.artist,
+        "album": album.name,
+        "year": album.year,
+        "kind": album.kind,
+        "service": album.service,
+        "tracks": len(album.tracks),
+    }
+    try:
+        (folder / MARKER_NAME).write_text(json.dumps(marker, ensure_ascii=False, indent=2),
+                                          encoding="utf-8")
+    except OSError as e:
+        log.getChild("download").warning("не записал %s: %s", MARKER_NAME, e)
 
 
 def _clear_partials(folder: Path, stem: str) -> None:

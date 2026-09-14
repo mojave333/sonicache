@@ -215,6 +215,30 @@ class TestLibrary:
         item = gui.Api().library(str(tmp_path))[0]
         assert item["cover"] is True and item["tracks"] == 2
 
+    def test_an_album_remembers_the_link_it_came_from(self, tmp_path):
+        folder = self.album(tmp_path, "Daft Punk - Discovery (2001)")
+        (folder / ".trackhound.json").write_text(
+            json.dumps({"link": "https://open.spotify.com/album/x", "tracks": 14}),
+            encoding="utf-8")
+        item = gui.Api().library(str(tmp_path))[0]
+        assert item["link"] == "https://open.spotify.com/album/x"
+        assert item["expected"] == 14
+
+    def test_an_album_from_elsewhere_has_no_link(self, tmp_path):
+        self.album(tmp_path, "Daft Punk - Discovery (2001)")
+        item = gui.Api().library(str(tmp_path))[0]
+        assert item["link"] == "" and item["expected"] == 0
+
+    def test_a_broken_marker_is_ignored(self, tmp_path):
+        folder = self.album(tmp_path, "A - B (2020)")
+        (folder / ".trackhound.json").write_text("{ not json", encoding="utf-8")
+        assert gui.Api().library(str(tmp_path))[0]["link"] == ""
+
+    def test_the_marker_is_not_counted_as_a_track(self, tmp_path):
+        folder = self.album(tmp_path, "A - B (2020)")
+        (folder / ".trackhound.json").write_text("{}", encoding="utf-8")
+        assert gui.Api().library(str(tmp_path))[0]["tracks"] == 2
+
     @pytest.mark.parametrize("name, audio", [
         ("01. Track.m4a", True), ("01. Track.mp3", True), ("01. Track.opus", True),
         ("_part_7.m4a", False), ("cover.jpg", False), ("notes.txt", False),

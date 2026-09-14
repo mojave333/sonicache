@@ -26,7 +26,7 @@ from pathlib import Path
 import webview
 
 from . import __version__, logs
-from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
+from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, MARKER_NAME, Downloader, Options
 
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
@@ -364,7 +364,11 @@ def _library_item(path: Path, files: list[Path]) -> dict:
     album = path.is_dir()
     stats = [file.stat() for file in files]
     match = (_ALBUM_NAME if album else _TRACK_NAME).match(path.name if album else path.stem)
+    marker = _read_marker(path) if album else {}
     return {
+        # The link the album came from, when it was downloaded by this program
+        "link": marker.get("link", ""),
+        "expected": marker.get("tracks") or 0,
         "album": album,
         "title": match["title"] if match else (path.name if album else path.stem),
         "artist": match["artist"] if match else "",
@@ -375,6 +379,14 @@ def _library_item(path: Path, files: list[Path]) -> dict:
         "modified": max(stat.st_mtime for stat in stats),
         "cover": album and (path / "cover.jpg").is_file(),
     }
+
+
+def _read_marker(folder: Path) -> dict:
+    try:
+        data = json.loads((folder / MARKER_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _normalize(settings: dict) -> dict:

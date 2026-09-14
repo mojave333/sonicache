@@ -291,6 +291,7 @@ function bindUi() {
   $("#library-refresh").addEventListener("click", loadLibrary);
   $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
   $("#library-delete").addEventListener("click", deleteSelected);
+  $("#library-again").addEventListener("click", () => downloadAgain(selectedItems()));
   $("#library").addEventListener("click", onLibraryClick);
   for (const button of $$("#view-library .sort")) {
     button.addEventListener("click", () => sortLibraryBy(button.dataset.sort));
@@ -1076,7 +1077,25 @@ function renderSelection() {
     row.setAttribute("aria-selected", String(picked));
   }
   $("#library-delete").hidden = !selected.size;
+  $("#library-again").hidden = !selectedItems().some((item) => item.link);
   renderStatusBar();
+}
+
+function selectedItems() {
+  const { items, selected } = state.library;
+  return items.filter((item) => selected.has(item.path));
+}
+
+// Albums keep the link they came from, so the folder itself can ask for the
+// rest: tracks that failed last time are downloaded, the ones on disk skipped.
+async function downloadAgain(items) {
+  const links = [...new Set(items.map((item) => item.link).filter(Boolean))];
+  if (!links.length) return;
+  const { dry_run: dryRun, format } = state.settings;
+  const jobs = await api().download(links, state.settings);
+  for (const { job, link } of jobs) addJob(job, link, dryRun, format);
+  showView("download");
+  announce(`Добавлено в очередь: ${links.length}`);
 }
 
 async function deleteSelected() {
@@ -1157,6 +1176,12 @@ function createLibraryRow(item) {
   $(".open", row).addEventListener("click", (event) => {
     event.stopPropagation();
     open();
+  });
+  const again = $(".again", row);
+  again.hidden = !item.link; // only albums this program downloaded know their link
+  again.addEventListener("click", (event) => {
+    event.stopPropagation();
+    downloadAgain([item]);
   });
   if (item.cover) coverObserver.observe(row);
   return row;

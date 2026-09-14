@@ -1,5 +1,7 @@
 """File names, error wording and the checks that guard a finished download."""
 
+import json
+
 import pytest
 
 from trackhound import downloader
@@ -130,6 +132,28 @@ class TestGuards:
             (tmp_path / name).write_bytes(b"x")
         _clear_partials(tmp_path, "_part_7")
         assert [p.name for p in tmp_path.iterdir()] == ["keep.m4a"]
+
+
+class TestMarker:
+    """The album folder keeps the link it came from, for the library to reuse."""
+
+    def test_the_link_and_tags_are_written(self, tmp_path):
+        downloader._write_marker(tmp_path, album(), "https://open.spotify.com/album/x")
+        written = json.loads((tmp_path / downloader.MARKER_NAME).read_text(encoding="utf-8"))
+        assert written["link"] == "https://open.spotify.com/album/x"
+        assert written["artist"] == "Daft Punk" and written["album"] == "Discovery"
+        assert written["tracks"] == 2
+
+    def test_nothing_is_written_without_a_link(self, tmp_path):
+        downloader._write_marker(tmp_path, album(), "")
+        assert not (tmp_path / downloader.MARKER_NAME).exists()
+
+    def test_a_folder_that_refuses_to_be_written_is_only_logged(self, tmp_path, monkeypatch):
+        def refuse(*args, **kwargs):
+            raise OSError("read-only")
+
+        monkeypatch.setattr("pathlib.Path.write_text", refuse)
+        downloader._write_marker(tmp_path, album(), "https://x.test/a")  # must not raise
 
 
 class TestDirectMatch:
