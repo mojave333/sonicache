@@ -58,7 +58,8 @@ class Api:
         self._stop = threading.Event()
         self._resume = threading.Event()
         self._resume.set()
-        self._lock = threading.Lock()
+        # Reentrant: download() calls _remember() while already holding this lock
+        self._lock = threading.RLock()
         self._worker: threading.Thread | None = None
         self._history = _load_history()
         self._job_counter = max((entry.get("job") or 0 for entry in self._history), default=0)

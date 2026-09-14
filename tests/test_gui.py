@@ -192,6 +192,26 @@ class TestHistory:
         api._remember({"job": 1, "link": "https://x.test/a", "state": "queued"})
         assert gui._load_history() == [{"job": 1, "link": "https://x.test/a", "state": "queued"}]
 
+    def test_download_does_not_deadlock_on_its_own_lock(self, data_dir, tmp_path, monkeypatch):
+        """download() remembers the queued job while still holding self._lock;
+        _remember() takes the same lock, so it must be reentrant or every
+        download — by link or by name — hangs the window's Download button
+        forever (it never gets back a reply to re-enable itself)."""
+        import threading
+
+        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".trackhound.json")
+        api = gui.Api()
+        monkeypatch.setattr(api, "_work", lambda: None)  # no real network search here
+
+        result = []
+        thread = threading.Thread(
+            target=lambda: result.append(api.download(["Daft Punk - Discovery"], {})))
+        thread.start()
+        thread.join(timeout=5)
+
+        assert not thread.is_alive(), "download() deadlocked instead of returning"
+        assert result and result[0][0]["link"] == "Daft Punk - Discovery"
+
     def test_the_same_job_is_updated_not_duplicated(self, data_dir):
         api = gui.Api()
         api._remember({"job": 1, "link": "https://x.test/a", "state": "queued"})
