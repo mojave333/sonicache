@@ -119,6 +119,14 @@ winget install DenoLand.Deno
 
 Командная строка при запуске из исходников: `.venv\Scripts\python.exe main.py LINK`.
 
+## Тесты
+
+```bat
+.venv\Scripts\python.exe -m pytest
+```
+
+Тесты офлайн: страницы Spotify, Apple Music и Last.fm подставляются из `tests/fixtures`, сеть не опрашивается. Они прикрывают то, что ломается само по себе, — разбор чужой вёрстки, выбор совпадения на YouTube Music и SoundCloud, имена файлов и разбор настроек. Тот же прогон делает [`ci.yml`](.github/workflows/ci.yml) на каждый пуш.
+
 ## Сборка exe
 
 ```bat
@@ -144,6 +152,7 @@ pyinstaller --noconfirm trackhound.spec
 - `trackhound/web/` — интерфейс: `index.html`, `style.css`, `app.js`, значок `icon.ico`
 - `trackhound/cli.py`, `main.py` — командная строка и точка входа
 - `trackhound.spec`, `scripts/fetch-vendor.ps1` — сборка exe
+- `tests/` — офлайн-тесты разбора ссылок, поиска совпадений и имён файлов
 
 ## Лицензия
 

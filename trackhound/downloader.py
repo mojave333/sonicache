@@ -201,11 +201,16 @@ class Downloader:
             self._track_event(track, "cancel")
             return None
         label = f"{track.artists} - {track.title}"
-        target = folder / f"{_safe_name(self._file_stem(album, track, single))}.{self.options.audio_format}"
-        if target.exists() and not self.options.dry_run:
-            self.log(f"= Уже есть: {target.name}")
-            self._track_event(track, "skip")
-            return "skipped", label
+        target = folder / f"{_safe_name(_file_stem(album, track, single))}.{self.options.audio_format}"
+        if not self.options.dry_run:
+            candidates = [target]
+            if legacy := _legacy_stem(album, track, single):
+                candidates.append(folder / f"{_safe_name(legacy)}.{self.options.audio_format}")
+            existing = next((path for path in candidates if path.exists()), None)
+            if existing is not None:
+                self.log(f"= Уже есть: {existing.name}")
+                self._track_event(track, "skip")
+                return "skipped", label
 
         stem = f"_part_{track.id}"
         direct = _direct_match(track)
@@ -271,16 +276,6 @@ class Downloader:
         self.log(f"✓ {target.name}" + ("" if match.source == "song" else f"  ({source})"))
         self._track_event(track, "done", source=source)
         return "ok", label
-
-    def _file_stem(self, album: Album, track: Track, single: bool) -> str:
-        if single:
-            return f"{track.artists} - {track.title}"
-        number = f"{track.track_number:02d}"
-        if album.total_discs > 1:
-            number = f"{track.disc_number}-{number}"
-        if album.artist.casefold() in track.artists.casefold():
-            return f"{number}. {track.title}"
-        return f"{number}. {track.artists} - {track.title}"
 
     def _fetch(self, match: Match, folder: Path, stem: str, track: Track, source: str) -> Path:
         self._track_event(track, "download", source=source, percent=0)
@@ -356,6 +351,30 @@ class Downloader:
         except (urllib.error.URLError, TimeoutError) as e:
             self.log(f"! Обложка не скачалась: {e}")
             return None
+
+
+def _file_stem(album: Album, track: Track, single: bool) -> str:
+    if single:
+        return f"{track.artists} - {track.title}"
+    number = f"{track.track_number:02d}"
+    if album.total_discs > 1:
+        number = f"{track.disc_number}-{number}"
+    # Guests are named: on an album by one artist only their own tracks go unlabelled
+    if not track.artists or track.artists.casefold() == album.artist.casefold():
+        return f"{number}. {track.title}"
+    return f"{number}. {track.artists} - {track.title}"
+
+
+def _legacy_stem(album: Album, track: Track, single: bool) -> str:
+    """How releases before the guest-artist fix were named, so that an album
+    downloaded back then is still recognised as already downloaded."""
+    if single or not album.artist or album.artist.casefold() not in track.artists.casefold():
+        return ""
+    number = f"{track.track_number:02d}"
+    if album.total_discs > 1:
+        number = f"{track.disc_number}-{number}"
+    legacy = f"{number}. {track.title}"
+    return "" if legacy == _file_stem(album, track, single) else legacy
 
 
 def _direct_match(track: Track) -> Match | None:

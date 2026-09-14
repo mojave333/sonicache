@@ -1,2 +1,3 @@
-# Only needed to build the exe; the program itself runs on requirements.txt
+# Only needed to build the exe and run the tests; the program itself runs on requirements.txt
 pyinstaller>=6.10
+pytest>=8.0

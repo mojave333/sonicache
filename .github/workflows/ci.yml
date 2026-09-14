@@ -25,6 +25,9 @@ jobs:
       - name: Compile every module
         run: python -m compileall -q trackhound main.py
 
+      - name: Tests
+        run: python -m pytest -q
+
       - name: Build
         run: pyinstaller --noconfirm trackhound.spec
 
