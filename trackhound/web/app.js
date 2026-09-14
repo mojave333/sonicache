@@ -45,7 +45,7 @@ const ACTIVE = new Set(["queued", "running"]);
 
 // Library columns that can be sorted. Text starts ascending, numbers and dates
 // descending, because that is the useful end of each.
-const COLLATOR = new Intl.Collator("ru", { numeric: true, sensitivity: "base" });
+const COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const LIBRARY_SORTS = {
   title: { dir: 1, value: (item) => `${item.title} ${item.artist}` },
   year: { dir: -1, value: (item) => Number(item.year) || 0 },
@@ -96,7 +96,7 @@ function boot() {
   if (booted) return;
   booted = true;
   init().catch((error) => {
-    state.problems = [`Интерфейс не запустился: ${error}`];
+    state.problems = [t("Интерфейс не запустился: {error}", { error })];
     renderProblems();
   });
 }
@@ -107,6 +107,7 @@ async function init() {
   const data = await api().init();
   state.settings = data.settings;
   state.problems = data.problems;
+  setLanguage(data.language); // translates the markup before anything is drawn
   $("#version").textContent = `v${data.version}`;
   renderProblems();
   renderSettings();
@@ -129,8 +130,10 @@ async function loadDiagnostics() {
   const stale = info.ytdlp_age >= 60;
   $("#ytdlp-title").textContent = `yt-dlp ${info.ytdlp}`;
   $("#ytdlp-desc").textContent = stale
-    ? `Сборке ${info.ytdlp_age} ${plural(info.ytdlp_age, "день", "дня", "дней")} — YouTube за это время обычно успевает смениться. Если загрузки перестали работать, обновите Trackhound`
-    : "Скачиванием занимается yt-dlp; он обновляется вместе с Trackhound";
+    ? t("Сборке {days} {dayWord} — YouTube за это время обычно успевает смениться. "
+        + "Если загрузки перестали работать, обновите Trackhound",
+        { days: info.ytdlp_age, dayWord: plural(info.ytdlp_age, "день", "дня", "дней") })
+    : t("Скачиванием занимается yt-dlp; он обновляется вместе с Trackhound");
   $("#ytdlp-desc").classList.toggle("warn", stale);
   $("#log-path").textContent = info.log;
   $("#log-path").title = info.log;
@@ -141,7 +144,7 @@ async function checkForUpdate() {
   const release = await api().latest_release();
   if (!release) return;
   state.update = release;
-  $("#update-title").textContent = `Доступна версия ${release.version}`;
+  $("#update-title").textContent = t("Доступна версия {version}", { version: release.version });
   $("#update").hidden = false;
   $("#update-open").addEventListener("click", () => api().open_url(release.url));
   renderSettingsDot();
@@ -158,19 +161,20 @@ function renderSettings() {
   applyTheme();
   applySidebar(settings.sidebar);
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
+  syncRadios($("#language"), "data-language", settings.language);
   syncRadios($("#formats"), "data-format", settings.format);
   syncRadios($("#mode-menu"), "data-dry-run", String(settings.dry_run));
   const folder = $("#folder");
   $("#folder-name").textContent = settings.folder.split(/[\\/]+/).filter(Boolean).pop() || settings.folder;
-  folder.title = `${settings.folder}\nНажмите, чтобы выбрать другую папку`;
-  folder.setAttribute("aria-label", `Папка для музыки: ${settings.folder}`);
+  folder.title = t("{folder}\nНажмите, чтобы выбрать другую папку", { folder: settings.folder });
+  folder.setAttribute("aria-label", t("Папка для музыки: {folder}", { folder: settings.folder }));
   $("#threads").textContent = settings.threads;
   $("#cookies").value = settings.cookies_browser;
   $("#rate").value = String(settings.rate_limit);
   $("#track-name").value = settings.track_name;
   $("#folder-name").value = settings.folder_name;
   if ($("#proxy") !== document.activeElement) $("#proxy").value = settings.proxy;
-  $("#submit-label").textContent = settings.dry_run ? "Проверить" : "Скачать";
+  $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
   renderStatusBar();
 }
@@ -182,13 +186,27 @@ function updateSettings(patch) {
   api().save_settings(state.settings);
 }
 
+// Switching the language repaints the markup and redraws everything the
+// script wrote, so nothing is left in the language that was just dropped.
+async function changeLanguage(choice) {
+  updateSettings({ language: choice });
+  setLanguage(await api().set_language(choice));
+  renderSettings();
+  renderProblems();
+  for (const job of state.jobs.values()) renderJob(job);
+  for (const track of state.tracks) renderTrack(track);
+  renderLibrary();
+  renderChrome();
+  if (state.diagnostics) loadDiagnostics();
+}
+
 async function copyReport() {
   const button = $("#log-copy");
   const info = state.diagnostics || await api().diagnostics();
   const copied = await api().copy(info.report);
-  button.textContent = copied ? "Скопировано" : "Не удалось скопировать";
-  announce(copied ? "Отчёт скопирован в буфер обмена" : "Не удалось скопировать отчёт");
-  setTimeout(() => { button.textContent = "Скопировать отчёт"; }, 2000);
+  button.textContent = t(copied ? "Скопировано" : "Не удалось скопировать");
+  announce(t(copied ? "Отчёт скопирован в буфер обмена" : "Не удалось скопировать отчёт"));
+  setTimeout(() => { button.textContent = t("Скопировать отчёт"); }, 2000);
 }
 
 function applyTheme() {
@@ -254,9 +272,11 @@ function renderProblems() {
   $("#problems-list").replaceChildren(...items());
   $("#problems").hidden = !problems.length;
   renderSettingsDot();
-  $("#env-title").textContent = problems.length ? "Не хватает компонентов" : "Всё необходимое установлено";
+  $("#env-title").textContent = t(problems.length ? "Не хватает компонентов"
+                                                  : "Всё необходимое установлено");
   $("#env-list").replaceChildren(...(problems.length ? items()
-    : [Object.assign(document.createElement("li"), { textContent: "ffmpeg, Deno или Node.js, yt-dlp-ejs" })]));
+    : [Object.assign(document.createElement("li"),
+                     { textContent: t("ffmpeg, Deno или Node.js, yt-dlp-ejs") })]));
   $("#env-icon use").setAttribute("href", problems.length ? "#i-alert" : "#i-check");
   $("#env-icon").classList.toggle("warn", problems.length > 0);
   renderStatusBar();
@@ -267,7 +287,7 @@ function bindUi() {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
   bindSidebarResize();
-  for (const button of $$("#formats [data-format]")) button.title = FORMAT_HINTS[button.dataset.format];
+  for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
   radioGroup($("#queue-filter"), "data-filter", setQueueFilter);
@@ -284,6 +304,7 @@ function bindUi() {
     });
   }
 
+  radioGroup($("#language"), "data-language", changeLanguage);
   $("#cookies").addEventListener("change", (event) => updateSettings({ cookies_browser: event.target.value }));
   $("#rate").addEventListener("change", (event) => updateSettings({ rate_limit: Number(event.target.value) }));
   $("#track-name").addEventListener("change", (event) => updateSettings({ track_name: event.target.value }));
@@ -458,7 +479,8 @@ function syncRadios(group, attribute, value) {
 async function pasteFromClipboard() {
   const text = (await api().paste()).trim();
   if (!text) {
-    showLinkError("В буфере обмена пусто. Скопируйте ссылку на альбом или трек: «Поделиться» → «Копировать ссылку».");
+    showLinkError(t("В буфере обмена пусто. Скопируйте ссылку на альбом или трек: "
+    + "«Поделиться» → «Копировать ссылку»."));
     return;
   }
   appendLinks(text);
@@ -498,8 +520,9 @@ async function submitLinks(event) {
   }
 }
 
-function explainBadLink(raw) {
-  return "Вставьте ссылку на альбом, сингл или трек — или напишите, что искать: «Исполнитель - Альбом».";
+function explainBadLink() {
+  return t("Вставьте ссылку на альбом, сингл или трек — или напишите, что искать: "
+    + "«Исполнитель - Альбом».");
 }
 
 function showLinkError(message) {
@@ -527,7 +550,7 @@ function addJob(id, link, dryRun, format) {
     state: "queued", stopping: false, title: prettyLink(link), sub: "", message: "", folder: "",
     done: 0, total: 0, result: null, summary: "", tracks: new Map(), expanded: false,
   };
-  $(".tag", node).textContent = dryRun ? "проверка" : format;
+  $(".tag", node).textContent = dryRun ? t("проверка") : format;
   $(".job-row", node).addEventListener("click", (event) => {
     if (!event.target.closest(".cell-actions") && job.tracks.size) setExpanded(job, !job.expanded);
   });
@@ -599,7 +622,8 @@ function renderJob(job) {
   const finished = !ACTIVE.has(job.state);
   const retry = $(".retry", node);
   retry.hidden = !["error", "cancelled", "partial"].includes(job.state);
-  const retryLabel = job.state === "cancelled" ? (job.total ? "Продолжить" : "Запустить") : "Повторить";
+  const retryLabel = t(job.state === "cancelled" ? (job.total ? "Продолжить" : "Запустить")
+                                                 : "Повторить");
   retry.title = retryLabel;
   retry.setAttribute("aria-label", retryLabel);
   $(".open", node).hidden = !(finished && !job.dryRun && job.folder && job.state !== "error");
@@ -609,25 +633,32 @@ function jobStatus(job) {
   switch (job.state) {
     case "running": {
       if (!job.total) {
-        return { icon: "spinner", tone: "muted", text: job.stopping ? "Останавливаем…" : "Читаем ссылку…", progress: "indeterminate" };
+        return { icon: "spinner", tone: "muted", progress: "indeterminate",
+                 text: t(job.stopping ? "Останавливаем…" : "Читаем ссылку…") };
       }
       const ratio = jobProgress(job);
-      const text = job.stopping ? "Останавливаем…" : `${job.done} из ${job.total} · ${Math.floor(ratio * 100)}%`;
+      const text = job.stopping ? t("Останавливаем…")
+        : t("{done} из {total} · {percent}%",
+            { done: job.done, total: job.total, percent: Math.floor(ratio * 100) });
       return { icon: "spinner", tone: "primary", text, progress: ratio };
     }
     case "done": {
       const { ok, skipped } = job.result;
-      const text = job.dryRun ? "Всё найдено" : !ok && skipped ? "Уже скачано" : "Готово";
+      const text = t(job.dryRun ? "Всё найдено" : !ok && skipped ? "Уже скачано" : "Готово");
       return { icon: "check", tone: "success", text, tip: job.summary };
     }
     case "partial":
-      return { icon: "alert", tone: "warning", text: `${job.dryRun ? "Не найдено" : "Не скачано"}: ${job.result.failed}`, tip: job.summary };
+      return { icon: "alert", tone: "warning", tip: job.summary,
+               text: t(job.dryRun ? "Не найдено: {failed}" : "Не скачано: {failed}",
+                       { failed: job.result.failed }) };
     case "error":
-      return { icon: "alert", tone: "danger", text: "Ошибка", tip: job.message };
+      return { icon: "alert", tone: "danger", text: t("Ошибка"), tip: job.message };
     case "cancelled":
-      return { icon: "stop", tone: "muted", text: job.total ? `Остановлено · ${job.done} из ${job.total}` : "Отменено" };
+      return { icon: "stop", tone: "muted",
+               text: job.total ? t("Остановлено · {done} из {total}",
+                                   { done: job.done, total: job.total }) : t("Отменено") };
     default:
-      return { icon: "dot", tone: "muted", text: "В очереди" };
+      return { icon: "dot", tone: "muted", text: t("В очереди") };
   }
 }
 
@@ -695,7 +726,7 @@ function onJobEvent(job, event) {
   if (event.state === "error") {
     job.state = "error";
     job.message = event.message;
-    announce(`Ошибка: ${event.message}`);
+    announce(t("Ошибка: {message}", { message: event.message }));
   } else if (event.state === "cancelled") {
     job.state = "cancelled";
   } else if (event.state === "done") {
@@ -719,18 +750,24 @@ function onJobEvent(job, event) {
 }
 
 function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
-  if (dryRun) return failed ? `Найдено ${ok} из ${ok + failed} · не найдено: ${failed}` : `Найдены все треки: ${ok}`;
-  if (!ok && !failed && skipped) return "Всё уже было скачано раньше";
-  const parts = [`Скачано ${ok} ${plural(ok, "трек", "трека", "треков")}`];
-  if (skipped) parts.push(`уже были: ${skipped}`);
-  if (failed) parts.push(`не удалось: ${failed}`);
+  if (dryRun) {
+    return failed
+      ? t("Найдено {ok} из {total} · не найдено: {failed}", { ok, total: ok + failed, failed })
+      : t("Найдены все треки: {ok}", { ok });
+  }
+  if (!ok && !failed && skipped) return t("Всё уже было скачано раньше");
+  const parts = [t("Скачано {ok} {trackWord}",
+    { ok, trackWord: plural(ok, "трек", "трека", "треков") })];
+  if (skipped) parts.push(t("уже были: {skipped}", { skipped }));
+  if (failed) parts.push(t("не удалось: {failed}", { failed }));
   return parts.join(" · ");
 }
 
 function onRelease(job, event) {
   Object.assign(job, { folder: event.folder, title: event.title, total: event.tracks.length });
   const kind = event.kind.charAt(0).toUpperCase() + event.kind.slice(1);
-  const fromAlbum = event.kind === "трек" && event.album && event.album !== event.title && `из «${event.album}»`;
+  const fromAlbum = event.kind === t("трек") && event.album && event.album !== event.title
+    && t("из «{album}»", { album: event.album });
   job.sub = [event.artist, kind, fromAlbum, event.year, event.service].filter(Boolean).join(" · ");
   job.note = event.note || ""; // e.g. a playlist page that only gave its first tracks
   if (event.cover) loadCover($(".cover", job.node), event.cover);
@@ -787,6 +824,7 @@ function onTrack(job, event) {
 
 function renderTrack(track) {
   const ui = TRACK_UI[track.state] || TRACK_UI.waiting;
+  const label = t(ui.label);
   const note = trackNote(track);
   const downloading = track.state === "download";
   for (const row of [track.row, track.queueRow]) {
@@ -797,8 +835,8 @@ function renderTrack(track) {
     $(".cell-source", row).textContent = track.source;
     setStatusCell($(".cell-status", row), {
       icon: ui.icon,
-      text: downloading ? `${ui.label} ${track.percent}%` : ui.label,
-      tip: track.state === "skip" ? "Файл уже есть в папке" : "",
+      text: downloading ? `${label} ${track.percent}%` : label,
+      tip: track.state === "skip" ? t("Файл уже есть в папке") : "",
       progress: downloading ? track.percent / 100 : undefined,
     });
   }
@@ -807,8 +845,8 @@ function renderTrack(track) {
 
 function trackNote({ state: name, text }) {
   switch (name) {
-    case "found": return `Найдено: ${text}`;
-    case "missing": return "Нет в открытом доступе на YouTube Music и SoundCloud";
+    case "found": return t("Найдено: {text}", { text });
+    case "missing": return t("Нет в открытом доступе на YouTube Music и SoundCloud");
     case "error": return text;
     default: return "";
   }
@@ -840,7 +878,7 @@ function setExpanded(job, expanded) {
 // so nothing is thrown away and the queue picks up where it stood.
 function togglePause() {
   setPaused(!state.paused);
-  announce(state.paused ? "Загрузка на паузе" : "Загрузка продолжается");
+  announce(t(state.paused ? "Загрузка на паузе" : "Загрузка продолжается"));
 }
 
 function setPaused(paused) {
@@ -923,7 +961,8 @@ function renderChrome() {
     $(".count", button).textContent = counts[button.dataset.filter] || "";
   }
   $("#queue-empty").hidden = counts[state.queueFilter] > 0;
-  $("#queue-empty .empty-title").textContent = state.tracks.length ? QUEUE_EMPTY[state.queueFilter] : QUEUE_EMPTY.all;
+  $("#queue-empty .empty-title").textContent =
+    t(state.tracks.length ? QUEUE_EMPTY[state.queueFilter] : QUEUE_EMPTY.all);
   const badge = $("#queue-badge");
   badge.textContent = counts.active > 99 ? "99+" : counts.active;
   badge.hidden = !counts.active;
@@ -937,15 +976,19 @@ function renderStatusBar() {
   status.textContent = library ? libraryStatus() : statusText();
   status.title = library ? state.settings.folder : "";
   const { format, threads, dry_run: dryRun } = state.settings;
-  $("#status-mode").textContent = `${dryRun ? "только проверка" : format} · ${threads} ${plural(threads, "поток", "потока", "потоков")}`;
+  $("#status-mode").textContent = t("{mode} · {threads} {threadWord}", {
+    mode: dryRun ? t("только проверка") : format,
+    threads,
+    threadWord: plural(threads, "поток", "потока", "потоков"),
+  });
   const problems = $("#status-problems");
   problems.hidden = !state.problems.length;
-  $("span", problems).textContent = `Проблемы: ${state.problems.length}`;
+  $("span", problems).textContent = t("Проблемы: {count}", { count: state.problems.length });
 }
 
 function statusText() {
   const jobs = state.run ? [...state.run.jobs].map((id) => state.jobs.get(id)).filter(Boolean) : [];
-  if (!jobs.length) return "Нет загрузок";
+  if (!jobs.length) return t("Нет загрузок");
   const tracks = jobs.flatMap((job) => [...job.tracks.values()]);
   const finished = tracks.filter((track) => !TRACK_ACTIVE.has(track.state));
   const failed = tracks.filter((track) => TRACK_FAILED.has(track.state)).length;
@@ -954,30 +997,40 @@ function statusText() {
 
   if (jobs.some((job) => ACTIVE.has(job.state))) {
     const queued = jobs.filter((job) => job.state === "queued").length;
-    if (tracks.length) parts.push(`${dryRun ? "Проверено" : "Загружено"} ${finished.length} из ${tracks.length}`);
+    if (tracks.length) {
+      parts.push(t(dryRun ? "Проверено {done} из {total}" : "Загружено {done} из {total}",
+        { done: finished.length, total: tracks.length }));
+    }
     const eta = estimate(tracks, finished);
-    if (eta) parts.push(`осталось ${eta}`);
-    if (failed) parts.push(`${dryRun ? "не найдено" : "не удалось"}: ${failed}`);
-    if (jobs.some((job) => job.state === "running" && !job.total)) parts.push("читаем ссылку…");
-    if (queued) parts.push(`ещё ${queued} ${plural(queued, "ссылка", "ссылки", "ссылок")} в очереди`);
+    if (eta) parts.push(t("осталось {eta}", { eta }));
+    if (failed) parts.push(t(dryRun ? "не найдено: {failed}" : "не удалось: {failed}", { failed }));
+    if (jobs.some((job) => job.state === "running" && !job.total)) parts.push(t("читаем ссылку…"));
+    if (queued) {
+      parts.push(t("ещё {queued} {linkWord} в очереди",
+        { queued, linkWord: plural(queued, "ссылка", "ссылки", "ссылок") }));
+    }
     const text = parts.join(" · ");
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
   const count = (...names) => tracks.filter((track) => names.includes(track.state)).length;
   const errors = jobs.filter((job) => job.state === "error").length;
-  if (jobs.some((job) => job.state === "cancelled")) parts.push("Остановлено");
+  if (jobs.some((job) => job.state === "cancelled")) parts.push(t("Остановлено"));
   if (dryRun && tracks.length) {
-    parts.push(`найдено ${count("found")} из ${tracks.length}`);
+    parts.push(t("найдено {found} из {total}", { found: count("found"), total: tracks.length }));
   } else if (tracks.length) {
     const ok = count("done");
     const skipped = count("skip");
-    parts.push(`скачано ${ok} ${plural(ok, "трек", "трека", "треков")}`);
-    if (skipped) parts.push(`уже были: ${skipped}`);
-    if (failed) parts.push(`не удалось: ${failed}`);
+    parts.push(t("скачано {ok} {trackWord}",
+      { ok, trackWord: plural(ok, "трек", "трека", "треков") }));
+    if (skipped) parts.push(t("уже были: {skipped}", { skipped }));
+    if (failed) parts.push(t("не удалось: {failed}", { failed }));
   }
-  if (errors) parts.push(`${plural(errors, "ссылка", "ссылки", "ссылок")} с ошибкой: ${errors}`);
-  const text = parts.join(" · ") || "Нет загрузок";
+  if (errors) {
+    parts.push(t("{links} с ошибкой: {errors}",
+      { links: plural(errors, "ссылка", "ссылки", "ссылок"), errors }));
+  }
+  const text = parts.join(" · ") || t("Нет загрузок");
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
@@ -988,10 +1041,11 @@ function estimate(tracks, finished) {
   const elapsed = (Date.now() - state.run.workStart) / 1000;
   if (!state.run.workStart || !remaining || worked < 2 || elapsed < 5) return "";
   const seconds = (remaining * elapsed) / worked;
-  if (seconds < 60) return `~${Math.max(5, Math.round(seconds / 5) * 5)} сек`;
+  if (seconds < 60) return t("~{seconds} сек", { seconds: Math.max(5, Math.round(seconds / 5) * 5) });
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `~${minutes} мин`;
-  return `~${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
+  if (minutes < 60) return t("~{minutes} мин", { minutes });
+  return t("~{hours} ч {minutes} мин",
+    { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
 }
 
 /* Library */
@@ -1000,18 +1054,22 @@ function estimate(tracks, finished) {
 // what the folder holds, and what is picked out of it.
 function libraryStatus() {
   const { items, selected, shown, loading } = state.library;
-  if (loading && !items.length) return "Читаем папку…";
+  if (loading && !items.length) return t("Читаем папку…");
   if (selected.size) {
     const size = items.filter((item) => selected.has(item.path)).reduce((total, item) => total + item.size, 0);
-    return `Выбрано: ${selected.size} · ${formatSize(size)}`;
+    return t("Выбрано: {count} · {size}", { count: selected.size, size: formatSize(size) });
   }
-  if (!items.length) return "В папке пока нет музыки";
-  if (shown.length < items.length) return `Найдено: ${shown.length} из ${items.length}`;
+  if (!items.length) return t("В папке пока нет музыки");
+  if (shown.length < items.length) {
+    return t("Найдено: {shown} из {total}", { shown: shown.length, total: items.length });
+  }
   const albums = items.filter((item) => item.album).length;
   const tracks = items.reduce((total, item) => total + item.tracks, 0);
   const size = items.reduce((total, item) => total + item.size, 0);
-  const parts = albums ? [`${albums} ${plural(albums, "альбом", "альбома", "альбомов")}`] : [];
-  parts.push(`${tracks} ${plural(tracks, "трек", "трека", "треков")}`, formatSize(size));
+  const parts = albums ? [t("{albums} {albumWord}",
+    { albums, albumWord: plural(albums, "альбом", "альбома", "альбомов") })] : [];
+  parts.push(t("{tracks} {trackWord}",
+    { tracks, trackWord: plural(tracks, "трек", "трека", "треков") }), formatSize(size));
   return parts.join(" · ");
 }
 
@@ -1038,9 +1096,9 @@ function renderLibrary() {
   const library = state.library;
   const { items, loading, selected } = library;
   const query = $("#library-filter").value.trim();
-  const needle = query.toLocaleLowerCase("ru");
+  const needle = query.toLocaleLowerCase();
   const found = needle
-    ? items.filter((item) => `${item.artist} ${item.title}`.toLocaleLowerCase("ru").includes(needle))
+    ? items.filter((item) => `${item.artist} ${item.title}`.toLocaleLowerCase().includes(needle))
     : items;
   const shown = sortLibrary(found);
   library.shown = shown.map((item) => item.path);
@@ -1056,8 +1114,11 @@ function renderLibrary() {
 
   const empty = $("#library-empty");
   empty.hidden = shown.length > 0;
-  let [title, text] = ["Ничего не найдено", `По запросу «${query}»`];
-  if (!items.length) [title, text] = loading ? ["Читаем папку…", ""] : ["В папке пока нет музыки", state.settings.folder];
+  let [title, text] = [t("Ничего не найдено"), t("По запросу «{query}»", { query })];
+  if (!items.length) {
+    [title, text] = loading ? [t("Читаем папку…"), ""]
+                            : [t("В папке пока нет музыки"), state.settings.folder];
+  }
   $(".empty-title", empty).textContent = title;
   $(".empty-text", empty).textContent = text;
 }
@@ -1207,7 +1268,7 @@ async function downloadAgain(items) {
   const jobs = await api().download(links, state.settings);
   for (const { job, link } of jobs) addJob(job, link, dryRun, format);
   showView("download");
-  announce(`Добавлено в очередь: ${links.length}`);
+  announce(t("Добавлено в очередь: {count}", { count: links.length }));
 }
 
 async function deleteSelected() {
@@ -1217,11 +1278,12 @@ async function deleteSelected() {
   const size = formatSize(chosen.reduce((total, item) => total + item.size, 0));
   const what = chosen.length === 1
     ? `«${chosen[0].title}»`
-    : `${chosen.length} ${plural(chosen.length, "запись", "записи", "записей")}`;
+    : t("{count} {recordWord}",
+        { count: chosen.length, recordWord: plural(chosen.length, "запись", "записи", "записей") });
   const ok = await askConfirm({
-    title: `Удалить ${what}?`,
-    text: `${size} уйдёт в корзину — оттуда файлы можно вернуть.`,
-    action: "Удалить",
+    title: t("Удалить {what}?", { what }),
+    text: t("{size} уйдёт в корзину — оттуда файлы можно вернуть.", { size }),
+    action: t("Удалить"),
   });
   if (!ok) return;
   let result;
@@ -1233,8 +1295,8 @@ async function deleteSelected() {
   }
   clearSelection();
   announce(result.failed.length
-    ? `Не удалось удалить: ${result.failed.join(", ")}`
-    : `Удалено: ${result.deleted}`);
+    ? t("Не удалось удалить: {names}", { names: result.failed.join(", ") })
+    : t("Удалено: {count}", { count: result.deleted }));
   loadLibrary();
 }
 
@@ -1270,11 +1332,12 @@ function createLibraryRow(item) {
   const title = $(".title", row);
   title.textContent = item.title;
   title.title = item.path;
-  $(".sub", row).textContent = item.album ? item.artist : [item.artist, "трек"].filter(Boolean).join(" · ");
+  $(".sub", row).textContent = item.album ? item.artist
+    : [item.artist, t("трек")].filter(Boolean).join(" · ");
   $(".cell-year", row).textContent = item.year;
   $(".cell-count", row).textContent = item.tracks;
   $(".cell-size", row).textContent = formatSize(item.size);
-  $(".cell-date", row).textContent = new Date(item.modified * 1000).toLocaleDateString("ru-RU");
+  $(".cell-date", row).textContent = new Date(item.modified * 1000).toLocaleDateString();
   row.dataset.path = item.path;
   const open = () => api().open_folder(item.path);
   row.addEventListener("dblclick", open);
@@ -1316,22 +1379,17 @@ function loadCover(cover, src) {
 
 function formatSize(bytes) {
   const megabytes = bytes / 1048576;
-  if (megabytes < 1) return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
-  if (megabytes < 1024) return `${Math.round(megabytes)} МБ`;
-  return `${(megabytes / 1024).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} ГБ`;
+  if (megabytes < 1) return t("{value} КБ", { value: Math.max(1, Math.round(bytes / 1024)) });
+  if (megabytes < 1024) return t("{value} МБ", { value: Math.round(megabytes) });
+  return t("{value} ГБ",
+    { value: (megabytes / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 }) });
 }
 
 function prettyLink(link) {
   return link.replace(/^https?:\/\//, "").replace(/\?si=[^&]*$/, "");
 }
 
-function plural(count, one, few, many) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-}
+// plural() and t() come from i18n.js, which is loaded before this file
 
 function announce(text) {
   $("#live").textContent = text;

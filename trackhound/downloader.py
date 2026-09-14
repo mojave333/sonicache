@@ -26,6 +26,7 @@ from mutagen.oggopus import OggOpus
 from yt_dlp.utils import DownloadCancelled
 
 from . import sources
+from .i18n import t
 from .logs import YtdlpLogger, log
 from .matcher import SOURCE_NAMES, Match, Matcher
 from .models import Album, Track
@@ -106,8 +107,9 @@ class Report:
     failed: list[str] = field(default_factory=list)
 
     def summary(self, dry_run: bool = False) -> str:
-        done = "найдено" if dry_run else "скачано"
-        text = f"{done}: {len(self.ok)}, уже было: {len(self.skipped)}, ошибок: {len(self.failed)}"
+        text = t("{done}: {ok}, уже было: {skipped}, ошибок: {failed}",
+                 done=t("найдено") if dry_run else t("скачано"), ok=len(self.ok),
+                 skipped=len(self.skipped), failed=len(self.failed))
         return "\n".join([text, *(f"  ✗ {item}" for item in self.failed)])
 
 
@@ -142,35 +144,40 @@ class Downloader:
     def environment_problems(self) -> list[str]:
         problems = []
         if not self.ffmpeg:
-            problems.append("Не найден ffmpeg: форматы mp3/opus недоступны, m4a может не "
-                            "сохраниться. Установка: winget install Gyan.FFmpeg")
+            problems.append(t("Не найден ffmpeg: форматы mp3/opus недоступны, m4a может не "
+                              "сохраниться. Установка: winget install Gyan.FFmpeg"))
         if not self.js_runtimes:
-            problems.append("Не найден Deno или Node.js 22+: YouTube может не отдавать аудио. "
-                            "Установка: winget install DenoLand.Deno")
+            problems.append(t("Не найден Deno или Node.js 22+: YouTube может не отдавать аудио. "
+                              "Установка: winget install DenoLand.Deno"))
         if importlib.util.find_spec("yt_dlp_ejs") is None:
-            problems.append("Не установлен пакет yt-dlp-ejs: pip install -U yt-dlp-ejs")
+            problems.append(t("Не установлен пакет yt-dlp-ejs: pip install -U yt-dlp-ejs"))
         return problems
 
     def download_link(self, link: str) -> Report:
         if self.options.audio_format not in FORMATS:
-            raise DownloaderError(f"Неизвестный формат: {self.options.audio_format}")
+            raise DownloaderError(t("Неизвестный формат: {format}",
+                                    format=self.options.audio_format))
         if not self.ffmpeg and self.options.audio_format != "m4a" and not self.options.dry_run:
-            raise DownloaderError("Для mp3 и opus нужен ffmpeg (winget install Gyan.FFmpeg)")
+            raise DownloaderError(t("Для mp3 и opus нужен ffmpeg (winget install Gyan.FFmpeg)"))
 
         release = sources.resolve(link)
         album, tracks, single = release.album, release.tracks, release.single
         if single:
             folder = self.options.output_dir
-            details = [album.name != tracks[0].title and f"из «{album.name}»", album.year, album.service]
-            self.log(f"♪ {tracks[0].artists} — {tracks[0].title} ({', '.join(filter(None, details))})")
+            details = [album.name != tracks[0].title and t("из «{album}»", album=album.name),
+                       album.year, album.service]
+            self.log(t("♪ {artist} — {title} ({details})", artist=tracks[0].artists,
+                       title=tracks[0].title, details=", ".join(filter(None, details))))
         else:
             folder = _album_folder(self.options.output_dir, album, self.options.folder_name)
-            self.log(f"♪ {album.artist} — {album.name} ({KINDS.get(album.kind, album.kind)}, "
-                     f"{album.year or 'год неизвестен'}, треков: {len(tracks)}, {album.service})")
+            self.log(t("♪ {artist} — {album} ({kind}, {year}, треков: {tracks}, {service})",
+                       artist=album.artist, album=album.name, kind=t(KINDS.get(album.kind, album.kind)),
+                       year=album.year or t("год неизвестен"), tracks=len(tracks),
+                       service=album.service))
         if album.note:
             self.log(f"! {album.note}")
         self.events("release", {
-            "kind": "трек" if single else KINDS.get(album.kind, album.kind),
+            "kind": t("трек") if single else t(KINDS.get(album.kind, album.kind)),
             "note": album.note,
             "title": tracks[0].title if single else album.name,
             "artist": tracks[0].artists if single else album.artist,
@@ -240,7 +247,7 @@ class Downloader:
                 candidates.append(folder / f"{_safe_name(legacy)}.{self.options.audio_format}")
             existing = next((path for path in candidates if path.exists()), None)
             if existing is not None:
-                self.log(f"= Уже есть: {existing.name}")
+                self.log(t("= Уже есть: {name}", name=existing.name))
                 self._track_event(track, "skip")
                 return "skipped", label
 
@@ -266,14 +273,17 @@ class Downloader:
         try:
             match = direct or next_match()
             if match is None:
-                self.log(f"✗ Не найдено ни на YouTube Music, ни на SoundCloud: {label}")
+                self.log(t("✗ Не найдено ни на YouTube Music, ни на SoundCloud: {label}",
+                           label=label))
                 self._track_event(track, "missing")
-                return "failed", f"{label}: не найдено ни на YouTube Music, ни на SoundCloud"
-            source = SOURCE_NAMES.get(match.source) or album.service
+                return "failed", t("{label}: не найдено ни на YouTube Music, ни на SoundCloud",
+                                   label=label)
+            source = t(SOURCE_NAMES.get(match.source, "")) or album.service
             if self.options.dry_run:
-                self.log(f"? {label}  →  {match.artists} - {match.title} [{source}, "
-                         f"{_mmss(match.duration)} / {_mmss(track.duration)}, оценка {match.score}] "
-                         f"{match.page_url}")
+                self.log(t("? {label}  →  {artists} - {title} [{source}, {got} / {wanted}, "
+                           "оценка {score}] {url}", label=label, artists=match.artists,
+                           title=match.title, source=source, got=_mmss(match.duration),
+                           wanted=_mmss(track.duration), score=match.score, url=match.page_url))
                 self._track_event(track, "found", f"{match.artists} — {match.title}", source)
                 return "ok", label
             while True:
@@ -288,10 +298,11 @@ class Downloader:
                     following = next_match()
                     if following is None:
                         raise
-                    self.log(f"! {label}: не скачалось с {source or 'исходной ссылки'} "
-                             f"({_error_text(e)}), пробую другой источник")
+                    self.log(t("! {label}: не скачалось с {source} ({error}), "
+                               "пробую другой источник", label=label,
+                               source=source or t("исходной ссылки"), error=_error_text(e)))
                     _clear_partials(folder, stem)
-                    match, source = following, SOURCE_NAMES.get(following.source) or album.service
+                    match, source = following, t(SOURCE_NAMES.get(following.source, "")) or album.service
             _write_tags(path, album, track, cover)
             os.replace(path, target)
         except DownloadCancelled:
@@ -322,7 +333,7 @@ class Downloader:
         def on_progress(status: dict) -> None:
             nonlocal reported
             if self.stop_event.is_set():
-                raise DownloadCancelled("остановлено пользователем")
+                raise DownloadCancelled(t("остановлено пользователем"))
             total = status.get("total_bytes") or status.get("total_bytes_estimate")
             if status.get("status") == "downloading" and total:
                 percent = min(99, int(status.get("downloaded_bytes", 0) * 100 / total))
@@ -371,8 +382,9 @@ class Downloader:
 
         path = folder / f"{stem}.{audio_format}"
         if not path.exists():
-            got = ", ".join(p.suffix for p in folder.glob(f"{stem}.*")) or "ничего"
-            raise DownloaderError(f"ожидался файл .{audio_format}, получено: {got}")
+            got = ", ".join(p.suffix for p in folder.glob(f"{stem}.*")) or t("ничего")
+            raise DownloaderError(t("ожидался файл .{format}, получено: {got}",
+                                    format=audio_format, got=got))
         return path
 
     def _track_event(self, track: Track, state: str, text: str = "", source: str = "", **extra) -> None:
@@ -525,7 +537,8 @@ def _check_duration(path: Path, track: Track) -> None:
     audio = MutagenFile(path)
     length = audio.info.length if audio is not None else 0
     if track.duration and 0 < length < track.duration * 0.9 - 2:
-        raise DownloaderError(f"скачался фрагмент {_mmss(length)} вместо {_mmss(track.duration)}")
+        raise DownloaderError(t("скачался фрагмент {got} вместо {expected}",
+                                got=_mmss(length), expected=_mmss(track.duration)))
 
 
 def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> None:

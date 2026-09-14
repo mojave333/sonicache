@@ -27,6 +27,7 @@ from pathlib import Path
 import webview
 
 from . import __version__, logs
+from .i18n import LANGUAGES, set_language, t
 from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                          Downloader, Options, use_proxy)
 
@@ -68,12 +69,18 @@ class Api:
         for entry in self._history:
             if entry.get("state") in ("queued", "running"):
                 entry["state"] = "cancelled"
+        settings = _load_settings()
         return {
             "version": __version__,
-            "settings": _load_settings(),
+            "language": set_language(settings["language"]),  # "system" resolved to ru or en
+            "settings": settings,
             "problems": Downloader(Options(DEFAULT_OUTPUT_DIR)).environment_problems(),
             "history": self._history,
         }
+
+    def set_language(self, setting: str) -> str:
+        """Applies the language and answers with the one actually chosen."""
+        return set_language(setting if setting in LANGUAGES else "system")
 
     def forget_history(self) -> None:
         """Clearing the finished cards clears what is remembered about them."""
@@ -85,6 +92,7 @@ class Api:
     def save_settings(self, settings: dict) -> None:
         settings = _normalize(settings)
         use_proxy(settings["proxy"])  # metadata requests start using it at once
+        set_language(settings["language"])  # errors from now on speak it
         _save_settings(settings)
 
     def choose_folder(self, current: str) -> str | None:
@@ -396,14 +404,15 @@ def _recycle(path: Path) -> None:
             fFlags=_FOF_FLAGS,
         )
         if ctypes.windll.shell32.SHFileOperationW(ctypes.byref(operation)):
-            raise OSError(f"не удалось удалить {path}")
+            raise OSError(t("не удалось удалить {path}", path=path))
         return
 
     if sys.platform == "darwin":
         script = f'tell application "Finder" to delete POSIX file "{path.resolve()}"'
         result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
         if result.returncode:
-            raise OSError(f"не удалось удалить {path}: {result.stderr.strip()}")
+            raise OSError(t("не удалось удалить {path}: {error}",
+                            path=path, error=result.stderr.strip()))
         return
 
     if shutil.which("gio"):
@@ -506,6 +515,8 @@ def _normalize(settings: dict) -> dict:
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
         "rate_limit": rate_limit,
         "proxy": proxy,
+        "language": (settings.get("language")
+                     if settings.get("language") in LANGUAGES else "system"),
         "track_name": (settings.get("track_name")
                        if settings.get("track_name") in TRACK_NAMES else "auto"),
         "folder_name": (settings.get("folder_name")
@@ -658,8 +669,8 @@ def _offer_webview2() -> bool:
 
     agreed = messagebox.askyesno(
         TITLE,
-        "Для окна программы нужен компонент Microsoft Edge WebView2, его нет в системе.\n\n"
-        "Скачать и установить его сейчас? Установщик официальный, с сайта Microsoft.",
+        t("Для окна программы нужен компонент Microsoft Edge WebView2, его нет в системе.\n\n"
+          "Скачать и установить его сейчас? Установщик официальный, с сайта Microsoft."),
     )
     if not agreed:
         return False
@@ -668,15 +679,18 @@ def _offer_webview2() -> bool:
         urllib.request.urlretrieve(WEBVIEW2_SETUP_URL, setup)
         subprocess.run([str(setup)], check=True)
     except Exception as e:  # network, antivirus, cancelled elevation prompt
-        messagebox.showerror(TITLE, f"Не удалось установить WebView2 ({e}).\n\n"
-                                    "Скачайте его вручную: https://go.microsoft.com/fwlink/p/?LinkId=2124703")
+        messagebox.showerror(TITLE, t("Не удалось установить WebView2 ({error}).\n\nСкачайте его "
+                                      "вручную: https://go.microsoft.com/fwlink/p/?LinkId=2124703",
+                                      error=e))
         return False
     return _webview2_installed()
 
 
 def main() -> None:
     logs.setup()
-    use_proxy(_load_settings()["proxy"])
+    settings = _load_settings()
+    set_language(settings["language"])
+    use_proxy(settings["proxy"])
     if not _webview2_installed() and not _offer_webview2():
         return
     api = Api()

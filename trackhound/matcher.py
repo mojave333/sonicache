@@ -13,6 +13,7 @@ import requests
 import yt_dlp
 from ytmusicapi import YTMusic
 
+from .i18n import t
 from .logs import YtdlpLogger
 from .models import Album, Track
 
@@ -174,7 +175,8 @@ def _retry(func, source: str, attempts: int = 3):
         except Exception as e:  # ytmusicapi and yt-dlp raise many unrelated exception types
             if attempt == attempts:
                 message = str(e).removeprefix("ERROR: ")
-                raise SearchError(f"поиск на {source} не удался: {message}") from e
+                raise SearchError(t("поиск на {source} не удался: {error}",
+                                    source=source, error=message)) from e
             time.sleep(2 * attempt)
 
 

@@ -20,6 +20,7 @@ class TestNormalize:
             "cookies_browser": "",
             "rate_limit": 0,
             "proxy": "",
+            "language": "system",
             "track_name": "auto",
             "folder_name": "flat",
             "sidebar": 64,
@@ -75,6 +76,14 @@ class TestSpeedAndProxy:
     ])
     def test_a_proxy_has_to_look_like_an_address(self, given, expected):
         assert gui._normalize({"proxy": given})["proxy"] == expected
+
+
+class TestLanguageSetting:
+    @pytest.mark.parametrize("given, expected", [
+        ("ru", "ru"), ("en", "en"), ("system", "system"), ("de", "system"), (None, "system"),
+    ])
+    def test_only_the_known_languages_survive(self, given, expected):
+        assert gui._normalize({"language": given})["language"] == expected
 
 
 class TestNamingSettings:

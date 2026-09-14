@@ -16,6 +16,7 @@ import re
 import urllib.error
 import urllib.request
 
+from .i18n import t
 from .models import Album, SourceError, Track
 from .net import BROWSER_UA, fetch_text
 
@@ -43,7 +44,8 @@ def parse_link(link: str) -> tuple[str, str]:
         link = _resolve_short_link(link)
     m = _LINK_RE.search(link)
     if not m:
-        raise SourceError(f"Не похоже на ссылку на альбом, трек или плейлист Spotify: {link}")
+        raise SourceError(t("Не похоже на ссылку на альбом, трек или плейлист Spotify: {link}",
+                            link=link))
     return m.group(1) or m.group(2), m.group(3)
 
 
@@ -77,7 +79,7 @@ def fetch_album(album_id: str) -> Album:
             explicit=bool(item.get("isExplicit")),
         ))
     if not tracks:
-        raise SourceError(f"В альбоме {album_id} не найдено треков")
+        raise SourceError(t("В альбоме {id} не найдено треков", id=album_id))
 
     # og:description looks like "Daft Punk · album · 2001 · 14 songs"
     description = _first(meta, "og:description").split(" · ")
@@ -119,16 +121,17 @@ def fetch_playlist(playlist_id: str) -> Album:
             explicit=bool(item.get("isExplicit")),
         ))
     if not tracks:
-        raise SourceError(f"В плейлисте {playlist_id} не найдено треков или он закрыт")
+        raise SourceError(t("В плейлисте {id} не найдено треков или он закрыт",
+                            id=playlist_id))
 
     note = ""
     if len(tracks) >= PLAYLIST_LIMIT:
-        note = (f"Spotify отдаёт по ссылке первые {PLAYLIST_LIMIT} треков плейлиста. "
-                "Если их больше, остальные придётся добавить отдельно")
+        note = t("Spotify отдаёт по ссылке первые {limit} треков плейлиста. Если их больше, "
+                 "остальные придётся добавить отдельно", limit=PLAYLIST_LIMIT)
     return Album(
         id=playlist_id,
         name=entity.get("name") or entity.get("title", ""),
-        artist=_artists(entity.get("subtitle")) or "Разные исполнители",
+        artist=_artists(entity.get("subtitle")) or t("Разные исполнители"),
         kind="playlist",
         cover_url=_first(meta, "og:image") or _embed_cover(entity),
         tracks=tracks,
@@ -192,10 +195,9 @@ def _embed_entity(kind: str, spotify_id: str) -> dict:
     try:
         return json.loads(m.group(1))["props"]["pageProps"]["state"]["data"]["entity"]
     except (AttributeError, KeyError, TypeError, ValueError) as e:
-        raise SourceError(
-            f"Не удалось получить данные Spotify для {kind}/{spotify_id}: "
-            "ссылка неверна или Spotify изменил формат страницы"
-        ) from e
+        raise SourceError(t(
+            "Не удалось получить данные Spotify для {kind}/{id}: ссылка неверна или "
+            "Spotify изменил формат страницы", kind=kind, id=spotify_id)) from e
 
 
 def _meta_tags(kind: str, spotify_id: str) -> list[tuple[str, str]]:
@@ -242,6 +244,7 @@ def _resolve_short_link(link: str) -> str:
                 return resp.geturl()
             body = resp.read().decode("utf-8", "replace")
     except (urllib.error.URLError, TimeoutError) as e:
-        raise SourceError(f"Не удалось открыть короткую ссылку {link}: {e}") from e
+        raise SourceError(t("Не удалось открыть короткую ссылку {link}: {error}",
+                            link=link, error=e)) from e
     m = _LINK_RE.search(body)
     return m.group(0) if m else link

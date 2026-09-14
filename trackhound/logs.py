@@ -15,6 +15,8 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from .i18n import t
+
 LOG_NAME = "trackhound.log"
 _MAX_BYTES = 1_000_000
 _BACKUPS = 2
@@ -86,21 +88,22 @@ def report(settings: dict | None = None, problems: list[str] | None = None,
     parts = [
         f"Trackhound {_version()}",
         f"{platform.platform()}, Python {platform.python_version()}, "
-        f"{'сборка' if getattr(sys, 'frozen', False) else 'из исходников'}",
+        f"{t('сборка') if getattr(sys, 'frozen', False) else t('из исходников')}",
         f"yt-dlp {package_version('yt_dlp')}, ytmusicapi {package_version('ytmusicapi')}",
     ]
     for name, path in (tools or {}).items():
-        parts.append(f"{name}: {path or 'не найден'}")
+        parts.append(f"{name}: {path or t('не найден')}")
     if settings:
-        parts.append("настройки: формат {format}, потоков {threads}, cookies: {cookies}".format(
-            format=settings.get("format"), threads=settings.get("threads"),
-            cookies=settings.get("cookies_browser") or "не используются"))
-        parts.append(f"папка: {settings.get('folder')}")
+        parts.append(t("настройки: формат {format}, потоков {threads}, cookies: {cookies}",
+                       format=settings.get("format"), threads=settings.get("threads"),
+                       cookies=settings.get("cookies_browser") or t("не используются")))
+        parts.append(t("папка: {folder}", folder=settings.get("folder")))
     for problem in problems or []:
-        parts.append(f"проблема: {problem}")
+        parts.append(t("проблема: {problem}", problem=problem))
     recent = tail()
     if recent:
-        parts.append(f"\n--- {log_file()} (последние {len(recent)} строк) ---")
+        parts.append(t("\n--- {path} (последние {lines} строк) ---",
+                       path=log_file(), lines=len(recent)))
         parts.extend(recent)
     return "\n".join(parts)
 
@@ -112,7 +115,7 @@ def package_version(name: str) -> str:
         return version(name)
     except Exception:
         module = sys.modules.get(name)
-        return getattr(module, "__version__", "не установлен")
+        return getattr(module, "__version__", t("не установлен"))
 
 
 def _version() -> str:

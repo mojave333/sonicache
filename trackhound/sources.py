@@ -17,12 +17,14 @@ from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
 
 from . import spotify
+from .i18n import language, t
 from .logs import YtdlpLogger
 from .matcher import _artist_score, _norm, _similarity, ytmusic
 from .models import Album, Release, SourceError, Track
 from .net import fetch_json, fetch_text
 
 SUPPORTED = "Spotify, Apple Music, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp"
+_SUPPORTED_EN = "Spotify, Apple Music, YouTube, SoundCloud, Last.fm and sites such as Bandcamp"
 
 _APPLE_PATH_RE = re.compile(r"^/(?:([a-z]{2})/)?([\w-]+)/(?:[^/]+/)?(?:id)?(\d+)", re.I)
 _APPLE_DATA_RE = re.compile(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', re.S)
@@ -56,10 +58,10 @@ def resolve(link: str) -> Release:
     if on("last.fm", "lastfm.ru"):
         return _lastfm(url, parts)
     if on("vk.com", "vk.ru", "vkontakte.ru"):
-        raise SourceError(
-            "VK показывает музыку только после входа в аккаунт, поэтому альбом по этой ссылке не прочитать. "
-            "Найдите этот релиз в Spotify, Apple Music, YouTube или SoundCloud и вставьте ссылку оттуда."
-        )
+        raise SourceError(t(
+            "VK показывает музыку только после входа в аккаунт, поэтому альбом по этой ссылке "
+            "не прочитать. Найдите этот релиз в Spotify, Apple Music, YouTube или SoundCloud и "
+            "вставьте ссылку оттуда."))
     return _ytdlp(url)
 
 
@@ -84,7 +86,7 @@ def _apple(parts: urllib.parse.SplitResult) -> Release:
         return _apple_playlist(urllib.parse.urlunsplit(parts))
     m = _APPLE_PATH_RE.match(parts.path)
     if not m or m.group(2) not in ("album", "song"):
-        raise SourceError("Из Apple Music поддерживаются ссылки на альбомы, песни и плейлисты")
+        raise SourceError(t("Из Apple Music поддерживаются ссылки на альбомы, песни и плейлисты"))
     country = (m.group(1) or "us").lower()
     song_id = m.group(3) if m.group(2) == "song" else urllib.parse.parse_qs(parts.query).get("i", [""])[0]
     if not song_id:
@@ -92,11 +94,13 @@ def _apple(parts: urllib.parse.SplitResult) -> Release:
 
     songs = _itunes("lookup", id=song_id, country=country)
     if not songs:
-        raise SourceError(f"Apple Music не нашёл песню {song_id}: возможно, её нет в регионе {country.upper()}")
+        raise SourceError(t("Apple Music не нашёл песню {id}: возможно, её нет в регионе {country}",
+                            id=song_id, country=country.upper()))
     release = _apple_album(songs[0]["collectionId"], country)
     track = next((t for t in release.album.tracks if t.id == song_id), None)
     if track is None:
-        raise SourceError(f"Песни {song_id} нет в альбоме «{release.album.name}»")
+        raise SourceError(t("Песни {id} нет в альбоме «{album}»",
+                            id=song_id, album=release.album.name))
     return Release(release.album, [track], single=True)
 
 
@@ -104,8 +108,8 @@ def _apple_album(collection_id: int | str, country: str = "us") -> Release:
     results = _itunes("lookup", id=collection_id, entity="song", country=country, limit=200)
     collection = next((r for r in results if r.get("wrapperType") == "collection"), None)
     if collection is None:
-        raise SourceError(f"Apple Music не нашёл альбом {collection_id}: "
-                          f"возможно, его нет в регионе {country.upper()}")
+        raise SourceError(t("Apple Music не нашёл альбом {id}: возможно, его нет в регионе {country}",
+                            id=collection_id, country=country.upper()))
     songs = [r for r in results if r.get("wrapperType") == "track" and r.get("kind") == "song"]
     tracks = [Track(
         id=str(song["trackId"]),
@@ -117,7 +121,7 @@ def _apple_album(collection_id: int | str, country: str = "us") -> Release:
         explicit=song.get("trackExplicitness") == "explicit",
     ) for number, song in enumerate(songs, 1)]
     if not tracks:
-        raise SourceError(f"В альбоме Apple Music {collection_id} нет доступных песен")
+        raise SourceError(t("В альбоме Apple Music {id} нет доступных песен", id=collection_id))
 
     name, kind = _split_kind(collection.get("collectionName", ""))
     album = Album(
@@ -151,18 +155,18 @@ def _apple_playlist(url: str) -> Release:
         track_number=number,
     ) for number, item in enumerate(items, 1)]
     if not tracks:
-        raise SourceError("В плейлисте Apple Music нет доступных песен")
+        raise SourceError(t("В плейлисте Apple Music нет доступных песен"))
 
     total = header.get("trackCount") or len(tracks)
     note = ""
     if total > len(tracks):
-        note = (f"Страница Apple Music отдаёт первые {len(tracks)} треков из {total}. "
-                "Остальные придётся добавить отдельно")
+        note = t("Страница Apple Music отдаёт первые {shown} треков из {total}. "
+                 "Остальные придётся добавить отдельно", shown=len(tracks), total=total)
     curator = next((link.get("title") for link in header.get("subtitleLinks") or [] if link.get("title")), "")
     album = Album(
         id=url.rstrip("/").rsplit("/", 1)[-1],
-        name=header.get("title") or "Плейлист",
-        artist=curator or "Разные исполнители",
+        name=header.get("title") or t("Плейлист"),
+        artist=curator or t("Разные исполнители"),
         kind="playlist",
         cover_url=_apple_artwork(header.get("artwork")),
         tracks=tracks,
@@ -177,8 +181,8 @@ def _apple_sections(page: str) -> dict[str, dict]:
     try:
         sections = json.loads(m.group(1))["data"][0]["data"]["sections"]
     except (AttributeError, IndexError, KeyError, TypeError, ValueError) as e:
-        raise SourceError("Не удалось прочитать страницу Apple Music: "
-                          "ссылка неверна или страница изменила формат") from e
+        raise SourceError(t("Не удалось прочитать страницу Apple Music: ссылка неверна или "
+                            "страница изменила формат")) from e
     return {section.get("itemKind"): section for section in sections}
 
 
@@ -217,11 +221,11 @@ def _youtube(parts: urllib.parse.SplitResult) -> Release:
         return _youtube_album(path.split("/")[2])
     if query.get("list"):
         return _youtube_playlist(query["list"][0])
-    raise SourceError("Из YouTube поддерживаются ссылки на видео, альбомы и плейлисты")
+    raise SourceError(t("Из YouTube поддерживаются ссылки на видео, альбомы и плейлисты"))
 
 
 def _youtube_album(browse_id: str, audio_items: list[dict] | None = None) -> Release:
-    data = _call_ytmusic(lambda: ytmusic().get_album(browse_id), "альбом")
+    data = _call_ytmusic(lambda: ytmusic().get_album(browse_id), t("альбом"))
     artist = _names(data.get("artists"))
     items = data.get("tracks") or []
     if data.get("audioPlaylistId") and any(item.get("videoType") in _VIDEO_TYPES for item in items):
@@ -234,7 +238,7 @@ def _youtube_album(browse_id: str, audio_items: list[dict] | None = None) -> Rel
         items = [_prefer_audio(item, index, audio_items) for index, item in enumerate(items)]
     tracks = [_youtube_item(item, number, artist) for number, item in enumerate(items, 1)]
     if not tracks:
-        raise SourceError("В альбоме YouTube Music нет треков")
+        raise SourceError(t("В альбоме YouTube Music нет треков"))
     album = Album(
         id=browse_id,
         name=data.get("title", ""),
@@ -249,7 +253,7 @@ def _youtube_album(browse_id: str, audio_items: list[dict] | None = None) -> Rel
 
 
 def _youtube_playlist(playlist_id: str) -> Release:
-    data = _call_ytmusic(lambda: ytmusic().get_playlist(playlist_id, limit=None), "плейлист")
+    data = _call_ytmusic(lambda: ytmusic().get_playlist(playlist_id, limit=None), t("плейлист"))
     items = data.get("tracks") or []
     album_ids = {(item.get("album") or {}).get("id") for item in items}
     if playlist_id.startswith("OLAK5uy_") and len(album_ids) == 1 and None not in album_ids:
@@ -257,12 +261,12 @@ def _youtube_playlist(playlist_id: str) -> Release:
 
     tracks = [_youtube_item(item, number, "") for number, item in enumerate(items, 1)]
     if not tracks:
-        raise SourceError("Плейлист пуст или закрыт")
+        raise SourceError(t("Плейлист пуст или закрыт"))
     author = data.get("author")
     album = Album(
         id=playlist_id,
         name=data.get("title", ""),
-        artist=(author.get("name") if isinstance(author, dict) else author) or "Разные исполнители",
+        artist=(author.get("name") if isinstance(author, dict) else author) or t("Разные исполнители"),
         release_date=data.get("year") or "",
         kind="playlist",
         cover_url=_thumbnail(data.get("thumbnails")),
@@ -273,10 +277,10 @@ def _youtube_playlist(playlist_id: str) -> Release:
 
 
 def _youtube_track(video_id: str) -> Release:
-    data = _call_ytmusic(lambda: ytmusic().get_watch_playlist(video_id, limit=1), "видео")
+    data = _call_ytmusic(lambda: ytmusic().get_watch_playlist(video_id, limit=1), t("видео"))
     item = next((t for t in data.get("tracks") or [] if t.get("videoId") == video_id), None)
     if item is None:
-        raise SourceError(f"YouTube не нашёл видео {video_id}")
+        raise SourceError(t("YouTube не нашёл видео {id}", id=video_id))
     audio_url = f"https://www.youtube.com/watch?v={video_id}"
     audio_source = "video" if item.get("videoType") in _VIDEO_TYPES else "song"
 
@@ -337,7 +341,7 @@ def _call_ytmusic(func, what: str):
     try:
         return func()
     except Exception as e:  # ytmusicapi raises bare exceptions and KeyErrors on unknown ids
-        raise SourceError(f"YouTube Music не отдал {what}: {e}") from e
+        raise SourceError(t("YouTube Music не отдал {what}: {error}", what=what, error=e)) from e
 
 
 # Last.fm: the link already names the artist and the album
@@ -345,7 +349,8 @@ def _call_ytmusic(func, what: str):
 def _lastfm(url: str, parts: urllib.parse.SplitResult) -> Release:
     m = _LASTFM_PATH_RE.search(parts.path)
     if not m or not m.group(2) or m.group(2).startswith("+"):
-        raise SourceError("Из Last.fm поддерживаются ссылки на альбомы и треки, а не на исполнителей")
+        raise SourceError(t("Из Last.fm поддерживаются ссылки на альбомы и треки, "
+                            "а не на исполнителей"))
     artist = urllib.parse.unquote_plus(m.group(1))
     second = urllib.parse.unquote_plus(m.group(2))
     third = urllib.parse.unquote_plus(m.group(3)) if m.group(3) and not m.group(3).startswith("+") else ""
@@ -373,8 +378,9 @@ def _lastfm_tracklist(url: str, artist: str, album_name: str) -> Release:
             track_number=int(position.group(1)) if position else len(tracks) + 1,
         ))
     if not tracks:
-        raise SourceError(f"Не нашёл треки альбома «{album_name}» ({artist}): его нет на YouTube Music "
-                          "и в Apple Music, а на Last.fm у него нет списка треков")
+        raise SourceError(t("Не нашёл треки альбома «{album}» ({artist}): его нет на YouTube Music "
+                            "и в Apple Music, а на Last.fm у него нет списка треков",
+                            album=album_name, artist=artist))
     released = re.search(r"Release Date</dt>\s*<dd[^>]*>[^<]*?(\d{4})", page)
     cover = re.search(r'<meta property="og:image" content="([^"]+)"', page)
     album = Album(id=url, name=album_name, artist=artist, release_date=released.group(1) if released else "",
@@ -390,12 +396,12 @@ def search(query: str) -> Release:
     """
     query = " ".join(query.split())
     if not query:
-        raise SourceError("Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»")
+        raise SourceError(t("Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»"))
     artist, title = _split_query(query)
-    album = find_album(artist, title, "поиск") if title else None
+    album = find_album(artist, title, t("поиск")) if title else None
     if album:
         return album
-    return find_track(artist, title or query, "поиск")
+    return find_track(artist, title or query, t("поиск"))
 
 
 def _split_query(query: str) -> tuple[str, str]:
@@ -455,7 +461,7 @@ def _find_album(artist: str, title: str, service: str) -> Release | None:
 
 def find_track(artist: str, title: str, service: str, album: str = "") -> Release:
     if not title:
-        raise SourceError("В ссылке нет названия трека")
+        raise SourceError(t("В ссылке нет названия трека"))
     query = f"{artist} {title}"
     try:
         songs = ytmusic().search(query, filter="songs", limit=10)
@@ -511,8 +517,9 @@ def _ytdlp(url: str) -> Release:
             track = _protected_track(url, 1, "")  # the audio is looked for elsewhere
             return find_track(track.artists, track.title, "SoundCloud")
         if "Unsupported URL" in message or message.startswith("[generic]"):
-            raise SourceError(f"По этой ссылке не нашлось музыки. Подойдут ссылки из {SUPPORTED}") from e
-        raise SourceError(f"Не удалось открыть ссылку: {message}") from e
+            raise SourceError(t("По этой ссылке не нашлось музыки. Подойдут ссылки из {services}",
+                                services=SUPPORTED if language() == "ru" else _SUPPORTED_EN)) from e
+        raise SourceError(t("Не удалось открыть ссылку: {error}", error=message)) from e
 
     service = _service_name(info, url)
     if info.get("_type") != "playlist":
@@ -531,7 +538,7 @@ def _ytdlp(url: str) -> Release:
     tracks = [_ytdlp_track(detail, number, album_artist) if detail else _protected_track(entry, number, album_artist)
               for number, (entry, detail) in enumerate(zip(urls, details), 1)]
     if not tracks:
-        raise SourceError("Плейлист пуст или закрыт")
+        raise SourceError(t("Плейлист пуст или закрыт"))
     if not all(details):  # some tracks are protected: the same album elsewhere may be fully open
         found = find_album(album_artist, name, service)
         if found:

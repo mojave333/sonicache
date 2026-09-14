@@ -7,6 +7,7 @@ import time
 import urllib.error
 import urllib.request
 
+from .i18n import t
 from .models import SourceError
 
 BROWSER_UA = (
@@ -23,12 +24,13 @@ def fetch_text(url: str, *, service: str, user_agent: str = BROWSER_UA, retries:
                 return resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise SourceError(f"{service} не нашёл страницу: {url}") from e
+                raise SourceError(t("{service} не нашёл страницу: {url}", service=service, url=url)) from e
             if attempt == retries or e.code not in (429, 500, 502, 503, 504):
-                raise SourceError(f"{service} ответил HTTP {e.code}: {url}") from e
+                raise SourceError(t("{service} ответил HTTP {code}: {url}",
+                                    service=service, code=e.code, url=url)) from e
         except (urllib.error.URLError, TimeoutError) as e:
             if attempt == retries:
-                raise SourceError(f"Нет связи с {service}: {e}") from e
+                raise SourceError(t("Нет связи с {service}: {error}", service=service, error=e)) from e
         time.sleep(2 * attempt)
     raise AssertionError("unreachable")
 
@@ -37,4 +39,5 @@ def fetch_json(url: str, *, service: str) -> dict:
     try:
         return json.loads(fetch_text(url, service=service))
     except ValueError as e:
-        raise SourceError(f"{service} вернул непонятный ответ: {url}") from e
+        raise SourceError(t("{service} вернул непонятный ответ: {url}",
+                            service=service, url=url)) from e
