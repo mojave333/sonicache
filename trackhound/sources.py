@@ -16,7 +16,8 @@ from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
 
 from . import spotify
-from .matcher import SilentLogger, _artist_score, _norm, _similarity, ytmusic
+from .logs import YtdlpLogger
+from .matcher import _artist_score, _norm, _similarity, ytmusic
 from .models import Album, Release, SourceError, Track
 from .net import fetch_json, fetch_text
 
@@ -27,7 +28,7 @@ _LASTFM_PATH_RE = re.compile(r"/music/([^/?#]+)(?:/([^/?#]+))?(?:/([^/?#]+))?")
 _LASTFM_ROW_RE = re.compile(r'<tr\s+class="\s*chartlist-row.*?</tr>', re.S)
 # Music videos and user uploads, as opposed to official audio tracks
 _VIDEO_TYPES = {"MUSIC_VIDEO_TYPE_UGC", "MUSIC_VIDEO_TYPE_OMV", "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"}
-_YTDLP_OPTS = {"quiet": True, "no_warnings": True, "skip_download": True, "logger": SilentLogger()}
+_YTDLP_OPTS = {"quiet": True, "no_warnings": True, "skip_download": True, "logger": YtdlpLogger("sources")}
 _SERVICE_NAMES = {"soundcloud": "SoundCloud", "bandcamp": "Bandcamp", "mixcloud": "Mixcloud"}
 
 
@@ -322,8 +323,25 @@ def _lastfm_tracklist(url: str, artist: str, album_name: str) -> Release:
 
 # Finding a release by name, for links that carry nothing else
 
+def _try(func):
+    """The release, or None when the catalogue refuses to open it."""
+    try:
+        return func()
+    except SourceError:
+        return None
+
+
 def find_album(artist: str, title: str, service: str) -> Release | None:
-    """The album on YouTube Music (with audio) or Apple Music (tags only)."""
+    """The album on YouTube Music (with audio) or Apple Music (tags only).
+
+    None also covers the case where a catalogue matched the name but then
+    refused to hand over the release: every caller has a fallback of its own,
+    and letting the refusal through as an exception would skip it.
+    """
+    return _try(lambda: _find_album(artist, title, service))
+
+
+def _find_album(artist: str, title: str, service: str) -> Release | None:
     query = f"{artist} {title}"
     try:
         results = ytmusic().search(query, filter="albums", limit=10)
@@ -359,9 +377,12 @@ def find_track(artist: str, title: str, service: str, album: str = "") -> Releas
         songs = []
     best = _best(songs, title, artist, lambda r: (r.get("title", ""), _names(r.get("artists"))))
     if best and best.get("videoId"):
-        release = _youtube_track(best["videoId"])
-        release.album.service = service
-        return release
+        # A catalogue that matched the name but will not open the release is
+        # no better than no match: the searches below still have a chance.
+        release = _try(lambda: _youtube_track(best["videoId"]))
+        if release:
+            release.album.service = service
+            return release
 
     try:
         songs = _itunes("search", term=query, entity="song", limit=10)
@@ -369,8 +390,8 @@ def find_track(artist: str, title: str, service: str, album: str = "") -> Releas
         songs = []
     best = _best(songs, title, artist, lambda r: (r.get("trackName", ""), r.get("artistName", "")))
     if best:
-        release = _apple_album(best["collectionId"])
-        track = next((t for t in release.album.tracks if t.id == str(best["trackId"])), None)
+        release = _try(lambda: _apple_album(best["collectionId"]))
+        track = next((t for t in release.album.tracks if t.id == str(best["trackId"])), None) if release else None
         if track:
             release.album.service = service
             return Release(release.album, [track], single=True)

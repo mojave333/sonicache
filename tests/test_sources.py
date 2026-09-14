@@ -111,6 +111,73 @@ class TestLastfm:
             sources._lastfm("https://www.last.fm/music/Daft+Punk",
                             split("https://www.last.fm/music/Daft+Punk"))
 
+    def test_a_refusing_catalogue_still_leaves_the_page(self, monkeypatch):
+        """The album matches on YouTube Music but its page will not open: the
+        tracklist on the Last.fm page itself is the whole point of the fallback."""
+        page = (FIXTURES / "lastfm_album.html").read_text(encoding="utf-8")
+        monkeypatch.setattr(sources, "fetch_text", lambda url, **kwargs: page)
+        monkeypatch.setattr(sources, "ytmusic", lambda: Catalogue(
+            [{"browseId": "MPREb_x", "title": "Discovery", "artists": [{"name": "Daft Punk"}]}]))
+        monkeypatch.setattr(sources, "_youtube_album", refuses("YouTube Music не отдал альбом"))
+        release = sources._lastfm("https://www.last.fm/music/Daft+Punk/Discovery",
+                                  split("https://www.last.fm/music/Daft+Punk/Discovery"))
+        assert [t.title for t in release.tracks] == ["One More Time", "Aerodynamic", "Digital Love & More"]
+        assert release.album.service == "Last.fm"
+
+
+class Catalogue:
+    """A YouTube Music client whose search always answers the same way."""
+
+    def __init__(self, results):
+        self.results = results
+
+    def search(self, *args, **kwargs):
+        return self.results
+
+
+def refuses(message):
+    def refuse(*args, **kwargs):
+        raise SourceError(message)
+
+    return refuse
+
+
+class TestCatalogueRefusals:
+    """A catalogue that matches a name and then will not open the release must
+    read as "not found", so that the caller's own fallback still gets its turn."""
+
+    def test_find_album_answers_none(self, monkeypatch):
+        monkeypatch.setattr(sources, "ytmusic", lambda: Catalogue(
+            [{"browseId": "MPREb_x", "title": "Discovery", "artists": [{"name": "Daft Punk"}]}]))
+        monkeypatch.setattr(sources, "_youtube_album", refuses("YouTube Music не отдал альбом"))
+        assert sources.find_album("Daft Punk", "Discovery", "Last.fm") is None
+
+    def test_find_album_answers_none_for_apple_too(self, monkeypatch):
+        monkeypatch.setattr(sources, "ytmusic", lambda: Catalogue([]))
+        monkeypatch.setattr(sources, "_itunes", lambda *a, **k: [
+            {"collectionId": 697194953, "collectionName": "Discovery", "artistName": "Daft Punk"}])
+        monkeypatch.setattr(sources, "_apple_album", refuses("Apple Music не нашёл альбом"))
+        assert sources.find_album("Daft Punk", "Discovery", "Last.fm") is None
+
+    def test_find_track_falls_back_to_the_name(self, monkeypatch):
+        monkeypatch.setattr(sources, "ytmusic", lambda: Catalogue(
+            [{"videoId": "abc", "title": "One More Time", "artists": [{"name": "Daft Punk"}]}]))
+        monkeypatch.setattr(sources, "_youtube_track", refuses("YouTube не нашёл видео abc"))
+        monkeypatch.setattr(sources, "_itunes", lambda *a, **k: [])
+        release = sources.find_track("Daft Punk", "One More Time", "Last.fm")
+        assert release.single
+        assert release.tracks[0].title == "One More Time"
+        assert release.album.service == "Last.fm"
+
+    def test_find_track_survives_a_refusing_apple_album(self, monkeypatch):
+        monkeypatch.setattr(sources, "ytmusic", lambda: Catalogue([]))
+        monkeypatch.setattr(sources, "_itunes", lambda *a, **k: [
+            {"collectionId": 697194953, "trackId": 697195045,
+             "trackName": "One More Time", "artistName": "Daft Punk"}])
+        monkeypatch.setattr(sources, "_apple_album", refuses("Apple Music не нашёл альбом"))
+        release = sources.find_track("Daft Punk", "One More Time", "Last.fm")
+        assert release.tracks[0].title == "One More Time"
+
 
 class TestBest:
     def fields(self, result):
