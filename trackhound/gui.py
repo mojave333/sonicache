@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import ctypes
+import datetime
 import json
 import os
 import queue
@@ -23,7 +24,7 @@ from pathlib import Path
 
 import webview
 
-from . import __version__
+from . import __version__, logs
 from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
 
 TITLE = "Trackhound"
@@ -139,6 +140,27 @@ class Api:
                 failed.append(path.name)
         return {"deleted": len(paths) - len(failed), "failed": failed}
 
+    def diagnostics(self) -> dict:
+        """Where the log is and what a bug report should say."""
+        downloader = Downloader(Options(DEFAULT_OUTPUT_DIR))
+        tools = {"ffmpeg": downloader.ffmpeg or "",
+                 **{name: runtime["path"] for name, runtime in downloader.js_runtimes.items()}}
+        ytdlp = logs.package_version("yt_dlp")
+        return {
+            "log": str(logs.log_file()),
+            "exists": logs.log_file().exists(),
+            "report": logs.report(_load_settings(), downloader.environment_problems(), tools),
+            "ytdlp": ytdlp,
+            "ytdlp_age": _release_age(ytdlp),
+        }
+
+    def open_logs(self) -> bool:
+        logs.log_dir().mkdir(parents=True, exist_ok=True)
+        return self.open_folder(str(logs.log_file() if logs.log_file().exists() else logs.log_dir()))
+
+    def copy(self, text: str) -> bool:
+        return _copy_to_clipboard(text)
+
     def latest_release(self) -> dict | None:
         """The newest published version, or None when this one is current.
 
@@ -203,14 +225,32 @@ class Api:
             events=lambda kind, data: emit(type=kind, **data),
             stop_event=self._stop,
         )
+        logs.log.info("ссылка: %s", link)
         try:
             report = downloader.download_link(link)
         except Exception as e:  # shown on the card, the next link still runs
+            logs.log.exception("ссылка не скачалась: %s", link)
             emit(type="job", state="error", message=str(e) or type(e).__name__)
             return
         emit(type="job", state="cancelled" if self._stop.is_set() else "done",
              ok=len(report.ok), skipped=len(report.skipped), failed=len(report.failed),
              dry_run=options.dry_run)
+
+
+def _release_age(version: str) -> int:
+    """Days since a yt-dlp release (its version is the date it was built).
+
+    YouTube breaks yt-dlp every few weeks, so an old copy is the likeliest
+    reason downloads stop working; -1 means the version said nothing.
+    """
+    m = re.match(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})", version or "")
+    if not m:
+        return -1
+    try:
+        built = datetime.date(*(int(piece) for piece in m.groups()))
+    except ValueError:
+        return -1
+    return max(0, (datetime.date.today() - built).days)
 
 
 def _newer(candidate: str, current: str) -> bool:
@@ -314,19 +354,62 @@ def _save_settings(settings: dict) -> None:
         pass
 
 
+def _copy_to_clipboard(text: str) -> bool:
+    """Windows keeps clipboard data after the program that put it there exits,
+    which Tk on its own does not: hence the shell call."""
+    if sys.platform == "win32":
+        user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+        buffer = ctypes.create_unicode_buffer(text)
+        size = ctypes.sizeof(buffer)
+        handle = kernel32.GlobalAlloc(0x2000, size)  # GMEM_MOVEABLE
+        if not handle or not user32.OpenClipboard(None):
+            return False
+        try:
+            ctypes.memmove(kernel32.GlobalLock(handle), buffer, size)
+            kernel32.GlobalUnlock(handle)
+            user32.EmptyClipboard()
+            return bool(user32.SetClipboardData(13, handle))  # CF_UNICODETEXT
+        finally:
+            user32.CloseClipboard()
+
+    root = None
+    try:
+        from tkinter import Tk
+
+        root = Tk()
+        root.withdraw()
+        root.clipboard_clear()
+        root.clipboard_append(text)
+        root.update()
+        return True
+    except Exception:  # a Python built without Tcl/Tk, or no display to talk to
+        return False
+    finally:
+        if root is not None:
+            root.destroy()
+
+
 def _clipboard_text() -> str:
     """Tk owns a hidden root of its own here: the window itself is WebView2,
-    which gives Python no clipboard of its own to ask."""
-    from tkinter import Tk
+    which gives Python no clipboard of its own to ask.
 
-    root = Tk()
-    root.withdraw()  # created and hidden before it can ever be drawn
+    Everything is guarded, including the import and the root: a Python built
+    without Tcl/Tk must leave the button quiet, not raise into the window,
+    where the js_api call would come back as a rejected promise and lose the
+    message about the clipboard being empty.
+    """
+    root = None
     try:
+        from tkinter import Tk
+
+        root = Tk()
+        root.withdraw()  # created and hidden before it can ever be drawn
         return root.clipboard_get()
-    except Exception:  # empty, or holding something that is not text
+    except Exception:  # no Tcl/Tk, no display, empty, or not text
         return ""
     finally:
-        root.destroy()
+        if root is not None:
+            root.destroy()
 
 
 def _system_dark() -> bool:
@@ -388,6 +471,7 @@ def _offer_webview2() -> bool:
 
 
 def main() -> None:
+    logs.setup()
     if not _webview2_installed() and not _offer_webview2():
         return
     api = Api()

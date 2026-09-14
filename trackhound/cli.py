@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__
+from . import __version__, logs
 from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options
 
 
@@ -37,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true",
                         help="показать версию и какие ffmpeg и Deno нашлись, ничего не скачивая")
     args = parser.parse_args(argv)
+    logs.setup(console=False)  # warnings already reach the console as text
 
     options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run,
                       args.cookies_from_browser)
@@ -48,6 +49,8 @@ def main(argv: list[str] | None = None) -> int:
         for name in ("deno", "node"):
             print(f"{name}: {downloader.js_runtimes.get(name, {}).get('path', 'не найден')}")
         print(f"папка для музыки: {options.output_dir}")
+        print(f"yt-dlp: {logs.package_version('yt_dlp')}")
+        print(f"журнал: {logs.log_file()}")
         for problem in downloader.environment_problems():
             print(f"⚠ {problem}")
         return 0

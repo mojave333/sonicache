@@ -13,6 +13,7 @@ import requests
 import yt_dlp
 from ytmusicapi import YTMusic
 
+from .logs import YtdlpLogger
 from .models import Album, Track
 
 MIN_SCORE = 0.62  # below this a candidate is considered a different song
@@ -62,15 +63,6 @@ class Match:
     artists: str
     duration: float
     score: float
-
-
-class SilentLogger:
-    """Keeps yt-dlp off stdout/stderr; errors still arrive as exceptions."""
-
-    def debug(self, msg: str) -> None:
-        pass
-
-    info = warning = error = debug
 
 
 class _FallbackSession(requests.Session):
@@ -157,7 +149,7 @@ class Matcher:
 
     def _soundcloud(self, query: str) -> list[dict]:
         opts = {"quiet": True, "no_warnings": True, "extract_flat": "in_playlist",
-                "logger": SilentLogger()}
+                "logger": YtdlpLogger("soundcloud")}
 
         def search() -> list[dict]:
             with yt_dlp.YoutubeDL(opts) as ydl:

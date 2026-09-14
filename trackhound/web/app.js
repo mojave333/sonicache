@@ -70,6 +70,7 @@ const state = {
   },
   covers: new Map(),
   update: null, // { version, url } once a newer release is published
+  diagnostics: null, // log path and yt-dlp version, read once at startup
 };
 const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -111,8 +112,23 @@ async function init() {
   setInterval(renderStatusBar, 1000);
   pollLoop();
   checkForUpdate();
+  loadDiagnostics();
   // Only now, so the saved panel width is in place before it can be animated
   setTimeout(() => document.documentElement.classList.add("motion-ready"), 0);
+}
+
+// Where the log sits, and how old the yt-dlp inside this build is
+async function loadDiagnostics() {
+  const info = await api().diagnostics();
+  state.diagnostics = info;
+  const stale = info.ytdlp_age >= 60;
+  $("#ytdlp-title").textContent = `yt-dlp ${info.ytdlp}`;
+  $("#ytdlp-desc").textContent = stale
+    ? `Сборке ${info.ytdlp_age} ${plural(info.ytdlp_age, "день", "дня", "дней")} — YouTube за это время обычно успевает смениться. Если загрузки перестали работать, обновите Trackhound`
+    : "Скачиванием занимается yt-dlp; он обновляется вместе с Trackhound";
+  $("#ytdlp-desc").classList.toggle("warn", stale);
+  $("#log-path").textContent = info.log;
+  $("#log-path").title = info.log;
 }
 
 // Nothing is downloaded or installed here: it only points at the releases page
@@ -155,6 +171,15 @@ function updateSettings(patch) {
   Object.assign(state.settings, patch);
   renderSettings();
   api().save_settings(state.settings);
+}
+
+async function copyReport() {
+  const button = $("#log-copy");
+  const info = state.diagnostics || await api().diagnostics();
+  const copied = await api().copy(info.report);
+  button.textContent = copied ? "Скопировано" : "Не удалось скопировать";
+  announce(copied ? "Отчёт скопирован в буфер обмена" : "Не удалось скопировать отчёт");
+  setTimeout(() => { button.textContent = "Скопировать отчёт"; }, 2000);
 }
 
 function applyTheme() {
@@ -258,6 +283,8 @@ function bindUi() {
   for (const button of $$(".stop")) button.addEventListener("click", stopAll);
   $("#clear").addEventListener("click", clearFinished);
   $("#status-problems").addEventListener("click", () => showView("settings"));
+  $("#log-open").addEventListener("click", () => api().open_logs());
+  $("#log-copy").addEventListener("click", copyReport);
 
   $("#library-filter").addEventListener("input", renderLibrary);
   $("#library-refresh").addEventListener("click", loadLibrary);

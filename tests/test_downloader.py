@@ -149,6 +149,52 @@ class TestOptions:
         assert (options.audio_format, options.threads, options.dry_run) == ("m4a", 3, False)
 
 
+class Answer:
+    """A urlopen response that hands back a fixed body."""
+
+    def __init__(self, body):
+        self.body = body
+
+    def read(self, limit=-1):
+        return self.body[:limit] if limit and limit > 0 else self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class TestCover:
+    """The address comes from someone else's metadata and the bytes are copied
+    into every track of the album, so both size and type have to be checked."""
+
+    JPEG = b"\xff\xd8\xff" + b"cover" * 100
+    PNG = b"\x89PNG\r\n\x1a\n" + b"cover" * 100
+
+    def fetch(self, monkeypatch, tmp_path, body):
+        said = []
+        monkeypatch.setattr(downloader.urllib.request, "urlopen", lambda *a, **k: Answer(body))
+        loader = downloader.Downloader(Options(tmp_path), log=said.append)
+        return loader._fetch_cover("https://cover.test/art"), said
+
+    @pytest.mark.parametrize("body", [JPEG, PNG])
+    def test_an_image_comes_through_whole(self, monkeypatch, tmp_path, body):
+        assert self.fetch(monkeypatch, tmp_path, body)[0] == body
+
+    def test_an_oversized_body_is_refused(self, monkeypatch, tmp_path):
+        huge = b"\xff\xd8\xff" + b"x" * downloader.MAX_COVER_BYTES
+        data, said = self.fetch(monkeypatch, tmp_path, huge)
+        assert data is None and "больше" in said[0]
+
+    def test_a_page_where_a_picture_should_be_is_refused(self, monkeypatch, tmp_path):
+        data, said = self.fetch(monkeypatch, tmp_path, b"<!doctype html><html>no image here</html>")
+        assert data is None and "JPEG" in said[0]
+
+    def test_no_address_means_no_request(self, tmp_path):
+        assert downloader.Downloader(Options(tmp_path))._fetch_cover("") is None
+
+
 def test_mmss():
     assert _mmss(0) == "0:00"
     assert _mmss(61.4) == "1:01"

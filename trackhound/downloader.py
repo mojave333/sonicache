@@ -25,12 +25,15 @@ from mutagen.oggopus import OggOpus
 from yt_dlp.utils import DownloadCancelled
 
 from . import sources
-from .matcher import SOURCE_NAMES, Match, Matcher, SilentLogger
+from .logs import YtdlpLogger, log
+from .matcher import SOURCE_NAMES, Match, Matcher
 from .models import Album, Track
 from .net import BROWSER_UA
 
 FORMATS = ("m4a", "mp3", "opus")
 DEFAULT_OUTPUT_DIR = Path.home() / "Music" / "Trackhound"
+# A 1000x1000 cover is about a megabyte; past this it is not artwork any more
+MAX_COVER_BYTES = 8 * 1024 * 1024
 KINDS = {"album": "альбом", "single": "сингл", "ep": "EP", "compilation": "сборник", "playlist": "плейлист"}
 
 _UNSAFE_CHARS = str.maketrans({
@@ -103,7 +106,7 @@ class Downloader:
         events: Callable[[str, dict], None] | None = None,
     ):
         self.options = options
-        self.log = log
+        self.log = _tee(log)
         self.progress = progress or (lambda done, total: None)
         # structured updates for the window: "release" once, then "track" on every state change
         self.events = events or (lambda kind, data: None)
@@ -314,7 +317,7 @@ class Downloader:
             "quiet": True,
             "no_warnings": True,
             "noprogress": True,
-            "logger": SilentLogger(),
+            "logger": YtdlpLogger("download"),
             "progress_hooks": [on_progress],
         }
         if self.js_runtimes:
@@ -347,10 +350,29 @@ class Downloader:
         request = urllib.request.Request(url, headers={"User-Agent": BROWSER_UA})
         try:
             with urllib.request.urlopen(request, timeout=20) as resp:
-                return resp.read()
+                # The address comes out of someone else's metadata and these
+                # bytes are copied into every track of the album, so read a
+                # bounded amount and check that it really is an image.
+                data = resp.read(MAX_COVER_BYTES + 1)
         except (urllib.error.URLError, TimeoutError) as e:
             self.log(f"! Обложка не скачалась: {e}")
             return None
+        if len(data) > MAX_COVER_BYTES:
+            self.log(f"! Обложка больше {MAX_COVER_BYTES // (1024 * 1024)} МБ, пропускаю: {url}")
+            return None
+        if not data.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")):
+            self.log(f"! По адресу обложки не JPEG и не PNG, пропускаю: {url}")
+            return None
+        return data
+
+
+def _tee(report: Callable[[str], None]) -> Callable[[str], None]:
+    """Everything the person is told is also written to the log file."""
+    def say(message: str) -> None:
+        log.getChild("download").info("%s", message)
+        report(message)
+
+    return say
 
 
 def _file_stem(album: Album, track: Track, single: bool) -> str:

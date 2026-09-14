@@ -85,6 +85,25 @@ class TestNewer:
         assert gui._newer(candidate, current) is expected
 
 
+class TestReleaseAge:
+    @pytest.mark.parametrize("version", ["", "nightly", "2026.13.40", "master"])
+    def test_an_unreadable_version_has_no_age(self, version):
+        assert gui._release_age(version) == -1
+
+    def test_a_dated_version_is_measured_in_days(self, monkeypatch):
+        import datetime
+
+        class Today(datetime.date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 9, 14)
+
+        monkeypatch.setattr(gui.datetime, "date", Today)
+        assert gui._release_age("2026.9.14") == 0
+        assert gui._release_age("2026.8.19") == 26
+        assert gui._release_age("2026.9.20") == 0  # a build from the future is not negative
+
+
 class TestLibrary:
     def album(self, root, name, tracks=("01. One.m4a", "02. Two.m4a")):
         folder = root / name
@@ -140,3 +159,29 @@ class TestLibrary:
         path = tmp_path / name
         path.write_bytes(b"x")
         assert gui._is_audio(path) is audio
+
+
+class TestClipboard:
+    """A Python built without Tcl/Tk must leave the buttons quiet. An exception
+    here reaches the window as a rejected promise, and the js_api caller has
+    nowhere to show it, so the button would look broken instead of empty."""
+
+    @pytest.fixture
+    def without_tkinter(self, monkeypatch):
+        import builtins
+
+        real = builtins.__import__
+
+        def refuse(name, *args, **kwargs):
+            if name == "tkinter" or name.startswith("tkinter."):
+                raise ImportError("no tkinter in this build")
+            return real(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", refuse)
+
+    def test_paste_answers_empty(self, without_tkinter):
+        assert gui._clipboard_text() == ""
+
+    def test_copy_answers_false(self, without_tkinter, monkeypatch):
+        monkeypatch.setattr(gui.sys, "platform", "linux")  # the win32 path never reaches Tk
+        assert gui._copy_to_clipboard("https://open.spotify.com/album/x") is False

@@ -450,6 +450,7 @@ p { margin: 0; }
 .env-list:empty { display: none; }
 #env-icon { align-self: flex-start; margin-top: 2px; color: var(--success); }
 #env-icon.warn { color: var(--warning); }
+.setting-desc.warn { color: var(--warning); }
 .select {
   height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--field); color: var(--text);
