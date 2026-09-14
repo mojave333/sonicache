@@ -415,7 +415,7 @@ def main() -> None:
         height=800,  # the size the window returns to when it is un-maximized
         min_size=(720, 520),
         maximized=True,
-        background_color="#151210" if dark else "#FBFAF8",  # no white flash before CSS loads
+        background_color="#23212C" if dark else "#FDFDF6",  # matches --bg, so no flash before CSS loads
         text_select=True,
     )
     webview.start(http_server=True)
