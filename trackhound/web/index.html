@@ -366,6 +366,17 @@
         <span id="status-mode"></span>
       </footer>
     </div>
+    <div id="library-menu" class="menu context-menu" role="menu" aria-label="Действия с выделенным" hidden>
+      <button type="button" role="menuitem" data-action="again">
+        <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg>Скачать снова
+      </button>
+      <button type="button" role="menuitem" data-action="open">
+        <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Показать в проводнике
+      </button>
+      <button type="button" role="menuitem" data-action="delete" class="danger-item">
+        <svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg>Удалить
+      </button>
+    </div>
     <dialog id="confirm" class="confirm" aria-labelledby="confirm-title">
       <div class="confirm-body">
         <p id="confirm-title" class="confirm-title"></p>

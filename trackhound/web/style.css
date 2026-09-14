@@ -282,6 +282,9 @@ p { margin: 0; }
 }
 .menu button:hover, .menu button:focus-visible { background: var(--hover); outline: none; }
 .menu .check { visibility: hidden; color: var(--accent-fg); }
+/* Opened where the pointer is, so it needs neither an anchor nor a width */
+.context-menu { position: fixed; top: 0; right: auto; min-width: 220px; }
+.context-menu .danger-item { color: var(--danger); }
 .menu [aria-checked="true"] .check { visibility: visible; }
 
 .strip {

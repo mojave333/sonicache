@@ -307,6 +307,14 @@ function bindUi() {
   $("#library-delete").addEventListener("click", deleteSelected);
   $("#library-again").addEventListener("click", () => downloadAgain(selectedItems()));
   $("#library").addEventListener("click", onLibraryClick);
+  $("#library").addEventListener("keydown", onLibraryKey);
+  $("#library").addEventListener("contextmenu", onLibraryContextMenu);
+  $("#library-menu").addEventListener("click", onLibraryMenuClick);
+  // Anywhere else — including another window — closes the menu
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest("#library-menu")) closeLibraryMenu(false);
+  });
+  window.addEventListener("blur", () => closeLibraryMenu(false));
   for (const button of $$("#view-library .sort")) {
     button.addEventListener("click", () => sortLibraryBy(button.dataset.sort));
   }
@@ -351,6 +359,10 @@ function onShortcut(event) {
 
 function onLibraryShortcut(event) {
   const { selected, shown } = state.library;
+  if (event.key === "Escape" && !$("#library-menu").hidden) {
+    closeLibraryMenu();
+    return;
+  }
   if (event.ctrlKey && !event.altKey && event.code === "KeyA") {
     event.preventDefault();
     state.library.selected = new Set(shown);
@@ -1033,6 +1045,8 @@ function renderLibrary() {
   const visible = new Set(library.shown);
   for (const path of selected) if (!visible.has(path)) selected.delete(path);
   $("#library").replaceChildren(...shown.map(createLibraryRow));
+  const rows = $$("#library .library-row");
+  rows.forEach((row, index) => { row.tabIndex = index ? -1 : 0; }); // one tab stop, arrows do the rest
   renderSortHeader();
   renderSelection();
 
@@ -1094,6 +1108,66 @@ function selectRow(path, { ctrlKey = false, shiftKey = false } = {}) {
     library.anchor = path;
   }
   renderSelection();
+}
+
+// Arrows walk the list the way they walk a folder in Explorer: the focused row
+// is the selected one, Ctrl moves focus alone, Shift drags the selection along.
+function onLibraryKey(event) {
+  const step = { ArrowDown: 1, ArrowUp: -1, Home: "first", End: "last" }[event.key];
+  if (!step) return;
+  const rows = [...$$("#library .library-row")];
+  if (!rows.length) return;
+  const current = rows.indexOf(document.activeElement.closest(".library-row"));
+  let next = step === "first" ? 0 : step === "last" ? rows.length - 1 : current + step;
+  next = Math.max(0, Math.min(rows.length - 1, next));
+  if (next === current && current !== -1) return;
+  event.preventDefault();
+  const row = rows[next === -1 ? 0 : next];
+  focusRow(row);
+  if (!event.ctrlKey) selectRow(row.dataset.path, { shiftKey: event.shiftKey });
+}
+
+function focusRow(row) {
+  for (const other of $$("#library .library-row")) other.tabIndex = other === row ? 0 : -1;
+  row.focus();
+}
+
+function onLibraryContextMenu(event) {
+  const row = event.target.closest(".library-row");
+  if (!row) return;
+  event.preventDefault();
+  if (!state.library.selected.has(row.dataset.path)) selectRow(row.dataset.path, {});
+  openLibraryMenu(event.clientX, event.clientY);
+}
+
+function openLibraryMenu(x, y) {
+  const menu = $("#library-menu");
+  const items = selectedItems();
+  $("[data-action=again]", menu).hidden = !items.some((item) => item.link);
+  $("[data-action=open]", menu).hidden = items.length !== 1;
+  menu.hidden = false;
+  // Placed after it is measurable, so a menu near the edge turns back inwards
+  const box = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(x, window.innerWidth - box.width - 8)}px`;
+  menu.style.top = `${Math.min(y, window.innerHeight - box.height - 8)}px`;
+  $("button:not([hidden])", menu).focus();
+}
+
+function closeLibraryMenu(restoreFocus = true) {
+  const menu = $("#library-menu");
+  if (menu.hidden) return;
+  menu.hidden = true;
+  if (restoreFocus) $(`#library .library-row[data-path]`)?.focus();
+}
+
+function onLibraryMenuClick(event) {
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  if (!action) return;
+  closeLibraryMenu(false);
+  const items = selectedItems();
+  if (action === "again") downloadAgain(items);
+  else if (action === "open" && items.length === 1) api().open_folder(items[0].path);
+  else if (action === "delete") deleteSelected();
 }
 
 function clearSelection() {
