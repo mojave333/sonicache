@@ -347,6 +347,7 @@ p { margin: 0; }
 .sub { color: var(--text-subtle); font-size: 13px; }
 .sub:empty { display: none; }
 .sub.danger { color: var(--danger); white-space: normal; user-select: text; }
+.sub.note { color: var(--warning); white-space: normal; }
 .tag {
   justify-self: start; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px;
   color: var(--text-subtle); font-size: 12px; line-height: 18px;

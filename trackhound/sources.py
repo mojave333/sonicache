@@ -9,6 +9,7 @@ Last.fm) the audio is matched on YouTube Music and SoundCloud later.
 from __future__ import annotations
 
 import html
+import json
 import re
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -24,6 +25,7 @@ from .net import fetch_json, fetch_text
 SUPPORTED = "Spotify, Apple Music, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp"
 
 _APPLE_PATH_RE = re.compile(r"^/(?:([a-z]{2})/)?([\w-]+)/(?:[^/]+/)?(?:id)?(\d+)", re.I)
+_APPLE_DATA_RE = re.compile(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', re.S)
 _LASTFM_PATH_RE = re.compile(r"/music/([^/?#]+)(?:/([^/?#]+))?(?:/([^/?#]+))?")
 _LASTFM_ROW_RE = re.compile(r'<tr\s+class="\s*chartlist-row.*?</tr>', re.S)
 # Music videos and user uploads, as opposed to official audio tracks
@@ -68,6 +70,9 @@ def _spotify(link: str) -> Release:
     if kind == "album":
         album = spotify.fetch_album(spotify_id)
         return Release(album, album.tracks)
+    if kind == "playlist":
+        album = spotify.fetch_playlist(spotify_id)
+        return Release(album, album.tracks)
     album, track = spotify.fetch_track(spotify_id)
     return Release(album, [track], single=True)
 
@@ -75,9 +80,11 @@ def _spotify(link: str) -> Release:
 # Apple Music: the public iTunes lookup API has the whole tracklist
 
 def _apple(parts: urllib.parse.SplitResult) -> Release:
+    if re.match(r"^/(?:[a-z]{2}/)?playlist/", parts.path, re.I):
+        return _apple_playlist(urllib.parse.urlunsplit(parts))
     m = _APPLE_PATH_RE.match(parts.path)
     if not m or m.group(2) not in ("album", "song"):
-        raise SourceError("Из Apple Music поддерживаются ссылки на альбомы и песни")
+        raise SourceError("Из Apple Music поддерживаются ссылки на альбомы, песни и плейлисты")
     country = (m.group(1) or "us").lower()
     song_id = m.group(3) if m.group(2) == "song" else urllib.parse.parse_qs(parts.query).get("i", [""])[0]
     if not song_id:
@@ -125,6 +132,60 @@ def _apple_album(collection_id: int | str, country: str = "us") -> Release:
         service="Apple Music",
     )
     return Release(album, tracks)
+
+
+def _apple_playlist(url: str) -> Release:
+    """Apple has no public API for playlists, so the page's own data is read.
+
+    The page hands over its first tracks only; the header says how many the
+    playlist really has, and the release notes the difference.
+    """
+    sections = _apple_sections(fetch_text(url, service="Apple Music"))
+    items = (sections.get("trackLockup") or {}).get("items") or []
+    header = ((sections.get("containerDetailHeaderLockup") or {}).get("items") or [{}])[0]
+    tracks = [Track(
+        id=str(item.get("id") or number).rsplit(" - ", 1)[-1],
+        title=item.get("title", ""),
+        artists=item.get("artistName", ""),
+        duration=(item.get("duration") or 0) / 1000,
+        track_number=number,
+    ) for number, item in enumerate(items, 1)]
+    if not tracks:
+        raise SourceError("В плейлисте Apple Music нет доступных песен")
+
+    total = header.get("trackCount") or len(tracks)
+    note = ""
+    if total > len(tracks):
+        note = (f"Страница Apple Music отдаёт первые {len(tracks)} треков из {total}. "
+                "Остальные придётся добавить отдельно")
+    curator = next((link.get("title") for link in header.get("subtitleLinks") or [] if link.get("title")), "")
+    album = Album(
+        id=url.rstrip("/").rsplit("/", 1)[-1],
+        name=header.get("title") or "Плейлист",
+        artist=curator or "Разные исполнители",
+        kind="playlist",
+        cover_url=_apple_artwork(header.get("artwork")),
+        tracks=tracks,
+        service="Apple Music",
+        note=note,
+    )
+    return Release(album, tracks)
+
+
+def _apple_sections(page: str) -> dict[str, dict]:
+    m = _APPLE_DATA_RE.search(page)
+    try:
+        sections = json.loads(m.group(1))["data"][0]["data"]["sections"]
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError) as e:
+        raise SourceError("Не удалось прочитать страницу Apple Music: "
+                          "ссылка неверна или страница изменила формат") from e
+    return {section.get("itemKind"): section for section in sections}
+
+
+def _apple_artwork(artwork: dict | None) -> str:
+    """Artwork URLs are templates: the size is filled in by whoever asks."""
+    url = ((artwork or {}).get("dictionary") or {}).get("url") or ""
+    return url.replace("{w}", "1000").replace("{h}", "1000").replace("{f}", "jpg")
 
 
 def _itunes(endpoint: str, **params) -> list[dict]:

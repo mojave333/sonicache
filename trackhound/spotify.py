@@ -23,9 +23,11 @@ from .net import BROWSER_UA, fetch_text
 PREVIEW_UA = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
 
 _LINK_RE = re.compile(
-    r"(?:open\.spotify\.com/(?:intl-[\w-]+/)?(?:embed/)?(album|track)/"
-    r"|spotify:(album|track):)([A-Za-z0-9]{22})"
+    r"(?:open\.spotify\.com/(?:intl-[\w-]+/)?(?:embed/)?(album|track|playlist)/"
+    r"|spotify:(album|track|playlist):)([A-Za-z0-9]{22})"
 )
+# The embed page hands over this many playlist tracks and no more
+PLAYLIST_LIMIT = 100
 _SHORT_LINK_RE = re.compile(r"https?://(?:spotify\.link|spoti\.fi)/\S+")
 _NEXT_DATA_RE = re.compile(
     r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.S
@@ -35,15 +37,13 @@ _ATTR_RE = re.compile(r'([\w:-]+)="([^"]*)"')
 
 
 def parse_link(link: str) -> tuple[str, str]:
-    """Return ("album" | "track", id) for a Spotify link or URI."""
+    """Return ("album" | "track" | "playlist", id) for a Spotify link or URI."""
     link = link.strip()
     if _SHORT_LINK_RE.match(link):
         link = _resolve_short_link(link)
     m = _LINK_RE.search(link)
     if not m:
-        if re.search(r"spotify\.com/(?:intl-[\w-]+/)?playlist/", link):
-            raise SourceError("Плейлисты Spotify пока не поддерживаются: откройте альбом или трек")
-        raise SourceError(f"Не похоже на ссылку на альбом или трек Spotify: {link}")
+        raise SourceError(f"Не похоже на ссылку на альбом, трек или плейлист Spotify: {link}")
     return m.group(1) or m.group(2), m.group(3)
 
 
@@ -94,6 +94,46 @@ def fetch_album(album_id: str) -> Album:
         cover_url=_first(meta, "og:image") or _embed_cover(entity),
         tracks=tracks,
         service="Spotify",
+    )
+
+
+def fetch_playlist(playlist_id: str) -> Album:
+    """A playlist as a release: tracks in playlist order, artists per track.
+
+    The embed page stops at PLAYLIST_LIMIT tracks and nothing else on the
+    public pages lists the rest, so a longer playlist comes back cut short and
+    says so in its note.
+    """
+    entity = _embed_entity("playlist", playlist_id)
+    meta = _meta_tags("playlist", playlist_id)
+
+    tracks = []
+    for number, item in enumerate(entity.get("trackList") or [], 1):
+        uri = item.get("uri") or ""
+        tracks.append(Track(
+            id=uri.rsplit(":", 1)[-1] or str(number),
+            title=item.get("title", ""),
+            artists=_artists(item.get("subtitle")),
+            duration=(item.get("duration") or 0) / 1000,
+            track_number=number,
+            explicit=bool(item.get("isExplicit")),
+        ))
+    if not tracks:
+        raise SourceError(f"В плейлисте {playlist_id} не найдено треков или он закрыт")
+
+    note = ""
+    if len(tracks) >= PLAYLIST_LIMIT:
+        note = (f"Spotify отдаёт по ссылке первые {PLAYLIST_LIMIT} треков плейлиста. "
+                "Если их больше, остальные придётся добавить отдельно")
+    return Album(
+        id=playlist_id,
+        name=entity.get("name") or entity.get("title", ""),
+        artist=_artists(entity.get("subtitle")) or "Разные исполнители",
+        kind="playlist",
+        cover_url=_first(meta, "og:image") or _embed_cover(entity),
+        tracks=tracks,
+        service="Spotify",
+        note=note,
     )
 
 
@@ -172,6 +212,12 @@ def _meta_tags(kind: str, spotify_id: str) -> list[tuple[str, str]]:
         if key and "content" in attrs:
             tags.append((key, html.unescape(attrs["content"])))
     return tags
+
+
+def _artists(subtitle: str | None) -> str:
+    """Spotify joins names with a comma and a non-breaking space."""
+    parts = [part.strip() for part in (subtitle or "").replace(" ", " ").split(",")]
+    return ", ".join(part for part in parts if part)
 
 
 def _embed_cover(entity: dict) -> str:

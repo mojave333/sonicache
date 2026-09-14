@@ -35,13 +35,12 @@ class TestParseLink:
          ("track", "0DiWol3AO6WpXZgp0goxAV")),
         ("spotify:album:2noRn2Aes5aoNVsU6iWThc", ("album", "2noRn2Aes5aoNVsU6iWThc")),
         ("spotify:track:0DiWol3AO6WpXZgp0goxAV", ("track", "0DiWol3AO6WpXZgp0goxAV")),
+        ("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+         ("playlist", "37i9dQZF1DXcBWIGoYBM5M")),
+        ("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M", ("playlist", "37i9dQZF1DXcBWIGoYBM5M")),
     ])
     def test_known_shapes(self, link, expected):
         assert spotify.parse_link(link) == expected
-
-    def test_a_playlist_says_so(self):
-        with pytest.raises(SourceError, match="[Пп]лейлист"):
-            spotify.parse_link("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
 
     def test_nonsense_is_refused(self):
         with pytest.raises(SourceError):
@@ -104,6 +103,48 @@ class TestFetchAlbum:
         assert album.cover_url == "https://i.test/640.jpg"  # the widest embed image
 
 
+class TestFetchPlaylist:
+    @pytest.fixture
+    def playlist_pages(self, monkeypatch):
+        embed = (FIXTURES / "spotify_embed_playlist.html").read_text(encoding="utf-8")
+        meta = (FIXTURES / "spotify_meta_playlist.html").read_text(encoding="utf-8")
+
+        def fetch_text(url, *, service, user_agent=spotify.BROWSER_UA, retries=3):
+            return embed if "/embed/" in url else meta
+
+        monkeypatch.setattr(spotify, "fetch_text", fetch_text)
+
+    def test_tracks_keep_playlist_order(self, playlist_pages):
+        album = spotify.fetch_playlist("37i9dQZF1DXcBWIGoYBM5M")
+        assert album.kind == "playlist"
+        assert [t.track_number for t in album.tracks] == [1, 2, 3]
+        assert [t.title for t in album.tracks] == ["BbY WOW", "Loser", "Локальный файл"]
+
+    def test_artists_are_joined_with_plain_commas(self, playlist_pages):
+        first = spotify.fetch_playlist("x").tracks[0]
+        assert first.artists == "KAROL G, Judeline, rusowsky"
+
+    def test_a_track_without_a_uri_still_gets_an_id(self, playlist_pages):
+        assert spotify.fetch_playlist("x").tracks[2].id == "3"
+
+    def test_the_cover_comes_from_the_meta_page(self, playlist_pages):
+        assert spotify.fetch_playlist("x").cover_url == "https://i.test/playlist.jpg"
+
+    def test_a_short_playlist_has_nothing_to_warn_about(self, playlist_pages):
+        assert spotify.fetch_playlist("x").note == ""
+
+    def test_a_full_page_says_the_rest_is_missing(self, monkeypatch, playlist_pages):
+        monkeypatch.setattr(spotify, "PLAYLIST_LIMIT", 3)
+        assert "первые 3" in spotify.fetch_playlist("x").note
+
+    def test_an_empty_playlist_is_an_error(self, monkeypatch):
+        empty = ('<script id="__NEXT_DATA__" type="application/json">'
+                 '{"props":{"pageProps":{"state":{"data":{"entity":{"name":"X","trackList":[]}}}}}}</script>')
+        monkeypatch.setattr(spotify, "fetch_text", lambda url, **kwargs: empty)
+        with pytest.raises(SourceError, match="не найдено треков"):
+            spotify.fetch_playlist("37i9dQZF1DXcBWIGoYBM5M")
+
+
 class TestHelpers:
     def test_id_from_url(self):
         assert spotify._id_from_url("https://open.spotify.com/track/abc?si=1") == "abc"
@@ -114,6 +155,16 @@ class TestHelpers:
         keys = [key for key, _ in tags]
         assert keys.index("music:song") < keys.index("music:song:track")
         assert ("music:release_date", "2001-03-12") in tags
+
+    @pytest.mark.parametrize("subtitle, expected", [
+        ("A, B", "A, B"),
+        ("Tame Impala", "Tame Impala"),
+        ("", ""),
+        (None, ""),
+        ("A,, B", "A, B"),
+    ])
+    def test_artists_are_tidied(self, subtitle, expected):
+        assert spotify._artists(subtitle) == expected
 
     def test_meta_entities_are_unescaped(self, pages):
         description = spotify._first(spotify._meta_tags("album", "x"), "og:description")

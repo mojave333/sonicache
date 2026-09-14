@@ -88,6 +88,47 @@ class TestApple:
             sources._apple(split("https://music.apple.com/de/album/discovery/697194953"))
 
 
+class TestApplePlaylist:
+    @pytest.fixture
+    def page(self, monkeypatch):
+        html = (FIXTURES / "apple_playlist.html").read_text(encoding="utf-8")
+        monkeypatch.setattr(sources, "fetch_text", lambda url, **kwargs: html)
+
+    def url(self):
+        return "https://music.apple.com/us/playlist/todays-hits/pl.f4d106fed2bd41149aaacabb233eb5eb"
+
+    def test_a_playlist_link_is_read_off_the_page(self, page):
+        release = sources.resolve(self.url())
+        assert release.album.kind == "playlist"
+        assert release.album.name == "Today's Hits"
+        assert [t.title for t in release.tracks] == ["Been By Now", "Golden", "Manchild"]
+        assert release.tracks[0].artists == "Morgan Wallen"
+        assert release.tracks[0].duration == pytest.approx(213.806)
+        assert [t.track_number for t in release.tracks] == [1, 2, 3]
+
+    def test_the_curator_stands_in_for_the_artist(self, page):
+        assert sources.resolve(self.url()).album.artist == "Apple Music Hits"
+
+    def test_the_artwork_template_is_filled_in(self, page):
+        assert sources.resolve(self.url()).album.cover_url == "https://is1.test/image/1000x1000bb.jpg"
+
+    def test_a_cut_short_playlist_says_so(self, page):
+        note = sources.resolve(self.url()).album.note
+        assert "первые 3 треков из 5" in note
+
+    def test_a_changed_page_is_named_as_such(self, monkeypatch):
+        monkeypatch.setattr(sources, "fetch_text", lambda url, **kwargs: "<html>no data</html>")
+        with pytest.raises(SourceError, match="изменила формат"):
+            sources.resolve(self.url())
+
+    def test_a_playlist_without_songs_is_an_error(self, monkeypatch):
+        empty = ('<script type="application/json" id="serialized-server-data">'
+                 '{"data":[{"data":{"sections":[]}}]}</script>')
+        monkeypatch.setattr(sources, "fetch_text", lambda url, **kwargs: empty)
+        with pytest.raises(SourceError, match="нет доступных песен"):
+            sources.resolve(self.url())
+
+
 class TestLastfm:
     def test_the_tracklist_is_read_off_the_page(self, monkeypatch):
         page = (FIXTURES / "lastfm_album.html").read_text(encoding="utf-8")

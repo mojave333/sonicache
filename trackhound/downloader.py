@@ -147,8 +147,11 @@ class Downloader:
             folder = self.options.output_dir / _safe_name(title)
             self.log(f"♪ {album.artist} — {album.name} ({KINDS.get(album.kind, album.kind)}, "
                      f"{album.year or 'год неизвестен'}, треков: {len(tracks)}, {album.service})")
+        if album.note:
+            self.log(f"! {album.note}")
         self.events("release", {
             "kind": "трек" if single else KINDS.get(album.kind, album.kind),
+            "note": album.note,
             "title": tracks[0].title if single else album.name,
             "artist": tracks[0].artists if single else album.artist,
             "album": album.name,

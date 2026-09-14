@@ -530,7 +530,11 @@ function renderJob(job) {
   const title = $(".title", node);
   title.textContent = job.title;
   title.title = job.title;
-  $(".sub", node).textContent = job.state === "error" ? job.message : job.sub;
+  const sub = $(".sub", node);
+  sub.textContent = job.state === "error" ? job.message : job.sub;
+  const note = $(".note", node);
+  note.textContent = job.note || "";
+  note.hidden = !job.note || job.state === "error";
   setStatusCell($(".cell-status", node), status);
 
   const finished = !ACTIVE.has(job.state);
@@ -669,6 +673,7 @@ function onRelease(job, event) {
   const kind = event.kind.charAt(0).toUpperCase() + event.kind.slice(1);
   const fromAlbum = event.kind === "трек" && event.album && event.album !== event.title && `из «${event.album}»`;
   job.sub = [event.artist, kind, fromAlbum, event.year, event.service].filter(Boolean).join(" · ");
+  job.note = event.note || ""; // e.g. a playlist page that only gave its first tracks
   if (event.cover) loadCover($(".cover", job.node), event.cover);
 
   const multiDisc = event.tracks.some((track) => track.disc > 1);
