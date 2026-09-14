@@ -26,8 +26,8 @@ from pathlib import Path
 import webview
 
 from . import __version__, logs
-from .downloader import (DEFAULT_OUTPUT_DIR, FORMATS, MARKER_NAME, Downloader, Options,
-                         use_proxy)
+from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
+                         Downloader, Options, use_proxy)
 
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
@@ -99,6 +99,7 @@ class Api:
         _save_settings(settings)
         options = Options(Path(settings["folder"]).expanduser(), settings["format"],
                           settings["threads"], settings["dry_run"], settings["cookies_browser"],
+                          settings["track_name"], settings["folder_name"],
                           settings["rate_limit"], settings["proxy"])
         jobs = []
         with self._lock:
@@ -437,6 +438,10 @@ def _normalize(settings: dict) -> dict:
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
         "rate_limit": rate_limit,
         "proxy": proxy,
+        "track_name": (settings.get("track_name")
+                       if settings.get("track_name") in TRACK_NAMES else "auto"),
+        "folder_name": (settings.get("folder_name")
+                        if settings.get("folder_name") in FOLDER_NAMES else "flat"),
         "sidebar": sidebar,  # width of the side panel in pixels, 64 is the icon rail
     }
 

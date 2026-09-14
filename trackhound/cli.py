@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 
 from . import __version__, logs
-from .downloader import DEFAULT_OUTPUT_DIR, FORMATS, Downloader, Options, use_proxy
+from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
+                         Options, use_proxy)
 
 
 def _rate(value: str, parser: argparse.ArgumentParser) -> int:
@@ -47,6 +48,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cookies-from-browser", default="", metavar="БРАУЗЕР",
                         help="брать cookies из браузера (chrome, edge, firefox…): нужно для видео "
                              "с возрастным ограничением")
+    parser.add_argument("--names", choices=TRACK_NAMES, default="auto",
+                        help="имена файлов: auto — исполнитель только у гостей, artist — всегда, "
+                             "title — только номер и название")
+    parser.add_argument("--folders", choices=FOLDER_NAMES, default="flat",
+                        help="папки альбомов: flat — «Исполнитель - Альбом (Год)», "
+                             "nested — «Исполнитель\Альбом (Год)», album — «Альбом (Год)»")
     parser.add_argument("--limit-rate", default="", metavar="СКОРОСТЬ",
                         help="ограничить скорость: 500K, 2M (по умолчанию без ограничения)")
     parser.add_argument("--proxy", default="", metavar="АДРЕС",
@@ -57,7 +64,8 @@ def main(argv: list[str] | None = None) -> int:
     logs.setup(console=False)  # warnings already reach the console as text
 
     options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run,
-                      args.cookies_from_browser, _rate(args.limit_rate, parser), args.proxy)
+                      args.cookies_from_browser, args.names, args.folders,
+                      _rate(args.limit_rate, parser), args.proxy)
     use_proxy(options.proxy)
     downloader = Downloader(options, log=lambda message: print(message, flush=True))
 

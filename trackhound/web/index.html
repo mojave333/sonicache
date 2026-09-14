@@ -263,6 +263,28 @@
               </div>
               <div class="setting">
                 <div class="setting-label">
+                  <p><label for="folder-name">Папки альбомов</label></p>
+                  <p class="setting-desc">Как называть папку альбома внутри папки для музыки</p>
+                </div>
+                <select id="folder-name" class="select">
+                  <option value="flat">Исполнитель - Альбом (Год)</option>
+                  <option value="nested">Исполнитель → Альбом (Год)</option>
+                  <option value="album">Альбом (Год)</option>
+                </select>
+              </div>
+              <div class="setting">
+                <div class="setting-label">
+                  <p><label for="track-name">Имена файлов</label></p>
+                  <p class="setting-desc">Номер и название всегда на месте; различается только исполнитель</p>
+                </div>
+                <select id="track-name" class="select">
+                  <option value="auto">01. Название (гости — отдельно)</option>
+                  <option value="artist">01. Исполнитель - Название</option>
+                  <option value="title">01. Название</option>
+                </select>
+              </div>
+              <div class="setting">
+                <div class="setting-label">
                   <p><label for="rate">Ограничение скорости</label></p>
                   <p class="setting-desc">Чтобы загрузка не занимала весь канал</p>
                 </div>

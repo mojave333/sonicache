@@ -32,6 +32,10 @@ from .models import Album, Track
 from .net import BROWSER_UA
 
 FORMATS = ("m4a", "mp3", "opus")
+# How a track is named inside an album folder
+TRACK_NAMES = ("auto", "artist", "title")
+# How the album folder itself is named, inside the music folder
+FOLDER_NAMES = ("flat", "nested", "album")
 # Written into every album folder: where the album came from
 MARKER_NAME = ".trackhound.json"
 DEFAULT_OUTPUT_DIR = Path.home() / "Music" / "Trackhound"
@@ -85,6 +89,11 @@ class Options:
     # Browser to take YouTube cookies from ("chrome", "firefox"...); age-restricted
     # videos are only served to a signed-in account. Empty means no cookies.
     cookies_browser: str = ""
+    # "auto" names guests only when they differ from the album artist,
+    # "artist" always names them, "title" leaves the number and the title
+    track_name: str = "auto"
+    # "flat": "Artist - Album (Year)", "nested": "Artist/Album (Year)", "album": "Album (Year)"
+    folder_name: str = "flat"
     # Bytes per second for the whole program, 0 for as fast as it goes
     rate_limit: int = 0
     proxy: str = ""  # "http://127.0.0.1:1080", "socks5://…"; empty uses the system settings
@@ -155,8 +164,7 @@ class Downloader:
             details = [album.name != tracks[0].title and f"из «{album.name}»", album.year, album.service]
             self.log(f"♪ {tracks[0].artists} — {tracks[0].title} ({', '.join(filter(None, details))})")
         else:
-            title = f"{album.artist} - {album.name}" + (f" ({album.year})" if album.year else "")
-            folder = self.options.output_dir / _safe_name(title)
+            folder = _album_folder(self.options.output_dir, album, self.options.folder_name)
             self.log(f"♪ {album.artist} — {album.name} ({KINDS.get(album.kind, album.kind)}, "
                      f"{album.year or 'год неизвестен'}, треков: {len(tracks)}, {album.service})")
         if album.note:
@@ -225,10 +233,10 @@ class Downloader:
             self._track_event(track, "cancel")
             return None
         label = f"{track.artists} - {track.title}"
-        target = folder / f"{_safe_name(_file_stem(album, track, single))}.{self.options.audio_format}"
+        target = folder / f"{_safe_name(_file_stem(album, track, single, self.options.track_name))}.{self.options.audio_format}"
         if not self.options.dry_run:
             candidates = [target]
-            if legacy := _legacy_stem(album, track, single):
+            if legacy := _legacy_stem(album, track, single, self.options.track_name):
                 candidates.append(folder / f"{_safe_name(legacy)}.{self.options.audio_format}")
             existing = next((path for path in candidates if path.exists()), None)
             if existing is not None:
@@ -401,19 +409,34 @@ def _tee(report: Callable[[str], None]) -> Callable[[str], None]:
     return say
 
 
-def _file_stem(album: Album, track: Track, single: bool) -> str:
+def _album_folder(root: Path, album: Album, style: str = "flat") -> Path:
+    """Where an album lands: one folder, an artist folder, or just the album."""
+    year = f" ({album.year})" if album.year else ""
+    if style == "nested" and album.artist:
+        return root / _safe_name(album.artist) / _safe_name(f"{album.name}{year}")
+    if style == "album" or not album.artist:
+        return root / _safe_name(f"{album.name}{year}")
+    return root / _safe_name(f"{album.artist} - {album.name}{year}")
+
+
+def _file_stem(album: Album, track: Track, single: bool, style: str = "auto") -> str:
     if single:
         return f"{track.artists} - {track.title}"
     number = f"{track.track_number:02d}"
     if album.total_discs > 1:
         number = f"{track.disc_number}-{number}"
+    if style == "title":
+        return f"{number}. {track.title}"
     # Guests are named: on an album by one artist only their own tracks go unlabelled
-    if not track.artists or track.artists.casefold() == album.artist.casefold():
+    own = not track.artists or track.artists.casefold() == album.artist.casefold()
+    if style == "auto" and own:
+        return f"{number}. {track.title}"
+    if not track.artists:
         return f"{number}. {track.title}"
     return f"{number}. {track.artists} - {track.title}"
 
 
-def _legacy_stem(album: Album, track: Track, single: bool) -> str:
+def _legacy_stem(album: Album, track: Track, single: bool, style: str = "auto") -> str:
     """How releases before the guest-artist fix were named, so that an album
     downloaded back then is still recognised as already downloaded."""
     if single or not album.artist or album.artist.casefold() not in track.artists.casefold():
@@ -422,7 +445,7 @@ def _legacy_stem(album: Album, track: Track, single: bool) -> str:
     if album.total_discs > 1:
         number = f"{track.disc_number}-{number}"
     legacy = f"{number}. {track.title}"
-    return "" if legacy == _file_stem(album, track, single) else legacy
+    return "" if legacy == _file_stem(album, track, single, style) else legacy
 
 
 def _direct_match(track: Track) -> Match | None:

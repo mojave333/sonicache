@@ -66,6 +66,64 @@ class TestFileStem:
         assert _file_stem(album(), track, single=False) == "03. The Weeknd, Daft Punk - Starboy"
 
 
+class TestNamingStyles:
+    """The same release, named three ways."""
+
+    def guest(self):
+        return Track(id="1", title="Instant Crush", artists="Daft Punk, Julian Casablancas",
+                     duration=0, track_number=5)
+
+    def own(self):
+        return Track(id="2", title="Aerodynamic", artists="Daft Punk", duration=0, track_number=2)
+
+    @pytest.mark.parametrize("style, expected", [
+        ("auto", "05. Daft Punk, Julian Casablancas - Instant Crush"),
+        ("artist", "05. Daft Punk, Julian Casablancas - Instant Crush"),
+        ("title", "05. Instant Crush"),
+    ])
+    def test_a_guest_track(self, style, expected):
+        assert _file_stem(album(), self.guest(), False, style) == expected
+
+    @pytest.mark.parametrize("style, expected", [
+        ("auto", "02. Aerodynamic"),
+        ("artist", "02. Daft Punk - Aerodynamic"),
+        ("title", "02. Aerodynamic"),
+    ])
+    def test_a_track_by_the_album_artist(self, style, expected):
+        assert _file_stem(album(), self.own(), False, style) == expected
+
+    def test_a_single_is_named_the_same_whatever_the_style(self):
+        for style in ("auto", "artist", "title"):
+            assert _file_stem(album(), self.own(), True, style) == "Daft Punk - Aerodynamic"
+
+
+class TestAlbumFolder:
+    @pytest.mark.parametrize("style, expected", [
+        ("flat", ["Daft Punk - Discovery (2001)"]),
+        ("nested", ["Daft Punk", "Discovery (2001)"]),
+        ("album", ["Discovery (2001)"]),
+    ])
+    def test_the_three_layouts(self, tmp_path, style, expected):
+        record = album()
+        record.release_date = "2001-03-12"
+        folder = downloader._album_folder(tmp_path, record, style)
+        assert folder.relative_to(tmp_path).parts == tuple(expected)
+
+    def test_an_album_without_a_year(self, tmp_path):
+        folder = downloader._album_folder(tmp_path, album(), "flat")
+        assert folder.name == "Daft Punk - Discovery"
+
+    def test_an_album_without_an_artist_is_named_by_itself(self, tmp_path):
+        record = album(artist="")
+        assert downloader._album_folder(tmp_path, record, "flat").name == "Discovery"
+        assert downloader._album_folder(tmp_path, record, "nested").name == "Discovery"
+
+    def test_unsafe_characters_never_reach_the_disk(self, tmp_path):
+        record = album(artist="AC/DC", name="Back in Black: Live?")
+        folder = downloader._album_folder(tmp_path, record, "nested")
+        assert folder.relative_to(tmp_path).parts == ("AC-DC", "Back in Black - Live")
+
+
 class TestLegacyNames:
     """Albums downloaded before guests were named must not download twice."""
 

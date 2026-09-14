@@ -20,6 +20,8 @@ class TestNormalize:
             "cookies_browser": "",
             "rate_limit": 0,
             "proxy": "",
+            "track_name": "auto",
+            "folder_name": "flat",
             "sidebar": 64,
         }
 
@@ -73,6 +75,20 @@ class TestSpeedAndProxy:
     ])
     def test_a_proxy_has_to_look_like_an_address(self, given, expected):
         assert gui._normalize({"proxy": given})["proxy"] == expected
+
+
+class TestNamingSettings:
+    @pytest.mark.parametrize("given, expected", [
+        ("auto", "auto"), ("artist", "artist"), ("title", "title"), ("fancy", "auto"), (None, "auto"),
+    ])
+    def test_track_names(self, given, expected):
+        assert gui._normalize({"track_name": given})["track_name"] == expected
+
+    @pytest.mark.parametrize("given, expected", [
+        ("flat", "flat"), ("nested", "nested"), ("album", "album"), ("deep", "flat"), (7, "flat"),
+    ])
+    def test_folder_names(self, given, expected):
+        assert gui._normalize({"folder_name": given})["folder_name"] == expected
 
 
 class TestProxyEnvironment:

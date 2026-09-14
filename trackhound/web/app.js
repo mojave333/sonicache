@@ -167,6 +167,8 @@ function renderSettings() {
   $("#threads").textContent = settings.threads;
   $("#cookies").value = settings.cookies_browser;
   $("#rate").value = String(settings.rate_limit);
+  $("#track-name").value = settings.track_name;
+  $("#folder-name").value = settings.folder_name;
   if ($("#proxy") !== document.activeElement) $("#proxy").value = settings.proxy;
   $("#submit-label").textContent = settings.dry_run ? "Проверить" : "Скачать";
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
@@ -284,6 +286,8 @@ function bindUi() {
 
   $("#cookies").addEventListener("change", (event) => updateSettings({ cookies_browser: event.target.value }));
   $("#rate").addEventListener("change", (event) => updateSettings({ rate_limit: Number(event.target.value) }));
+  $("#track-name").addEventListener("change", (event) => updateSettings({ track_name: event.target.value }));
+  $("#folder-name").addEventListener("change", (event) => updateSettings({ folder_name: event.target.value }));
   // A proxy is typed rather than picked, so it is taken once the field is left
   $("#proxy").addEventListener("change", (event) => updateSettings({ proxy: event.target.value.trim() }));
   $("#proxy").addEventListener("input", (event) => {
