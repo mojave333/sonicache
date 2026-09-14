@@ -10,7 +10,7 @@
 2. Распакуйте архив куда угодно — например в `%LOCALAPPDATA%\Trackhound`.
 3. Запустите `Trackhound.exe`.
 
-Больше ничего ставить не нужно: Python, ffmpeg и Deno уже внутри архива. Нужна Windows 10 или 11, 64 бита; из-за встроенных ffmpeg и Deno распакованная папка занимает около 320 МБ.
+Больше ничего ставить не нужно: Python, ffmpeg и Deno уже внутри архива. Нужна Windows 10 или 11, 64 бита; из-за встроенных ffmpeg и Deno распакованная папка занимает около 320 МБ. На macOS и Linux программа работает из исходников — см. раздел «macOS и Linux».
 
 Два уточнения про первый запуск:
 
@@ -107,6 +107,20 @@ YouTube отдаёт аудио примерно 130–160 кбит/с, SoundClo
 - **«Spotify изменил формат страницы».** Нужна правка разбора в `trackhound/spotify.py`.
 - **`music.youtube.com` недоступен в сети.** Программа сама переключается на `www.youtube.com`.
 - **Нужен прокси.** Впишите адрес в «Настройки» → «Прокси» или запустите с `--proxy http://127.0.0.1:1080`. Переменные `HTTP_PROXY`/`HTTPS_PROXY` тоже работают.
+
+## macOS и Linux
+
+Готовых сборок нет — они собираются под Windows, — но из исходников программа работает: окно рисует WebKit (macOS) или GTK (Linux) через pywebview, удаление из библиотеки уходит в корзину (Finder, `gio trash` или `~/.local/share/Trash` по стандарту freedesktop.org), «Показать в проводнике» открывает Finder или файловый менеджер, тема берётся из системной. ffmpeg и Deno нужно поставить самому:
+
+```sh
+brew install ffmpeg deno            # macOS
+sudo apt install ffmpeg && curl -fsSL https://deno.land/install.sh | sh   # Debian/Ubuntu
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python main.py            # окно
+.venv/bin/python main.py LINK       # командная строка
+```
+
+Настройки лежат в `~/.trackhound.json`, журнал и история — в `~/Library/Application Support/Trackhound` (macOS) или `$XDG_DATA_HOME/trackhound` (Linux).
 
 ## Запуск из исходников
 

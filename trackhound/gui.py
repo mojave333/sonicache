@@ -19,6 +19,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 import urllib.request
 import webbrowser
 from pathlib import Path
@@ -134,8 +135,7 @@ class Api:
 
     def open_folder(self, path: str) -> bool:
         folder = Path(path).expanduser()
-        if folder.is_file() and sys.platform == "win32":
-            subprocess.Popen(f'explorer /select,"{folder}"')
+        if folder.is_file() and _reveal(folder):
             return True
         while not folder.is_dir() and folder.parent != folder:
             folder = folder.parent  # a dry run never creates the album folder
@@ -362,18 +362,86 @@ _FO_DELETE = 3
 _FOF_FLAGS = 0x0040 | 0x0010 | 0x0004 | 0x0400  # ALLOWUNDO | NOCONFIRMATION | SILENT | NOERRORUI
 
 
+def _reveal(path: Path) -> bool:
+    """Opens the file manager with the file itself picked out."""
+    try:
+        if sys.platform == "win32":
+            subprocess.Popen(f'explorer /select,"{path}"')
+            return True
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", str(path)])
+            return True
+        # Nautilus, Dolphin, Nemo and the rest answer this; the caller falls
+        # back to opening the folder itself when they do not.
+        subprocess.run(["dbus-send", "--session", "--print-reply",
+                        "--dest=org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
+                        "org.freedesktop.FileManager1.ShowItems",
+                        f"array:string:{path.as_uri()}", "string:"],
+                       check=True, capture_output=True, timeout=5)
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def _recycle(path: Path) -> None:
-    if sys.platform != "win32":
-        # No recycle bin to hand the files to, so they go for good
-        shutil.rmtree(path) if path.is_dir() else path.unlink()
+    """Moves a file or folder to the desktop's trash, wherever that is.
+
+    Nothing here deletes outright: a wrong click in the library has to stay
+    undoable, so a desktop with no trash of its own raises instead.
+    """
+    if sys.platform == "win32":
+        operation = _FileOperation(
+            wFunc=_FO_DELETE,
+            pFrom=f"{path.resolve()}\0\0",  # the shell wants a double-null terminated list
+            fFlags=_FOF_FLAGS,
+        )
+        if ctypes.windll.shell32.SHFileOperationW(ctypes.byref(operation)):
+            raise OSError(f"не удалось удалить {path}")
         return
-    operation = _FileOperation(
-        wFunc=_FO_DELETE,
-        pFrom=f"{path.resolve()}\0\0",  # the shell wants a double-null terminated list
-        fFlags=_FOF_FLAGS,
-    )
-    if ctypes.windll.shell32.SHFileOperationW(ctypes.byref(operation)):
-        raise OSError(f"не удалось удалить {path}")
+
+    if sys.platform == "darwin":
+        script = f'tell application "Finder" to delete POSIX file "{path.resolve()}"'
+        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+        if result.returncode:
+            raise OSError(f"не удалось удалить {path}: {result.stderr.strip()}")
+        return
+
+    if shutil.which("gio"):
+        result = subprocess.run(["gio", "trash", str(path.resolve())],
+                                capture_output=True, text=True)
+        if result.returncode == 0:
+            return
+        logs.log.warning("gio trash не справился: %s", result.stderr.strip())
+    _trash_by_hand(path)
+
+
+def _trash_by_hand(path: Path) -> None:
+    """The freedesktop.org trash, for a desktop without gio.
+
+    A trashed file goes to ~/.local/share/Trash/files with a .trashinfo note
+    beside it saying where it came from, which is what restores it.
+    """
+    root = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "Trash"
+    files, info = root / "files", root / "info"
+    files.mkdir(parents=True, exist_ok=True)
+    info.mkdir(parents=True, exist_ok=True)
+    source = path.resolve()
+    name = source.name
+    for attempt in range(1, 1000):  # the trash may already hold this name
+        if not (files / name).exists() and not (info / f"{name}.trashinfo").exists():
+            break
+        name = f"{source.stem}.{attempt}{source.suffix}"
+    note = info / f"{name}.trashinfo"
+    note.write_text(
+        "[Trash Info]\n"
+        f"Path={urllib.parse.quote(str(source))}\n"
+        f"DeletionDate={datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}\n",
+        encoding="utf-8")
+    try:
+        shutil.move(str(source), str(files / name))
+    except OSError:
+        note.unlink(missing_ok=True)
+        raise
 
 
 def _is_audio(path: Path) -> bool:
@@ -481,6 +549,16 @@ def _copy_to_clipboard(text: str) -> bool:
         finally:
             user32.CloseClipboard()
 
+    # macOS and the Linux desktops keep what a command line tool pipes in
+    for command in (["pbcopy"], ["wl-copy"], ["xclip", "-selection", "clipboard"], ["xsel", "-ib"]):
+        if not shutil.which(command[0]):
+            continue
+        try:
+            subprocess.run(command, input=text.encode("utf-8"), check=True, timeout=5)
+            return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+
     root = None
     try:
         from tkinter import Tk
@@ -522,8 +600,14 @@ def _clipboard_text() -> str:
 
 
 def _system_dark() -> bool:
+    """Whether the desktop is in its dark theme; light when nothing says so."""
+    if sys.platform == "darwin":
+        # The key exists only while the dark theme is on
+        return "dark" in _ask(["defaults", "read", "-g", "AppleInterfaceStyle"]).lower()
     if sys.platform != "win32":
-        return False
+        scheme = (_ask(["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"])
+                  or _ask(["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"]))
+        return "dark" in scheme.lower()
     import winreg
 
     try:
@@ -532,6 +616,17 @@ def _system_dark() -> bool:
             return winreg.QueryValueEx(key, "AppsUseLightTheme")[0] == 0
     except OSError:
         return False
+
+
+def _ask(command: list[str]) -> str:
+    """Runs a small command and returns its output, or "" when it is not there."""
+    if not shutil.which(command[0]):
+        return ""
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip()
 
 
 def _webview2_installed() -> bool:

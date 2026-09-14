@@ -9,6 +9,28 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The tests are platform-independent and the program now runs on three, so
+  # they run on all three; only Windows builds the exe.
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Tests
+        run: python -m pytest -q
+
   windows:
     runs-on: windows-latest
     steps:

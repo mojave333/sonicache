@@ -26,13 +26,16 @@ log = logging.getLogger("trackhound")
 def data_dir() -> Path:
     """Where the program keeps what it writes for itself.
 
-    %LOCALAPPDATA%\\Trackhound on Windows, ~/.trackhound elsewhere. Settings
-    stay in the home folder, where they have always been.
+    Each desktop has its own place for this: %LOCALAPPDATA% on Windows,
+    ~/Library/Application Support on macOS, $XDG_DATA_HOME on Linux. The
+    settings file stays in the home folder, where it has always been.
     """
     if sys.platform == "win32":
         root = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
         return root / "Trackhound"
-    return Path.home() / ".trackhound"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Trackhound"
+    return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "trackhound"
 
 
 def log_dir() -> Path:
