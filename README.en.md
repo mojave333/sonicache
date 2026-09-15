@@ -27,7 +27,7 @@ Three notes about the first run:
 
 ## Using it
 
-The sections are on the left: Download, Library, Queue and Settings (Ctrl+1…4). The panel is dragged by its right edge: the wider it is, the sooner the labels appear; narrow, it goes back to icons alone, and a double click on the edge switches between the two. The width is remembered.
+The sections are on the left: Download, Library, Queue and Settings (Ctrl+1…4). A button at the foot of the panel opens it into a labelled column and folds it back to icons alone; Ctrl+B does the same. Which of the two it was left in is remembered.
 
 **Download.** Paste a link with the button, with Ctrl+V, or drag it into the window — several at once is fine. Without a link, write a name instead: "Artist - Album" or "Artist - Track", and the release is looked up on YouTube Music or Apple Music. The format and the folder sit next to the field; the arrow beside "Download" switches to "only check what would be found", which downloads nothing. Each link becomes a row with its cover and overall progress; clicking it opens the tracks: searching, downloading (with percentages), done, already in the folder, not found or failed, and where the audio came from. Links can be added while a download runs — they queue up. "Pause" holds the queue between tracks: what is downloading finishes, nothing new starts. "Stop" interrupts, and the retry button on a row picks up what is left. Closing the window loses nothing: unfinished links and the list of what was downloaded come back on the next run. The status bar at the bottom counts the tracks and estimates what is left.
 
@@ -35,7 +35,7 @@ The sections are on the left: Download, Library, Queue and Settings (Ctrl+1…4)
 
 **Queue** — every track of the current downloads in one list, filtered by running, done or problems.
 
-**Settings** — theme (as in the system, light or dark), language (as in the system, Russian or English), how many tracks to download at once, a speed limit, a proxy, cookies from a browser, and a check that every component is in place. The version of yt-dlp inside the build is there too, together with the path to the log and a "Copy the report" button: the report holds the version, the component paths, the settings and the end of the log — what belongs in a bug report. A line about a new version appears there when one is published: the program asks GitHub once per run and shows a link, downloading nothing by itself. Settings live in `%USERPROFILE%\.trackhound.json`.
+**Settings** — theme (as in the system, light or dark), language (Russian or English; the first run takes the system's, and a system that is neither gets English), how many tracks to download at once, a speed limit, a proxy, cookies from a browser, and a check that every component is in place. The version of yt-dlp inside the build is there too, together with the path to the log and a "Copy the report" button: the report holds the version, the component paths, the settings and the end of the log — what belongs in a bug report. A line about a new version appears there when one is published: the program asks GitHub once per run and shows a link, downloading nothing by itself. Settings live in `%USERPROFILE%\.trackhound.json`.
 
 Age-restricted tracks are only served by YouTube to a signed-in account. Usually the program simply takes such a song from another source, but if there is no other, choose in the settings the browser you are signed into YouTube with. Close that browser first — it holds its cookie file open; Firefox's cookies are read the most reliably.
 
@@ -172,7 +172,9 @@ The finished folder is `dist\Trackhound`, holding two exes (`Trackhound.exe` and
 
 Building without `vendor\` works too and produces a lighter variant that takes ffmpeg and Deno from the system.
 
-Releases build themselves: a `v1.2.3` tag starts [`release.yml`](.github/workflows/release.yml), which checks that the tag matches `__version__` in `trackhound/__init__.py`, builds the archive and the installer, and creates a draft release.
+Releasing happens entirely on GitHub and needs nothing done locally. Open Actions → Release → Run workflow and type the version (`1.2.3`): [`release.yml`](.github/workflows/release.yml) writes it into `trackhound/__init__.py`, commits it, tags the commit, runs the tests, builds the exe and the installer, and publishes the release with both files and their SHA-256.
+
+Tagging by hand still works — `git tag v1.2.3 && git push origin v1.2.3` starts the same workflow, which then checks the tag against `__version__` and stops if they disagree. A version that has already been released is refused before anything is built.
 
 ## How it is put together
 

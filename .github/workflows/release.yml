@@ -1,14 +1,23 @@
 name: Release
 
-# Tag a commit to publish a build:
+# Releasing takes no local commands. Open Actions -> Release -> Run workflow,
+# type the version (1.1.0), and the job writes __version__, commits it, tags the
+# commit, builds the exe and the installer, and publishes the release with both.
+#
+# Tagging by hand still works for anyone who prefers it:
 #
 #     git tag v1.1.0 && git push origin v1.1.0
 #
-# The tag has to match __version__, otherwise the job stops before building.
+# That path checks the tag against __version__ and stops if they disagree.
 on:
   push:
     tags: ["v*.*.*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия, например 1.1.0"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -24,17 +33,67 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Work out the version
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            "${{ inputs.version }}".Trim().TrimStart("v")
+          } else {
+            "${{ github.ref_name }}".TrimStart("v")
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Version '$version' is not in the X.Y.Z form the tags use"
+          }
+          "version=$version" >> $env:GITHUB_ENV
+          "tag=v$version" >> $env:GITHUB_ENV
+          Write-Output "releasing v$version"
+
+      # Started from the Actions tab: the version in the source, the commit and
+      # the tag are all made here, so nothing has to be prepared beforehand.
+      - name: Write the version and tag the commit
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          if (git ls-remote --tags origin "refs/tags/$env:tag") {
+            throw "$env:tag already exists. Pick a version that has not been released."
+          }
+          $init = "trackhound/__init__.py"
+          $text = Get-Content $init -Raw
+          $updated = [regex]::Replace($text, '__version__ = "[^"]+"', "__version__ = `"$env:version`"")
+          if ($updated -ne $text) {
+            # Written through .NET so the encoding cannot depend on which
+            # PowerShell is running: Set-Content -Encoding utf8 adds a byte
+            # order mark on 5.1 and none on 7.
+            [IO.File]::WriteAllText((Resolve-Path $init), $updated, [Text.UTF8Encoding]::new($false))
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add $init
+            git commit -m "Release $env:tag"
+            git push
+          } else {
+            Write-Output "__version__ already says $env:version"
+          }
+          git tag $env:tag
+          git push origin $env:tag
+
       - name: Check the tag against __version__
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'push'
         shell: pwsh
         run: |
           $source = (Select-String -Path trackhound/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
-          $tag = "${{ github.ref_name }}".TrimStart("v")
-          Write-Output "tag $tag, __version__ $source"
-          if ($source -ne $tag) { throw "Tag $tag does not match __version__ $source in trackhound/__init__.py" }
+          Write-Output "tag $env:version, __version__ $source"
+          if ($source -ne $env:version) {
+            throw "Tag $env:version does not match __version__ $source in trackhound/__init__.py"
+          }
 
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
+
+      # The release publishes itself now, so the tests have to run here too and
+      # not only in ci.yml: nothing else stands between a broken commit and a
+      # download page.
+      - name: Tests
+        run: python -m pytest -q
 
       - name: Fetch ffmpeg and Deno
         shell: pwsh
@@ -65,16 +124,15 @@ jobs:
       - name: Pack
         shell: pwsh
         run: |
-          $name = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "dev" }
-          Compress-Archive -Path dist/Trackhound/* -DestinationPath "Trackhound-$name-windows-x64.zip"
+          Compress-Archive -Path dist/Trackhound/* -DestinationPath "Trackhound-$env:tag-windows-x64.zip"
           $setup = Get-ChildItem dist/Trackhound-*-windows-x64-setup.exe | Select-Object -First 1
-          Move-Item $setup.FullName "Trackhound-$name-windows-x64-setup.exe"
-          "archive=Trackhound-$name-windows-x64.zip" >> $env:GITHUB_ENV
-          "installer=Trackhound-$name-windows-x64-setup.exe" >> $env:GITHUB_ENV
+          Move-Item $setup.FullName "Trackhound-$env:tag-windows-x64-setup.exe"
+          "archive=Trackhound-$env:tag-windows-x64.zip" >> $env:GITHUB_ENV
+          "installer=Trackhound-$env:tag-windows-x64-setup.exe" >> $env:GITHUB_ENV
           # Published in the release notes: the build is unsigned, so the hash is
           # the only way a reader can tell a download apart from someone's reupload.
-          foreach ($pair in @{ sha256 = "Trackhound-$name-windows-x64.zip"
-                               installer_sha256 = "Trackhound-$name-windows-x64-setup.exe" }.GetEnumerator()) {
+          foreach ($pair in @{ sha256 = "Trackhound-$env:tag-windows-x64.zip"
+                               installer_sha256 = "Trackhound-$env:tag-windows-x64-setup.exe" }.GetEnumerator()) {
             "$($pair.Key)=$((Get-FileHash $pair.Value -Algorithm SHA256).Hash.ToLower())" >> $env:GITHUB_ENV
           }
 
@@ -85,38 +143,37 @@ jobs:
             ${{ env.archive }}
             ${{ env.installer }}
 
-      # The step below leaves the notes of a release that already exists alone,
-      # so a second run for the same tag would hang new files under text written
-      # for the old ones. A draft has been announced to nobody yet, so clear it
-      # and let the release be written again from scratch. A published release
-      # is never touched.
+      # A draft left by an earlier run would keep its own notes, so new files
+      # would hang under text written for the old ones. A draft has been
+      # announced to nobody, so clear it and let the release be written again
+      # from scratch. A published release is never touched.
       - name: Clear a leftover draft for this tag
-        if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $json = gh release view "${{ github.ref_name }}" --json isDraft 2>$null
+          $json = gh release view "$env:tag" --json isDraft 2>$null
           if ($LASTEXITCODE -eq 0 -and $json) {
             if (($json | ConvertFrom-Json).isDraft) {
-              Write-Output "Deleting the existing draft for ${{ github.ref_name }}"
-              gh release delete "${{ github.ref_name }}" --yes
+              Write-Output "Deleting the existing draft for $env:tag"
+              gh release delete "$env:tag" --yes
             } else {
-              Write-Output "${{ github.ref_name }} is already published; leaving it alone"
+              Write-Output "$env:tag is already published; leaving it alone"
             }
           } else {
-            Write-Output "No release for ${{ github.ref_name }} yet"
+            Write-Output "No release for $env:tag yet"
           }
           exit 0
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.tag }}
+          name: ${{ env.tag }}
           files: |
             ${{ env.installer }}
             ${{ env.archive }}
-          draft: true
+          draft: false
           generate_release_notes: true
           body: |
             Скачайте установщик `${{ env.installer }}` и запустите его: он спросит,
