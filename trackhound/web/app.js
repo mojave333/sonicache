@@ -215,55 +215,32 @@ function applyTheme() {
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
 
-// The rail is dragged wider by its right edge; below SIDEBAR_SNAP it springs back to icons only
+// The panel has two widths and a button at its foot to move between them: an
+// icon rail and a labelled column. The setting is still a width in pixels, so
+// a file written when the panel was dragged opens at whichever of the two it
+// was left nearer.
 const SIDEBAR_RAIL = 64;
+const SIDEBAR_WIDE = 208;
 const SIDEBAR_SNAP = 110;
-const SIDEBAR_MAX = 320;
 
 function applySidebar(width) {
-  const limit = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_RAIL, Math.round(window.innerWidth * 0.4)));
-  const size = Math.min(limit, Math.max(SIDEBAR_RAIL, Math.round(width)));
+  const size = Math.round(width) >= SIDEBAR_SNAP ? SIDEBAR_WIDE : SIDEBAR_RAIL;
   document.documentElement.style.setProperty("--sidebar", `${size}px`);
-  $("#resizer").setAttribute("aria-valuenow", String(size));
+  const toggle = $("#sidebar-toggle");
+  const label = t(size === SIDEBAR_WIDE ? "Свернуть панель" : "Развернуть панель");
+  toggle.setAttribute("aria-expanded", String(size === SIDEBAR_WIDE));
+  toggle.setAttribute("aria-label", label);
+  toggle.title = `${label} (Ctrl+B)`;
   return size;
 }
 
-function sidebarWidth() {
-  return $(".sidebar").getBoundingClientRect().width;
+function toggleSidebar() {
+  const wide = $("#sidebar-toggle").getAttribute("aria-expanded") === "true";
+  updateSettings({ sidebar: applySidebar(wide ? SIDEBAR_RAIL : SIDEBAR_WIDE) });
 }
 
-function bindSidebarResize() {
-  const resizer = $("#resizer");
-  let dragging = false;
-
-  resizer.addEventListener("pointerdown", (event) => {
-    dragging = true;
-    resizer.setPointerCapture(event.pointerId);
-    document.documentElement.dataset.resizing = "";
-    event.preventDefault();
-  });
-  resizer.addEventListener("pointermove", (event) => {
-    if (dragging) applySidebar(event.clientX);
-  });
-  resizer.addEventListener("pointerup", (event) => {
-    if (!dragging) return;
-    dragging = false;
-    resizer.releasePointerCapture(event.pointerId);
-    delete document.documentElement.dataset.resizing;
-    const width = sidebarWidth();
-    updateSettings({ sidebar: applySidebar(width < SIDEBAR_SNAP ? SIDEBAR_RAIL : width) });
-  });
-  // A double click flips between the icon rail and a comfortable labelled width
-  resizer.addEventListener("dblclick", () => {
-    updateSettings({ sidebar: applySidebar(sidebarWidth() > SIDEBAR_RAIL ? SIDEBAR_RAIL : 208) });
-  });
-  resizer.addEventListener("keydown", (event) => {
-    const step = { ArrowLeft: -24, ArrowRight: 24 }[event.key];
-    if (!step) return;
-    event.preventDefault();
-    const width = sidebarWidth() + step;
-    updateSettings({ sidebar: applySidebar(width < SIDEBAR_SNAP && step < 0 ? SIDEBAR_RAIL : width) });
-  });
+function bindSidebarToggle() {
+  $("#sidebar-toggle").addEventListener("click", toggleSidebar);
 }
 
 function renderProblems() {
@@ -286,7 +263,7 @@ function bindUi() {
   for (const button of $$("[data-view]")) {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
-  bindSidebarResize();
+  bindSidebarToggle();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
@@ -373,6 +350,9 @@ function onShortcut(event) {
   } else if (event.key === "F5" || (event.ctrlKey && event.code === "KeyR")) {
     event.preventDefault(); // reloading the page would lose the download list
     if (state.view === "library") loadLibrary();
+  } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyB") {
+    event.preventDefault();
+    toggleSidebar();
   } else if (event.ctrlKey && !event.altKey && event.code === "KeyF") {
     // the library search box is not focused automatically, so give it a shortcut
     event.preventDefault();
@@ -590,6 +570,13 @@ function restoreHistory(history) {
       if (entry.failed) job.state = "partial";
     }
     if (entry.cover) loadCover($(".cover", job.node), entry.cover);
+    if (entry.tracks && entry.tracks.length) {
+      onRelease(job, {
+        folder: job.folder, title: job.title, kind: entry.kind || "", album: entry.album || "",
+        artist: entry.artist || "", year: entry.year || "", service: entry.service || "",
+        cover: "", note: "", tracks: entry.tracks,
+      }, true);
+    }
     renderJob(job);
   }
 }
@@ -763,7 +750,10 @@ function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
   return parts.join(" · ");
 }
 
-function onRelease(job, event) {
+// A restored card is filled from what was saved, not from events: its tracks
+// belong to a run that is over, so they stay out of the queue and the status
+// bar, and the card waits to be opened instead of opening itself.
+function onRelease(job, event, restored = false) {
   Object.assign(job, { folder: event.folder, title: event.title, total: event.tracks.length });
   const kind = event.kind.charAt(0).toUpperCase() + event.kind.slice(1);
   const fromAlbum = event.kind === t("трек") && event.album && event.album !== event.title
@@ -779,7 +769,8 @@ function onRelease(job, event) {
     const track = {
       job, number: multiDisc ? `${info.disc}-${info.number}` : info.number,
       title: info.title, artists: info.artists, duration: info.duration,
-      state: "waiting", percent: 0, source: "", text: "",
+      state: restored ? info.state || "waiting" : "waiting", percent: 0,
+      source: restored ? info.source || "" : "", text: restored ? info.text || "" : "",
     };
     track.row = createTrackRow(track, info.artists === event.artist ? "" : info.artists);
     track.queueRow = createTrackRow(track, info.artists, event.title);
@@ -790,13 +781,15 @@ function onRelease(job, event) {
     });
     renderTrack(track);
     job.tracks.set(info.id, track);
-    state.tracks.push(track);
     rows.push(track.row);
-    queueRows.push(track.queueRow);
+    if (!restored) {
+      state.tracks.push(track);
+      queueRows.push(track.queueRow);
+    }
   }
   $(".tracks", job.node).replaceChildren(...rows);
-  $("#queue").append(...queueRows);
-  setExpanded(job, true);
+  if (!restored) $("#queue").append(...queueRows);
+  setExpanded(job, !restored);
 }
 
 function createTrackRow(track, artists, release = "") {

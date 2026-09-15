@@ -27,7 +27,7 @@ from pathlib import Path
 import webview
 
 from . import __version__, logs
-from .i18n import LANGUAGES, set_language, t
+from .i18n import LANGUAGES, resolve, set_language, t
 from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                          Downloader, Options, use_proxy)
 
@@ -35,6 +35,9 @@ TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
 SETTINGS_FILE = Path.home() / ".trackhound.json"
 HISTORY_LIMIT = 100  # releases remembered between runs
+# Track states that mean "not finished": a job that ends while a track is in
+# one of them was interrupted, and the saved card should say so.
+UNFINISHED = {"waiting", "search", "download"}
 REPO = "mojave333/trackhound"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
@@ -262,14 +265,35 @@ class Api:
             self._run(job, link, options)
 
     def _run(self, job: int, link: str, options: Options) -> None:
+        # The tracklist and how each track ended. Without it a card restored on
+        # the next run has nothing to unfold and hides its arrow. Track events
+        # are far too many to write the file on each one, so the states are kept
+        # here and saved once, when the job is over.
+        tracks: dict[str, dict] = {}
+
+        def finished_tracks() -> list[dict]:
+            return [dict(item, state="cancel") if item["state"] in UNFINISHED else item
+                    for item in tracks.values()]
+
         def emit(**event) -> None:
             self._events.put({"job": job, **event})
-            if event.get("type") == "release":  # the card's title, kept for next time
+            kind = event.get("type")
+            if kind == "release":  # the card's title and tracklist, kept for next time
+                tracks.clear()
+                for item in event["tracks"]:
+                    tracks[item["id"]] = {**item, "state": "waiting", "source": "", "text": ""}
                 self._remember({"job": job, "link": link, "state": "running", "title": event["title"],
                                 "artist": event["artist"], "kind": event["kind"], "year": event["year"],
                                 "service": event["service"], "album": event["album"],
                                 "cover": event["cover"], "folder": event["folder"],
-                                "total": len(event["tracks"])})
+                                "total": len(event["tracks"]), "tracks": list(tracks.values())})
+            elif kind == "track":
+                known = tracks.get(event.get("id"))
+                if known is not None:
+                    known["state"] = event.get("state", known["state"])
+                    known["text"] = event.get("text", "")
+                    if event.get("source"):
+                        known["source"] = event["source"]
 
         emit(type="job", state="running")
         self._remember({"job": job, "state": "running"})
@@ -288,12 +312,14 @@ class Api:
             logs.log.exception("ссылка не скачалась: %s", link)
             message = str(e) or type(e).__name__
             emit(type="job", state="error", message=message)
-            self._remember({"job": job, "state": "error", "message": message})
+            self._remember({"job": job, "state": "error", "message": message,
+                            "tracks": finished_tracks()})
             return
         state = "cancelled" if self._stop.is_set() else "done"
         counts = {"ok": len(report.ok), "skipped": len(report.skipped), "failed": len(report.failed)}
         emit(type="job", state=state, dry_run=options.dry_run, **counts)
-        self._remember({"job": job, "state": state, "dry_run": options.dry_run, **counts})
+        self._remember({"job": job, "state": state, "dry_run": options.dry_run,
+                        "tracks": finished_tracks(), **counts})
 
 
     def _remember(self, entry: dict) -> None:
@@ -516,13 +542,21 @@ def _normalize(settings: dict) -> dict:
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
         "rate_limit": rate_limit,
         "proxy": proxy,
+        # The window offers Russian and English and nothing else, so the
+        # language is settled here: "system" from an older settings file, or a
+        # first run with nothing saved, becomes whichever of the two the
+        # computer asks for.
         "language": (settings.get("language")
-                     if settings.get("language") in LANGUAGES else "system"),
+                     if settings.get("language") in ("ru", "en") else resolve("system")),
         "track_name": (settings.get("track_name")
                        if settings.get("track_name") in TRACK_NAMES else "auto"),
         "folder_name": (settings.get("folder_name")
                         if settings.get("folder_name") in FOLDER_NAMES else "flat"),
-        "sidebar": sidebar,  # width of the side panel in pixels, 64 is the icon rail
+        # Width of the side panel in pixels. The window uses two of them, 64 for
+        # the icon rail and 208 for the labelled column, and reads anything in
+        # between — a file left by the build where the panel was dragged — as
+        # whichever of the two it sits nearer.
+        "sidebar": sidebar,
     }
 
 

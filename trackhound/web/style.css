@@ -129,18 +129,15 @@ p { margin: 0; }
   background: var(--chrome); border-right: 1px solid var(--divider);
   container: sidebar / inline-size; /* labels appear once dragged wide enough */
 }
-.resizer { position: absolute; top: 0; right: -3px; bottom: 0; width: 7px; z-index: 5; cursor: col-resize; }
-.resizer::after {
-  content: ""; position: absolute; inset: 0 3px; border-radius: 2px;
-  background: var(--accent-fg); opacity: 0; transition: opacity 120ms ease-out;
-}
-.resizer:hover::after, .resizer:focus-visible::after, :root[data-resizing] .resizer::after { opacity: 1; }
-.resizer:focus-visible { outline: none; }
-:root[data-resizing] { cursor: col-resize; }
-/* A double click or an arrow key glides the panel; a drag must stay glued to
-   the pointer, so the transition is off while one is in progress. */
+/* The panel glides between its two widths. Registered as a <length> above, so
+   the custom property itself can be animated; motion-ready is added after the
+   saved width is in place, which keeps the first paint from sliding. */
 :root.motion-ready { transition: --sidebar var(--settle) var(--ease); }
-:root[data-resizing] { transition: none; }
+
+/* Points the way the click will take the panel: right to open, left to close */
+.nav-toggle { margin-top: 4px; color: var(--text-subtle); }
+.nav-toggle .icon { transition: transform var(--settle) var(--ease); }
+.nav-toggle[aria-expanded="true"] .icon { transform: rotate(180deg); }
 
 .brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; }
 .logo { display: grid; place-items: center; flex: none; color: var(--text); }
@@ -157,7 +154,9 @@ p { margin: 0; }
   content: ""; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px;
   border-radius: 2px; background: var(--accent-fg);
 }
-.nav-label { display: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* text-align because a button centres its text, which left the labels floating
+   in the middle of the open panel instead of sitting against their icons */
+.nav-label { display: none; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-badge {
   position: absolute; top: 3px; right: 5px; min-width: 16px; height: 16px; padding: 0 4px;
   border-radius: 8px; background: var(--accent); color: var(--on-accent);
@@ -405,8 +404,12 @@ p { margin: 0; }
 .job.leaving { opacity: 0; transform: translateY(-4px); transition: opacity var(--quick) ease-out, transform var(--quick) ease-out; }
 @keyframes row-in { from { opacity: 0; transform: translateY(-6px); } }
 
+/* Nothing hides the rows while the fold is running: overflow and a zero height
+   already clip them, and the script sets the hidden attribute once the fold has
+   finished, which takes them out of the tab order. Hiding them the moment the
+   row closed made the tracks vanish at once, so closing looked like a snap
+   against the growth that opening animates. */
 .tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); overflow: hidden; min-height: 0; }
-.job:not(.open) .tracks { visibility: hidden; }
 
 @supports (interpolate-size: allow-keywords) {
   :root { interpolate-size: allow-keywords; }

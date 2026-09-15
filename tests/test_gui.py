@@ -20,7 +20,7 @@ class TestNormalize:
             "cookies_browser": "",
             "rate_limit": 0,
             "proxy": "",
-            "language": "system",
+            "language": gui.resolve("system"),  # settled on load, never left as "system"
             "track_name": "auto",
             "folder_name": "flat",
             "sidebar": 64,
@@ -79,11 +79,15 @@ class TestSpeedAndProxy:
 
 
 class TestLanguageSetting:
-    @pytest.mark.parametrize("given, expected", [
-        ("ru", "ru"), ("en", "en"), ("system", "system"), ("de", "system"), (None, "system"),
-    ])
-    def test_only_the_known_languages_survive(self, given, expected):
-        assert gui._normalize({"language": given})["language"] == expected
+    @pytest.mark.parametrize("given", ["ru", "en"])
+    def test_a_chosen_language_is_kept(self, given):
+        assert gui._normalize({"language": given})["language"] == given
+
+    @pytest.mark.parametrize("given", ["system", "de", None, 7])
+    def test_everything_else_is_settled_now(self, given):
+        """The window offers two languages and no "as in the system" button, so
+        anything else has to become one of the two before it is drawn."""
+        assert gui._normalize({"language": given})["language"] in ("ru", "en")
 
 
 class TestNamingSettings:

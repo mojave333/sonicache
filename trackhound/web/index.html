@@ -110,8 +110,11 @@
         <span class="nav-label">Настройки</span>
         <span id="settings-dot" class="nav-dot" hidden></span>
       </button>
-      <div id="resizer" class="resizer" role="separator" aria-orientation="vertical" tabindex="0"
-           title="Потяните, чтобы изменить ширину панели" aria-label="Ширина панели"></div>
+      <button type="button" id="sidebar-toggle" class="nav-item nav-toggle" aria-expanded="false"
+              title="Развернуть панель (Ctrl+B)" aria-label="Развернуть панель">
+        <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+        <span class="nav-label">Свернуть</span>
+      </button>
     </nav>
 
     <div class="main">
@@ -252,7 +255,6 @@
               <div class="setting">
                 <span class="setting-label" id="language-label">Язык</span>
                 <div id="language" class="segmented" role="radiogroup" aria-labelledby="language-label">
-                  <button type="button" role="radio" data-language="system">Как в системе</button>
                   <button type="button" role="radio" data-language="ru">Русский</button>
                   <button type="button" role="radio" data-language="en">English</button>
                 </div>

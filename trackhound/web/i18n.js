@@ -18,8 +18,10 @@ const TRANSLATIONS = {
   "Библиотека (Ctrl+2)": "Library (Ctrl+2)",
   "Очередь (Ctrl+3)": "Queue (Ctrl+3)",
   "Настройки (Ctrl+4)": "Settings (Ctrl+4)",
-  "Ширина панели": "Panel width",
-  "Потяните, чтобы изменить ширину панели": "Drag to change the panel width",
+  "Свернуть панель": "Collapse the panel",
+  "Развернуть панель": "Expand the panel",
+  "Развернуть панель (Ctrl+B)": "Expand the panel (Ctrl+B)",
+  "Свернуть": "Collapse",
 
   // Download view
   "Ссылка": "Link",
