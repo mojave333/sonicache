@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Версия, например 1.1.0"
+        description: "Version, for example 1.1.0"
         required: true
         type: string
 
@@ -176,22 +176,22 @@ jobs:
           draft: false
           generate_release_notes: true
           body: |
-            Скачайте установщик `${{ env.installer }}` и запустите его: он спросит,
-            куда ставить, предложит ярлык на рабочем столе и запустит программу в конце.
-            Права администратора не нужны — по умолчанию программа ставится только
-            для вас, в `%LOCALAPPDATA%\Programs\Trackhound`, и удаляется через
-            «Параметры» → «Приложения».
+            Download `${{ env.installer }}` and run it. The installer asks where to put
+            the program, offers a desktop shortcut, and starts it for you at the end.
+            No administrator rights are needed: by default it installs for you alone,
+            into `%LOCALAPPDATA%\Programs\Trackhound`, and uninstalls through
+            Settings → Apps like any other program.
 
-            Кому установщик не нужен — рядом лежит архив `${{ env.archive }}`:
-            распакуйте его куда угодно и запустите `Trackhound.exe`.
+            If you would rather not use an installer, `${{ env.archive }}` sits beside
+            it: unpack it anywhere and run `Trackhound.exe`.
 
-            Ничего доустанавливать не нужно: ffmpeg и Deno лежат внутри.
-            `Trackhound-cli.exe` — та же программа для командной строки.
+            Nothing else has to be installed — ffmpeg and Deno are inside.
+            `Trackhound-cli.exe` is the same program for a terminal.
 
-            Защитник Windows может назвать неподписанную сборку `Trojan:Win32/Sabsik.EN.D!ml`
-            — это ложное срабатывание машинного обучения на любой программе, собранной
-            PyInstaller. Что с ним делать, написано в разделе
-            [«Установка»](https://github.com/mojave333/trackhound#установка).
+            Windows Defender may call this unsigned build `Trojan:Win32/Sabsik.EN.D!ml`.
+            That is a false positive its machine learning raises against almost anything
+            built with PyInstaller; what to do about it is in
+            [Installing](https://github.com/mojave333/trackhound#installing).
 
-            SHA-256 установщика — `${{ env.installer_sha256 }}`, архива — `${{ env.sha256 }}`;
-            проверить свою копию можно командой `Get-FileHash <имя файла>`.
+            SHA-256 — installer `${{ env.installer_sha256 }}`,
+            archive `${{ env.sha256 }}`. Check your copy with `Get-FileHash <file>`.

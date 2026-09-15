@@ -1,47 +1,159 @@
+<div align="center">
+
+<img src="docs/logo.png" width="112" alt="">
+
 # Trackhound
 
-[In English](README.en.md)
+**Paste a link, get tagged music.**
 
-Скачивает альбомы, синглы, плейлисты и отдельные треки по ссылке из Spotify, Apple Music, YouTube, SoundCloud, Last.fm и с сайтов вроде Bandcamp.
+Albums, singles, playlists and single tracks from Spotify, Apple Music, YouTube,
+SoundCloud, Last.fm and sites such as Bandcamp.
 
-Со страницы по ссылке берутся названия, исполнители, номера треков, год и обложка — без аккаунтов и API-ключей. Если сервис сам отдаёт звук открыто (YouTube, SoundCloud, Bandcamp), трек скачивается прямо оттуда. Если нет (Spotify, Apple Music, Last.fm), тот же трек ищется на YouTube Music, SoundCloud и среди видео YouTube. Скачивает yt-dlp, после чего файлы получают теги и обложку.
+[![Latest release](https://img.shields.io/github/v/release/mojave333/trackhound?label=release&color=8FBF3F)](https://github.com/mojave333/trackhound/releases/latest)
+[![Build](https://github.com/mojave333/trackhound/actions/workflows/ci.yml/badge.svg)](https://github.com/mojave333/trackhound/actions/workflows/ci.yml)
+[![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-blue)](LICENSE)
+![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-informational)
 
-## Установка
+### [⬇ Download for Windows](https://github.com/mojave333/trackhound/releases/latest)
 
-1. Скачайте `Trackhound-vX.Y.Z-windows-x64-setup.exe` со страницы [Releases](https://github.com/mojave333/trackhound/releases/latest).
-2. Запустите его. Установщик спросит, куда ставить, предложит галочками ярлык на рабочем столе и `Trackhound-cli` в `PATH`, а в конце — запустить программу.
+</div>
 
-Права администратора не нужны: по умолчанию программа ставится только для вас, в `%LOCALAPPDATA%\Programs\Trackhound`. Администратору установщик дополнительно предложит поставить её для всех пользователей. Удаляется она как обычная программа — через «Параметры» → «Приложения»; при удалении спросит, стирать ли настройки и журнал (скачанная музыка остаётся на месте в любом случае).
+---
 
-Кому установщик не нужен, рядом лежит архив `Trackhound-vX.Y.Z-windows-x64.zip`: распакуйте его куда угодно и запустите `Trackhound.exe`.
+Titles, artists, track numbers, the year and the cover come from the page behind the link —
+no accounts, no API keys. When the service streams the audio openly (YouTube, SoundCloud,
+Bandcamp), the track is taken from there. When it does not (Spotify, Apple Music, Last.fm),
+the same track is looked for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp
+does the downloading, after which the files get their tags and cover art.
 
-Больше ничего ставить не нужно: Python, ffmpeg и Deno уже внутри. Нужна Windows 10 или 11, 64 бита; из-за встроенных ffmpeg и Deno установленная папка занимает около 320 МБ. На macOS и Linux программа работает из исходников — см. раздел «macOS и Linux».
+- **Nothing to set up** — Python, ffmpeg and Deno are inside the installer.
+- **No accounts, no API keys**; everything runs on your own machine.
+- **Names work too** — write "Daft Punk - Discovery" when you have no link.
+- **Tags and cover art** in every file, multi-disc albums numbered properly.
+- **A window or a terminal** — the same program behind both.
+- **Russian and English** in the interface.
 
-Три уточнения про первый запуск:
+**Contents**
+[Installing](#installing) ·
+[Using it](#using-it) ·
+[Command line](#command-line) ·
+[Links it understands](#links-it-understands) ·
+[Where the files go](#where-the-files-go) ·
+[Formats](#formats-and-quality) ·
+[How a track is chosen](#how-a-track-is-chosen) ·
+[When something breaks](#when-something-breaks) ·
+[macOS and Linux](#macos-and-linux) ·
+[From source](#running-from-source) ·
+[Building](#building) ·
+[Licence](#licence)
 
-- **SmartScreen.** Ни установщик, ни сама программа не подписаны сертификатом, поэтому Windows может показать синее окно «Система Windows защитила ваш компьютер». Нажмите «Подробнее» → «Выполнить в любом случае». Убрать это окно можно только подписью от удостоверяющего центра: самоподписанный сертификат SmartScreen не признаёт, а репутация у новой подписи набирается загрузками. Дешевле всего сейчас Azure Trusted Signing — около 10 $ в месяц и проверка организации или ИП; обычный OV-сертификат стоит от 200 $ в год, EV — дороже, зато репутация начинается сразу. Подписывать нужно оба exe в `dist\Trackhound` и собранный после них установщик, шагом `signtool` в [`release.yml`](.github/workflows/release.yml).
-- **Антивирус.** Защитник Windows иногда помечает `Trackhound.exe` как `Trojan:Win32/Sabsik.EN.D!ml`. Суффикс `!ml` значит, что сработала не сигнатура известного вируса, а машинное обучение по косвенным признакам, и признаки эти у сборки правда неудачные: неподписанный exe распаковывает при запуске вложенный Python со сотнями файлов. Так ловится почти всё, собранное PyInstaller. Это ложное срабатывание, но пока файл в карантине, архив не распакуется до конца и `Trackhound.exe` будет пропадать из папки сразу после распаковки. Чтобы это исправить: откройте «Безопасность Windows» → «Защита от вирусов и угроз» → «Журнал защиты», найдите запись про Trackhound, раскройте её и выберите «Разрешить на устройстве», а затем распакуйте архив заново. Если разрешать не хочется, а проверить программу хочется, загрузите архив на [VirusTotal](https://www.virustotal.com/) — там видно, что остальные движки молчат, — и сверьте SHA-256 с тем, что напечатан в описании релиза, командой `Get-FileHash Trackhound-v1.0.0-windows-x64.zip`. Само срабатывание лучше отправить в Microsoft через [форму отправки файлов](https://www.microsoft.com/en-us/wdsi/filesubmission): по такой заявке детект снимают для всех, обычно за день-два. Насовсем это лечится подписью из предыдущего пункта.
-- **WebView2.** Окно программы рисует компонент Microsoft Edge WebView2. В Windows 11 он есть всегда, в Windows 10 обычно тоже; если его нет, программа предложит скачать и установить его с сайта Microsoft.
+## Installing
 
-Проверить, что всё на месте, можно командой `Trackhound-cli.exe --check` — она печатает версию и пути к найденным ffmpeg и Deno.
+1. Download `Trackhound-vX.Y.Z-windows-x64-setup.exe` from the
+   [Releases](https://github.com/mojave333/trackhound/releases/latest) page.
+2. Run it. The installer asks where to put the program, offers tick boxes for a desktop
+   shortcut and for `Trackhound-cli` on the `PATH`, and finishes by offering to start it.
 
-## Как пользоваться
+No administrator rights are needed: by default the program is installed for you alone, in
+`%LOCALAPPDATA%\Programs\Trackhound`. An administrator is additionally offered the
+machine-wide install. It uninstalls like any other program, through Settings → Apps, and
+asks on the way out whether to delete the settings and the log file (downloaded music is
+left alone either way).
 
-Слева — разделы: Загрузка, Библиотека, Очередь и Настройки (Ctrl+1…4). Кнопка внизу панели разворачивает её в колонку с подписями и сворачивает обратно к одним значкам; то же делает Ctrl+B. Состояние запоминается.
+If you would rather not use an installer, the `Trackhound-vX.Y.Z-windows-x64.zip` archive
+sits next to it: unpack it anywhere and run `Trackhound.exe`.
 
-**Загрузка.** Вставьте ссылку кнопкой в поле, через Ctrl+V или перетащите её в окно — можно сразу несколько. Если ссылки нет, напишите название: «Исполнитель - Альбом» или «Исполнитель - Трек», и программа найдёт релиз на YouTube Music или в Apple Music сама. Рядом с полем выбираются формат и папка; стрелка у кнопки «Скачать» переключает режим «Только проверить, что найдётся» — тогда ничего не скачивается. Каждая ссылка — строка в списке с обложкой и общим прогрессом; по щелчку раскрываются треки: ищется, качается (с процентами), готов, уже был в папке, не найден или ошибка, и откуда взят звук. Пока идёт загрузка, можно добавлять новые ссылки: они встанут в очередь. «Пауза» останавливает очередь между треками: то, что уже качается, докачивается, новое не начинается. «Остановить» прерывает загрузку, а кнопка повтора в строке докачивает оставшееся. Закрытое окно ничего не теряет: незавершённые ссылки и список скачанного возвращаются при следующем запуске. Внизу статус-бар: сколько треков загружено и сколько примерно осталось.
+Nothing else has to be installed: Python, ffmpeg and Deno are already inside. Windows 10 or
+11, 64-bit; the installed folder takes about 320 MB because of the bundled ffmpeg and Deno.
+On macOS and Linux the program runs from source — see [macOS and Linux](#macos-and-linux).
 
-**Библиотека** — что уже лежит в папке: альбомы и отдельные треки с поиском и сортировкой по столбцам. Двойной щелчок открывает папку в проводнике, строки выделяются как в проводнике (клик, Ctrl, Shift, Ctrl+A, стрелки, Home и End), правая кнопка открывает меню действий, выделенное удаляется в корзину. У альбомов, скачанных этой программой, есть кнопка «Скачать снова»: ссылка запоминается в файле `.trackhound.json` внутри папки альбома, поэтому недостающие треки докачиваются без поиска ссылки заново.
+`Trackhound-cli.exe --check` prints the version and the paths to the ffmpeg and Deno it
+found.
 
-**Очередь** — все треки текущих загрузок одним списком с фильтром: в работе, готово, проблемы.
+### Three notes about the first run
 
-**Настройки** — тема (как в системе, светлая или тёмная), язык (русский или английский; при первом запуске берётся системный, а если система не на русском — английский), сколько треков качать одновременно, ограничение скорости, прокси, cookies из браузера и проверка, что все компоненты на месте. Там же — версия yt-dlp, путь к журналу работы и кнопка «Скопировать отчёт»: в нём версия, пути к компонентам, настройки и конец журнала — то, что стоит приложить к сообщению об ошибке. Там же появляется строка о новой версии, если она вышла: программа раз в запуск спрашивает GitHub и показывает ссылку, ничего не скачивая сама. Настройки хранятся в `%USERPROFILE%\.trackhound.json`.
+> [!NOTE]
+> **SmartScreen.** Neither the installer nor the program itself is signed with a
+> certificate, so Windows may show its blue "Windows protected your PC" window. Click
+> "More info" → "Run anyway". Only a certificate from an authority removes that window — a
+> self-signed one does nothing for SmartScreen — and a new signature earns its reputation
+> through downloads. The cheapest option today is Azure Trusted Signing, about $10 a month
+> plus verification of an organisation; a plain OV certificate starts at $200 a year, EV
+> costs more but starts with a reputation.
 
-Треки с возрастным ограничением YouTube отдаёт только тем, кто вошёл в аккаунт. Обычно программа просто берёт такую песню из другого источника, но если нужного варианта нет, выберите в настройках браузер, из которого брать cookies: подойдёт тот, где вы вошли в YouTube. Браузер при этом лучше закрыть, иначе он держит файл cookies занятым; из Firefox они читаются надёжнее всего.
+> [!WARNING]
+> **Antivirus.** Windows Defender sometimes flags `Trackhound.exe` as
+> `Trojan:Win32/Sabsik.EN.D!ml`. The `!ml` suffix means no signature of a known virus
+> matched — machine learning did, on circumstantial evidence, and the evidence against this
+> build is genuinely poor: an unsigned exe that unpacks a bundled Python of several hundred
+> files as it starts. Nearly everything built with PyInstaller gets caught this way. It is a
+> false positive, but while the file sits in quarantine the archive will not finish
+> unpacking and `Trackhound.exe` disappears from the folder right after extraction.
+>
+> To fix it: open Windows Security → Virus & threat protection → Protection history, find
+> the Trackhound entry, expand it, choose "Allow on device", then unpack the archive again.
+> If you would rather check the program than allow it, upload the archive to
+> [VirusTotal](https://www.virustotal.com/) — the other engines stay quiet — and compare its
+> SHA-256 with the one printed in the release notes, using `Get-FileHash <file>`. The
+> detection itself is worth reporting to Microsoft through their
+> [file submission form](https://www.microsoft.com/en-us/wdsi/filesubmission): such a report
+> gets it cleared for everyone, usually within a day or two. The permanent cure is the
+> signature from the note above.
 
-## Командная строка
+> [!NOTE]
+> **WebView2.** The window is drawn by the Microsoft Edge WebView2 component. Windows 11
+> always has it and Windows 10 usually does; if it is missing, the program offers to
+> download and install it from Microsoft.
 
-`Trackhound-cli.exe` — та же программа для терминала: она печатает ход загрузки и не открывает окно.
+## Using it
+
+The sections are on the left: Download, Library, Queue and Settings (Ctrl+1…4). A button at
+the foot of the panel opens it into a labelled column and folds it back to icons alone;
+Ctrl+B does the same. Which of the two it was left in is remembered.
+
+**Download.** Paste a link with the button, with Ctrl+V, or drag it into the window —
+several at once is fine. Without a link, write a name instead: "Artist - Album" or
+"Artist - Track", and the release is looked up on YouTube Music or Apple Music. The format
+and the folder sit next to the field; the arrow beside "Download" switches to "only check
+what would be found", which downloads nothing. Each link becomes a row with its cover and
+overall progress; clicking it opens the tracks: searching, downloading (with percentages),
+done, already in the folder, not found or failed, and where the audio came from. Links can
+be added while a download runs — they queue up. "Pause" holds the queue between tracks: what
+is downloading finishes, nothing new starts. "Stop" interrupts, and the retry button on a
+row picks up what is left. Closing the window loses nothing: unfinished links and the list
+of what was downloaded come back on the next run. The status bar at the bottom counts the
+tracks and estimates what is left.
+
+**Library** — what is already in the folder: albums and single tracks, with a search and
+sortable columns. A double click opens the folder in the file manager; rows are selected the
+way they are in a file manager (click, Ctrl, Shift, Ctrl+A, arrows, Home and End), the right
+button opens a menu of actions, and the selection goes to the trash, from where it can be
+restored. Albums downloaded by this program have a "Download again" button: the link is
+remembered in a `.trackhound.json` file inside the album's folder, so missing tracks are
+filled in without hunting for the link again.
+
+**Queue** — every track of the current downloads in one list, filtered by running, done or
+problems.
+
+**Settings** — theme (as in the system, light or dark), language (Russian or English; the
+first run takes the system's, and a system that is neither gets English), how many tracks to
+download at once, a speed limit, a proxy, cookies from a browser, and a check that every
+component is in place. The version of yt-dlp inside the build is there too, together with
+the path to the log and a "Copy the report" button: the report holds the version, the
+component paths, the settings and the end of the log — what belongs in a bug report. A line
+about a new version appears there when one is published: the program asks GitHub once per
+run and shows a link, downloading nothing by itself. Settings live in
+`%USERPROFILE%\.trackhound.json`.
+
+Age-restricted tracks are only served by YouTube to a signed-in account. Usually the program
+simply takes such a song from another source, but if there is no other, choose in the
+settings the browser you are signed into YouTube with. Close that browser first — it holds
+its cookie file open; Firefox's cookies are read the most reliably.
+
+## Command line
+
+`Trackhound-cli.exe` is the same program for a terminal: it prints the progress and opens no
+window.
 
 ```bat
 Trackhound-cli.exe https://open.spotify.com/album/2noRn2Aes5aoNVsU6iWThc
@@ -50,34 +162,38 @@ Trackhound-cli.exe LINK1 LINK2 -f mp3 -o D:\Music -t 4
 Trackhound-cli.exe --dry-run LINK
 ```
 
-| Параметр | Значение |
+| Option | Meaning |
 |---|---|
-| `-o`, `--output` | папка (по умолчанию `%USERPROFILE%\Music\Trackhound`) |
-| `-f`, `--format` | `m4a` (по умолчанию), `mp3`, `opus` |
-| `-t`, `--threads` | сколько треков качать одновременно, по умолчанию 3 |
-| `--dry-run` | только показать найденные совпадения |
-| `--cookies-from-browser` | брать cookies из браузера (`chrome`, `edge`, `firefox`…) — для треков с возрастным ограничением |
-| `--limit-rate` | ограничить скорость: `500K`, `2M` |
-| `--proxy` | прокси для метаданных и загрузки: `http://127.0.0.1:1080`, `socks5://…` |
-| `--names` | имена файлов: `auto` (по умолчанию), `artist`, `title` |
-| `--folders` | папки альбомов: `flat` (по умолчанию), `nested`, `album` |
-| `--lang` | язык сообщений: `system` (по умолчанию), `ru`, `en` |
-| `--check` | версия, пути к ffmpeg и Deno, папка для музыки |
+| `-o`, `--output` | folder (default `%USERPROFILE%\Music\Trackhound`) |
+| `-f`, `--format` | `m4a` (default), `mp3`, `opus` |
+| `-t`, `--threads` | how many tracks to download at once, default 3 |
+| `--dry-run` | only show what was matched |
+| `--cookies-from-browser` | take cookies from a browser (`chrome`, `edge`, `firefox`…) — for age-restricted tracks |
+| `--limit-rate` | limit the speed: `500K`, `2M` |
+| `--proxy` | proxy for metadata and downloads: `http://127.0.0.1:1080`, `socks5://…` |
+| `--names` | file names: `auto` (default), `artist`, `title` |
+| `--folders` | album folders: `flat` (default), `nested`, `album` |
+| `--lang` | language of the messages: `system` (default), `ru`, `en` |
+| `--check` | version, paths to ffmpeg and Deno, the music folder |
 
-## Ссылки
+## Links it understands
 
-| Сервис | Какие ссылки | Откуда звук |
+| Service | Which links | Where the audio comes from |
 |---|---|---|
-| Spotify | альбом, сингл, трек, плейлист, `spotify:…`, `spotify.link/…` | поиск на YouTube Music и SoundCloud |
-| Apple Music | альбом, песня, плейлист | поиск |
-| YouTube, YouTube Music | видео, альбом, плейлист | по ссылке |
-| SoundCloud | трек, сет | по ссылке; треки под DRM ищутся в других местах |
-| Last.fm | альбом, трек | альбом находится на YouTube Music или в Apple Music, звук — оттуда или поиском |
-| Bandcamp и другие сайты, которые понимает yt-dlp | альбом, трек | по ссылке |
+| Spotify | album, single, track, playlist, `spotify:…`, `spotify.link/…` | searched on YouTube Music and SoundCloud |
+| Apple Music | album, song, playlist | searched |
+| YouTube, YouTube Music | video, album, playlist | from the link |
+| SoundCloud | track, set | from the link; DRM-protected tracks are searched elsewhere |
+| Last.fm | album, track | the album is found on YouTube Music or Apple Music, the audio comes from there or from a search |
+| Bandcamp and other sites yt-dlp understands | album, track | from the link |
 
-Плейлисты Spotify и Apple Music читаются со страницы, а она отдаёт не весь список: Spotify — первые 100 треков, Apple Music — первые 50. Если в плейлисте их больше, программа скажет об этом в строке релиза, а остальные придётся добавить отдельно. Не поддерживаются страницы исполнителей и VK: VK показывает музыку только после входа в аккаунт.
+Spotify and Apple Music playlists are read off the page, and the page does not hand over the
+whole list: Spotify gives the first 100 tracks, Apple Music the first 50. When a playlist
+holds more, the program says so on the release line, and the rest have to be added
+separately. Artist pages and VK are not supported: VK shows music only to a signed-in
+account.
 
-## Куда сохраняется
+## Where the files go
 
 ```
 Trackhound\
@@ -85,75 +201,111 @@ Trackhound\
     01. One More Time.m4a
     02. Aerodynamic.m4a
     cover.jpg
-  Rick Astley - Never Gonna Give You Up.m4a     (ссылка на отдельный трек)
+    .trackhound.json
+  Rick Astley - Never Gonna Give You Up.m4a     (a link to a single track)
 ```
 
-В многодисковых альбомах номера вида `1-01`, `2-01`. Если в треке есть исполнители помимо автора альбома, они попадают в имя файла. В настройках это меняется: имена файлов — «01. Название» (гости отдельно), «01. Исполнитель - Название» или «01. Название»; папки альбомов — «Исполнитель - Альбом (Год)», «Исполнитель → Альбом (Год)» (вложенные) или «Альбом (Год)». В командной строке — `--names` и `--folders`. Уже скачанные файлы пропускаются, так что прерванную загрузку можно просто запустить заново.
+Multi-disc albums are numbered `1-01`, `2-01`. A track credited to someone besides the album
+artist keeps those names in its file name. The settings change both layouts: file names as
+"01. Title" (guests named separately), "01. Artist - Title" or "01. Title"; album folders as
+"Artist - Album (Year)", "Artist → Album (Year)" (nested) or "Album (Year)". On the command
+line: `--names` and `--folders`.
 
-## Форматы и качество
+Files that are already there are skipped, so an interrupted download can simply be started
+again.
 
-- **m4a** — AAC как есть, без перекодирования. Подходит почти всем плеерам.
-- **opus** — Opus как есть: при том же размере звучит чуть лучше, но понимают его не все плееры.
-- **mp3** — перекодирование (VBR V0) для старых устройств. Качество исходника при этом не растёт.
+## Formats and quality
 
-YouTube отдаёт аудио примерно 130–160 кбит/с, SoundCloud — AAC 160 кбит/с. Lossless взять неоткуда.
+- **m4a** — AAC as it is, no re-encoding. Almost every player takes it.
+- **opus** — Opus as it is: a little better at the same size, but not every player
+  understands it.
+- **mp3** — re-encoded (VBR V0) for older devices. That does not improve the source.
 
-## Как выбирается трек
+YouTube hands over roughly 130–160 kbit/s, SoundCloud AAC 160 kbit/s. There is no lossless
+to be had.
 
-Поиск идёт по запросу «исполнитель + название» в таком порядке:
+## How a track is chosen
 
-1. официальные аудиотреки YouTube Music;
-2. SoundCloud — там часто выкладываются небольшие артисты, которых нет на YouTube Music;
-3. обычные видео YouTube.
+The search runs on "artist + title" in this order:
 
-Как только найден уверенный вариант, остальные источники не опрашиваются. Кандидаты оцениваются по названию (с учётом транслитерации кириллицы), исполнителям, длительности и альбому. Live, remix, cover, demo и подобные версии отсеиваются, если этих слов нет в названии на Spotify. Если найденный вариант не скачивается — например, видео закрыто по возрасту, — программа берёт следующего кандидата, при необходимости расширяя поиск на остальные источники. Если подходящего нет совсем, трек попадает в список ошибок: случайная запись не скачивается. Слишком короткий файл (например, 30-секундное превью SoundCloud Go+) тоже считается ошибкой.
+1. official audio on YouTube Music;
+2. SoundCloud — smaller artists often skip YouTube Music;
+3. ordinary YouTube videos.
 
-## Если что-то сломалось
+Once a confident match is found, the remaining sources are not asked. Candidates are scored
+on title (transliterated Cyrillic included), artists, length and album. Live, remix, cover,
+demo and similar versions are dropped unless those words appear in the title on the source
+service. When the match refuses to download — an age-gated video, say — the next candidate
+is tried, widening the search to the other sources if needed. With no suitable candidate the
+track is reported as failed: nothing random is downloaded in its place. A file that turns
+out too short (a 30-second SoundCloud Go+ preview, for example) counts as a failure too.
 
-- **Ошибки загрузки с YouTube.** YouTube меняется часто, а вместе с ним yt-dlp. Обновитесь до свежего релиза Trackhound; при запуске из исходников достаточно ещё раз запустить `install.bat`.
-- **«Spotify изменил формат страницы».** Нужна правка разбора в `trackhound/spotify.py`.
-- **`music.youtube.com` недоступен в сети.** Программа сама переключается на `www.youtube.com`.
-- **Нужен прокси.** Впишите адрес в «Настройки» → «Прокси» или запустите с `--proxy http://127.0.0.1:1080`. Переменные `HTTP_PROXY`/`HTTPS_PROXY` тоже работают.
+## When something breaks
 
-## macOS и Linux
+- **Download errors from YouTube.** YouTube changes often, and yt-dlp with it. Update to the
+  newest Trackhound release; running from source, run `install.bat` again. The Settings
+  section shows how old the bundled yt-dlp is.
+- **"Spotify changed the shape of its page".** The parsing in `trackhound/spotify.py` needs
+  fixing.
+- **`music.youtube.com` is unreachable on this network.** The program switches to
+  `www.youtube.com` by itself.
+- **A proxy is needed.** Write the address in Settings → Proxy, or start with
+  `--proxy http://127.0.0.1:1080`. `HTTP_PROXY`/`HTTPS_PROXY` work too.
+- **Anything else.** Settings → Diagnostics → "Copy the report", and attach that to an
+  [issue](https://github.com/mojave333/trackhound/issues).
 
-Готовых сборок нет — они собираются под Windows, — но из исходников программа работает: окно рисует WebKit (macOS) или GTK (Linux) через pywebview, удаление из библиотеки уходит в корзину (Finder, `gio trash` или `~/.local/share/Trash` по стандарту freedesktop.org), «Показать в проводнике» открывает Finder или файловый менеджер, тема берётся из системной. ffmpeg и Deno нужно поставить самому:
+## macOS and Linux
+
+There are no ready-made builds — they are made on Windows — but the program runs from
+source: the window is drawn by WebKit (macOS) or GTK (Linux) through pywebview, deleting
+from the library goes to the trash (Finder, `gio trash`, or `~/.local/share/Trash` by the
+freedesktop.org specification), "Show in the file manager" opens Finder or the desktop's
+file manager, and the theme follows the system. ffmpeg and Deno have to be installed
+separately:
 
 ```sh
 brew install ffmpeg deno            # macOS
 sudo apt install ffmpeg && curl -fsSL https://deno.land/install.sh | sh   # Debian/Ubuntu
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python main.py            # окно
-.venv/bin/python main.py LINK       # командная строка
+.venv/bin/python main.py            # the window
+.venv/bin/python main.py LINK       # the command line
 ```
 
-Настройки лежат в `~/.trackhound.json`, журнал и история — в `~/Library/Application Support/Trackhound` (macOS) или `$XDG_DATA_HOME/trackhound` (Linux).
+Settings live in `~/.trackhound.json`; the log and the history in
+`~/Library/Application Support/Trackhound` (macOS) or `$XDG_DATA_HOME/trackhound` (Linux).
 
-## Запуск из исходников
+## Running from source
 
-Нужны Windows и Python 3.10+; ffmpeg и Deno при этом не входят в комплект — положите `ffmpeg.exe` и `deno.exe` в папку `vendor\` рядом с проектом (`powershell -ExecutionPolicy Bypass -File scripts\fetch-vendor.ps1` скачает их сам) или установите глобально:
+Windows and Python 3.10+. ffmpeg and Deno are not included: put `ffmpeg.exe` and `deno.exe`
+into a `vendor\` folder next to the project
+(`powershell -ExecutionPolicy Bypass -File scripts\fetch-vendor.ps1` downloads them) or
+install them system-wide:
 
 ```bat
 winget install Gyan.FFmpeg
 winget install DenoLand.Deno
 ```
 
-Дальше:
+Then:
 
-1. `install.bat` — создаёт `.venv` и ставит зависимости.
-2. `run.bat` — открывает окно программы.
+1. `install.bat` — creates `.venv` and installs the dependencies.
+2. `run.bat` — opens the program's window.
 
-Командная строка при запуске из исходников: `.venv\Scripts\python.exe main.py LINK`.
+From source, the command line is `.venv\Scripts\python.exe main.py LINK`.
 
-## Тесты
+### Tests
 
 ```bat
 .venv\Scripts\python.exe -m pytest
 ```
 
-Тесты офлайн: страницы Spotify, Apple Music и Last.fm подставляются из `tests/fixtures`, сеть не опрашивается. Они прикрывают то, что ломается само по себе, — разбор чужой вёрстки, выбор совпадения на YouTube Music и SoundCloud, имена файлов и разбор настроек. Тот же прогон делает [`ci.yml`](.github/workflows/ci.yml) на каждый пуш.
+The tests are offline: the Spotify, Apple Music and Last.fm pages come from `tests/fixtures`
+and no request leaves the machine. They cover what rots by itself — the parsing of other
+people's markup, the match scoring on YouTube Music and SoundCloud, file names and the
+settings. [`ci.yml`](.github/workflows/ci.yml) runs the same on every push, on Windows,
+Linux and macOS.
 
-## Сборка exe
+## Building
 
 ```bat
 pip install -r requirements.txt -r requirements-dev.txt
@@ -162,42 +314,65 @@ pyinstaller --noconfirm trackhound.spec
 powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
 ```
 
-Последняя строка необязательная: она заворачивает готовую папку в установщик `dist\Trackhound-X.Y.Z-windows-x64-setup.exe`. Собирает его [Inno Setup 6.3+](https://jrsoftware.org/isdl.php) по [`trackhound.iss`](trackhound.iss) — если его нет в системе, скрипт скажет, какой командой поставить (`winget install --id JRSoftware.InnoSetup`). Версию он берёт из `trackhound/__init__.py`, так что править её отдельно не нужно.
+The last line is optional: it wraps the finished folder into
+`dist\Trackhound-X.Y.Z-windows-x64-setup.exe`.
+[Inno Setup 6.3 or newer](https://jrsoftware.org/isdl.php) does the wrapping, following
+[`trackhound.iss`](trackhound.iss); when it is not installed, the script says which command
+installs it (`winget install --id JRSoftware.InnoSetup`). The version comes from
+`trackhound/__init__.py`, so there is nothing to keep in step by hand.
 
-Готовая папка — `dist\Trackhound`. Внутри два exe (`Trackhound.exe` и `Trackhound-cli.exe`) из одного и того же кода: у первого нет консоли, у второго есть. Всё остальное лежит в `_internal`, туда же попадают `bin\ffmpeg.exe` и `bin\deno.exe` из `vendor\`; программа сначала ищет их там и только потом в `PATH`.
+The finished folder is `dist\Trackhound`, holding two exes (`Trackhound.exe` and
+`Trackhound-cli.exe`) built from the same code: the first has no console, the second has
+one. Everything else lives in `_internal`, including `bin\ffmpeg.exe` and `bin\deno.exe`
+from `vendor\`; the program looks there first and only then in `PATH`.
 
-Сборка без `vendor\` тоже работает — получится вариант «полегче», который берёт ffmpeg и Deno из системы.
+Building without `vendor\` works too and produces a lighter variant that takes ffmpeg and
+Deno from the system.
 
-Релиз выпускается целиком на стороне GitHub, локально ничего делать не нужно. Откройте вкладку Actions → Release → Run workflow, впишите версию (`1.2.3`) — и [`release.yml`](.github/workflows/release.yml) сам пропишет её в `trackhound/__init__.py`, закоммитит, поставит тег, прогонит тесты, соберёт exe и установщик и опубликует релиз с обоими файлами и их SHA-256.
+### Releasing
 
-Тег по-прежнему можно поставить руками — `git tag v1.2.3 && git push origin v1.2.3` запускает тот же workflow; в этом случае он сверяет тег с `__version__` и останавливается, если они разошлись. Версию, которая уже выпущена, workflow берёт не даст: он проверяет тег до сборки.
+Releasing happens entirely on GitHub and needs nothing done locally. Open
+**Actions → Release → Run workflow** and type the version (`1.2.3`):
+[`release.yml`](.github/workflows/release.yml) writes it into `trackhound/__init__.py`,
+commits it, tags the commit, runs the tests, builds the exe and the installer, and publishes
+the release with both files and their SHA-256.
 
-Каждый пуш в `main` проверяется более лёгким [`ci.yml`](.github/workflows/ci.yml) — он собирает то же самое без встроенных ffmpeg и Deno.
+Tagging by hand still works — `git tag v1.2.3 && git push origin v1.2.3` starts the same
+workflow, which then checks the tag against `__version__` and stops if they disagree. A
+version that has already been released is refused before anything is built.
 
-## Устройство
+## How it is put together
 
-- `trackhound/sources.py` — разбор ссылок всех сервисов и поиск релиза по названию
-- `trackhound/spotify.py` — метаданные Spotify
-- `trackhound/models.py`, `trackhound/net.py` — общие структуры данных и HTTP
-- `trackhound/matcher.py` — поиск и выбор совпадения на YouTube Music, SoundCloud и YouTube
-- `trackhound/downloader.py` — скачивание (yt-dlp), конвертация (ffmpeg), теги (mutagen)
-- `trackhound/i18n.py`, `trackhound/web/i18n.js` — русский и английский текст
-- `trackhound/logs.py` — журнал работы и отчёт
-- `trackhound/gui.py` — окно (pywebview) и связь интерфейса с загрузчиком
-- `trackhound/web/` — интерфейс: `index.html`, `style.css`, `app.js`, `i18n.js`, значок `icon.ico`
-- `trackhound/cli.py`, `main.py` — командная строка и точка входа
-- `trackhound.spec`, `scripts/fetch-vendor.ps1` — сборка exe
-- `trackhound.iss`, `scripts/build-installer.ps1` — сборка установщика
-- `tests/` — офлайн-тесты разбора ссылок, поиска совпадений и имён файлов
+| File | What it does |
+|---|---|
+| `trackhound/sources.py` | parsing the links of every service, and finding a release by name |
+| `trackhound/spotify.py` | Spotify metadata |
+| `trackhound/models.py`, `trackhound/net.py` | shared data structures and HTTP |
+| `trackhound/matcher.py` | searching and picking a match on YouTube Music, SoundCloud and YouTube |
+| `trackhound/downloader.py` | downloading (yt-dlp), converting (ffmpeg), tagging (mutagen) |
+| `trackhound/i18n.py`, `trackhound/web/i18n.js` | the Russian and English text |
+| `trackhound/logs.py` | the log file and the report |
+| `trackhound/gui.py` | the window (pywebview) and the bridge to the downloader |
+| `trackhound/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
+| `trackhound/cli.py`, `main.py` | the command line and the entry point |
+| `tests/` | offline tests of the link parsing, the matching and the file names |
+| `trackhound.spec`, `scripts/fetch-vendor.ps1` | building the exe |
+| `trackhound.iss`, `scripts/build-installer.ps1` | building the installer |
 
-## Лицензия
+## Licence
 
-[GPL-2.0-or-later](LICENSE). Программа импортирует mutagen (GPL-2.0-or-later), а это связывание, а не просто соседство файлов, поэтому copyleft распространяется на весь проект.
+[GPL-2.0-or-later](LICENSE). The program imports mutagen (GPL-2.0-or-later), and that is
+linking rather than mere aggregation, so the copyleft covers the whole project.
 
-Остальные зависимости: yt-dlp и yt-dlp-ejs — Unlicense, ytmusicapi — MIT, pywebview — BSD-3-Clause.
+The other dependencies: yt-dlp and yt-dlp-ejs — Unlicense, ytmusicapi — MIT, pywebview —
+BSD-3-Clause.
 
-В архив релиза кладутся две отдельные программы, каждая под своей лицензией: `ffmpeg.exe` из сборок [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) (GPL, исходники — [ffmpeg.org](https://ffmpeg.org/download.html)) и `deno.exe` из [denoland/deno](https://github.com/denoland/deno) (MIT). Trackhound запускает их как внешние процессы.
+The release archive carries two separate programs, each under its own licence: `ffmpeg.exe`
+from the [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) builds (GPL, sources at
+[ffmpeg.org](https://ffmpeg.org/download.html)) and `deno.exe` from
+[denoland/deno](https://github.com/denoland/deno) (MIT). Trackhound runs both as external
+processes.
 
-## Важно
-
-Используйте программу для музыки, на которую у вас есть права, и соблюдайте законы об авторском праве и условия использования YouTube и Spotify.
+> [!IMPORTANT]
+> Use the program for music you have the rights to, and respect copyright law and the terms
+> of service of YouTube and Spotify.
