@@ -23,6 +23,23 @@ const TRANSLATIONS = {
   "Развернуть панель (Ctrl+B)": "Expand the panel (Ctrl+B)",
   "Свернуть": "Collapse",
 
+  // Watching
+  "Слежение": "Watching",
+  "Плейлисты и альбомы под наблюдением": "Playlists and albums being watched",
+  "Раз в 12 часов программа заново открывает ссылку и докачивает в ту же папку только появившиеся треки. Включается глазом на карточке загрузки":
+    "Every 12 hours the link is opened again and only the tracks added since are downloaded, into the same folder. Turned on with the eye on a download card",
+  "Проверить сейчас": "Check now",
+  "Пока ни за чем не следим": "Nothing is being watched yet",
+  "Следить за новыми треками": "Watch for new tracks",
+  "Перестать следить": "Stop watching",
+  "Следим за «{title}»": "Watching \"{title}\"",
+  "Больше не следим за «{title}»": "No longer watching \"{title}\"",
+  "Проверяем…": "Checking…",
+  "Проверено {when}": "Checked {when}",
+  "Проверено {when}, новых треков: {count}": "Checked {when}, new tracks: {count}",
+  "Проверено {when}, новых треков нет": "Checked {when}, nothing new",
+  "Проверяем плейлисты под наблюдением": "Checking the watched playlists",
+
   // Profiles
   "Профиль": "Profile",
   "Профили: папка, формат и имена одним нажатием": "Profiles: folder, format and naming in one click",

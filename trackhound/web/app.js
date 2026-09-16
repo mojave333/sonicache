@@ -107,6 +107,7 @@ async function init() {
   const data = await api().init();
   state.settings = data.settings;
   state.problems = data.problems;
+  state.watched = data.watched || [];
   setLanguage(data.language); // translates the markup before anything is drawn
   $("#version").textContent = `v${data.version}`;
   renderProblems();
@@ -277,6 +278,73 @@ function bindSidebarToggle() {
   $("#sidebar-toggle").addEventListener("click", toggleSidebar);
 }
 
+/* Watching: albums and playlists checked again now and then for new tracks */
+
+function isWatched(link) {
+  return (state.watched || []).some((entry) => entry.link === link);
+}
+
+function setWatched(list) {
+  state.watched = list || [];
+  renderWatched();
+  for (const job of state.jobs.values()) renderJob(job);
+}
+
+async function toggleWatch(job) {
+  const list = isWatched(job.link) ? await api().unwatch(job.link) : await api().watch(job.id);
+  setWatched(list);
+  announce(t(isWatched(job.link) ? "Следим за «{title}»" : "Больше не следим за «{title}»",
+             { title: job.title }));
+}
+
+function watchStatus(entry) {
+  const when = entry.checked ? new Date(entry.checked * 1000).toLocaleString(LANGUAGE, {
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+  if (entry.state === "running" || entry.state === "queued") return t("Проверяем…");
+  if (entry.added_tracks == null) return t("Проверено {when}", { when });
+  return entry.added_tracks
+    ? t("Проверено {when}, новых треков: {count}", { when, count: entry.added_tracks })
+    : t("Проверено {when}, новых треков нет", { when });
+}
+
+function renderWatched() {
+  const group = $("#watch-group");
+  for (const row of $$(".watch-row", group)) row.remove();
+  const list = state.watched || [];
+  $("#watch-empty").hidden = list.length > 0;
+  $("#watch-check").disabled = list.length === 0;
+  for (const entry of list) {
+    const row = document.createElement("div");
+    row.className = "setting watch-row";
+    const label = document.createElement("div");
+    label.className = "setting-label";
+    const name = document.createElement("p");
+    name.textContent = entry.title;
+    name.title = entry.link;
+    const desc = document.createElement("p");
+    desc.className = "setting-desc";
+    desc.textContent = [entry.service, watchStatus(entry)].filter(Boolean).join(" · ");
+    label.append(name, desc);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "icon-btn danger";
+    remove.title = t("Перестать следить");
+    remove.setAttribute("aria-label", t("Перестать следить"));
+    remove.innerHTML = '<svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg>';
+    remove.addEventListener("click", async () => setWatched(await api().unwatch(entry.link)));
+    row.append(label, remove);
+    group.append(row);
+  }
+}
+
+function bindWatch() {
+  $("#watch-check").addEventListener("click", async () => {
+    setWatched(await api().check_watched(true));
+    announce(t("Проверяем плейлисты под наблюдением"));
+  });
+  renderWatched();
+}
+
 /* Profiles: a folder, a format and the two naming rules under a name */
 
 const PROFILE_KEYS = ["folder", "format", "track_name", "folder_name"];
@@ -437,6 +505,7 @@ function bindUi() {
   }
   bindSidebarToggle();
   bindProfiles();
+  bindWatch();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
@@ -709,6 +778,7 @@ function addJob(id, link, dryRun, format) {
   });
   $(".open", node).addEventListener("click", () => api().open_folder(job.folder));
   $(".retry", node).addEventListener("click", () => retryJob(job));
+  $(".watch", node).addEventListener("click", () => toggleWatch(job));
   state.jobs.set(id, job);
   $("#jobs").prepend(node);
   renderJob(job);
@@ -730,6 +800,7 @@ function restoreHistory(history) {
     job.state = entry.state === "queued" || entry.state === "running" ? "cancelled" : entry.state;
     job.title = entry.title || prettyLink(entry.link);
     job.folder = entry.folder || "";
+    job.single = Boolean(entry.single);
     job.message = entry.message || "";
     job.total = entry.total || 0;
     job.done = entry.ok === undefined ? 0 : entry.ok + entry.skipped + entry.failed;
@@ -787,6 +858,15 @@ function renderJob(job) {
   retry.title = retryLabel;
   retry.setAttribute("aria-label", retryLabel);
   $(".open", node).hidden = !(finished && !job.dryRun && job.folder && job.state !== "error");
+  // A lone track has nothing to add to it, and a dry run downloaded nothing to
+  // keep up to date, so only real albums and playlists get the eye.
+  const watchButton = $(".watch", node);
+  const watching = isWatched(job.link);
+  watchButton.hidden = !(watching || (["done", "partial"].includes(job.state) && !job.dryRun && !job.single));
+  watchButton.setAttribute("aria-pressed", String(watching));
+  const watchLabel = t(watching ? "Перестать следить" : "Следить за новыми треками");
+  watchButton.title = watchLabel;
+  watchButton.setAttribute("aria-label", watchLabel);
 }
 
 function jobStatus(job) {
@@ -858,6 +938,10 @@ async function pollLoop() {
 
 function handleEvent(event) {
   if (event.type === "update") return onUpdateEvent(event);
+  // Jobs the program started by itself — a watched playlist being checked —
+  // arrive without a card, because the window never asked for them.
+  if (event.type === "added") return addJob(event.job, event.link, event.dry_run, event.format);
+  if (event.type === "watched") return setWatched(event.list);
   const job = state.jobs.get(event.job);
   if (!job) {
     state.orphans.push(event);
@@ -890,6 +974,11 @@ function onJobEvent(job, event) {
     announce(t("Ошибка: {message}", { message: event.message }));
   } else if (event.state === "cancelled") {
     job.state = "cancelled";
+  } else if (event.state === "done" && event.quiet) {
+    // A watched playlist checked and found unchanged: nothing to show for it
+    removeJob(job, true);
+    renderChrome();
+    return;
   } else if (event.state === "done") {
     job.result = event;
     job.summary = summaryText(event);
@@ -928,7 +1017,8 @@ function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
 // belong to a run that is over, so they stay out of the queue and the status
 // bar, and the card waits to be opened instead of opening itself.
 function onRelease(job, event, restored = false) {
-  Object.assign(job, { folder: event.folder, title: event.title, total: event.tracks.length });
+  Object.assign(job, { folder: event.folder, title: event.title, total: event.tracks.length,
+                       single: Boolean(event.single) });
   const kind = event.kind.charAt(0).toUpperCase() + event.kind.slice(1);
   const fromAlbum = event.kind === t("трек") && event.album && event.album !== event.title
     && t("из «{album}»", { album: event.album });

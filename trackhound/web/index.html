@@ -32,6 +32,7 @@
     <symbol id="i-spinner" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15"/><path d="M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M6.5 7v11.5A1.5 1.5 0 0 0 8 20h8a1.5 1.5 0 0 0 1.5-1.5V7"/><path d="M10.5 11v5M13.5 11v5"/></symbol>
     <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6.5 4.5h11a1 1 0 0 1 1 1v14l-6.5-4-6.5 4v-14a1 1 0 0 1 1-1z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-retry" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4.5V11h-6.5"/></symbol>
     <symbol id="i-brand" viewBox="440 115 525 430">
       <g transform="translate(0,768) scale(0.1,-0.1)" fill="currentColor" stroke="none">
@@ -346,6 +347,18 @@
               </div>
             </div>
 
+            <h2>Слежение</h2>
+            <div class="setting-group" id="watch-group">
+              <div class="setting" id="watch-head">
+                <div class="setting-label">
+                  <p>Плейлисты и альбомы под наблюдением</p>
+                  <p class="setting-desc">Раз в 12 часов программа заново открывает ссылку и докачивает в ту же папку только появившиеся треки. Включается глазом на карточке загрузки</p>
+                </div>
+                <button type="button" id="watch-check" class="tool-btn">Проверить сейчас</button>
+              </div>
+              <p class="setting-empty" id="watch-empty">Пока ни за чем не следим</p>
+            </div>
+
             <h2>Профили</h2>
             <div class="setting-group" id="profiles-group">
               <div class="setting" id="profile-add">
@@ -467,6 +480,7 @@
         </div>
         <div class="cell-actions">
           <button type="button" class="icon-btn retry" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg></button>
+          <button type="button" class="icon-btn watch" aria-pressed="false" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg></button>
           <button type="button" class="icon-btn open" title="Открыть папку" aria-label="Открыть папку" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
         </div>
       </div>

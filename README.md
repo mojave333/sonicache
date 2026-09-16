@@ -34,6 +34,7 @@ does the downloading, after which the files get their tags and cover art.
 - **No accounts, no API keys**; everything runs on your own machine.
 - **Names work too** — write "Daft Punk - Discovery" when you have no link.
 - **Tags and cover art** in every file, multi-disc albums numbered properly.
+- **Watches playlists** — checks them twice a day and downloads only the tracks added since.
 - **Profiles** — a folder, a format and the naming rules under a name, one click to switch.
 - **Updates itself** — fetches the next installer, checks its hash against GitHub, runs it.
 - **A window or a terminal** — the same program behind both.
@@ -140,6 +141,12 @@ filled in without hunting for the link again.
 
 **Queue** — every track of the current downloads in one list, filtered by running, done or
 problems.
+
+**Watching.** A finished album or playlist has an eye on its card. Pressed, the program opens that
+link again every 12 hours and downloads into the same folder, in the same format, whatever was
+added since — the tracks already on disk are skipped, so a check that finds nothing costs one
+page read and leaves no card behind. Settings → Watching lists what is watched, when each was
+last checked and how many tracks it brought, with a button to check everything now.
 
 **Profiles.** A folder, a format and the two naming rules can be saved under a name in the
 settings, and the button beside the folder in the download toolbar switches between them:

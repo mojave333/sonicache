@@ -27,7 +27,7 @@ from pathlib import Path
 
 import webview
 
-from . import __version__, logs
+from . import __version__, logs, watch
 from .i18n import LANGUAGES, resolve, set_language, t
 from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                          Downloader, Options, use_proxy)
@@ -74,6 +74,8 @@ class Api:
         self._history = _load_history()
         self._job_counter = max((entry.get("job") or 0 for entry in self._history), default=0)
         self._updating = False
+        self._watched = watch.load()
+        self._watcher: threading.Thread | None = None
 
     def init(self) -> dict:
         # Anything that was still running when the window closed is offered
@@ -82,12 +84,17 @@ class Api:
             if entry.get("state") in ("queued", "running"):
                 entry["state"] = "cancelled"
         settings = _load_settings()
+        with self._lock:
+            if self._watcher is None:
+                self._watcher = threading.Thread(target=self._watch_loop, daemon=True)
+                self._watcher.start()
         return {
             "version": __version__,
             "language": set_language(settings["language"]),  # "system" resolved to ru or en
             "settings": settings,
             "problems": Downloader(Options(DEFAULT_OUTPUT_DIR)).environment_problems(),
             "history": self._history,
+            "watched": self.watched(),
         }
 
     def set_language(self, setting: str) -> str:
@@ -118,23 +125,30 @@ class Api:
     def download(self, links: list[str], settings: dict) -> list[dict]:
         settings = _normalize(settings)
         _save_settings(settings)
+        return [self._enqueue(link, settings) for link in links]
+
+    def _enqueue(self, link: str, settings: dict) -> dict:
         options = Options(Path(settings["folder"]).expanduser(), settings["format"],
                           settings["threads"], settings["dry_run"], settings["cookies_browser"],
                           settings["track_name"], settings["folder_name"],
                           settings["rate_limit"], settings["proxy"])
-        jobs = []
         with self._lock:
-            for link in links:
-                self._job_counter += 1
-                jobs.append({"job": self._job_counter, "link": link})
-                self._jobs.put((self._job_counter, link, options))
-                self._remember({"job": self._job_counter, "link": link, "state": "queued",
-                                "format": settings["format"], "dry_run": settings["dry_run"],
-                                "time": time.time()})
+            self._job_counter += 1
+            job = self._job_counter
+            self._jobs.put((job, link, options))
+            # The music folder and the naming rules are kept so the release can be
+            # watched later and its new tracks sent to the same place. Not under
+            # "folder": the release event fills that with the album's own folder,
+            # and a check started from there nests the album inside itself.
+            self._remember({"job": job, "link": link, "state": "queued",
+                            "format": settings["format"], "dry_run": settings["dry_run"],
+                            "music_folder": settings["folder"],
+                            "track_name": settings["track_name"],
+                            "folder_name": settings["folder_name"], "time": time.time()})
             if self._worker is None:
                 self._worker = threading.Thread(target=self._work, daemon=True)
                 self._worker.start()
-        return jobs
+        return {"job": job, "link": link}
 
     def pause(self, paused: bool) -> bool:
         """Pauses between tracks: what is downloading finishes, the rest waits."""
@@ -248,6 +262,99 @@ class Api:
             "size": setup.get("size") or 0,
             "digest": setup.get("digest") or "",
         }
+
+    # Watching: a release downloaded again now and then for what was added since
+
+    def watched(self) -> list[dict]:
+        """The watched links, each with how its last check went."""
+        with self._lock:
+            running = {entry.get("job") for entry in self._history
+                       if entry.get("state") in ("queued", "running")}
+            result = []
+            for entry in self._watched:
+                last = entry.get("last") or {}
+                result.append({
+                    "link": entry["link"], "title": entry.get("title") or entry["link"],
+                    "service": entry.get("service") or "", "checked": entry.get("checked") or 0,
+                    "state": "running" if entry.get("job") in running else last.get("state", ""),
+                    "added_tracks": last.get("ok"),
+                })
+            return result
+
+    def _finish_watch_check(self, job: int, state: str, counts: dict) -> bool:
+        """Records how a check went; answers whether its card should go quietly.
+
+        A check that found nothing is the usual case — twice a day for every
+        watched playlist — and a card saying "already downloaded" each time
+        would bury the downloads that matter. So an empty check leaves no card
+        and no history, only the line in the watch list.
+        """
+        with self._lock:
+            entry = next((item for item in self._watched if item.get("job") == job), None)
+            if entry is None:
+                return False
+            entry["last"] = {"state": state, "ok": counts["ok"], "failed": counts["failed"]}
+            watch.save(self._watched)
+            quiet = state == "done" and not counts["ok"] and not counts["failed"]
+            if quiet:
+                self._history = [item for item in self._history if item.get("job") != job]
+                _save_history(self._history)
+        self._events.put({"type": "watched", "list": self.watched()})
+        return quiet
+
+    def watch(self, job: int) -> list[dict]:
+        """Starts watching the release a finished card came from."""
+        with self._lock:
+            entry = next((item for item in self._history if item.get("job") == job), None)
+            if entry and entry.get("link") and not entry.get("dry_run"):
+                used = {"folder": entry.get("music_folder"), "format": entry.get("format"),
+                        "track_name": entry.get("track_name"),
+                        "folder_name": entry.get("folder_name")}
+                settings = {**_load_settings(), **{key: value for key, value in used.items() if value}}
+                self._watched = watch.add(self._watched, entry["link"], entry.get("title", ""),
+                                          entry.get("service", ""), settings)
+                watch.save(self._watched)
+        return self.watched()
+
+    def unwatch(self, link: str) -> list[dict]:
+        with self._lock:
+            self._watched = watch.remove(self._watched, link)
+            watch.save(self._watched)
+        return self.watched()
+
+    def check_watched(self, force: bool = False) -> list[dict]:
+        """Queues every watched link that is due, or all of them when asked.
+
+        A check is an ordinary download of the same link into the same folder:
+        the downloader skips what is already there, so only new tracks arrive.
+        """
+        now = time.time()
+        with self._lock:
+            entries = list(self._watched) if force else watch.due(self._watched, now)
+            if not entries:
+                return self.watched()
+            settings = _load_settings()
+            for entry in entries:
+                queued = self._enqueue(entry["link"], {**settings, **entry["settings"],
+                                                       "dry_run": False})
+                entry["checked"], entry["job"] = now, queued["job"]
+                # The window did not start this job, so it is told to draw a card
+                self._events.put({"type": "added", **queued, "dry_run": False, "watched": True,
+                                  "format": entry["settings"].get("format", settings["format"])})
+            watch.save(self._watched)
+        logs.log.info("слежение: проверяю %d", len(entries))
+        return self.watched()
+
+    def _watch_loop(self) -> None:
+        time.sleep(30)  # let the window settle before the first check
+        while True:
+            try:
+                if watch.due(self._watched):
+                    self.check_watched()
+                    self._events.put({"type": "watched", "list": self.watched()})
+            except Exception:
+                logs.log.exception("слежение: проверка не удалась")
+            time.sleep(15 * 60)
 
     def install_update(self, release: dict) -> bool:
         """Downloads the installer for a newer release and starts it.
@@ -373,7 +480,8 @@ class Api:
                                 "artist": event["artist"], "kind": event["kind"], "year": event["year"],
                                 "service": event["service"], "album": event["album"],
                                 "cover": event["cover"], "folder": event["folder"],
-                                "total": len(event["tracks"]), "tracks": list(tracks.values())})
+                                "total": len(event["tracks"]), "tracks": list(tracks.values()),
+                                "single": bool(event.get("single"))})
             elif kind == "track":
                 known = tracks.get(event.get("id"))
                 if known is not None:
@@ -404,9 +512,10 @@ class Api:
             return
         state = "cancelled" if self._stop.is_set() else "done"
         counts = {"ok": len(report.ok), "skipped": len(report.skipped), "failed": len(report.failed)}
-        emit(type="job", state=state, dry_run=options.dry_run, **counts)
         self._remember({"job": job, "state": state, "dry_run": options.dry_run,
                         "tracks": finished_tracks(), **counts})
+        quiet = self._finish_watch_check(job, state, counts)
+        emit(type="job", state=state, dry_run=options.dry_run, quiet=quiet, **counts)
 
 
     def _remember(self, entry: dict) -> None:

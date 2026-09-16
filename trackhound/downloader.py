@@ -178,6 +178,7 @@ class Downloader:
             self.log(f"! {album.note}")
         self.events("release", {
             "kind": t("трек") if single else t(KINDS.get(album.kind, album.kind)),
+            "single": single,  # a lone track has nothing to watch for
             "note": album.note,
             "title": tracks[0].title if single else album.name,
             "artist": tracks[0].artists if single else album.artist,
