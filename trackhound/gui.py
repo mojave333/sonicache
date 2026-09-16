@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import ctypes
+import hashlib
 import datetime
 import json
 import os
@@ -48,6 +49,12 @@ COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera"
 RATE_LIMITS = (0, 512_000, 1_048_576, 2_097_152, 5_242_880, 10_485_760)
 _PROXY_RE = re.compile(r"^(?:https?|socks4|socks5h?)://[^\s/]+$", re.I)
 AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
+# What a profile remembers: where the music goes and in what shape. The rest of
+# the settings — theme, language, proxy — are about the program, not the music,
+# and stay the same whichever profile is picked.
+PROFILE_KEYS = ("folder", "format", "track_name", "folder_name")
+PROFILE_LIMIT = 12
+UPDATE_HOST = "github.com"
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 _TRACK_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+)$")
@@ -66,6 +73,7 @@ class Api:
         self._worker: threading.Thread | None = None
         self._history = _load_history()
         self._job_counter = max((entry.get("job") or 0 for entry in self._history), default=0)
+        self._updating = False
 
     def init(self) -> dict:
         # Anything that was still running when the window closed is offered
@@ -229,7 +237,86 @@ class Api:
         version = str(data.get("tag_name") or "").lstrip("vV")
         if not _newer(version, __version__):
             return None
-        return {"version": version, "url": data.get("html_url") or RELEASES_PAGE}
+        # The installer is offered for download in the window; the hash GitHub
+        # publishes beside it is what makes that safe to do unattended.
+        setup = next((asset for asset in data.get("assets") or []
+                      if str(asset.get("name", "")).endswith("-setup.exe")), {})
+        return {
+            "version": version,
+            "url": data.get("html_url") or RELEASES_PAGE,
+            "installer": setup.get("browser_download_url") or "",
+            "size": setup.get("size") or 0,
+            "digest": setup.get("digest") or "",
+        }
+
+    def install_update(self, release: dict) -> bool:
+        """Downloads the installer for a newer release and starts it.
+
+        Answers at once and reports progress through the same event queue the
+        downloads use, so the window stays alive while a hundred megabytes come
+        down. The window closes itself once the installer is running: it cannot
+        replace files the running program is holding open.
+        """
+        with self._lock:
+            if self._updating:
+                return False
+            self._updating = True
+        threading.Thread(target=self._install_update, args=(release or {},), daemon=True).start()
+        return True
+
+    def _install_update(self, release: dict) -> None:
+        def say(**event) -> None:
+            self._events.put({"type": "update", **event})
+
+        url = str(release.get("installer") or "")
+        digest = str(release.get("digest") or "")
+        try:
+            parts = urllib.parse.urlsplit(url)
+            host = (parts.hostname or "").lower()
+            # Only the project's own releases, and only over TLS: the file is
+            # about to be run, and nothing else about it is verified by Windows.
+            if parts.scheme != "https" or host != UPDATE_HOST                     or not parts.path.startswith(f"/{REPO}/releases/download/"):
+                raise ValueError(t("Ссылка на установщик не с GitHub"))
+            if not digest.startswith("sha256:"):
+                raise ValueError(t("GitHub не сообщил хеш установщика"))
+
+            setup = Path(tempfile.gettempdir()) / f"Trackhound-{release.get('version', 'new')}-setup.exe"
+            total = int(release.get("size") or 0)
+            reader = hashlib.sha256()
+            done = 0
+            last = 0.0
+            request = urllib.request.Request(url, headers={"User-Agent": f"Trackhound/{__version__}"})
+            with urllib.request.urlopen(request, timeout=30) as response, setup.open("wb") as out:
+                while chunk := response.read(262_144):
+                    out.write(chunk)
+                    reader.update(chunk)
+                    done += len(chunk)
+                    if time.time() - last > 0.2:  # a message per chunk would flood the queue
+                        last = time.time()
+                        say(state="downloading", percent=int(done * 100 / total) if total else 0)
+            say(state="checking", percent=100)
+            if reader.hexdigest() != digest.split(":", 1)[1].lower():
+                setup.unlink(missing_ok=True)
+                raise ValueError(t("Скачанный установщик не совпал с хешем на GitHub"))
+
+            logs.log.info("обновление: запускаю %s", setup)
+            subprocess.Popen([str(setup)])
+            say(state="starting")
+            # Long enough for the window to show the last message and for the
+            # installer to appear, then out of the way so files are not locked.
+            threading.Timer(2.0, self._close_window).start()
+        except Exception as e:
+            logs.log.exception("обновление не установилось")
+            say(state="error", message=str(e) or type(e).__name__)
+            with self._lock:
+                self._updating = False
+
+    def _close_window(self) -> None:
+        try:
+            if self._window is not None:
+                self._window.destroy()
+        except Exception:
+            os._exit(0)
 
     def open_url(self, url: str) -> bool:
         if not url.startswith("https://github.com/"):
@@ -557,7 +644,30 @@ def _normalize(settings: dict) -> dict:
         # between — a file left by the build where the panel was dragged — as
         # whichever of the two it sits nearer.
         "sidebar": sidebar,
+        "profiles": _profiles(settings.get("profiles")),
     }
+
+
+def _profiles(raw) -> list[dict]:
+    """The saved folder-and-format sets, cleaned the way the settings are.
+
+    A profile is only a name and the keys in PROFILE_KEYS, each checked against
+    the same rules as the live setting, so a hand-edited file cannot put the
+    window into a state its own controls could not reach.
+    """
+    profiles, seen = [], set()
+    for entry in raw if isinstance(raw, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "").strip()[:40]
+        if not name or name.casefold() in seen:
+            continue
+        seen.add(name.casefold())
+        clean = _normalize(entry)
+        profiles.append({"name": name, **{key: clean[key] for key in PROFILE_KEYS}})
+        if len(profiles) >= PROFILE_LIMIT:
+            break
+    return profiles
 
 
 def _load_settings() -> dict:

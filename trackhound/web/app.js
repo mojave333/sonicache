@@ -139,7 +139,7 @@ async function loadDiagnostics() {
   $("#log-path").title = info.log;
 }
 
-// Nothing is downloaded or installed here: it only points at the releases page
+// Only asks; installing waits for the button
 async function checkForUpdate() {
   const release = await api().latest_release();
   if (!release) return;
@@ -147,7 +147,40 @@ async function checkForUpdate() {
   $("#update-title").textContent = t("Доступна версия {version}", { version: release.version });
   $("#update").hidden = false;
   $("#update-open").addEventListener("click", () => api().open_url(release.url));
+  // Without an installer to fetch — an unusual release, or one still uploading
+  // — the page is all that can be offered.
+  $("#update-install").hidden = !release.installer || !release.digest;
+  $("#update-install").addEventListener("click", startUpdate);
   renderSettingsDot();
+}
+
+function startUpdate() {
+  if (!state.update) return;
+  $("#update-install").disabled = true;
+  $("#update-install-label").textContent = t("Скачиваем…");
+  api().install_update(state.update);
+}
+
+// The download runs in the program, and says how it is going through the same
+// queue the music does.
+function onUpdateEvent(event) {
+  const button = $("#update-install");
+  const label = $("#update-install-label");
+  const desc = $("#update-desc");
+  if (event.state === "downloading") {
+    button.disabled = true;
+    label.textContent = t("Скачиваем… {percent}%", { percent: event.percent });
+  } else if (event.state === "checking") {
+    label.textContent = t("Проверяем хеш…");
+  } else if (event.state === "starting") {
+    label.textContent = t("Запускаем установщик");
+    desc.textContent = t("Окно сейчас закроется, чтобы установщик мог заменить файлы");
+  } else if (event.state === "error") {
+    button.disabled = false;
+    label.textContent = t("Обновить программу");
+    desc.textContent = t("Не получилось обновиться: {error}", { error: event.message });
+    desc.classList.add("warn");
+  }
 }
 
 function renderSettingsDot() {
@@ -163,6 +196,7 @@ function renderSettings() {
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   syncRadios($("#language"), "data-language", settings.language);
   syncRadios($("#formats"), "data-format", settings.format);
+  renderProfiles();
   syncRadios($("#mode-menu"), "data-dry-run", String(settings.dry_run));
   const folder = $("#folder");
   $("#folder-name").textContent = settings.folder.split(/[\\/]+/).filter(Boolean).pop() || settings.folder;
@@ -172,7 +206,7 @@ function renderSettings() {
   $("#cookies").value = settings.cookies_browser;
   $("#rate").value = String(settings.rate_limit);
   $("#track-name").value = settings.track_name;
-  $("#folder-name").value = settings.folder_name;
+  $("#folder-layout").value = settings.folder_name;
   if ($("#proxy") !== document.activeElement) $("#proxy").value = settings.proxy;
   $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
@@ -243,6 +277,144 @@ function bindSidebarToggle() {
   $("#sidebar-toggle").addEventListener("click", toggleSidebar);
 }
 
+/* Profiles: a folder, a format and the two naming rules under a name */
+
+const PROFILE_KEYS = ["folder", "format", "track_name", "folder_name"];
+
+// Which saved profile the current settings match, if any. Derived rather than
+// remembered, so editing a setting by hand simply steps out of the profile
+// instead of leaving a stale name lit.
+function activeProfile() {
+  return (state.settings.profiles || []).find((profile) =>
+    PROFILE_KEYS.every((key) => profile[key] === state.settings[key])) || null;
+}
+
+function profileSummary(profile) {
+  const folder = profile.folder.split(/[\\/]+/).filter(Boolean).pop() || profile.folder;
+  return [folder, profile.format, t(FOLDER_LAYOUTS[profile.folder_name] || profile.folder_name)]
+    .join(" · ");
+}
+
+const FOLDER_LAYOUTS = {
+  flat: "Исполнитель - Альбом (Год)",
+  nested: "Исполнитель → Альбом (Год)",
+  album: "Альбом (Год)",
+};
+
+function renderProfiles() {
+  const profiles = state.settings.profiles || [];
+  const active = activeProfile();
+  $("#profile-name").textContent = active ? active.name : t("Профиль");
+  $("#profile").classList.toggle("on", Boolean(active));
+
+  const menu = $("#profile-menu");
+  menu.replaceChildren();
+  if (!profiles.length) {
+    const empty = document.createElement("p");
+    empty.className = "menu-empty";
+    empty.textContent = t("Профилей пока нет. Сохранить текущие настройки можно в разделе «Настройки»");
+    menu.append(empty);
+  }
+  for (const profile of profiles) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.setAttribute("role", "menuitemradio");
+    item.setAttribute("aria-checked", String(profile === active));
+    item.innerHTML = '<svg class="icon sm check" aria-hidden="true"><use href="#i-check"/></svg>';
+    const name = document.createElement("span");
+    name.className = "menu-name";
+    name.textContent = profile.name;
+    const note = document.createElement("span");
+    note.className = "menu-note";
+    note.textContent = profileSummary(profile);
+    item.append(name, note);
+    item.addEventListener("click", () => {
+      applyProfile(profile);
+      setProfileMenuOpen(false);
+    });
+    menu.append(item);
+  }
+  renderProfileSettings(profiles);
+}
+
+function renderProfileSettings(profiles) {
+  const group = $("#profiles-group");
+  for (const row of $$(".profile-row", group)) row.remove();
+  const add = $("#profile-add");
+  for (const profile of profiles) {
+    const row = document.createElement("div");
+    row.className = "setting profile-row";
+    const label = document.createElement("div");
+    label.className = "setting-label";
+    const name = document.createElement("p");
+    name.textContent = profile.name;
+    const desc = document.createElement("p");
+    desc.className = "setting-desc";
+    desc.textContent = profile.folder + " · " + profileSummary(profile);
+    label.append(name, desc);
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "tool-btn";
+    apply.textContent = t("Применить");
+    apply.addEventListener("click", () => applyProfile(profile));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "icon-btn danger";
+    remove.title = t("Удалить профиль");
+    remove.setAttribute("aria-label", t("Удалить профиль"));
+    remove.innerHTML = '<svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg>';
+    remove.addEventListener("click", () => deleteProfile(profile.name));
+    row.append(label, apply, remove);
+    group.insertBefore(row, add);
+  }
+}
+
+function applyProfile(profile) {
+  updateSettings(Object.fromEntries(PROFILE_KEYS.map((key) => [key, profile[key]])));
+  announce(t("Профиль «{name}»", { name: profile.name }));
+}
+
+function saveProfile() {
+  const input = $("#profile-new");
+  const name = input.value.trim().slice(0, 40);
+  if (!name) return input.focus();
+  const profiles = (state.settings.profiles || [])
+    .filter((profile) => profile.name.toLowerCase() !== name.toLowerCase());
+  profiles.push({ name, ...Object.fromEntries(PROFILE_KEYS.map((key) => [key, state.settings[key]])) });
+  input.value = "";
+  updateSettings({ profiles });
+  announce(t("Профиль «{name}» сохранён", { name }));
+}
+
+function deleteProfile(name) {
+  updateSettings({
+    profiles: (state.settings.profiles || []).filter((profile) => profile.name !== name),
+  });
+}
+
+function setProfileMenuOpen(open) {
+  const menu = $("#profile-menu");
+  menu.hidden = !open;
+  $("#profile").setAttribute("aria-expanded", String(open));
+  if (open) ($("[aria-checked=true]", menu) || $("button", menu) || menu).focus();
+}
+
+function bindProfiles() {
+  $("#profile").addEventListener("click", () => setProfileMenuOpen($("#profile-menu").hidden));
+  $("#profile-save").addEventListener("click", saveProfile);
+  $("#profile-new").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveProfile();
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (!$("#profile-menu").hidden && !event.target.closest("#profile-menu, #profile")) {
+      setProfileMenuOpen(false);
+    }
+  });
+}
+
 function renderProblems() {
   const problems = state.problems;
   const items = () => problems.map((text) => Object.assign(document.createElement("li"), { textContent: text }));
@@ -264,6 +436,7 @@ function bindUi() {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
   bindSidebarToggle();
+  bindProfiles();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
@@ -285,7 +458,7 @@ function bindUi() {
   $("#cookies").addEventListener("change", (event) => updateSettings({ cookies_browser: event.target.value }));
   $("#rate").addEventListener("change", (event) => updateSettings({ rate_limit: Number(event.target.value) }));
   $("#track-name").addEventListener("change", (event) => updateSettings({ track_name: event.target.value }));
-  $("#folder-name").addEventListener("change", (event) => updateSettings({ folder_name: event.target.value }));
+  $("#folder-layout").addEventListener("change", (event) => updateSettings({ folder_name: event.target.value }));
   // A proxy is typed rather than picked, so it is taken once the field is left
   $("#proxy").addEventListener("change", (event) => updateSettings({ proxy: event.target.value.trim() }));
   $("#proxy").addEventListener("input", (event) => {
@@ -684,6 +857,7 @@ async function pollLoop() {
 }
 
 function handleEvent(event) {
+  if (event.type === "update") return onUpdateEvent(event);
   const job = state.jobs.get(event.job);
   if (!job) {
     state.orphans.push(event);

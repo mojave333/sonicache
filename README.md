@@ -34,6 +34,8 @@ does the downloading, after which the files get their tags and cover art.
 - **No accounts, no API keys**; everything runs on your own machine.
 - **Names work too** — write "Daft Punk - Discovery" when you have no link.
 - **Tags and cover art** in every file, multi-disc albums numbered properly.
+- **Profiles** — a folder, a format and the naming rules under a name, one click to switch.
+- **Updates itself** — fetches the next installer, checks its hash against GitHub, runs it.
 - **A window or a terminal** — the same program behind both.
 - **Russian and English** in the interface.
 
@@ -139,6 +141,11 @@ filled in without hunting for the link again.
 **Queue** — every track of the current downloads in one list, filtered by running, done or
 problems.
 
+**Profiles.** A folder, a format and the two naming rules can be saved under a name in the
+settings, and the button beside the folder in the download toolbar switches between them:
+"Music, m4a" for everyday listening, "D drive, mp3" for the car. The button stays lit while the
+settings still match the profile and goes quiet the moment one of them is changed by hand.
+
 **Settings** — theme (as in the system, light or dark), language (Russian or English; the
 first run takes the system's, and a system that is neither gets English), how many tracks to
 download at once, a speed limit, a proxy, cookies from a browser, and a check that every
@@ -146,7 +153,10 @@ component is in place. The version of yt-dlp inside the build is there too, toge
 the path to the log and a "Copy the report" button: the report holds the version, the
 component paths, the settings and the end of the log — what belongs in a bug report. A line
 about a new version appears there when one is published: the program asks GitHub once per
-run and shows a link, downloading nothing by itself. Settings live in
+run. "Update the program" then fetches that release's installer, checks it against the SHA-256
+GitHub publishes beside it, starts it, and closes the window so the files can be replaced —
+nothing is downloaded until the button is pressed, and nothing is run if the hash disagrees.
+Settings live in
 `%USERPROFILE%\.trackhound.json`.
 
 Age-restricted tracks are only served by YouTube to a signed-in account. Usually the program

@@ -285,6 +285,15 @@ p { margin: 0; }
 .context-menu { position: fixed; top: 0; right: auto; min-width: 220px; }
 .context-menu .danger-item { color: var(--danger); }
 .menu [aria-checked="true"] .check { visibility: visible; }
+/* A profile line carries its name and, quieter, what it sets */
+.menu-name { flex: none; }
+.menu-note { margin-left: auto; padding-left: 12px; color: var(--text-subtle); font-size: 12px;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-empty { margin: 0; padding: 8px 10px; color: var(--text-subtle); font-size: 12px; }
+/* Lit while the settings still match the profile that set them */
+.tool-btn.on { border-color: var(--accent-edge); background: var(--selected); color: var(--accent-fg); }
+.profile-field { flex: 0 1 240px; }
+.profile-row .setting-desc { overflow-wrap: anywhere; }
 
 .strip {
   display: flex; align-items: flex-start; gap: 9px; margin: 0; padding: 8px 16px;

@@ -1,6 +1,7 @@
 """Settings, the update check and the library listing behind the window."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -24,6 +25,7 @@ class TestNormalize:
             "track_name": "auto",
             "folder_name": "flat",
             "sidebar": 64,
+            "profiles": [],
         }
 
     @pytest.mark.parametrize("given, expected", [(0, 1), (1, 1), (4, 4), (8, 8), (99, 8), ("5", 5)])
@@ -368,3 +370,150 @@ class TestClipboard:
         # this test lands on decides which of them exist, so none of them do.
         monkeypatch.setattr(gui.shutil, "which", lambda name: None)
         assert gui._copy_to_clipboard("https://open.spotify.com/album/x") is False
+
+
+class TestProfiles:
+    """A profile remembers where the music goes and in what shape, nothing else."""
+
+    def profile(self, **extra):
+        return {"name": "D drive, mp3", "folder": "D:/Audio", "format": "mp3",
+                "track_name": "artist", "folder_name": "nested", **extra}
+
+    def test_a_profile_keeps_only_the_keys_it_is_for(self):
+        saved = gui._normalize({"profiles": [self.profile(theme="light", proxy="http://x:1")]})
+        assert saved["profiles"] == [{"name": "D drive, mp3", "folder": "D:/Audio",
+                                      "format": "mp3", "track_name": "artist",
+                                      "folder_name": "nested"}]
+
+    def test_names_are_trimmed_and_unnamed_profiles_dropped(self):
+        raw = [self.profile(name="  spaced  "), self.profile(name="   "), self.profile(name="")]
+        assert [p["name"] for p in gui._normalize({"profiles": raw})["profiles"]] == ["spaced"]
+
+    def test_a_name_is_taken_once_whatever_its_case(self):
+        raw = [self.profile(name="Music"), self.profile(name="music", folder="E:/Other")]
+        kept = gui._normalize({"profiles": raw})["profiles"]
+        assert len(kept) == 1 and kept[0]["folder"] == "D:/Audio"
+
+    def test_values_are_checked_the_way_the_live_settings_are(self):
+        odd = gui._normalize({"profiles": [self.profile(format="flac", folder_name="sideways")]})
+        assert odd["profiles"][0]["format"] == "m4a"
+        assert odd["profiles"][0]["folder_name"] == "flat"
+
+    @pytest.mark.parametrize("raw", ["not a list", 7, None, [None, 5, "x"]])
+    def test_nonsense_leaves_no_profiles(self, raw):
+        assert gui._normalize({"profiles": raw})["profiles"] == []
+
+    def test_there_is_a_limit(self):
+        many = [self.profile(name=f"profile {i}") for i in range(gui.PROFILE_LIMIT + 8)]
+        assert len(gui._normalize({"profiles": many})["profiles"]) == gui.PROFILE_LIMIT
+
+
+class TestUpdateInstaller:
+    """The file is about to be run, so where it came from is checked first."""
+
+    def api(self):
+        api = gui.Api.__new__(gui.Api)
+        api._events = __import__("queue").Queue()
+        api._lock = __import__("threading").RLock()
+        api._updating = False
+        api._window = None
+        return api
+
+    def events(self, api):
+        return [api._events.get_nowait() for _ in range(api._events.qsize())]
+
+    @pytest.mark.parametrize("url", [
+        "http://github.com/mojave333/trackhound/releases/download/v9/x-setup.exe",  # not TLS
+        "https://github.com.evil.test/mojave333/trackhound/releases/download/v9/x-setup.exe",
+        "https://example.com/mojave333/trackhound/releases/download/v9/x-setup.exe",
+        "https://github.com/someone/else/releases/download/v9/x-setup.exe",
+        "",
+    ])
+    def test_an_installer_from_anywhere_else_is_refused(self, url):
+        api = self.api()
+        api._install_update({"installer": url, "digest": "sha256:" + "0" * 64})
+        states = [event["state"] for event in self.events(api)]
+        assert states == ["error"]
+
+    def test_a_release_without_a_hash_is_refused(self):
+        api = self.api()
+        api._install_update({
+            "installer": f"https://github.com/{gui.REPO}/releases/download/v9/x-setup.exe",
+            "digest": "",
+        })
+        assert [event["state"] for event in self.events(api)] == ["error"]
+
+    def test_only_one_update_runs_at_a_time(self):
+        api = self.api()
+        api._updating = True
+        assert api.install_update({}) is False
+
+    def test_a_good_installer_is_checked_then_started(self, monkeypatch, tmp_path):
+        """The whole path without a network or a real installer: the bytes are
+        hashed, the hash is compared, and only then is anything run."""
+        import hashlib
+        import subprocess
+        payload = b"pretend installer" * 5000
+        digest = hashlib.sha256(payload).hexdigest()
+
+        class Response:
+            def __init__(self):
+                self.left = [payload[i:i + 4096] for i in range(0, len(payload), 4096)]
+
+            def read(self, _size):
+                return self.left.pop(0) if self.left else b""
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        started, closed = [], []
+        monkeypatch.setattr(gui.urllib.request, "urlopen", lambda *a, **k: Response())
+        monkeypatch.setattr(gui.tempfile, "gettempdir", lambda: str(tmp_path))
+        monkeypatch.setattr(subprocess, "Popen", lambda args, **k: started.append(args))
+        monkeypatch.setattr(gui.threading, "Timer", lambda *a, **k: type(
+            "T", (), {"start": lambda self: closed.append(True)})())
+
+        api = self.api()
+        api._install_update({
+            "version": "9.9.9", "size": len(payload),
+            "installer": f"https://github.com/{gui.REPO}/releases/download/v9.9.9/x-setup.exe",
+            "digest": f"sha256:{digest}",
+        })
+        states = [event["state"] for event in self.events(api)]
+        assert "checking" in states and states[-1] == "starting"
+        assert started and Path(started[0][0]).exists()
+        assert closed == [True]  # the window is asked to go away for the installer
+
+    def test_an_installer_that_does_not_match_its_hash_is_thrown_away(self, monkeypatch, tmp_path):
+        import subprocess
+
+        class Response:
+            def __init__(self):
+                self.left = [b"not what was promised"]
+
+            def read(self, _size):
+                return self.left.pop(0) if self.left else b""
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        started = []
+        monkeypatch.setattr(gui.urllib.request, "urlopen", lambda *a, **k: Response())
+        monkeypatch.setattr(gui.tempfile, "gettempdir", lambda: str(tmp_path))
+        monkeypatch.setattr(subprocess, "Popen", lambda args, **k: started.append(args))
+
+        api = self.api()
+        api._install_update({
+            "version": "9.9.9", "size": 21,
+            "installer": f"https://github.com/{gui.REPO}/releases/download/v9.9.9/x-setup.exe",
+            "digest": "sha256:" + "0" * 64,
+        })
+        assert [event["state"] for event in self.events(api)][-1] == "error"
+        assert not started  # nothing is run
+        assert not list(tmp_path.glob("*.exe"))  # and the file does not linger

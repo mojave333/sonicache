@@ -23,6 +23,39 @@ const TRANSLATIONS = {
   "Развернуть панель (Ctrl+B)": "Expand the panel (Ctrl+B)",
   "Свернуть": "Collapse",
 
+  // Profiles
+  "Профиль": "Profile",
+  "Профили: папка, формат и имена одним нажатием": "Profiles: folder, format and naming in one click",
+  "Профили": "Profiles",
+  "Сохранить текущие настройки": "Save the current settings",
+  "Папка, формат и правила имён под одним названием: потом возвращаться к ним одним нажатием в панели загрузки":
+    "The folder, the format and the naming rules under one name, to come back to from the download toolbar in one click",
+  "Например: на диск D, mp3": "For example: D drive, mp3",
+  "Название профиля": "Profile name",
+  "Сохранить": "Save",
+  "Применить": "Apply",
+  "Удалить профиль": "Delete the profile",
+  "Профилей пока нет. Сохранить текущие настройки можно в разделе «Настройки»":
+    "No profiles yet. The settings section saves the current ones",
+  "Профиль «{name}»": "Profile \"{name}\"",
+  "Профиль «{name}» сохранён": "Profile \"{name}\" saved",
+  "Исполнитель - Альбом (Год)": "Artist - Album (Year)",
+  "Исполнитель → Альбом (Год)": "Artist → Album (Year)",
+  "Альбом (Год)": "Album (Year)",
+
+  // Updating
+  "Страница релиза": "Release page",
+  "Обновить программу": "Update the program",
+  "Скачается установщик с GitHub, программа сверит его хеш и запустит; окно закроется, чтобы файлы можно было заменить":
+    "The installer is fetched from GitHub, checked against its hash and started; the window closes so the files can be replaced",
+  "Скачиваем…": "Downloading…",
+  "Скачиваем… {percent}%": "Downloading… {percent}%",
+  "Проверяем хеш…": "Checking the hash…",
+  "Запускаем установщик": "Starting the installer",
+  "Окно сейчас закроется, чтобы установщик мог заменить файлы":
+    "The window is about to close so the installer can replace the files",
+  "Не получилось обновиться: {error}": "The update did not go through: {error}",
+
   // Download view
   "Ссылка": "Link",
   "Ссылка на трек, альбом или плейлист — или «Исполнитель - Альбом»":
@@ -310,7 +343,11 @@ function applyLanguage(root = document) {
     const shown = node.nodeValue.trim();
     if (!shown) continue;
     if (!ORIGINAL_TEXT.has(node)) ORIGINAL_TEXT.set(node, shown);
-    const original = ORIGINAL_TEXT.get(node);
+    // Long sentences are wrapped in the markup, so the text node carries the
+    // newline and the indent with it. The keys here are single lines, so the
+    // lookup is done on a single-spaced copy; without it every wrapped
+    // description stayed in Russian.
+    const original = ORIGINAL_TEXT.get(node).replace(/\s+/g, " ");
     node.nodeValue = node.nodeValue.replace(shown, t(original));
   }
   for (const element of root.querySelectorAll("*")) {

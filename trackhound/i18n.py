@@ -149,6 +149,12 @@ ENGLISH = {
     "Неизвестный формат: {format}": "Unknown format: {format}",
     "Для mp3 и opus нужен ffmpeg (winget install Gyan.FFmpeg)":
         "mp3 and opus need ffmpeg (winget install Gyan.FFmpeg)",
+    # Updating from inside the window
+    "Ссылка на установщик не с GitHub": "The installer link does not point at GitHub",
+    "GitHub не сообщил хеш установщика": "GitHub did not report a hash for the installer",
+    "Скачанный установщик не совпал с хешем на GitHub":
+        "The downloaded installer does not match the hash GitHub published",
+
     "Не найден ffmpeg: форматы mp3/opus недоступны, m4a может не сохраниться. "
     "Установка: winget install Gyan.FFmpeg":
         "ffmpeg not found: mp3 and opus are unavailable and m4a may fail to save. "
