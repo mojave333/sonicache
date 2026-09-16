@@ -16,6 +16,10 @@ SoundCloud, Last.fm and sites such as Bandcamp.
 
 ### [⬇ Download for Windows](https://github.com/mojave333/trackhound/releases/latest)
 
+<img src="docs/demo.gif" width="820" alt="An album name is typed in, and the tracks download one after another">
+
+<sub>A real download of a ten-track album, start to finish; the later part is sped up.</sub>
+
 </div>
 
 ---
