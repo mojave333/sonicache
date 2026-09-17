@@ -27,7 +27,7 @@ from pathlib import Path
 
 import webview
 
-from . import __version__, logs, watch
+from . import __version__, batch, logs, watch
 from .i18n import LANGUAGES, resolve, set_language, t
 from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                          Downloader, Options, use_proxy)
@@ -55,6 +55,7 @@ AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
 PROFILE_KEYS = ("folder", "format", "track_name", "folder_name")
 PROFILE_LIMIT = 12
 UPDATE_HOST = "github.com"
+LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thousands of lines
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 _TRACK_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+)$")
@@ -121,6 +122,28 @@ class Api:
 
     def paste(self) -> str:
         return _clipboard_text()
+
+    def pick_list(self) -> dict | None:
+        """Asks for a text or CSV file of links and says what is in it."""
+        result = self._window.create_file_dialog(
+            webview.FileDialog.OPEN, directory=str(Path.home()),
+            file_types=(t("Списки ссылок (*.txt;*.csv)"), t("Все файлы (*.*)")))
+        if not result:
+            return None
+        path = Path(result[0])
+        try:
+            if path.stat().st_size > LIST_BYTES:
+                return {"name": path.name, "entries": [], "skipped": 0,
+                        "error": t("Файл слишком большой для списка ссылок")}
+            entries, skipped = batch.read(path.read_bytes(), path.name)
+        except OSError as e:
+            return {"name": path.name, "entries": [], "skipped": 0, "error": str(e)}
+        return {"name": path.name, "entries": entries, "skipped": skipped}
+
+    def parse_list(self, text: str, name: str = "") -> dict:
+        """The same, for a file dropped on the window, which arrives as text."""
+        entries, skipped = batch.parse(str(text or "")[:LIST_BYTES], str(name or ""))
+        return {"name": name, "entries": entries, "skipped": skipped}
 
     def download(self, links: list[str], settings: dict) -> list[dict]:
         settings = _normalize(settings)

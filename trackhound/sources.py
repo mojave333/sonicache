@@ -40,6 +40,8 @@ def resolve(link: str) -> Release:
     link = link.strip()
     if link.startswith("spotify:"):
         return _spotify(link)
+    if link[:6].lower() == "track:":
+        return search_track(link[6:])
     url = link if re.match(r"^https?://", link, re.I) else f"https://{link}"
     parts = urllib.parse.urlsplit(url)
     host = (parts.hostname or "").lower()
@@ -401,6 +403,19 @@ def search(query: str) -> Release:
     album = find_album(artist, title, t("поиск")) if title else None
     if album:
         return album
+    return find_track(artist, title or query, t("поиск"))
+
+
+def search_track(query: str) -> Release:
+    """A single song found by name, never the album of the same name.
+
+    Lists read from a playlist export name songs, and a playlist often holds
+    the title track of an album; search() would take the album for it.
+    """
+    query = " ".join(query.split())
+    if not query:
+        raise SourceError(t("Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»"))
+    artist, title = _split_query(query)
     return find_track(artist, title or query, t("поиск"))
 
 

@@ -289,6 +289,7 @@ p { margin: 0; }
 .menu-name { flex: none; }
 .menu-note { margin-left: auto; padding-left: 12px; color: var(--text-subtle); font-size: 12px;
              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-divider { height: 1px; margin: 4px 6px; background: var(--divider); }
 .menu-empty { margin: 0; padding: 8px 10px; color: var(--text-subtle); font-size: 12px; }
 /* Lit while the settings still match the profile that set them */
 .tool-btn.on { border-color: var(--accent-edge); background: var(--selected); color: var(--accent-fg); }

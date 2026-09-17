@@ -34,6 +34,7 @@ does the downloading, after which the files get their tags and cover art.
 - **No accounts, no API keys**; everything runs on your own machine.
 - **Names work too** — write "Daft Punk - Discovery" when you have no link.
 - **Tags and cover art** in every file, multi-disc albums numbered properly.
+- **Lists from a file** — a text file of links or a playlist exported as CSV, queued in one go.
 - **Watches playlists** — checks them twice a day and downloads only the tracks added since.
 - **Profiles** — a folder, a format and the naming rules under a name, one click to switch.
 - **Updates itself** — fetches the next installer, checks its hash against GitHub, runs it.
@@ -142,6 +143,15 @@ filled in without hunting for the link again.
 **Queue** — every track of the current downloads in one list, filtered by running, done or
 problems.
 
+**Lists from a file.** "Download a list from a file…" under the arrow beside "Download" — or
+dropping the file on the window — queues everything in it. A `.txt` holds one link or name per
+line; blank lines and lines starting with `#` are skipped. A `.csv` is read the way playlist
+exporters write it (Exportify, TuneMyMusic, Soundiiz): a link or URI column when there is one,
+otherwise the track and artist columns. A row from such an export is always looked for as a
+single song, so a playlist holding an album's title track does not bring the whole album with
+it. Up to 500 entries per file, repeats taken once; the note under the field says how many lines
+could not be read.
+
 **Watching.** A finished album or playlist has an eye on its card. Pressed, the program opens that
 link again every 12 hours and downloads into the same folder, in the same format, whatever was
 added since — the tracks already on disk are skipped, so a check that finds nothing costs one
@@ -194,6 +204,7 @@ Trackhound-cli.exe --dry-run LINK
 | `--proxy` | proxy for metadata and downloads: `http://127.0.0.1:1080`, `socks5://…` |
 | `--names` | file names: `auto` (default), `artist`, `title` |
 | `--folders` | album folders: `flat` (default), `nested`, `album` |
+| `--from-file` | take links and names from a `.txt` or a playlist exported as `.csv`; can be repeated |
 | `--lang` | language of the messages: `system` (default), `ru`, `en` |
 | `--check` | version, paths to ffmpeg and Deno, the music folder |
 

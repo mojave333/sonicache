@@ -149,6 +149,16 @@ ENGLISH = {
     "Неизвестный формат: {format}": "Unknown format: {format}",
     "Для mp3 и opus нужен ffmpeg (winget install Gyan.FFmpeg)":
         "mp3 and opus need ffmpeg (winget install Gyan.FFmpeg)",
+    # Lists of links read from a file
+    "ФАЙЛ": "FILE",
+    "взять ссылки и названия из файла: .txt по одной на строку или CSV-выгрузка плейлиста":
+        "take links and names from a file: a .txt with one per line, or a playlist exported as CSV",
+    "не прочитать {file}: {error}": "cannot read {file}: {error}",
+    "{file}: взято {count}, не разобрано строк: {skipped}": "{file}: {count} taken, {skipped} lines not understood",
+    "Списки ссылок (*.txt;*.csv)": "Lists of links (*.txt;*.csv)",
+    "Все файлы (*.*)": "All files (*.*)",
+    "Файл слишком большой для списка ссылок": "The file is too large to be a list of links",
+
     # Updating from inside the window
     "Ссылка на установщик не с GitHub": "The installer link does not point at GitHub",
     "GitHub не сообщил хеш установщика": "GitHub did not report a hash for the installer",

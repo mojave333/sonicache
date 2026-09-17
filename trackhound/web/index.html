@@ -161,9 +161,16 @@
               <button type="button" role="menuitemradio" data-dry-run="true">
                 <svg class="icon sm check" aria-hidden="true"><use href="#i-check"/></svg>Только проверить, что найдётся
               </button>
+              <div class="menu-divider" role="separator"></div>
+              <button type="button" role="menuitem" data-action="import">
+                <svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg>Скачать список из файла…
+              </button>
             </div>
           </div>
         </form>
+        <p id="link-note" class="strip" role="status" hidden>
+          <svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg><span id="link-note-text"></span>
+        </p>
         <p id="link-error" class="strip danger" role="alert" hidden>
           <svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg><span id="link-error-text"></span>
         </p>

@@ -23,6 +23,13 @@ const TRANSLATIONS = {
   "Развернуть панель (Ctrl+B)": "Expand the panel (Ctrl+B)",
   "Свернуть": "Collapse",
 
+  // Lists from a file
+  "Скачать список из файла…": "Download a list from a file…",
+  "В файле {name} не нашлось ни ссылок, ни названий": "{name} has neither links nor names in it",
+  "Из {name} в очередь: {count}": "From {name} to the queue: {count}",
+  "Из {name} в очередь: {count}, не разобрано строк: {skipped}":
+    "From {name} to the queue: {count}, lines not understood: {skipped}",
+
   // Watching
   "Слежение": "Watching",
   "Плейлисты и альбомы под наблюдением": "Playlists and albums being watched",

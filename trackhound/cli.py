@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import __version__, logs
+from . import __version__, batch, logs
 from .i18n import LANGUAGES, set_language, t
 from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
                          Options, use_proxy)
@@ -75,6 +75,8 @@ def main(argv: list[str] | None = None) -> int:
                         help=t("прокси для метаданных и загрузки: http://127.0.0.1:1080, socks5://…"))
     parser.add_argument("--lang", choices=LANGUAGES, default="system", metavar=t("ЯЗЫК"),
                         help=t("язык интерфейса и сообщений"))
+    parser.add_argument("--from-file", action="append", default=[], type=Path, metavar=t("ФАЙЛ"),
+                        help=t("взять ссылки и названия из файла: .txt по одной на строку или CSV-выгрузка плейлиста"))
     parser.add_argument("--check", action="store_true",
                         help=t("показать версию и какие ffmpeg и Deno нашлись, ничего не скачивая"))
     args = parser.parse_args(argv)
@@ -97,6 +99,14 @@ def main(argv: list[str] | None = None) -> int:
         for problem in downloader.environment_problems():
             print(f"⚠ {problem}")
         return 0
+    for list_file in args.from_file:
+        try:
+            entries, skipped = batch.read(list_file.read_bytes(), list_file.name)
+        except OSError as e:
+            parser.error(t("не прочитать {file}: {error}", file=list_file, error=e))
+        print(t("{file}: взято {count}, не разобрано строк: {skipped}",
+                file=list_file.name, count=len(entries), skipped=skipped))
+        args.links.extend(entries)
     if not args.links:
         parser.error(t("укажите ссылку или название (или --check, чтобы проверить установку)"))
 

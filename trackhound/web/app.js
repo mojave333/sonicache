@@ -576,6 +576,11 @@ function bindUi() {
   document.addEventListener("dragover", (event) => event.preventDefault());
   document.addEventListener("drop", (event) => {
     event.preventDefault();
+    const file = [...(event.dataTransfer.files || [])].find((item) => /\.(txt|csv)$/i.test(item.name));
+    if (file) {
+      file.text().then((text) => api().parse_list(text, file.name)).then(queueList);
+      return;
+    }
     const text = event.dataTransfer.getData("text/uri-list") || event.dataTransfer.getData("text/plain");
     if (!text.trim()) return;
     showView("download");
@@ -643,6 +648,11 @@ function bindModeMenu() {
   const menu = $("#mode-menu");
   $("#mode").addEventListener("click", () => setMenuOpen(menu.hidden));
   menu.addEventListener("click", (event) => {
+    if (event.target.closest("[data-action=import]")) {
+      setMenuOpen(false, false);
+      api().pick_list().then(queueList);
+      return;
+    }
     const item = event.target.closest("[data-dry-run]");
     if (!item) return;
     updateSettings({ dry_run: item.dataset.dryRun === "true" });
@@ -730,21 +740,53 @@ async function submitLinks(event) {
     input.focus();
     return;
   }
+  if (await queueLinks(links)) input.value = "";
+}
+
+async function queueLinks(links) {
   const submit = $("#submit");
   submit.disabled = true;
   try {
     const { dry_run: dryRun, format } = state.settings;
     const jobs = await api().download(links, state.settings);
-    input.value = "";
     for (const { job, link } of jobs) addJob(job, link, dryRun, format);
+    return true;
   } finally {
     submit.disabled = false;
   }
 }
 
+// A file of links: picked from the menu, or dropped on the window. The list is
+// read in the program, which knows the playlist exporters' CSV columns.
+async function queueList(list) {
+  if (!list) return;
+  showView("download");
+  if (list.error || !list.entries.length) {
+    showLinkError(list.error || t("В файле {name} не нашлось ни ссылок, ни названий", { name: list.name }));
+    return;
+  }
+  await queueLinks(list.entries);
+  const message = list.skipped
+    ? t("Из {name} в очередь: {count}, не разобрано строк: {skipped}",
+        { name: list.name, count: list.entries.length, skipped: list.skipped })
+    : t("Из {name} в очередь: {count}", { name: list.name, count: list.entries.length });
+  announce(message);
+  showLinkNote(message);
+}
+
 function explainBadLink() {
   return t("Вставьте ссылку на альбом, сингл или трек — или напишите, что искать: "
     + "«Исполнитель - Альбом».");
+}
+
+// A passing word under the field — what an imported list turned into — that
+// clears itself rather than waiting to be dismissed
+let linkNoteTimer = 0;
+function showLinkNote(message) {
+  $("#link-note-text").textContent = message;
+  $("#link-note").hidden = false;
+  clearTimeout(linkNoteTimer);
+  linkNoteTimer = setTimeout(() => { $("#link-note").hidden = true; }, 8000);
 }
 
 function showLinkError(message) {
@@ -1643,7 +1685,9 @@ function formatSize(bytes) {
 }
 
 function prettyLink(link) {
-  return link.replace(/^https?:\/\//, "").replace(/\?si=[^&]*$/, "");
+  // "track:" marks a song searched by name from an imported list; it says
+  // nothing a person needs to read on the card
+  return link.replace(/^track:/i, "").replace(/^https?:\/\//, "").replace(/\?si=[^&]*$/, "");
 }
 
 // plural() and t() come from i18n.js, which is loaded before this file
