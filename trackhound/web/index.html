@@ -312,6 +312,16 @@
               </div>
               <div class="setting">
                 <div class="setting-label">
+                  <p id="replaygain-label">Выравнивание громкости</p>
+                  <p class="setting-desc">Теги ReplayGain: плеер сам сделает треки одинаково громкими. Звук не меняется; нужен плеер, который их читает — foobar2000, MusicBee, AIMP, VLC</p>
+                </div>
+                <div id="replaygain" class="segmented" role="radiogroup" aria-labelledby="replaygain-label">
+                  <button type="button" role="radio" data-replaygain="false">Выкл</button>
+                  <button type="button" role="radio" data-replaygain="true">Вкл</button>
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting-label">
                   <p><label for="rate">Ограничение скорости</label></p>
                   <p class="setting-desc">Чтобы загрузка не занимала весь канал</p>
                 </div>

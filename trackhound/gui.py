@@ -154,7 +154,7 @@ class Api:
         options = Options(Path(settings["folder"]).expanduser(), settings["format"],
                           settings["threads"], settings["dry_run"], settings["cookies_browser"],
                           settings["track_name"], settings["folder_name"],
-                          settings["rate_limit"], settings["proxy"])
+                          settings["rate_limit"], settings["proxy"], settings["replaygain"])
         with self._lock:
             self._job_counter += 1
             job = self._job_counter
@@ -776,6 +776,7 @@ def _normalize(settings: dict) -> dict:
         # between — a file left by the build where the panel was dragged — as
         # whichever of the two it sits nearer.
         "sidebar": sidebar,
+        "replaygain": bool(settings.get("replaygain", False)),
         "profiles": _profiles(settings.get("profiles")),
     }
 

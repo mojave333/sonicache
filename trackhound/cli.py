@@ -77,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
                         help=t("язык интерфейса и сообщений"))
     parser.add_argument("--from-file", action="append", default=[], type=Path, metavar=t("ФАЙЛ"),
                         help=t("взять ссылки и названия из файла: .txt по одной на строку или CSV-выгрузка плейлиста"))
+    parser.add_argument("--replaygain", action="store_true",
+                        help=t("измерить громкость и записать теги ReplayGain; сам звук не меняется"))
     parser.add_argument("--check", action="store_true",
                         help=t("показать версию и какие ffmpeg и Deno нашлись, ничего не скачивая"))
     args = parser.parse_args(argv)
@@ -84,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
 
     options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run,
                       args.cookies_from_browser, args.names, args.folders,
-                      _rate(args.limit_rate, parser), args.proxy)
+                      _rate(args.limit_rate, parser), args.proxy, args.replaygain)
     use_proxy(options.proxy)
     downloader = Downloader(options, log=lambda message: print(message, flush=True))
 

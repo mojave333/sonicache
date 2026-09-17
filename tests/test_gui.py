@@ -25,6 +25,7 @@ class TestNormalize:
             "track_name": "auto",
             "folder_name": "flat",
             "sidebar": 64,
+            "replaygain": False,
             "profiles": [],
         }
 

@@ -195,6 +195,7 @@ function renderSettings() {
   applyTheme();
   applySidebar(settings.sidebar);
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
+  syncRadios($("#replaygain"), "data-replaygain", String(settings.replaygain));
   syncRadios($("#language"), "data-language", settings.language);
   syncRadios($("#formats"), "data-format", settings.format);
   renderProfiles();
@@ -508,6 +509,7 @@ function bindUi() {
   bindWatch();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
+  radioGroup($("#replaygain"), "data-replaygain", (value) => updateSettings({ replaygain: value === "true" }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
   radioGroup($("#queue-filter"), "data-filter", setQueueFilter);
   darkMedia.addEventListener("change", applyTheme);
@@ -994,6 +996,8 @@ function handleEvent(event) {
   else if (event.type === "release") onRelease(job, event);
   else if (event.type === "track") onTrack(job, event);
   else if (event.type === "progress") Object.assign(job, { done: event.done, total: event.total });
+  // Metering the files after the last track: a note, so the card does not look stuck at 100%
+  else if (event.type === "loudness") job.note = event.state === "running" ? t("Измеряем громкость…") : "";
   state.dirty.add(job);
 }
 

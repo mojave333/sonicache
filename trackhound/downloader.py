@@ -25,7 +25,7 @@ from mutagen.mp4 import MP4, MP4Cover
 from mutagen.oggopus import OggOpus
 from yt_dlp.utils import DownloadCancelled
 
-from . import sources
+from . import loudness, sources
 from .i18n import t
 from .logs import YtdlpLogger, log
 from .matcher import SOURCE_NAMES, Match, Matcher
@@ -98,6 +98,8 @@ class Options:
     # Bytes per second for the whole program, 0 for as fast as it goes
     rate_limit: int = 0
     proxy: str = ""  # "http://127.0.0.1:1080", "socks5://…"; empty uses the system settings
+    # Measure each file with ffmpeg and write ReplayGain tags; the audio stays as it is
+    replaygain: bool = False
 
 
 @dataclass
@@ -135,6 +137,7 @@ class Downloader:
         if resume_event is None:
             self.resume_event.set()
         self.matcher = Matcher()
+        self._paths: dict[str, Path] = {}
         self.ffmpeg = find_tool("ffmpeg")
         # yt-dlp needs a JavaScript runtime to solve YouTube challenges; only
         # deno is enabled by default, node has to be passed explicitly.
@@ -206,6 +209,7 @@ class Downloader:
 
         lock = threading.Lock()
         done = 0
+        self._paths: dict[str, Path] = {}  # where each track of this release is on disk
 
         def job(track: Track) -> None:
             nonlocal done
@@ -225,6 +229,7 @@ class Downloader:
                 pass
             for future in futures:
                 future.result()
+            self._tag_loudness(album, tracks, single)
         except BaseException:
             self.stop_event.set()
             raise
@@ -248,6 +253,7 @@ class Downloader:
                 candidates.append(folder / f"{_safe_name(legacy)}.{self.options.audio_format}")
             existing = next((path for path in candidates if path.exists()), None)
             if existing is not None:
+                self._paths[track.id] = existing
                 self.log(t("= Уже есть: {name}", name=existing.name))
                 self._track_event(track, "skip")
                 return "skipped", label
@@ -317,9 +323,34 @@ class Downloader:
         finally:
             if not self.options.dry_run:
                 _clear_partials(folder, stem)
+        self._paths[track.id] = target
         self.log(f"✓ {target.name}" + ("" if match.source == "song" else f"  ({source})"))
         self._track_event(track, "done", source=source)
         return "ok", label
+
+    def _tag_loudness(self, album: Album, tracks: list[Track], single: bool) -> None:
+        """ReplayGain for everything of this release that is on disk.
+
+        The tracks skipped as already there take part too: an album gain is
+        only right when it is worked out over the whole album, and a track that
+        was tagged before is not measured a second time.
+        """
+        if not self.options.replaygain or self.options.dry_run or self.stop_event.is_set():
+            return
+        paths = [self._paths[track.id] for track in tracks if track.id in self._paths]
+        if not paths:
+            return
+        if not self.ffmpeg:
+            self.log(t("! Громкость не выровнена: для этого нужен ffmpeg"))
+            return
+        self.events("loudness", {"state": "running"})
+        # A playlist gathers songs from many records, so it has no album gain to speak of
+        whole_album = not single and album.kind != "playlist"
+        measured = loudness.apply(paths, self.ffmpeg, whole_album=whole_album, log=self.log,
+                                  stop=self.stop_event, workers=self.options.threads)
+        if measured:
+            self.log(t("♫ Громкость измерена: {count}", count=measured))
+        self.events("loudness", {"state": "done", "measured": measured})
 
     def _fetch(self, match: Match, folder: Path, stem: str, track: Track, source: str) -> Path:
         self._track_event(track, "download", source=source, percent=0)

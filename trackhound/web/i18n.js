@@ -23,6 +23,17 @@ const TRANSLATIONS = {
   "Развернуть панель (Ctrl+B)": "Expand the panel (Ctrl+B)",
   "Свернуть": "Collapse",
 
+  "Нужны для треков с возрастным ограничением: YouTube отдаёт их только тем, кто вошёл в аккаунт. Браузер при загрузке лучше закрыть":
+    "For age-restricted tracks: YouTube serves them only to a signed-in account. Close the browser while downloading",
+
+  // Loudness
+  "Выравнивание громкости": "Loudness levelling",
+  "Теги ReplayGain: плеер сам сделает треки одинаково громкими. Звук не меняется; нужен плеер, который их читает — foobar2000, MusicBee, AIMP, VLC":
+    "ReplayGain tags: the player makes the tracks equally loud. The audio is not changed; it takes a player that reads them — foobar2000, MusicBee, AIMP, VLC",
+  "Выкл": "Off",
+  "Вкл": "On",
+  "Измеряем громкость…": "Measuring the loudness…",
+
   // Lists from a file
   "Скачать список из файла…": "Download a list from a file…",
   "В файле {name} не нашлось ни ссылок, ни названий": "{name} has neither links nor names in it",

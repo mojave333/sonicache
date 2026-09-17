@@ -34,6 +34,7 @@ does the downloading, after which the files get their tags and cover art.
 - **No accounts, no API keys**; everything runs on your own machine.
 - **Names work too** — write "Daft Punk - Discovery" when you have no link.
 - **Tags and cover art** in every file, multi-disc albums numbered properly.
+- **Even loudness** — optional ReplayGain tags, so a shuffled library plays at one volume.
 - **Lists from a file** — a text file of links or a playlist exported as CSV, queued in one go.
 - **Watches playlists** — checks them twice a day and downloads only the tracks added since.
 - **Profiles** — a folder, a format and the naming rules under a name, one click to switch.
@@ -143,6 +144,16 @@ filled in without hunting for the link again.
 **Queue** — every track of the current downloads in one list, filtered by running, done or
 problems.
 
+**Loudness levelling.** Off by default; Settings → Download turns it on. Every file is measured
+with ffmpeg's EBU R128 meter and gets ReplayGain 2.0 tags — track gain and peak, and for an album
+one album gain shared by its tracks, so a quiet interlude stays quiet beside a loud single. Opus
+gets the `R128_*` tags its specification asks for instead. The audio itself is not changed: it
+is the player that turns each track up or down, so this helps only in a player that reads the
+tags — foobar2000, MusicBee, AIMP, VLC, Poweramp. A playlist gets no album gain, since its
+songs come from different records, and a file already tagged is never measured twice, so a
+watched playlist does not re-listen to itself on every check. Measuring costs a few seconds a
+track, on as many threads as the downloads use.
+
 **Lists from a file.** "Download a list from a file…" under the arrow beside "Download" — or
 dropping the file on the window — queues everything in it. A `.txt` holds one link or name per
 line; blank lines and lines starting with `#` are skipped. A `.csv` is read the way playlist
@@ -204,6 +215,7 @@ Trackhound-cli.exe --dry-run LINK
 | `--proxy` | proxy for metadata and downloads: `http://127.0.0.1:1080`, `socks5://…` |
 | `--names` | file names: `auto` (default), `artist`, `title` |
 | `--folders` | album folders: `flat` (default), `nested`, `album` |
+| `--replaygain` | measure the loudness and write ReplayGain tags; the audio is not changed |
 | `--from-file` | take links and names from a `.txt` or a playlist exported as `.csv`; can be repeated |
 | `--lang` | language of the messages: `system` (default), `ru`, `en` |
 | `--check` | version, paths to ffmpeg and Deno, the music folder |

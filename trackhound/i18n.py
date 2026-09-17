@@ -149,6 +149,12 @@ ENGLISH = {
     "Неизвестный формат: {format}": "Unknown format: {format}",
     "Для mp3 и opus нужен ffmpeg (winget install Gyan.FFmpeg)":
         "mp3 and opus need ffmpeg (winget install Gyan.FFmpeg)",
+    # Loudness
+    "измерить громкость и записать теги ReplayGain; сам звук не меняется":
+        "measure the loudness and write ReplayGain tags; the audio itself is not changed",
+    "! Громкость не выровнена: для этого нужен ffmpeg": "! Loudness not measured: that needs ffmpeg",
+    "♫ Громкость измерена: {count}": "♫ Loudness measured: {count}",
+
     # Lists of links read from a file
     "ФАЙЛ": "FILE",
     "взять ссылки и названия из файла: .txt по одной на строку или CSV-выгрузка плейлиста":
