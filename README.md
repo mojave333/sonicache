@@ -12,9 +12,9 @@ SoundCloud, Last.fm and sites such as Bandcamp.
 [![Latest release](https://img.shields.io/github/v/release/mojave333/trackhound?label=release&color=8FBF3F)](https://github.com/mojave333/trackhound/releases/latest)
 [![Build](https://github.com/mojave333/trackhound/actions/workflows/ci.yml/badge.svg)](https://github.com/mojave333/trackhound/actions/workflows/ci.yml)
 [![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-blue)](LICENSE)
-![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-informational)
+![Windows, macOS, Linux](https://img.shields.io/badge/Windows%20%7C%20macOS%20%7C%20Linux-informational)
 
-### [⬇ Download for Windows](https://github.com/mojave333/trackhound/releases/latest)
+### [⬇ Download for Windows, macOS or Linux](https://github.com/mojave333/trackhound/releases/latest)
 
 <img src="docs/demo.gif" width="880" alt="An album name is typed in, the tracks download, and the finished album appears in the library">
 
@@ -76,7 +76,7 @@ sits next to it: unpack it anywhere and run `Trackhound.exe`.
 
 Nothing else has to be installed: Python, ffmpeg and Deno are already inside. Windows 10 or
 11, 64-bit; the installed folder takes about 320 MB because of the bundled ffmpeg and Deno.
-On macOS and Linux the program runs from source (see [macOS and Linux](#macos-and-linux)).
+For macOS and Linux there are builds of their own (see [macOS and Linux](#macos-and-linux)).
 
 `Trackhound-cli.exe --check` prints the version and the paths to the ffmpeg and Deno it
 found.
@@ -324,12 +324,40 @@ turns out too short, such as a 30-second SoundCloud Go+ preview, counts as a fai
 
 ## macOS and Linux
 
-Releases are built on Windows only, so there are no ready-made builds for macOS or Linux,
-but the program runs from source. The window is drawn by WebKit (macOS) or GTK (Linux)
-through pywebview. Deleting from the library goes to the trash (Finder, `gio trash`, or
-`~/.local/share/Trash` per the freedesktop.org specification), "Show in the file manager"
-opens Finder or the desktop's file manager, and the theme follows the system. ffmpeg and
-Deno have to be installed separately:
+Each release also carries a build for macOS on Apple Silicon (M1 and newer) and one for
+64-bit Linux. Both have ffmpeg and Deno inside, like the Windows one, and the command line
+program sits beside the window in the same folder. They do not update themselves: when a
+new version is out, the settings show a line about it with a link to the release page.
+
+**macOS.** Open `Trackhound-vX.Y.Z-macos-arm64.dmg` and drag Trackhound to Applications.
+The app is not signed with an Apple developer certificate, so the first launch is refused
+with "Apple could not verify…". Click "Done", open System Settings → Privacy & Security,
+scroll to the line about Trackhound and click "Open Anyway". The same can be done in a
+terminal:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Trackhound.app
+```
+
+The command line is `/Applications/Trackhound.app/Contents/MacOS/Trackhound-cli`. Macs with
+an Intel processor have no build; they can run from source or use the
+[Python package](#python-package).
+
+**Linux.** Unpack `Trackhound-vX.Y.Z-linux-x64.tar.xz` anywhere and start `Trackhound` in the
+folder; `Trackhound-cli` is the command line. It needs glibc 2.35 or newer (Ubuntu 22.04,
+Debian 12, Fedora 36 and later). The window is drawn by Qt WebEngine, which is inside, so
+nothing has to be installed. If the window does not open, start `./Trackhound` from a
+terminal: it names the library it could not find.
+
+```sh
+tar -xJf Trackhound-vX.Y.Z-linux-x64.tar.xz
+./Trackhound/Trackhound
+```
+
+### From source
+
+The program also runs from source on both. The window is then drawn by WebKit (macOS) or
+GTK (Linux) through pywebview. ffmpeg and Deno have to be installed separately:
 
 ```sh
 brew install ffmpeg deno            # macOS
@@ -339,8 +367,11 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python main.py LINK       # the command line
 ```
 
-Settings live in `~/.trackhound.json`; the log and the history in
-`~/Library/Application Support/Trackhound` (macOS) or `$XDG_DATA_HOME/trackhound` (Linux).
+Either way, deleting from the library goes to the trash (Finder, `gio trash`, or
+`~/.local/share/Trash` per the freedesktop.org specification), "Show in the file manager"
+opens Finder or the desktop's file manager, and the theme follows the system. Settings live
+in `~/.trackhound.json`; the log and the history in `~/Library/Application Support/Trackhound`
+(macOS) or `$XDG_DATA_HOME/trackhound` (Linux).
 
 ## Python package
 
@@ -429,13 +460,25 @@ from `vendor\`. The program looks there first and only then in `PATH`.
 Building without `vendor\` works too and produces a lighter variant that takes ffmpeg and
 Deno from the system.
 
+On macOS and Linux the same spec file makes `dist/Trackhound.app` or `dist/Trackhound`, and
+a script does the rest: it fetches ffmpeg and Deno, builds, checks that the command line
+and the window start, and packs a `.dmg` or a `.tar.xz`. The Linux build needs
+`pip install "pywebview[qt]"` (it is in `requirements-dev.txt`) and, for the check, `xvfb`.
+
+```sh
+pip install -r requirements.txt -r requirements-dev.txt
+scripts/fetch-vendor.sh
+scripts/build-unix.sh v1.2.3
+```
+
 ### Releasing
 
 Releases are made on GitHub, with nothing to do locally. Open
 **Actions → Release → Run workflow** and type the version (`1.2.3`).
 [`release.yml`](.github/workflows/release.yml) writes it into `trackhound/__init__.py`,
 commits it, tags the commit, runs the tests, builds the exe and the installer, and publishes
-the release with both files and their SHA-256.
+the release with both files and their SHA-256. The macOS and Linux builds are attached to
+the same release a few minutes later, and the Python package goes to PyPI.
 
 Tagging by hand also works: `git tag v1.2.3 && git push origin v1.2.3` starts the same
 workflow, which then checks the tag against `__version__` and stops if they disagree. A
@@ -465,6 +508,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/cli.py`, `main.py` | the command line and the entry point |
 | `tests/` | offline tests of the link parsing, the matching and the file names |
 | `trackhound.spec`, `scripts/fetch-vendor.ps1` | building the exe |
+| `scripts/fetch-vendor.sh`, `scripts/build-unix.sh` | building for macOS and Linux |
 | `trackhound.iss`, `scripts/build-installer.ps1` | building the installer |
 | `pyproject.toml`, `docs/pypi.md` | the Python package and its page on PyPI |
 
@@ -476,11 +520,16 @@ linking rather than mere aggregation, so the copyleft covers the whole project.
 Other dependencies: yt-dlp and yt-dlp-ejs are under the Unlicense, ytmusicapi under MIT,
 pywebview under BSD-3-Clause.
 
-The release archive carries two separate programs, each under its own licence: `ffmpeg.exe`
-from the [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) builds (GPL, sources at
-[ffmpeg.org](https://ffmpeg.org/download.html)) and `deno.exe` from
-[denoland/deno](https://github.com/denoland/deno) (MIT). Trackhound runs both as external
-processes.
+The release builds carry two separate programs, each under its own licence: ffmpeg (GPL,
+sources at [ffmpeg.org](https://ffmpeg.org/download.html)) and Deno from
+[denoland/deno](https://github.com/denoland/deno) (MIT). ffmpeg comes from the
+[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) builds on Windows and Linux and
+from [Martin Riedl's builds](https://ffmpeg.martin-riedl.de/) on macOS. Trackhound runs both
+as external processes.
+
+The Linux build also contains Qt (LGPL-3.0) and PyQt6 (GPL-3.0), which draw its window.
+Because PyQt6 is GPL-3.0 and Trackhound allows any later version of the GPL, the Linux
+build as a whole is distributed under GPL-3.0.
 
 > [!IMPORTANT]
 > Use the program for music you have the rights to, and respect copyright law and the terms
