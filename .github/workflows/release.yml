@@ -194,7 +194,7 @@ jobs:
             `Trackhound-cli.exe` is the same program for a terminal.
 
             For macOS on Apple Silicon there is `Trackhound-${{ env.tag }}-macos-arm64.dmg`,
-            and for 64-bit Linux `Trackhound-${{ env.tag }}-linux-x64.tar.gz`; they are
+            and for 64-bit Linux `Trackhound-${{ env.tag }}-linux-x64.tar.xz`; they are
             added a few minutes after this page appears. How to start them is in
             [macOS and Linux](https://github.com/mojave333/trackhound#macos-and-linux).
 

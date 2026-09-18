@@ -5,7 +5,7 @@
 #     scripts/build-unix.sh v1.3.0     # the tag goes into the file name
 #
 # macOS:  Trackhound-v1.3.0-macos-arm64.dmg, holding Trackhound.app
-# Linux:  Trackhound-v1.3.0-linux-x64.tar.gz, holding the Trackhound folder
+# Linux:  Trackhound-v1.3.0-linux-x64.tar.xz, holding the Trackhound folder
 #
 # The name of the packed file is printed last, for the workflow to pick up.
 set -euo pipefail
@@ -16,6 +16,14 @@ cd "$root"
 
 pyinstaller --noconfirm trackhound.spec
 
+# Qt WebEngine brings Chromium's interface text in every language it has and its
+# developer tools; the window speaks Russian or English and has no use for either
+qt="dist/Trackhound/_internal/PyQt6/Qt6"
+if [ -d "$qt/translations/qtwebengine_locales" ]; then
+  find "$qt/translations/qtwebengine_locales" -name '*.pak' ! -name 'en-US.pak' ! -name 'ru.pak' -delete
+  rm -f "$qt/resources/qtwebengine_devtools_resources.pak"
+fi
+
 case "$(uname -s)" in
   Darwin)
     programs="dist/Trackhound.app/Contents/MacOS"
@@ -23,7 +31,7 @@ case "$(uname -s)" in
     ;;
   Linux)
     programs="dist/Trackhound"
-    package="Trackhound-$tag-linux-x64.tar.gz"
+    package="Trackhound-$tag-linux-x64.tar.xz"
     ;;
   *)
     echo "Unknown system $(uname -s)" >&2
@@ -70,7 +78,8 @@ if [ "$(uname -s)" = Darwin ]; then
   hdiutil create -volname Trackhound -srcfolder "$staging" -ov -format UDZO "$package" > /dev/null
   rm -rf "$staging"
 else
-  tar -czf "$package" -C dist Trackhound
+  # xz packs the Qt and ffmpeg libraries noticeably tighter than gzip
+  tar -cf - -C dist Trackhound | xz -T0 -6 > "$package"
 fi
 du -h "$package" >&2
 # What the size is made of, for when it grows
