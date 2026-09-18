@@ -81,6 +81,13 @@ jobs:
           scripts/build-unix.sh dev | tee build.log
           echo "package=$(tail -n 1 build.log)" >> "$GITHUB_ENV"
 
+      # A week to try a build before it is released
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.package }}
+          path: ${{ env.package }}
+          retention-days: 7
+
   linux:
     runs-on: ubuntu-22.04
     steps:
@@ -113,6 +120,13 @@ jobs:
         run: |
           scripts/build-unix.sh dev | tee build.log
           echo "package=$(tail -n 1 build.log)" >> "$GITHUB_ENV"
+
+      # A week to try a build before it is released
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.package }}
+          path: ${{ env.package }}
+          retention-days: 7
 
   windows:
     runs-on: windows-latest
