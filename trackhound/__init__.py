@@ -10,4 +10,4 @@ version; see the LICENSE file. It comes with no warranty.
 
 # The single source of truth for the version: the release workflow refuses to
 # build when the pushed tag says something else.
-__version__ = "1.2.0"
+__version__ = "1.2.1"
