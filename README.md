@@ -53,6 +53,7 @@ downloading, after which the files get their tags and cover art.
 [How a track is chosen](#how-a-track-is-chosen) ·
 [When something breaks](#when-something-breaks) ·
 [macOS and Linux](#macos-and-linux) ·
+[Python package](#python-package) ·
 [From source](#running-from-source) ·
 [Building](#building) ·
 [Licence](#licence)
@@ -312,7 +313,7 @@ turns out too short, such as a 30-second SoundCloud Go+ preview, counts as a fai
 - **Download errors from YouTube.** YouTube changes often, and yt-dlp with it. Update to the
   newest Trackhound release; running from source, run `install.bat` again. The Settings
   section shows how old the bundled yt-dlp is.
-- **"Spotify changed the shape of its page".** The parsing in `trackhound/spotify.py` needs
+- **"Spotify changed the shape of its page".** The parsing in `trackhound/engine/spotify.py` needs
   fixing.
 - **`music.youtube.com` is unreachable on this network.** The program switches to
   `www.youtube.com` by itself.
@@ -340,6 +341,38 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 Settings live in `~/.trackhound.json`; the log and the history in
 `~/Library/Application Support/Trackhound` (macOS) or `$XDG_DATA_HOME/trackhound` (Linux).
+
+## Python package
+
+The engine and the command line are also a package on PyPI, for any system with Python
+3.10 or newer. ffmpeg and Deno (or Node.js 22+) have to be installed separately and be on
+`PATH`.
+
+```sh
+pip install trackhound          # the engine and the `trackhound` command
+pip install "trackhound[gui]"   # adds the window, started with `trackhound-gui`
+```
+
+The `trackhound` command takes the same options as `Trackhound-cli.exe`. From Python:
+
+```python
+from pathlib import Path
+from trackhound.engine import Downloader, Options, resolve
+
+release = resolve("https://www.deezer.com/album/302127")
+print(release.album.name, [track.title for track in release.tracks])
+
+report = Downloader(Options(output_dir=Path("Music"))).download_link("https://www.deezer.com/album/302127")
+print(report.summary())
+```
+
+What `trackhound.engine` exports is the public interface and keeps working across minor
+versions; the modules behind it may change in any release. The engine writes to the
+`trackhound` logger without setting up handlers, and speaks the system's language, Russian
+or English, until `set_language()` says otherwise.
+
+A new version reaches PyPI together with the Windows release: the same `release.yml` run
+builds the package and publishes it through Trusted Publishing.
 
 ## Running from source
 
@@ -410,21 +443,30 @@ version that has already been released is refused before anything is built.
 
 ## How it is put together
 
+Everything that turns a link into tagged files lives in `trackhound/engine/`, which knows
+nothing about the window or the command line; `tests/test_engine.py` keeps it that way.
+The rest of `trackhound/` is the program built on top of it.
+
 | File | What it does |
 |---|---|
-| `trackhound/sources.py` | parsing the links of every service, and finding a release by name |
-| `trackhound/spotify.py` | Spotify metadata |
-| `trackhound/models.py`, `trackhound/net.py` | shared data structures and HTTP |
-| `trackhound/matcher.py` | searching and picking a match on YouTube Music, SoundCloud and YouTube |
-| `trackhound/downloader.py` | downloading (yt-dlp), converting (ffmpeg), tagging (mutagen) |
-| `trackhound/i18n.py`, `trackhound/web/i18n.js` | the Russian and English text |
+| `trackhound/engine/__init__.py` | the engine's public interface, the part a script imports |
+| `trackhound/engine/sources.py` | parsing the links of every service, and finding a release by name |
+| `trackhound/engine/spotify.py` | Spotify metadata |
+| `trackhound/engine/models.py`, `trackhound/engine/net.py` | shared data structures and HTTP |
+| `trackhound/engine/matcher.py` | searching and picking a match on YouTube Music, SoundCloud and YouTube |
+| `trackhound/engine/downloader.py` | downloading (yt-dlp), converting (ffmpeg), tagging (mutagen) |
+| `trackhound/engine/loudness.py` | measuring the loudness and writing ReplayGain tags |
+| `trackhound/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
+| `trackhound/engine/i18n.py`, `trackhound/i18n.py`, `trackhound/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
 | `trackhound/logs.py` | the log file and the report |
+| `trackhound/watch.py` | the list of watched playlists |
 | `trackhound/gui.py` | the window (pywebview) and the bridge to the downloader |
 | `trackhound/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
 | `trackhound/cli.py`, `main.py` | the command line and the entry point |
 | `tests/` | offline tests of the link parsing, the matching and the file names |
 | `trackhound.spec`, `scripts/fetch-vendor.ps1` | building the exe |
 | `trackhound.iss`, `scripts/build-installer.ps1` | building the installer |
+| `pyproject.toml`, `docs/pypi.md` | the Python package and its page on PyPI |
 
 ## Licence
 

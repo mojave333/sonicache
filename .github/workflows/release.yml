@@ -3,6 +3,7 @@ name: Release
 # Releasing takes no local commands. Open Actions -> Release -> Run workflow,
 # type the version (1.1.0), and the job writes __version__, commits it, tags the
 # commit, builds the exe and the installer, and publishes the release with both.
+# The pypi job then puts the same version of the Python package on PyPI.
 #
 # Tagging by hand still works for anyone who prefers it:
 #
@@ -25,6 +26,8 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +37,7 @@ jobs:
           cache: pip
 
       - name: Work out the version
+        id: version
         shell: pwsh
         run: |
           $version = if ("${{ github.event_name }}" -eq "workflow_dispatch") {
@@ -46,6 +50,7 @@ jobs:
           }
           "version=$version" >> $env:GITHUB_ENV
           "tag=v$version" >> $env:GITHUB_ENV
+          "tag=v$version" >> $env:GITHUB_OUTPUT
           Write-Output "releasing v$version"
 
       # Started from the Actions tab: the version in the source, the commit and
@@ -195,3 +200,39 @@ jobs:
 
             SHA-256 — installer `${{ env.installer_sha256 }}`,
             archive `${{ env.sha256 }}`. Check your copy with `Get-FileHash <file>`.
+
+  # PyPI trusts this workflow through Trusted Publishing, so no token is stored
+  # anywhere. The publisher is set up once on pypi.org: project trackhound,
+  # owner mojave333, repository trackhound, workflow release.yml, environment pypi.
+  pypi:
+    needs: windows
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/trackhound/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.windows.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the package
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+
+      # The version comes from trackhound/__init__.py; the tag already had to
+      # agree with it, so a mismatch here means the wrong commit was checked out.
+      - name: Check the version
+        run: |
+          tag="${{ needs.windows.outputs.tag }}"
+          ls "dist/trackhound-${tag#v}-py3-none-any.whl"
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

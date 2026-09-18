@@ -31,6 +31,31 @@ jobs:
       - name: Tests
         run: python -m pytest -q
 
+  # What PyPI would get: the package builds, installs into a clean
+  # environment, and its engine imports without the window's dependencies.
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+
+      - name: Install into a clean environment
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/clean/bin/trackhound --help
+          /tmp/clean/bin/python -c "import sys, trackhound.engine; assert 'webview' not in sys.modules"
+
   windows:
     runs-on: windows-latest
     steps:

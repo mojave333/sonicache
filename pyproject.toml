@@ -1,0 +1,62 @@
+# The Python package on PyPI: the engine and the command line, with the window
+# as an extra. The Windows build does not use this file; it is made by
+# trackhound.spec from requirements.txt.
+#
+#     python -m build          # dist/trackhound-X.Y.Z.tar.gz and the wheel
+#
+# release.yml builds and publishes it together with the exe.
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trackhound"
+dynamic = ["version"]
+description = "Download albums, playlists and tracks by link from Spotify, Apple Music, Deezer, YouTube and SoundCloud, tagged and with cover art"
+readme = "docs/pypi.md"
+license = "GPL-2.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "mojave333" }]
+keywords = ["music", "downloader", "spotify", "deezer", "apple-music", "youtube-music", "soundcloud", "yt-dlp", "tags"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: English",
+    "Natural Language :: Russian",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+dependencies = [
+    "yt-dlp[default]",
+    "yt-dlp-ejs",
+    "ytmusicapi",
+    "mutagen",
+    "requests",
+]
+
+[project.optional-dependencies]
+gui = ["pywebview"]
+
+[project.scripts]
+trackhound = "trackhound.cli:main"
+
+[project.gui-scripts]
+trackhound-gui = "trackhound.gui:main"
+
+[project.urls]
+Homepage = "https://github.com/mojave333/trackhound"
+Issues = "https://github.com/mojave333/trackhound/issues"
+Releases = "https://github.com/mojave333/trackhound/releases"
+
+[tool.setuptools]
+packages = ["trackhound", "trackhound.engine"]
+
+[tool.setuptools.package-data]
+trackhound = ["web/*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "trackhound.__version__" }
