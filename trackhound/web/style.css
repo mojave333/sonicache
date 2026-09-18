@@ -407,32 +407,13 @@ p { margin: 0; }
 .job.has-tracks .job-row { cursor: pointer; }
 .job.is-error .sub { color: var(--danger); white-space: normal; user-select: text; }
 
-/* Tracks grow out of the row that owns them instead of appearing at once.
-   The grid row from 0fr to 1fr is the portable way to animate an unknown
-   height; where the engine can interpolate to auto, plain height is used
-   instead, because fr units move most of their pixels at one end and make
-   opening and closing feel lopsided. */
-.job { display: grid; grid-template-rows: auto 0fr; animation: row-in var(--quick) var(--ease); }
-.job.open { grid-template-rows: auto 1fr; }
-.job:not(.instant) { transition: grid-template-rows var(--settle) var(--ease); }
+.job { animation: row-in var(--quick) var(--ease); }
 .job.leaving { opacity: 0; transform: translateY(-4px); transition: opacity var(--quick) ease-out, transform var(--quick) ease-out; }
 @keyframes row-in { from { opacity: 0; transform: translateY(-6px); } }
 
-/* Nothing hides the rows while the fold is running: overflow and a zero height
-   already clip them, and the script sets the hidden attribute once the fold has
-   finished, which takes them out of the tab order. Hiding them the moment the
-   row closed made the tracks vanish at once, so closing looked like a snap
-   against the growth that opening animates. */
-.tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); overflow: hidden; min-height: 0; }
-
-@supports (interpolate-size: allow-keywords) {
-  :root { interpolate-size: allow-keywords; }
-  .job, .job.open { display: block; grid-template-rows: none; }
-  .job:not(.instant) { transition: none; }
-  .job:not(.instant) .tracks { transition: height var(--settle) var(--ease); }
-  .tracks { height: 0; }
-  .job.open .tracks { height: auto; }
-}
+/* The fold itself is animated by the script (foldTracks), which knows how much
+   of the list is on screen; overflow clips the rows while the height moves. */
+.tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); overflow: hidden; }
 .track { grid-template-columns: 24px 34px minmax(0, 1fr) 140px 52px 210px 72px; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
 .track::before { content: ""; }
 .track .num { color: var(--text-subtle); font-size: 13px; }
@@ -547,7 +528,6 @@ p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; }
   .job, .view { animation: fade-in var(--quick) ease-out; }
-  .job:not(.instant) { transition: none; }
   .btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
   .nav-item:active, .stepper button:active { transform: none; }
   .expander[aria-expanded="true"] .icon { transition: none; }

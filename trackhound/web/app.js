@@ -880,8 +880,6 @@ function renderJob(job) {
   // set elsewhere would be wiped on the next event.
   const classes = ["job", `is-${job.state}`];
   if (job.tracks.size) classes.push("has-tracks");
-  if (job.expanded && job.tracks.size) classes.push("open");
-  if (job.tracks.size > SMOOTH_TRACKS) classes.push("instant");
   node.className = classes.join(" ");
   $(".job-row", node).className = `row job-row tone-${status.tone}`;
   const title = $(".title", node);
@@ -1086,7 +1084,7 @@ function onRelease(job, event, restored = false) {
     track.queueRow = createTrackRow(track, info.artists, event.title);
     track.queueRow.addEventListener("dblclick", () => {
       showView("download");
-      setExpanded(job, true);
+      setExpanded(job, true, false); // no fold: the row must already be in place to scroll to
       track.row.scrollIntoView({ block: "center" });
     });
     renderTrack(track);
@@ -1155,26 +1153,53 @@ function trackNote({ state: name, text }) {
   }
 }
 
-// Animating an unknown height costs a layout pass per frame; past this many
-// rows the jerk would be worse than the jump, so long releases just snap open.
-const SMOOTH_TRACKS = 40;
 const COLLAPSE_MS = 260;
 
-function setExpanded(job, expanded) {
+function setExpanded(job, expanded, animate = true) {
+  if (job.expanded === expanded) return;
   job.expanded = expanded;
-  const tracks = $(".tracks", job.node);
-  if (expanded && job.tracks.size) {
-    tracks.hidden = false;
-    void tracks.offsetHeight; // settle the closed height first, or there is nothing to grow from
-  } else {
-    setTimeout(() => {
-      if (!job.expanded) tracks.hidden = true; // out of the tab order once it is really closed
-    }, COLLAPSE_MS);
-  }
+  foldTracks(job, animate);
   renderJob(job);
   const toggle = $(".expander", job.node);
   toggle.setAttribute("aria-expanded", String(expanded));
   toggle.setAttribute("aria-label", expanded ? "Скрыть треки" : "Показать треки");
+}
+
+// Only the part of the list that is on screen moves. Growing a 300-track
+// playlist to its full height in the same 220 ms would cover the visible part
+// in a frame or two and read as a snap; the rows past the bottom edge are out
+// of sight either way, so they simply arrive (or leave) with the last frame.
+function foldTracks(job, animate) {
+  const tracks = $(".tracks", job.node);
+  const running = tracks.getAnimations();
+  const current = running.length ? tracks.getBoundingClientRect().height : null;
+  running.forEach((animation) => animation.cancel());
+
+  const quiet = !animate || matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (job.expanded) tracks.hidden = false;
+  // The room between the top of the list and the bottom of the scrolling area;
+  // a hidden view measures zero here and gets no animation.
+  const room = Math.max(0, tracks.closest(".list-scroll").getBoundingClientRect().bottom
+                           - tracks.getBoundingClientRect().top);
+  const visible = Math.min(tracks.scrollHeight, room);
+  const from = current ?? (job.expanded ? 0 : visible);
+  const to = job.expanded ? visible : 0;
+  if (quiet || from === to) {
+    tracks.hidden = !job.expanded;
+    return;
+  }
+  const style = getComputedStyle(document.documentElement);
+  const animation = tracks.animate(
+    { height: [`${Math.min(from, room)}px`, `${to}px`] },
+    { duration: parseFloat(style.getPropertyValue("--settle")) || 220,
+      easing: style.getPropertyValue("--ease").trim() || "ease-out" },
+  );
+  // Out of the tab order once it is really closed; hidden first, so the
+  // cancelled animation never lets the full height flash back.
+  animation.finished.then(() => {
+    if (!job.expanded) tracks.hidden = true;
+    animation.cancel();
+  }, () => {});
 }
 
 // Paused means "start nothing new": a track already downloading is finished,
