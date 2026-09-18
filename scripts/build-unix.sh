@@ -75,4 +75,6 @@ fi
 du -h "$package" >&2
 # What the size is made of, for when it grows
 find dist -type f -size +5M -exec du -h {} + | sort -rh | head -n 15 >&2
+du -sh dist/*/ "$(dirname "$programs")"/*/ 2> /dev/null | sort -rh | head -n 8 >&2
+find dist -type d -maxdepth 4 -exec du -sh {} + 2> /dev/null | sort -rh | sed -n '1,25p' >&2
 echo "$package"
