@@ -1,3 +1,7 @@
 # Only needed to build the exe and run the tests; the program itself runs on requirements.txt
 pyinstaller>=6.10
 pytest>=8.0
+# macOS: turns icon.ico into the .icns an app bundle needs
+pillow; sys_platform == "darwin"
+# Linux: the window is drawn by Qt WebEngine in the bundled build (see trackhound.spec)
+pywebview[qt]; sys_platform == "linux"

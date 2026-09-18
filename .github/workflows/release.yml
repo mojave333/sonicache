@@ -190,8 +190,13 @@ jobs:
             If you would rather not use an installer, `${{ env.archive }}` sits beside
             it: unpack it anywhere and run `Trackhound.exe`.
 
-            Nothing else has to be installed — ffmpeg and Deno are inside.
+            Nothing else has to be installed: ffmpeg and Deno are inside.
             `Trackhound-cli.exe` is the same program for a terminal.
+
+            For macOS on Apple Silicon there is `Trackhound-${{ env.tag }}-macos-arm64.dmg`,
+            and for 64-bit Linux `Trackhound-${{ env.tag }}-linux-x64.tar.gz`; they are
+            added a few minutes after this page appears. How to start them is in
+            [macOS and Linux](https://github.com/mojave333/trackhound#macos-and-linux).
 
             Windows Defender may call this unsigned build `Trojan:Win32/Sabsik.EN.D!ml`.
             That is a false positive its machine learning raises against almost anything
@@ -200,6 +205,82 @@ jobs:
 
             SHA-256 — installer `${{ env.installer_sha256 }}`,
             archive `${{ env.sha256 }}`. Check your copy with `Get-FileHash <file>`.
+
+  # macOS (Apple Silicon) and Linux builds, attached once the Windows release
+  # is out; a failure here leaves that release as it is
+  macos:
+    needs: windows
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.windows.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Fetch ffmpeg and Deno
+        run: scripts/fetch-vendor.sh
+
+      # Builds, starts the command line and the window, and packs the result
+      - name: Build
+        run: |
+          scripts/build-unix.sh ${{ needs.windows.outputs.tag }} | tee build.log
+          echo "package=$(tail -n 1 build.log)" >> "$GITHUB_ENV"
+
+      # Added to the release the windows job published; the hash of every file
+      # is shown by GitHub beside it
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.windows.outputs.tag }}" "$package" --clobber
+
+  linux:
+    needs: windows
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.windows.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Qt WebEngine's own dependencies, bundled from here; xvfb only for the
+      # check that the window opens
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libegl1 libnss3 libasound2 \
+            libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 \
+            libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbfile1
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Fetch ffmpeg and Deno
+        run: scripts/fetch-vendor.sh
+
+      # Builds, starts the command line and the window, and packs the result
+      - name: Build
+        run: |
+          scripts/build-unix.sh ${{ needs.windows.outputs.tag }} | tee build.log
+          echo "package=$(tail -n 1 build.log)" >> "$GITHUB_ENV"
+
+      # Added to the release the windows job published; the hash of every file
+      # is shown by GitHub beside it
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.windows.outputs.tag }}" "$package" --clobber
 
   # PyPI trusts this workflow through Trusted Publishing, so no token is stored
   # anywhere. The publisher is set up once on pypi.org: project trackhound,

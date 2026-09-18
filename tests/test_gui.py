@@ -436,6 +436,27 @@ class TestUpdateInstaller:
         states = [event["state"] for event in self.events(api)]
         assert states == ["error"]
 
+    @pytest.mark.parametrize("platform, offered", [("win32", True), ("darwin", False), ("linux", False)])
+    def test_only_windows_is_offered_the_installer(self, monkeypatch, platform, offered):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                return json.dumps({"tag_name": "v99.0.0", "html_url": "https://github.test/release",
+                                   "assets": [{"name": "Trackhound-v99.0.0-windows-x64-setup.exe",
+                                               "browser_download_url": "https://github.test/setup.exe",
+                                               "size": 1, "digest": "sha256:00"}]}).encode()
+
+        monkeypatch.setattr(gui.urllib.request, "urlopen", lambda request, timeout: Response())
+        monkeypatch.setattr(gui.sys, "platform", platform)
+        release = self.api().latest_release()
+        assert release["version"] == "99.0.0"
+        assert bool(release["installer"]) is offered
+
     def test_a_release_without_a_hash_is_refused(self):
         api = self.api()
         api._install_update({

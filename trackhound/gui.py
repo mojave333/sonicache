@@ -277,9 +277,10 @@ class Api:
         if not _newer(version, __version__):
             return None
         # The installer is offered for download in the window; the hash GitHub
-        # publishes beside it is what makes that safe to do unattended.
+        # publishes beside it is what makes that safe to do unattended. Only
+        # Windows has an installer: elsewhere the window offers the page.
         setup = next((asset for asset in data.get("assets") or []
-                      if str(asset.get("name", "")).endswith("-setup.exe")), {})
+                      if str(asset.get("name", "")).endswith("-setup.exe")), {}) if sys.platform == "win32" else {}
         return {
             "version": version,
             "url": data.get("html_url") or RELEASES_PAGE,
@@ -994,6 +995,12 @@ def _offer_webview2() -> bool:
 
 
 def main() -> None:
+    if sys.platform.startswith("linux") and getattr(sys, "frozen", False):
+        # The Linux build draws the window with Qt WebEngine, whose Chromium
+        # sandbox needs user namespaces that Ubuntu 24.04 and others forbid to
+        # unconfined programs; without this the window dies on start. The page
+        # is the program's own, not the open web.
+        os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
     logs.setup()
     settings = _load_settings()
     set_language(settings["language"])
