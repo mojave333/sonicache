@@ -47,6 +47,15 @@ excludes = ["PyQt5", "PySide2", "PySide6", "gi", "matplotlib", "numpy", "pytest"
 if LINUX:
     hiddenimports += ["qtpy", "PyQt6.QtWebEngineWidgets", "PyQt6.QtWebEngineCore", "PyQt6.QtWebChannel",
                       "PyQt6.QtNetwork"]
+    # The rest of Qt, which would otherwise come along with its QML plugins
+    # and more than double the archive
+    excludes += [f"PyQt6.{module}" for module in (
+        "Qt3DAnimation", "Qt3DCore", "Qt3DExtras", "Qt3DInput", "Qt3DLogic", "Qt3DRender",
+        "QtBluetooth", "QtCharts", "QtDataVisualization", "QtDesigner", "QtHelp", "QtMultimedia",
+        "QtMultimediaWidgets", "QtNfc", "QtPdf", "QtPdfWidgets", "QtQml", "QtQuick", "QtQuick3D",
+        "QtQuickWidgets", "QtRemoteObjects", "QtSensors", "QtSerialPort", "QtSpatialAudio", "QtSql",
+        "QtStateMachine", "QtTest", "QtTextToSpeech", "QtWebEngineQuick", "QtWebSockets",
+    )]
 else:
     excludes.append("PyQt6")
 
