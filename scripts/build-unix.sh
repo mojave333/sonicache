@@ -72,4 +72,5 @@ if [ "$(uname -s)" = Darwin ]; then
 else
   tar -czf "$package" -C dist Trackhound
 fi
+du -h "$package" >&2
 echo "$package"

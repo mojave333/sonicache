@@ -137,7 +137,7 @@ if MAC:
     BUNDLE(
         folder,
         name="Trackhound.app",
-        icon=icon,  # converted to .icns, which needs Pillow at build time
+        icon=icon[0] if icon else None,  # converted to .icns, which needs Pillow at build time
         bundle_identifier="io.github.mojave333.trackhound",
         version=version,
         info_plist={

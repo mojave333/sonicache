@@ -76,6 +76,7 @@ jobs:
 
       # Builds, starts the command line and the window, and packs the result
       - name: Build
+        shell: bash  # with pipefail, unlike the default: a failed build must not hide behind tee
         run: |
           scripts/build-unix.sh dev | tee build.log
           echo "package=$(tail -n 1 build.log)" >> "$GITHUB_ENV"
@@ -108,6 +109,7 @@ jobs:
 
       # Builds, starts the command line and the window, and packs the result
       - name: Build
+        shell: bash  # with pipefail, unlike the default: a failed build must not hide behind tee
         run: |
           scripts/build-unix.sh dev | tee build.log
           echo "package=$(tail -n 1 build.log)" >> "$GITHUB_ENV"
