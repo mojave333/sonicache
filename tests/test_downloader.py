@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from trackhound import downloader
-from trackhound.downloader import (DownloaderError, Options, Report, _check_duration, _clear_partials,
+from trackhound.engine import downloader
+from trackhound.engine.downloader import (DownloaderError, Options, Report, _check_duration, _clear_partials,
                                    _direct_match, _error_text, _file_stem, _legacy_stem, _mmss,
                                    _safe_name)
-from trackhound.models import Album, Track
+from trackhound.engine.models import Album, Track
 
 
 def album(artist="Daft Punk", name="Discovery", discs=1):

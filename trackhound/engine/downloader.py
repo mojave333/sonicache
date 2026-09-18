@@ -67,7 +67,7 @@ def tool_dirs() -> list[Path]:
         roots.append(Path(sys.executable).parent)
         roots.append(Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)))
     else:
-        roots.append(Path(__file__).resolve().parent.parent / "vendor")
+        roots.append(Path(__file__).resolve().parents[2] / "vendor")  # trackhound/engine/ -> checkout
     return [folder for root in roots for folder in (root / "bin", root)]
 
 

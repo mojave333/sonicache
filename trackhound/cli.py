@@ -7,10 +7,11 @@ import re
 import sys
 from pathlib import Path
 
-from . import __version__, batch, logs
+from . import __version__, logs
 from .i18n import LANGUAGES, set_language, t
-from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
-                         Options, use_proxy)
+from .engine import batch
+from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
+                                Options, use_proxy)
 
 
 def _language(argv: list[str] | None) -> str:

@@ -15,15 +15,13 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from .engine.logs import log
 from .i18n import t
 
 LOG_NAME = "trackhound.log"
 _MAX_BYTES = 1_000_000
 _BACKUPS = 2
 _FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
-
-log = logging.getLogger("trackhound")
-
 
 def data_dir() -> Path:
     """Where the program keeps what it writes for itself.
@@ -123,25 +121,3 @@ def _version() -> str:
 
     return __version__
 
-
-class YtdlpLogger:
-    """Hands yt-dlp's chatter to the log file instead of the console.
-
-    yt-dlp talks in paragraphs and in English; the window shows its own short
-    message and the whole text lands here, where it can be read afterwards.
-    """
-
-    def __init__(self, name: str = "yt-dlp"):
-        self._log = log.getChild(name)
-
-    def debug(self, message: str) -> None:
-        self._log.debug("%s", message)
-
-    def info(self, message: str) -> None:
-        self._log.debug("%s", message)
-
-    def warning(self, message: str) -> None:
-        self._log.warning("%s", message)
-
-    def error(self, message: str) -> None:
-        self._log.error("%s", message)

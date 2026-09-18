@@ -1,7 +1,7 @@
-"""Download Spotify albums, singles and tracks by link.
+"""Download albums, singles, playlists and tracks by link, tagged and with cover art.
 
-Metadata (titles, track numbers, cover, release date) comes from public
-Spotify pages; audio is matched on YouTube Music, SoundCloud or YouTube.
+The engine (trackhound.engine) turns a link into files; the window (gui) and
+the command line (cli) are built on top of it.
 
 Copyright (C) 2026 mojave333. Trackhound is free software under the terms of
 the GNU General Public License, version 2 or (at your option) any later

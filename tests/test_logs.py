@@ -5,6 +5,7 @@ import logging
 import pytest
 
 from trackhound import logs
+from trackhound.engine.logs import YtdlpLogger
 
 
 @pytest.fixture
@@ -85,20 +86,20 @@ class TestYtdlpLogger:
         logs.setup()
         with caplog.at_level(logging.DEBUG, logger="trackhound.yt-dlp"):
             caplog.clear()
-            logs.YtdlpLogger().debug("[download] 12%")
-            logs.YtdlpLogger().info("[info] something")
+            YtdlpLogger().debug("[download] 12%")
+            YtdlpLogger().info("[info] something")
         assert [record.levelno for record in caplog.records] == [logging.DEBUG, logging.DEBUG]
 
     def test_warnings_and_errors_keep_their_level(self, log_dir, caplog):
         logs.setup()
         with caplog.at_level(logging.DEBUG, logger="trackhound.yt-dlp"):
             caplog.clear()
-            logs.YtdlpLogger().warning("nothing to worry about")
-            logs.YtdlpLogger().error("ERROR: it broke")
+            YtdlpLogger().warning("nothing to worry about")
+            YtdlpLogger().error("ERROR: it broke")
         assert [record.levelno for record in caplog.records] == [logging.WARNING, logging.ERROR]
 
     def test_the_yt_dlp_option_shape_is_satisfied(self):
-        logger = logs.YtdlpLogger()
+        logger = YtdlpLogger()
         for method in ("debug", "info", "warning", "error"):
             assert callable(getattr(logger, method))
 

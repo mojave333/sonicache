@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from trackhound import gui
-from trackhound.downloader import DEFAULT_OUTPUT_DIR
+from trackhound.engine.downloader import DEFAULT_OUTPUT_DIR
 
 
 class TestNormalize:

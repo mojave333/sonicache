@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from trackhound import spotify
-from trackhound.models import SourceError
+from trackhound.engine import spotify
+from trackhound.engine.models import SourceError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

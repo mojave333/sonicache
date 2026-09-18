@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from trackhound import sources
-from trackhound.models import Album, SourceError
+from trackhound.engine import sources
+from trackhound.engine.models import Album, SourceError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

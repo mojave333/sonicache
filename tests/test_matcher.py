@@ -1,8 +1,8 @@
 """Scoring a candidate is what decides whether the right song is downloaded."""
 
-from trackhound.matcher import (GOOD_SCORE, MIN_SCORE, Matcher, SearchError, _artist_score, _norm,
+from trackhound.engine.matcher import (GOOD_SCORE, MIN_SCORE, Matcher, SearchError, _artist_score, _norm,
                                 _score, _similarity)
-from trackhound.models import Album, Track
+from trackhound.engine.models import Album, Track
 
 
 def track(title="One More Time", artists="Daft Punk", duration=320.0, explicit=False):

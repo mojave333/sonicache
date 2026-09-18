@@ -28,10 +28,11 @@ from pathlib import Path
 
 import webview
 
-from . import __version__, batch, logs, watch
+from . import __version__, logs, watch
 from .i18n import LANGUAGES, resolve, set_language, t
-from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
-                         Downloader, Options, use_proxy)
+from .engine import batch
+from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
+                                Downloader, Options, use_proxy)
 
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
