@@ -81,6 +81,9 @@ class Api:
         self._watcher: threading.Thread | None = None
 
     def init(self) -> dict:
+        # The page is drawn and its script reached Python: the build check
+        # waits for this line, and it tells a bug report the window got this far
+        logs.log.info("окно: интерфейс загружен")
         # Anything that was still running when the window closed is offered
         # again rather than silently lost.
         for entry in self._history:
