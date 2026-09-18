@@ -24,23 +24,24 @@ SoundCloud, Last.fm and sites such as Bandcamp.
 
 ---
 
-Titles, artists, track numbers, the year and the cover come from the page behind the link —
-no accounts, no API keys. When the service streams the audio openly (YouTube, SoundCloud,
-Bandcamp), the track is taken from there. When it does not (Spotify, Apple Music, Last.fm),
-the same track is looked for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp
-does the downloading, after which the files get their tags and cover art.
+Titles, artists, track numbers, the year and the cover are read from the page behind the
+link. When the service streams the audio openly (YouTube, SoundCloud, Bandcamp), the track
+is taken from there. When it does not (Spotify, Apple Music, Last.fm), the same track is
+looked for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp does the
+downloading, after which the files get their tags and cover art.
 
-- **Nothing to set up** — Python, ffmpeg and Deno are inside the installer.
-- **No accounts, no API keys**; everything runs on your own machine.
-- **Names work too** — write "Daft Punk - Discovery" when you have no link.
-- **Tags and cover art** in every file, multi-disc albums numbered properly.
-- **Even loudness** — optional ReplayGain tags, so a shuffled library plays at one volume.
-- **Lists from a file** — a text file of links or a playlist exported as CSV, queued in one go.
-- **Watches playlists** — checks them twice a day and downloads only the tracks added since.
-- **Profiles** — a folder, a format and the naming rules under a name, one click to switch.
-- **Updates itself** — fetches the next installer, checks its hash against GitHub, runs it.
-- **A window or a terminal** — the same program behind both.
-- **Russian and English** in the interface.
+- Python, ffmpeg and Deno come inside the installer, so there is nothing else to set up.
+- No accounts or API keys; everything runs on your own machine.
+- A name works when you have no link: write "Daft Punk - Discovery".
+- Every file gets tags and cover art, and multi-disc albums are numbered properly.
+- Optional ReplayGain tags make a shuffled library play at one volume.
+- A text file of links or a playlist exported as CSV can be queued in one go.
+- Watched playlists are checked twice a day, and only the tracks added since are downloaded.
+- A folder, a format and the naming rules can be saved as a profile and switched with one click.
+- The program updates itself: it fetches the next installer, checks its hash against GitHub
+  and runs it.
+- The window and the terminal version are the same program.
+- The interface is in Russian and English.
 
 **Contents**
 [Installing](#installing) ·
@@ -64,17 +65,17 @@ does the downloading, after which the files get their tags and cover art.
    shortcut and for `Trackhound-cli` on the `PATH`, and finishes by offering to start it.
 
 No administrator rights are needed: by default the program is installed for you alone, in
-`%LOCALAPPDATA%\Programs\Trackhound`. An administrator is additionally offered the
-machine-wide install. It uninstalls like any other program, through Settings → Apps, and
-asks on the way out whether to delete the settings and the log file (downloaded music is
-left alone either way).
+`%LOCALAPPDATA%\Programs\Trackhound`. An administrator is also offered the machine-wide
+install. It uninstalls like any other program, through Settings → Apps, and asks on the way
+out whether to delete the settings and the log file. Downloaded music is left alone either
+way.
 
 If you would rather not use an installer, the `Trackhound-vX.Y.Z-windows-x64.zip` archive
 sits next to it: unpack it anywhere and run `Trackhound.exe`.
 
 Nothing else has to be installed: Python, ffmpeg and Deno are already inside. Windows 10 or
 11, 64-bit; the installed folder takes about 320 MB because of the bundled ffmpeg and Deno.
-On macOS and Linux the program runs from source — see [macOS and Linux](#macos-and-linux).
+On macOS and Linux the program runs from source (see [macOS and Linux](#macos-and-linux)).
 
 `Trackhound-cli.exe --check` prints the version and the paths to the ffmpeg and Deno it
 found.
@@ -84,30 +85,30 @@ found.
 > [!NOTE]
 > **SmartScreen.** Neither the installer nor the program itself is signed with a
 > certificate, so Windows may show its blue "Windows protected your PC" window. Click
-> "More info" → "Run anyway". Only a certificate from an authority removes that window — a
-> self-signed one does nothing for SmartScreen — and a new signature earns its reputation
-> through downloads. The cheapest option today is Azure Trusted Signing, about $10 a month
-> plus verification of an organisation; a plain OV certificate starts at $200 a year, EV
-> costs more but starts with a reputation.
+> "More info" → "Run anyway". Only a certificate from an authority removes that window (a
+> self-signed one does nothing for SmartScreen), and a new signature still has to earn its
+> reputation through downloads. The cheapest option today is Azure Trusted Signing, about
+> $10 a month plus verification of an organisation; a plain OV certificate starts at $200 a
+> year, and EV costs more but starts with a reputation.
 
 > [!WARNING]
 > **Antivirus.** Windows Defender sometimes flags `Trackhound.exe` as
-> `Trojan:Win32/Sabsik.EN.D!ml`. The `!ml` suffix means no signature of a known virus
-> matched — machine learning did, on circumstantial evidence, and the evidence against this
-> build is genuinely poor: an unsigned exe that unpacks a bundled Python of several hundred
-> files as it starts. Nearly everything built with PyInstaller gets caught this way. It is a
+> `Trojan:Win32/Sabsik.EN.D!ml`. The `!ml` suffix means the file matched no known virus
+> signature; a machine-learning model flagged it on circumstantial evidence. For this build
+> the evidence is an unsigned exe that unpacks a bundled Python of several hundred files as
+> it starts, and nearly everything built with PyInstaller gets caught the same way. It is a
 > false positive, but while the file sits in quarantine the archive will not finish
-> unpacking and `Trackhound.exe` disappears from the folder right after extraction.
+> unpacking, and `Trackhound.exe` disappears from the folder right after extraction.
 >
-> To fix it: open Windows Security → Virus & threat protection → Protection history, find
+> To fix it, open Windows Security → Virus & threat protection → Protection history, find
 > the Trackhound entry, expand it, choose "Allow on device", then unpack the archive again.
 > If you would rather check the program than allow it, upload the archive to
-> [VirusTotal](https://www.virustotal.com/) — the other engines stay quiet — and compare its
-> SHA-256 with the one printed in the release notes, using `Get-FileHash <file>`. The
-> detection itself is worth reporting to Microsoft through their
-> [file submission form](https://www.microsoft.com/en-us/wdsi/filesubmission): such a report
-> gets it cleared for everyone, usually within a day or two. The permanent cure is the
-> signature from the note above.
+> [VirusTotal](https://www.virustotal.com/), where the other engines stay quiet, and compare
+> its SHA-256 with the one printed in the release notes using `Get-FileHash <file>`. The
+> detection is worth reporting to Microsoft through their
+> [file submission form](https://www.microsoft.com/en-us/wdsi/filesubmission); a report
+> usually gets it cleared for everyone within a day or two. Signing the program, as in the
+> note above, would stop it for good.
 
 > [!NOTE]
 > **WebView2.** The window is drawn by the Microsoft Edge WebView2 component. Windows 11
@@ -118,81 +119,100 @@ found.
 
 The sections are on the left: Download, Library, Queue and Settings (Ctrl+1…4). A button at
 the foot of the panel opens it into a labelled column and folds it back to icons alone;
-Ctrl+B does the same. Which of the two it was left in is remembered.
+Ctrl+B does the same. The program remembers which way it was left.
 
-**Download.** Paste a link with the button, with Ctrl+V, or drag it into the window —
-several at once is fine. Without a link, write a name instead: "Artist - Album" or
-"Artist - Track", and the release is looked up on YouTube Music or Apple Music. The format
-and the folder sit next to the field; the arrow beside "Download" switches to "only check
-what would be found", which downloads nothing. Each link becomes a row with its cover and
-overall progress; clicking it opens the tracks: searching, downloading (with percentages),
-done, already in the folder, not found or failed, and where the audio came from. Links can
-be added while a download runs — they queue up. "Pause" holds the queue between tracks: what
-is downloading finishes, nothing new starts. "Stop" interrupts, and the retry button on a
-row picks up what is left. Closing the window loses nothing: unfinished links and the list
-of what was downloaded come back on the next run. The status bar at the bottom counts the
-tracks and estimates what is left.
+### Download
 
-**Library** — what is already in the folder: albums and single tracks, with a search and
-sortable columns. A double click opens the folder in the file manager; rows are selected the
+Paste a link with the button, with Ctrl+V, or drag it into the window; several at once is
+fine. Without a link, write a name instead, "Artist - Album" or "Artist - Track", and the
+release is looked up on YouTube Music or Apple Music. The format and the folder sit next to
+the field. The arrow beside "Download" switches to "only check what would be found", which
+downloads nothing.
+
+Each link becomes a row with its cover and overall progress. Clicking it opens the tracks
+and their state: searching, downloading (with percentages), done, already in the folder, not
+found or failed, and where the audio came from. Links added while a download runs join the
+queue. "Pause" holds the queue between tracks, so what is downloading finishes and nothing
+new starts. "Stop" interrupts, and the retry button on a row picks up what is left. Closing
+the window loses nothing: unfinished links and the list of what was downloaded come back on
+the next run. The status bar at the bottom counts the tracks and estimates what is left.
+
+### Library
+
+The library shows what is already in the folder, albums and single tracks, with a search and
+sortable columns. A double click opens the folder in the file manager. Rows are selected the
 way they are in a file manager (click, Ctrl, Shift, Ctrl+A, arrows, Home and End), the right
 button opens a menu of actions, and the selection goes to the trash, from where it can be
-restored. Albums downloaded by this program have a "Download again" button: the link is
-remembered in a `.trackhound.json` file inside the album's folder, so missing tracks are
-filled in without hunting for the link again.
+restored. Albums downloaded by this program have a "Download again" button. The link is kept
+in a `.trackhound.json` file inside the album's folder, so missing tracks are filled in
+without hunting for the link again.
 
-**Queue** — every track of the current downloads in one list, filtered by running, done or
-problems.
+### Queue
 
-**Loudness levelling.** Off by default; Settings → Download turns it on. Every file is measured
-with ffmpeg's EBU R128 meter and gets ReplayGain 2.0 tags — track gain and peak, and for an album
-one album gain shared by its tracks, so a quiet interlude stays quiet beside a loud single. Opus
-gets the `R128_*` tags its specification asks for instead. The audio itself is not changed: it
-is the player that turns each track up or down, so this helps only in a player that reads the
-tags — foobar2000, MusicBee, AIMP, VLC, Poweramp. A playlist gets no album gain, since its
-songs come from different records, and a file already tagged is never measured twice, so a
-watched playlist does not re-listen to itself on every check. Measuring costs a few seconds a
-track, on as many threads as the downloads use.
+Every track of the current downloads in one list, filtered by running, done or problems.
 
-**Lists from a file.** "Download a list from a file…" under the arrow beside "Download" — or
-dropping the file on the window — queues everything in it. A `.txt` holds one link or name per
-line; blank lines and lines starting with `#` are skipped. A `.csv` is read the way playlist
-exporters write it (Exportify, TuneMyMusic, Soundiiz): a link or URI column when there is one,
-otherwise the track and artist columns. A row from such an export is always looked for as a
-single song, so a playlist holding an album's title track does not bring the whole album with
-it. Up to 500 entries per file, repeats taken once; the note under the field says how many lines
-could not be read.
+### Loudness levelling
 
-**Watching.** A finished album or playlist has an eye on its card. Pressed, the program opens that
-link again every 12 hours and downloads into the same folder, in the same format, whatever was
-added since — the tracks already on disk are skipped, so a check that finds nothing costs one
-page read and leaves no card behind. Settings → Watching lists what is watched, when each was
-last checked and how many tracks it brought, with a button to check everything now.
+Off by default; Settings → Download turns it on. Every file is measured with ffmpeg's EBU
+R128 meter and gets ReplayGain 2.0 tags: track gain and peak, plus one album gain shared by
+the tracks of an album, so a quiet interlude stays quiet beside a loud single. Opus gets the
+`R128_*` tags its specification asks for instead. The audio itself is not changed. The
+player turns each track up or down, so this helps only in a player that reads the tags,
+such as foobar2000, MusicBee, AIMP, VLC or Poweramp.
 
-**Profiles.** A folder, a format and the two naming rules can be saved under a name in the
-settings, and the button beside the folder in the download toolbar switches between them:
-"Music, m4a" for everyday listening, "D drive, mp3" for the car. The button stays lit while the
-settings still match the profile and goes quiet the moment one of them is changed by hand.
+A playlist gets no album gain, since its songs come from different records. A file that
+already has the tags is never measured twice, so a watched playlist does not re-measure
+itself on every check. Measuring takes a few seconds a track, on as many threads as the
+downloads use.
 
-**Settings** — theme (as in the system, light or dark), language (Russian or English; the
-first run takes the system's, and a system that is neither gets English), how many tracks to
-download at once, a speed limit, a proxy, cookies from a browser, and a check that every
-component is in place. The version of yt-dlp inside the build is there too, together with
-the path to the log and a "Copy the report" button: the report holds the version, the
-component paths, the settings and the end of the log — what belongs in a bug report. A line
-about a new version appears there when one is published: the program asks GitHub once per
-run. "Update the program" then fetches that release's installer, checks it against the SHA-256
-GitHub publishes beside it, closes, and lets the installer replace the files and open the new
-version — nothing is downloaded until the button is pressed, and nothing is run if the hash
-disagrees. The installer waits for the program to be gone before it touches a file, and closes
-any copy still running from its folder, so an update cannot stop halfway.
-Settings live in
-`%USERPROFILE%\.trackhound.json`.
+### Lists from a file
 
-Age-restricted tracks are only served by YouTube to a signed-in account. Usually the program
-simply takes such a song from another source, but if there is no other, choose in the
-settings the browser you are signed into YouTube with. Close that browser first — it holds
-its cookie file open; Firefox's cookies are read the most reliably.
+"Download a list from a file…" under the arrow beside "Download" queues everything in a
+file; dropping the file on the window does the same. A `.txt` holds one link or name per
+line, and blank lines and lines starting with `#` are skipped. A `.csv` is read the way
+playlist exporters (Exportify, TuneMyMusic, Soundiiz) write it: from a link or URI column
+when there is one, otherwise from the track and artist columns. A row from such an export
+is always looked for as a single song, so a playlist holding an album's title track does not
+bring the whole album with it. A file can hold up to 500 entries, and repeats are taken
+once. The note under the field says how many lines could not be read.
+
+### Watching
+
+A finished album or playlist has an eye on its card. Press it, and the program opens that
+link again every 12 hours and downloads whatever was added since into the same folder, in
+the same format. Tracks already on disk are skipped, so a check that finds nothing costs
+one page read and leaves no card behind. Settings → Watching lists what is watched, when
+each was last checked and how many tracks it brought, with a button to check everything
+now.
+
+### Profiles
+
+A folder, a format and the two naming rules can be saved under a name in the settings, and
+the button beside the folder in the download toolbar switches between them: "Music, m4a"
+for everyday listening, "D drive, mp3" for the car. The button stays lit while the settings
+still match the profile and goes quiet as soon as one of them is changed by hand.
+
+### Settings
+
+The settings cover the theme (as in the system, light or dark), the language (Russian or
+English; the first run takes the system's, and any other system language gets English), how
+many tracks to download at once, a speed limit, a proxy, cookies from a browser, and a check
+that every component is in place. They also show the version of yt-dlp inside the build,
+the path to the log and a "Copy the report" button. The report holds the version, the
+component paths, the settings and the end of the log, which is what a bug report needs.
+
+The program asks GitHub about new versions once per run, and a line appears in the settings
+when one is published. "Update the program" fetches that release's installer, checks it
+against the SHA-256 GitHub publishes beside it, closes, and lets the installer replace the
+files and open the new version. Nothing is downloaded until the button is pressed, and
+nothing is run if the hash disagrees. The installer waits for the program to exit before it
+touches a file and closes any copy still running from its folder, so an update cannot stop
+halfway. Settings live in `%USERPROFILE%\.trackhound.json`.
+
+YouTube serves age-restricted tracks only to a signed-in account. Usually the program takes
+such a song from another source, but if there is no other, choose in the settings the
+browser you are signed into YouTube with. Close that browser first, because it holds its
+cookie file open. Firefox's cookies are read the most reliably.
 
 ## Command line
 
@@ -212,7 +232,7 @@ Trackhound-cli.exe --dry-run LINK
 | `-f`, `--format` | `m4a` (default), `mp3`, `opus` |
 | `-t`, `--threads` | how many tracks to download at once, default 3 |
 | `--dry-run` | only show what was matched |
-| `--cookies-from-browser` | take cookies from a browser (`chrome`, `edge`, `firefox`…) — for age-restricted tracks |
+| `--cookies-from-browser` | take cookies from a browser (`chrome`, `edge`, `firefox`…) for age-restricted tracks |
 | `--limit-rate` | limit the speed: `500K`, `2M` |
 | `--proxy` | proxy for metadata and downloads: `http://127.0.0.1:1080`, `socks5://…` |
 | `--names` | file names: `auto` (default), `artist`, `title` |
@@ -236,7 +256,7 @@ Trackhound-cli.exe --dry-run LINK
 Spotify and Apple Music playlists are read off the page, and the page does not hand over the
 whole list: Spotify gives the first 100 tracks, Apple Music the first 50. When a playlist
 holds more, the program says so on the release line, and the rest have to be added
-separately. Artist pages and VK are not supported: VK shows music only to a signed-in
+separately. Artist pages and VK are not supported; VK shows music only to a signed-in
 account.
 
 ## Where the files go
@@ -255,36 +275,36 @@ Multi-disc albums are numbered `1-01`, `2-01`. A track credited to someone besid
 artist keeps those names in its file name. The settings change both layouts: file names as
 "01. Title" (guests named separately), "01. Artist - Title" or "01. Title"; album folders as
 "Artist - Album (Year)", "Artist → Album (Year)" (nested) or "Album (Year)". On the command
-line: `--names` and `--folders`.
+line these are `--names` and `--folders`.
 
 Files that are already there are skipped, so an interrupted download can simply be started
 again.
 
 ## Formats and quality
 
-- **m4a** — AAC as it is, no re-encoding. Almost every player takes it.
-- **opus** — Opus as it is: a little better at the same size, but not every player
+- `m4a` is AAC as it is, with no re-encoding. Almost every player takes it.
+- `opus` is Opus as it is. It sounds a little better at the same size, but not every player
   understands it.
-- **mp3** — re-encoded (VBR V0) for older devices. That does not improve the source.
+- `mp3` is re-encoded (VBR V0) for older devices. That does not improve the source.
 
-YouTube hands over roughly 130–160 kbit/s, SoundCloud AAC 160 kbit/s. There is no lossless
-to be had.
+YouTube hands over roughly 130 to 160 kbit/s, SoundCloud AAC 160 kbit/s. There is no
+lossless to be had.
 
 ## How a track is chosen
 
 The search runs on "artist + title" in this order:
 
 1. official audio on YouTube Music;
-2. SoundCloud — smaller artists often skip YouTube Music;
+2. SoundCloud, since smaller artists often skip YouTube Music;
 3. ordinary YouTube videos.
 
 Once a confident match is found, the remaining sources are not asked. Candidates are scored
 on title (transliterated Cyrillic included), artists, length and album. Live, remix, cover,
 demo and similar versions are dropped unless those words appear in the title on the source
-service. When the match refuses to download — an age-gated video, say — the next candidate
+service. When the match refuses to download (an age-gated video, say), the next candidate
 is tried, widening the search to the other sources if needed. With no suitable candidate the
-track is reported as failed: nothing random is downloaded in its place. A file that turns
-out too short (a 30-second SoundCloud Go+ preview, for example) counts as a failure too.
+track is reported as failed, and nothing random is downloaded in its place. A file that
+turns out too short, such as a 30-second SoundCloud Go+ preview, counts as a failure too.
 
 ## When something breaks
 
@@ -302,12 +322,12 @@ out too short (a 30-second SoundCloud Go+ preview, for example) counts as a fail
 
 ## macOS and Linux
 
-There are no ready-made builds — they are made on Windows — but the program runs from
-source: the window is drawn by WebKit (macOS) or GTK (Linux) through pywebview, deleting
-from the library goes to the trash (Finder, `gio trash`, or `~/.local/share/Trash` by the
-freedesktop.org specification), "Show in the file manager" opens Finder or the desktop's
-file manager, and the theme follows the system. ffmpeg and Deno have to be installed
-separately:
+Releases are built on Windows only, so there are no ready-made builds for macOS or Linux,
+but the program runs from source. The window is drawn by WebKit (macOS) or GTK (Linux)
+through pywebview. Deleting from the library goes to the trash (Finder, `gio trash`, or
+`~/.local/share/Trash` per the freedesktop.org specification), "Show in the file manager"
+opens Finder or the desktop's file manager, and the theme follows the system. ffmpeg and
+Deno have to be installed separately:
 
 ```sh
 brew install ffmpeg deno            # macOS
@@ -334,8 +354,8 @@ winget install DenoLand.Deno
 
 Then:
 
-1. `install.bat` — creates `.venv` and installs the dependencies.
-2. `run.bat` — opens the program's window.
+1. `install.bat` creates `.venv` and installs the dependencies.
+2. `run.bat` opens the program's window.
 
 From source, the command line is `.venv\Scripts\python.exe main.py LINK`.
 
@@ -346,10 +366,10 @@ From source, the command line is `.venv\Scripts\python.exe main.py LINK`.
 ```
 
 The tests are offline: the Spotify, Apple Music and Last.fm pages come from `tests/fixtures`
-and no request leaves the machine. They cover what rots by itself — the parsing of other
+and no request leaves the machine. They cover what rots by itself: the parsing of other
 people's markup, the match scoring on YouTube Music and SoundCloud, file names and the
-settings. [`ci.yml`](.github/workflows/ci.yml) runs the same on every push, on Windows,
-Linux and macOS.
+settings. [`ci.yml`](.github/workflows/ci.yml) runs the same
+tests on every push, on Windows, Linux and macOS.
 
 ## Building
 
@@ -363,27 +383,27 @@ powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
 The last line is optional: it wraps the finished folder into
 `dist\Trackhound-X.Y.Z-windows-x64-setup.exe`.
 [Inno Setup 6.3 or newer](https://jrsoftware.org/isdl.php) does the wrapping, following
-[`trackhound.iss`](trackhound.iss); when it is not installed, the script says which command
+[`trackhound.iss`](trackhound.iss). When it is not installed, the script says which command
 installs it (`winget install --id JRSoftware.InnoSetup`). The version comes from
 `trackhound/__init__.py`, so there is nothing to keep in step by hand.
 
 The finished folder is `dist\Trackhound`, holding two exes (`Trackhound.exe` and
 `Trackhound-cli.exe`) built from the same code: the first has no console, the second has
 one. Everything else lives in `_internal`, including `bin\ffmpeg.exe` and `bin\deno.exe`
-from `vendor\`; the program looks there first and only then in `PATH`.
+from `vendor\`. The program looks there first and only then in `PATH`.
 
 Building without `vendor\` works too and produces a lighter variant that takes ffmpeg and
 Deno from the system.
 
 ### Releasing
 
-Releasing happens entirely on GitHub and needs nothing done locally. Open
-**Actions → Release → Run workflow** and type the version (`1.2.3`):
+Releases are made on GitHub, with nothing to do locally. Open
+**Actions → Release → Run workflow** and type the version (`1.2.3`).
 [`release.yml`](.github/workflows/release.yml) writes it into `trackhound/__init__.py`,
 commits it, tags the commit, runs the tests, builds the exe and the installer, and publishes
 the release with both files and their SHA-256.
 
-Tagging by hand still works — `git tag v1.2.3 && git push origin v1.2.3` starts the same
+Tagging by hand also works: `git tag v1.2.3 && git push origin v1.2.3` starts the same
 workflow, which then checks the tag against `__version__` and stops if they disagree. A
 version that has already been released is refused before anything is built.
 
@@ -407,11 +427,11 @@ version that has already been released is refused before anything is built.
 
 ## Licence
 
-[GPL-2.0-or-later](LICENSE). The program imports mutagen (GPL-2.0-or-later), and that is
+[GPL-2.0-or-later](LICENSE). The program imports mutagen (GPL-2.0-or-later), which counts as
 linking rather than mere aggregation, so the copyleft covers the whole project.
 
-The other dependencies: yt-dlp and yt-dlp-ejs — Unlicense, ytmusicapi — MIT, pywebview —
-BSD-3-Clause.
+Other dependencies: yt-dlp and yt-dlp-ejs are under the Unlicense, ytmusicapi under MIT,
+pywebview under BSD-3-Clause.
 
 The release archive carries two separate programs, each under its own licence: `ffmpeg.exe`
 from the [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) builds (GPL, sources at
