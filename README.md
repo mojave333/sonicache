@@ -324,12 +324,14 @@ turns out too short, such as a 30-second SoundCloud Go+ preview, counts as a fai
 
 ## macOS and Linux
 
-Each release also carries a build for macOS on Apple Silicon (M1 and newer) and one for
-64-bit Linux. Both have ffmpeg and Deno inside, like the Windows one, and the command line
+Each release also carries builds for macOS, one for Apple Silicon (M1 and newer) and one
+for Intel, and one for 64-bit Linux. Both have ffmpeg and Deno inside, like the Windows one, and the command line
 program sits beside the window in the same folder. They do not update themselves: when a
 new version is out, the settings show a line about it with a link to the release page.
 
-**macOS.** Open `Trackhound-vX.Y.Z-macos-arm64.dmg` and drag Trackhound to Applications.
+**macOS.** Open `Trackhound-vX.Y.Z-macos-arm64.dmg` on a Mac with Apple Silicon, or
+`Trackhound-vX.Y.Z-macos-x64.dmg` on one with an Intel processor (Apple menu → About This Mac
+says which), and drag Trackhound to Applications.
 The app is not signed with an Apple developer certificate, so the first launch is refused
 with "Apple could not verify…". Click "Done", open System Settings → Privacy & Security,
 scroll to the line about Trackhound and click "Open Anyway". The same can be done in a
@@ -339,9 +341,7 @@ terminal:
 xattr -dr com.apple.quarantine /Applications/Trackhound.app
 ```
 
-The command line is `/Applications/Trackhound.app/Contents/MacOS/Trackhound-cli`. Macs with
-an Intel processor have no build; they can run from source or use the
-[Python package](#python-package).
+The command line is `/Applications/Trackhound.app/Contents/MacOS/Trackhound-cli`.
 
 **Linux.** Unpack `Trackhound-vX.Y.Z-linux-x64.tar.xz` anywhere and start `Trackhound` in the
 folder; `Trackhound-cli` is the command line. It needs glibc 2.35 or newer (Ubuntu 22.04,

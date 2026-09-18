@@ -56,10 +56,15 @@ jobs:
           /tmp/clean/bin/trackhound --help
           /tmp/clean/bin/python -c "import sys, trackhound.engine; assert 'webview' not in sys.modules"
 
-  # The same builds the release makes for macOS (Apple Silicon) and Linux,
+  # The same builds the release makes for macOS (Apple Silicon and Intel) and Linux,
   # each started once to see that the window opens
   macos:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Apple Silicon, and the last Intel Macs GitHub still offers
+        runner: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 

@@ -4,7 +4,8 @@
 #     scripts/fetch-vendor.sh          # optional: bundle ffmpeg and deno
 #     scripts/build-unix.sh v1.3.0     # the tag goes into the file name
 #
-# macOS:  Trackhound-v1.3.0-macos-arm64.dmg, holding Trackhound.app
+# macOS:  Trackhound-v1.3.0-macos-arm64.dmg (Apple Silicon) or -macos-x64.dmg (Intel),
+#         holding Trackhound.app
 # Linux:  Trackhound-v1.3.0-linux-x64.tar.xz, holding the Trackhound folder
 #
 # The name of the packed file is printed last, for the workflow to pick up.
@@ -27,7 +28,8 @@ fi
 case "$(uname -s)" in
   Darwin)
     programs="dist/Trackhound.app/Contents/MacOS"
-    package="Trackhound-$tag-macos-arm64.dmg"
+    arch="$([ "$(uname -m)" = arm64 ] && echo arm64 || echo x64)"
+    package="Trackhound-$tag-macos-$arch.dmg"
     ;;
   Linux)
     programs="dist/Trackhound"

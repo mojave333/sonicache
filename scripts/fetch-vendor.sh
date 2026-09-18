@@ -4,7 +4,7 @@
 #
 #     scripts/fetch-vendor.sh
 #
-# Linux gets x86-64 builds, macOS gets Apple Silicon (arm64) builds.
+# Linux gets x86-64 builds; macOS gets arm64 or x86-64 ones, whichever this Mac is.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,8 +21,13 @@ case "$(uname -s)" in
     ;;
   Darwin)
     # A static GPL build; BtbN makes none for macOS
-    ffmpeg_url="https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip"
-    deno_url="https://github.com/denoland/deno/releases/latest/download/deno-aarch64-apple-darwin.zip"
+    if [ "$(uname -m)" = arm64 ]; then
+      ffmpeg_arch=arm64 deno_arch=aarch64
+    else
+      ffmpeg_arch=amd64 deno_arch=x86_64
+    fi
+    ffmpeg_url="https://ffmpeg.martin-riedl.de/redirect/latest/macos/$ffmpeg_arch/release/ffmpeg.zip"
+    deno_url="https://github.com/denoland/deno/releases/latest/download/deno-$deno_arch-apple-darwin.zip"
     ;;
   *)
     echo "No builds of ffmpeg and deno are known for $(uname -s)" >&2
