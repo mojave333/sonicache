@@ -518,3 +518,17 @@ class TestUpdateInstaller:
         assert [event["state"] for event in self.events(api)][-1] == "error"
         assert not started  # nothing is run
         assert not list(tmp_path.glob("*.exe"))  # and the file does not linger
+
+
+class TestInstallerCommand:
+    """How an update is handed to the installer: the installer, not the
+    window, decides when files are safe to replace."""
+
+    def test_it_waits_for_this_process_and_reopens_the_program(self):
+        command = gui.installer_command(Path("C:/Temp/Trackhound-9.9.9-setup.exe"), 4321)
+        assert command[0].endswith("Trackhound-9.9.9-setup.exe")
+        assert "/WAITPID=4321" in command and "/UPDATE=1" in command
+
+    def test_it_runs_without_a_wizard_or_questions(self):
+        command = gui.installer_command(Path("setup.exe"), 1)
+        assert "/SILENT" in command and "/SUPPRESSMSGBOXES" in command and "/NORESTART" in command

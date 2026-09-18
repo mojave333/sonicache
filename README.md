@@ -182,8 +182,10 @@ the path to the log and a "Copy the report" button: the report holds the version
 component paths, the settings and the end of the log — what belongs in a bug report. A line
 about a new version appears there when one is published: the program asks GitHub once per
 run. "Update the program" then fetches that release's installer, checks it against the SHA-256
-GitHub publishes beside it, starts it, and closes the window so the files can be replaced —
-nothing is downloaded until the button is pressed, and nothing is run if the hash disagrees.
+GitHub publishes beside it, closes, and lets the installer replace the files and open the new
+version — nothing is downloaded until the button is pressed, and nothing is run if the hash
+disagrees. The installer waits for the program to be gone before it touches a file, and closes
+any copy still running from its folder, so an update cannot stop halfway.
 Settings live in
 `%USERPROFILE%\.trackhound.json`.
 

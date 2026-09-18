@@ -11,6 +11,7 @@ import ctypes
 import hashlib
 import datetime
 import json
+import logging
 import os
 import queue
 import re
@@ -430,11 +431,12 @@ class Api:
                 raise ValueError(t("Скачанный установщик не совпал с хешем на GitHub"))
 
             logs.log.info("обновление: запускаю %s", setup)
-            subprocess.Popen([str(setup)])
+            subprocess.Popen(installer_command(setup, os.getpid()))
             say(state="starting")
-            # Long enough for the window to show the last message and for the
-            # installer to appear, then out of the way so files are not locked.
-            threading.Timer(2.0, self._close_window).start()
+            # A moment for the window to show the last message, then out of the
+            # way: the installer waits for this process to be gone before it
+            # replaces a single file.
+            threading.Timer(1.5, self._close_window).start()
         except Exception as e:
             logs.log.exception("обновление не установилось")
             say(state="error", message=str(e) or type(e).__name__)
@@ -442,11 +444,19 @@ class Api:
                 self._updating = False
 
     def _close_window(self) -> None:
+        """Closes the window and makes sure the process really ends.
+
+        Closing the window was all this used to do, and the process did not
+        always follow: Trackhound.exe stayed loaded, the installer could not
+        replace it, and the update stopped with the new files beside the old
+        program. So the exit is forced a moment later, whatever the window did.
+        """
+        threading.Timer(3.0, _exit_now).start()
         try:
             if self._window is not None:
                 self._window.destroy()
         except Exception:
-            os._exit(0)
+            _exit_now()
 
     def open_url(self, url: str) -> bool:
         if not url.startswith("https://github.com/"):
@@ -779,6 +789,24 @@ def _normalize(settings: dict) -> dict:
         "replaygain": bool(settings.get("replaygain", False)),
         "profiles": _profiles(settings.get("profiles")),
     }
+
+
+def installer_command(setup: Path, pid: int) -> list[str]:
+    """How the downloaded installer is started for an update.
+
+    Silently, because the person has already said yes by pressing the button;
+    told the process id to wait for, so nothing is locked when files are
+    replaced; and marked as an update, so the installer opens the new version
+    when it is done. The installer also closes any copy it still finds running
+    from its folder, which is what saves an update started by an older release
+    that passes none of this.
+    """
+    return [str(setup), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/UPDATE=1", f"/WAITPID={pid}"]
+
+
+def _exit_now() -> None:
+    logging.shutdown()
+    os._exit(0)
 
 
 def _profiles(raw) -> list[dict]:

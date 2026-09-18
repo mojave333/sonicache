@@ -175,7 +175,7 @@ function onUpdateEvent(event) {
     label.textContent = t("Проверяем хеш…");
   } else if (event.state === "starting") {
     label.textContent = t("Запускаем установщик");
-    desc.textContent = t("Окно сейчас закроется, чтобы установщик мог заменить файлы");
+    desc.textContent = t("Окно сейчас закроется: установщик заменит файлы и откроет новую версию сам");
   } else if (event.state === "error") {
     button.disabled = false;
     label.textContent = t("Обновить программу");

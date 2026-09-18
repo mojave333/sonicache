@@ -81,12 +81,16 @@ const TRANSLATIONS = {
   // Updating
   "Страница релиза": "Release page",
   "Обновить программу": "Update the program",
+  "Скачается установщик с GitHub, программа сверит его хеш, закроется, обновится и откроется снова":
+    "The installer is fetched from GitHub and checked against its hash; the program closes, updates and opens again",
   "Скачается установщик с GitHub, программа сверит его хеш и запустит; окно закроется, чтобы файлы можно было заменить":
     "The installer is fetched from GitHub, checked against its hash and started; the window closes so the files can be replaced",
   "Скачиваем…": "Downloading…",
   "Скачиваем… {percent}%": "Downloading… {percent}%",
   "Проверяем хеш…": "Checking the hash…",
   "Запускаем установщик": "Starting the installer",
+  "Окно сейчас закроется: установщик заменит файлы и откроет новую версию сам":
+    "The window is about to close: the installer replaces the files and opens the new version itself",
   "Окно сейчас закроется, чтобы установщик мог заменить файлы":
     "The window is about to close so the installer can replace the files",
   "Не получилось обновиться: {error}": "The update did not go through: {error}",
