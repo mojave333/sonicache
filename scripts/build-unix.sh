@@ -73,4 +73,6 @@ else
   tar -czf "$package" -C dist Trackhound
 fi
 du -h "$package" >&2
+# What the size is made of, for when it grows
+find dist -type f -size +5M -exec du -h {} + | sort -rh | head -n 15 >&2
 echo "$package"
