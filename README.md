@@ -6,7 +6,7 @@
 
 **Paste a link, get tagged music.**
 
-Albums, singles, playlists and single tracks from Spotify, Apple Music, YouTube,
+Albums, singles, playlists and single tracks from Spotify, Apple Music, Deezer, YouTube,
 SoundCloud, Last.fm and sites such as Bandcamp.
 
 [![Latest release](https://img.shields.io/github/v/release/mojave333/trackhound?label=release&color=8FBF3F)](https://github.com/mojave333/trackhound/releases/latest)
@@ -26,8 +26,8 @@ SoundCloud, Last.fm and sites such as Bandcamp.
 
 Titles, artists, track numbers, the year and the cover are read from the page behind the
 link. When the service streams the audio openly (YouTube, SoundCloud, Bandcamp), the track
-is taken from there. When it does not (Spotify, Apple Music, Last.fm), the same track is
-looked for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp does the
+is taken from there. When it does not (Spotify, Apple Music, Deezer, Last.fm), the same
+track is looked for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp does the
 downloading, after which the files get their tags and cover art.
 
 - Python, ffmpeg and Deno come inside the installer, so there is nothing else to set up.
@@ -248,6 +248,7 @@ Trackhound-cli.exe --dry-run LINK
 |---|---|---|
 | Spotify | album, single, track, playlist, `spotify:…`, `spotify.link/…` | searched on YouTube Music and SoundCloud |
 | Apple Music | album, song, playlist | searched |
+| Deezer | album, track, playlist, `link.deezer.com/…` | searched |
 | YouTube, YouTube Music | video, album, playlist | from the link |
 | SoundCloud | track, set | from the link; DRM-protected tracks are searched elsewhere |
 | Last.fm | album, track | the album is found on YouTube Music or Apple Music, the audio comes from there or from a search |
@@ -256,8 +257,8 @@ Trackhound-cli.exe --dry-run LINK
 Spotify and Apple Music playlists are read off the page, and the page does not hand over the
 whole list: Spotify gives the first 100 tracks, Apple Music the first 50. When a playlist
 holds more, the program says so on the release line, and the rest have to be added
-separately. Artist pages and VK are not supported; VK shows music only to a signed-in
-account.
+separately. Deezer playlists come whole, through Deezer's public API. Artist pages and VK
+are not supported; VK shows music only to a signed-in account.
 
 ## Where the files go
 
@@ -365,11 +366,11 @@ From source, the command line is `.venv\Scripts\python.exe main.py LINK`.
 .venv\Scripts\python.exe -m pytest
 ```
 
-The tests are offline: the Spotify, Apple Music and Last.fm pages come from `tests/fixtures`
-and no request leaves the machine. They cover what rots by itself: the parsing of other
-people's markup, the match scoring on YouTube Music and SoundCloud, file names and the
-settings. [`ci.yml`](.github/workflows/ci.yml) runs the same
-tests on every push, on Windows, Linux and macOS.
+The tests are offline: the Spotify, Apple Music and Last.fm pages come from `tests/fixtures`,
+the Deezer answers are written into the tests, and no request leaves the machine. They cover
+what rots by itself: the parsing of other people's markup, the match scoring on YouTube Music
+and SoundCloud, file names and the settings. [`ci.yml`](.github/workflows/ci.yml) runs the
+same tests on every push, on Windows, Linux and macOS.
 
 ## Building
 

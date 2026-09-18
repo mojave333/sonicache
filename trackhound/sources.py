@@ -3,7 +3,7 @@
 Every source returns tracks with metadata. Services that stream audio openly
 (YouTube, SoundCloud and other sites yt-dlp understands, e.g. Bandcamp) also
 give each track its own audio URL. For the rest (Spotify, Apple Music,
-Last.fm) the audio is matched on YouTube Music and SoundCloud later.
+Deezer, Last.fm) the audio is matched on YouTube Music and SoundCloud later.
 """
 
 from __future__ import annotations
@@ -11,7 +11,9 @@ from __future__ import annotations
 import html
 import json
 import re
+import urllib.error
 import urllib.parse
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 import yt_dlp
@@ -21,13 +23,16 @@ from .i18n import language, t
 from .logs import YtdlpLogger
 from .matcher import _artist_score, _norm, _similarity, ytmusic
 from .models import Album, Release, SourceError, Track
-from .net import fetch_json, fetch_text
+from .net import BROWSER_UA, fetch_json, fetch_text
 
-SUPPORTED = "Spotify, Apple Music, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp"
-_SUPPORTED_EN = "Spotify, Apple Music, YouTube, SoundCloud, Last.fm and sites such as Bandcamp"
+SUPPORTED = "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp"
+_SUPPORTED_EN = "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm and sites such as Bandcamp"
 
 _APPLE_PATH_RE = re.compile(r"^/(?:([a-z]{2})/)?([\w-]+)/(?:[^/]+/)?(?:id)?(\d+)", re.I)
 _APPLE_DATA_RE = re.compile(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', re.S)
+_DEEZER_PATH_RE = re.compile(r"^/(?:[a-z]{2}(?:-[a-z]{2})?/)?(album|track|playlist)/(\d+)", re.I)
+_DEEZER_LINK_RE = re.compile(r"https://www\.deezer\.com/(?:[a-z]{2}(?:-[a-z]{2})?/)?(?:album|track|playlist)/\d+",
+                             re.I)
 _LASTFM_PATH_RE = re.compile(r"/music/([^/?#]+)(?:/([^/?#]+))?(?:/([^/?#]+))?")
 _LASTFM_ROW_RE = re.compile(r'<tr\s+class="\s*chartlist-row.*?</tr>', re.S)
 # Music videos and user uploads, as opposed to official audio tracks
@@ -55,6 +60,8 @@ def resolve(link: str) -> Release:
         return _spotify(url)  # short links are only recognised with https://
     if on("music.apple.com", "itunes.apple.com"):
         return _apple(parts)
+    if on("deezer.com", "deezer.page.link", "dzr.page.link"):
+        return _deezer(url, parts)
     if on("youtube.com", "youtu.be"):
         return _youtube(parts)
     if on("last.fm", "lastfm.ru"):
@@ -62,8 +69,8 @@ def resolve(link: str) -> Release:
     if on("vk.com", "vk.ru", "vkontakte.ru"):
         raise SourceError(t(
             "VK показывает музыку только после входа в аккаунт, поэтому альбом по этой ссылке "
-            "не прочитать. Найдите этот релиз в Spotify, Apple Music, YouTube или SoundCloud и "
-            "вставьте ссылку оттуда."))
+            "не прочитать. Найдите этот релиз в Spotify, Apple Music, Deezer, YouTube или "
+            "SoundCloud и вставьте ссылку оттуда."))
     return _ytdlp(url)
 
 
@@ -203,6 +210,127 @@ def _split_kind(name: str) -> tuple[str, str]:
     """Apple Music names releases like "Title - EP" and "Title - Single"."""
     m = re.match(r"^(.*?)\s+-\s+(EP|Single)$", name)
     return (m.group(1), m.group(2).lower()) if m else (name, "album")
+
+
+# Deezer: the public API has albums, tracks and whole playlists, no key needed
+
+def _deezer(url: str, parts: urllib.parse.SplitResult) -> Release:
+    if (parts.hostname or "").lower() not in ("deezer.com", "www.deezer.com"):
+        url = _deezer_short_link(url)
+        parts = urllib.parse.urlsplit(url)
+    m = _DEEZER_PATH_RE.match(parts.path)
+    if not m:
+        raise SourceError(t("Из Deezer поддерживаются ссылки на альбомы, треки и плейлисты"))
+    kind, deezer_id = m.group(1).lower(), m.group(2)
+    if kind == "album":
+        return _deezer_album(deezer_id)
+    if kind == "playlist":
+        return _deezer_playlist(deezer_id)
+    return _deezer_track(deezer_id)
+
+
+def _deezer_short_link(link: str) -> str:
+    """link.deezer.com and deezer.page.link redirect to www.deezer.com."""
+    request = urllib.request.Request(link, headers={"User-Agent": BROWSER_UA})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as resp:
+            final = resp.geturl()
+            body = "" if _DEEZER_LINK_RE.search(final) else resp.read().decode("utf-8", "replace")
+    except (urllib.error.URLError, TimeoutError) as e:
+        raise SourceError(t("Не удалось открыть короткую ссылку {link}: {error}",
+                            link=link, error=e)) from e
+    m = _DEEZER_LINK_RE.search(final) or _DEEZER_LINK_RE.search(body)
+    if not m:
+        raise SourceError(t("Короткая ссылка Deezer никуда не ведёт: {link}", link=link))
+    return m.group(0)
+
+
+def _deezer_album(album_id: str) -> Release:
+    data = _deezer_get(f"album/{album_id}", t("Deezer не нашёл альбом {id}", id=album_id))
+    items = _deezer_pages(f"album/{album_id}/tracks", t("Deezer не нашёл альбом {id}", id=album_id))
+    tracks = [_deezer_item(item, number) for number, item in enumerate(items, 1)]
+    if not tracks:
+        raise SourceError(t("В альбоме Deezer {id} нет треков", id=album_id))
+    kind = data.get("record_type") or "album"
+    album = Album(
+        id=str(album_id),
+        name=data.get("title", ""),
+        artist=(data.get("artist") or {}).get("name", ""),
+        release_date=data.get("release_date") or "",
+        kind={"compile": "compilation"}.get(kind, kind),
+        cover_url=data.get("cover_xl") or data.get("cover_big") or "",
+        tracks=tracks,
+        service="Deezer",
+    )
+    return Release(album, tracks)
+
+
+def _deezer_playlist(playlist_id: str) -> Release:
+    missing = t("Deezer не нашёл плейлист {id}: он удалён или закрыт", id=playlist_id)
+    data = _deezer_get(f"playlist/{playlist_id}", missing)
+    items = _deezer_pages(f"playlist/{playlist_id}/tracks", missing)
+    # A playlist numbers its own rows, and the same song may sit in it twice
+    tracks = [_deezer_item(item, number, playlist=True) for number, item in enumerate(items, 1)]
+    if not tracks:
+        raise SourceError(t("Плейлист пуст или закрыт"))
+    album = Album(
+        id=str(playlist_id),
+        name=data.get("title") or t("Плейлист"),
+        artist=(data.get("creator") or {}).get("name") or t("Разные исполнители"),
+        kind="playlist",
+        cover_url=data.get("picture_xl") or data.get("picture_big") or "",
+        tracks=tracks,
+        service="Deezer",
+    )
+    return Release(album, tracks)
+
+
+def _deezer_track(track_id: str) -> Release:
+    data = _deezer_get(f"track/{track_id}", t("Deezer не нашёл трек {id}", id=track_id))
+    release = _deezer_album((data.get("album") or {}).get("id") or "")
+    track = next((t for t in release.album.tracks if t.id == str(track_id)), None)
+    if track is None:
+        raise SourceError(t("Трека {id} нет в альбоме «{album}»", id=track_id, album=release.album.name))
+    return Release(release.album, [track], single=True)
+
+
+def _deezer_item(item: dict, number: int, playlist: bool = False) -> Track:
+    return Track(
+        id=f"{number}-{item.get('id')}" if playlist else str(item.get("id") or number),
+        # The full title keeps the version ("Radio Edit", "Live"), which the matcher needs
+        title=item.get("title") or item.get("title_short") or "",
+        artists=(item.get("artist") or {}).get("name", ""),
+        duration=item.get("duration") or 0,
+        track_number=number if playlist else item.get("track_position") or number,
+        disc_number=1 if playlist else item.get("disk_number") or 1,
+        explicit=bool(item.get("explicit_lyrics")),
+    )
+
+
+def _deezer_get(path: str, missing: str) -> dict:
+    """Deezer answers a wrong id with HTTP 200 and an error object."""
+    url = path if path.startswith("https://") else f"https://api.deezer.com/{path}"
+    data = fetch_json(url, service="Deezer")
+    error = data.get("error")
+    if error:
+        if error.get("code") == 800:  # "no data"
+            raise SourceError(missing)
+        raise SourceError(t("Deezer ответил ошибкой: {error}",
+                            error=error.get("message") or error.get("type") or error))
+    return data
+
+
+def _deezer_pages(path: str, missing: str) -> list[dict]:
+    """Track lists come in pages, each naming the next one."""
+    items: list[dict] = []
+    url = f"https://api.deezer.com/{path}?limit=500"
+    for _ in range(100):
+        page = _deezer_get(url, missing)
+        items += page.get("data") or []
+        url = page.get("next") or ""
+        if not url.startswith("https://api.deezer.com/"):
+            break
+    return items
 
 
 # YouTube and YouTube Music: metadata and audio in one place

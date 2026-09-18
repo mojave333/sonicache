@@ -172,6 +172,119 @@ class TestApplePlaylist:
             sources.resolve(self.url())
 
 
+# Shapes as api.deezer.com answers them, trimmed to what is read
+DEEZER = {
+    "https://api.deezer.com/album/302127": {
+        "id": 302127, "title": "Discovery", "release_date": "2001-03-07", "record_type": "album",
+        "cover_xl": "https://dzcdn.test/1000x1000.jpg", "artist": {"name": "Daft Punk"},
+    },
+    "https://api.deezer.com/album/302127/tracks?limit=500": {
+        "data": [
+            {"id": 3135553, "title": "One More Time", "duration": 320, "track_position": 1,
+             "disk_number": 1, "explicit_lyrics": False, "artist": {"name": "Daft Punk"}},
+            {"id": 3135554, "title": "Aerodynamic", "duration": 212, "track_position": 2,
+             "disk_number": 1, "explicit_lyrics": True, "artist": {"name": "Daft Punk"}},
+        ],
+        "total": 3, "next": "https://api.deezer.com/album/302127/tracks?limit=500&index=2",
+    },
+    "https://api.deezer.com/album/302127/tracks?limit=500&index=2": {
+        "data": [{"id": 3135560, "title": "Too Long", "duration": 600, "track_position": 1,
+                  "disk_number": 2, "artist": {"name": "Daft Punk"}}],
+        "total": 3,
+    },
+    "https://api.deezer.com/track/3135554": {"id": 3135554, "album": {"id": 302127}},
+    "https://api.deezer.com/playlist/908622995": {
+        "id": 908622995, "title": "Chill", "picture_xl": "https://dzcdn.test/playlist.jpg",
+        "creator": {"name": "Deezer Editors"},
+    },
+    "https://api.deezer.com/playlist/908622995/tracks?limit=500": {
+        "data": [
+            {"id": 1, "title": "Song", "duration": 180, "artist": {"name": "A"}},
+            {"id": 1, "title": "Song", "duration": 180, "artist": {"name": "A"}},
+        ],
+    },
+}
+
+
+class TestDeezer:
+    @pytest.fixture(autouse=True)
+    def api(self, monkeypatch):
+        asked = []
+
+        def fetch_json(url, **kwargs):
+            asked.append(url)
+            return DEEZER.get(url, {"error": {"type": "DataException", "message": "no data", "code": 800}})
+
+        monkeypatch.setattr(sources, "fetch_json", fetch_json)
+        return asked
+
+    def test_album_tracks_and_tags_across_pages(self):
+        release = sources.resolve("https://www.deezer.com/en/album/302127")
+        album = release.album
+        assert (album.name, album.artist, album.release_date, album.kind) == (
+            "Discovery", "Daft Punk", "2001-03-07", "album")
+        assert album.service == "Deezer"
+        assert album.cover_url == "https://dzcdn.test/1000x1000.jpg"
+        assert [t.title for t in album.tracks] == ["One More Time", "Aerodynamic", "Too Long"]
+        assert album.tracks[1].explicit is True
+        assert (album.tracks[2].track_number, album.tracks[2].disc_number) == (1, 2)
+        assert album.total_discs == 2
+
+    def test_a_link_without_a_language_works_too(self):
+        assert sources.resolve("deezer.com/album/302127").album.name == "Discovery"
+
+    def test_a_track_link_downloads_one_track_of_its_album(self):
+        release = sources.resolve("https://www.deezer.com/fr/track/3135554?utm_source=deezer")
+        assert release.single is True
+        assert [t.title for t in release.tracks] == ["Aerodynamic"]
+        assert len(release.album.tracks) == 3  # the album is kept for tags and numbering
+
+    def test_a_playlist_numbers_its_own_rows(self):
+        release = sources.resolve("https://www.deezer.com/playlist/908622995")
+        album = release.album
+        assert (album.kind, album.name, album.artist) == ("playlist", "Chill", "Deezer Editors")
+        assert [t.track_number for t in release.tracks] == [1, 2]
+        assert len({t.id for t in release.tracks}) == 2  # the same song twice stays two rows
+
+    def test_a_missing_album_says_so(self):
+        with pytest.raises(SourceError, match="не нашёл альбом 1"):
+            sources.resolve("https://www.deezer.com/album/1")
+
+    def test_other_errors_are_passed_on(self, monkeypatch):
+        monkeypatch.setattr(sources, "fetch_json", lambda url, **kwargs: {
+            "error": {"type": "Exception", "message": "Quota limit exceeded", "code": 4}})
+        with pytest.raises(SourceError, match="Quota limit exceeded"):
+            sources.resolve("https://www.deezer.com/album/302127")
+
+    def test_an_artist_page_is_refused(self, api):
+        with pytest.raises(SourceError, match="альбомы, треки и плейлисты"):
+            sources.resolve("https://www.deezer.com/en/artist/27")
+        assert api == []
+
+    def test_a_short_link_is_followed(self, monkeypatch):
+        monkeypatch.setattr(sources, "_deezer_short_link",
+                            lambda link: "https://www.deezer.com/album/302127")
+        assert sources.resolve("https://link.deezer.com/s/30ZA1D9TrYl3").album.name == "Discovery"
+
+    def test_a_dead_short_link_says_so(self, monkeypatch):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def geturl(self):
+                return "https://www.deezer.com/deezer-links-404"
+
+            def read(self):
+                return b"<html>nothing here</html>"
+
+        monkeypatch.setattr(sources.urllib.request, "urlopen", lambda request, timeout: Response())
+        with pytest.raises(SourceError, match="никуда не ведёт"):
+            sources.resolve("https://link.deezer.com/s/30ZA1D9TrYl3")
+
+
 class TestLastfm:
     def test_the_tracklist_is_read_off_the_page(self, monkeypatch):
         page = (FIXTURES / "lastfm_album.html").read_text(encoding="utf-8")

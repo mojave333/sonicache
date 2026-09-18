@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="trackhound",
         description=t("Скачивание альбомов, синглов и треков по ссылке из Spotify, Apple Music, "
-                      "YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp."),
+                      "Deezer, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp."),
     )
     parser.add_argument("links", nargs="*",
                         help=t("ссылки на альбомы, плейлисты или треки — либо название: "

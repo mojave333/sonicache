@@ -21,9 +21,9 @@ _current = "ru"
 ENGLISH = {
     # Command line
     "Скачивание альбомов, синглов и треков по ссылке из Spotify, Apple Music, "
-    "YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp.":
+    "Deezer, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp.":
         "Downloads albums, singles and tracks by link from Spotify, Apple Music, "
-        "YouTube, SoundCloud, Last.fm and sites yt-dlp understands, such as Bandcamp.",
+        "Deezer, YouTube, SoundCloud, Last.fm and sites yt-dlp understands, such as Bandcamp.",
     "ссылки на альбомы, плейлисты или треки — либо название: «Исполнитель - Альбом»":
         "links to albums, playlists or tracks — or a name: \"Artist - Album\"",
     "папка для музыки (по умолчанию {path})": "music folder (default {path})",
@@ -109,6 +109,16 @@ ENGLISH = {
     "Остальные придётся добавить отдельно":
         "The Apple Music page hands over the first {shown} tracks of {total}. "
         "The rest have to be added separately",
+    "Из Deezer поддерживаются ссылки на альбомы, треки и плейлисты":
+        "From Deezer, links to albums, tracks and playlists are supported",
+    "Короткая ссылка Deezer никуда не ведёт: {link}": "This Deezer short link leads nowhere: {link}",
+    "Deezer не нашёл альбом {id}": "Deezer has no album {id}",
+    "Deezer не нашёл трек {id}": "Deezer has no track {id}",
+    "Deezer не нашёл плейлист {id}: он удалён или закрыт":
+        "Deezer has no playlist {id}: it was deleted or is private",
+    "В альбоме Deezer {id} нет треков": "Deezer album {id} has no tracks",
+    "Трека {id} нет в альбоме «{album}»": "Track {id} is not part of \"{album}\"",
+    "Deezer ответил ошибкой: {error}": "Deezer answered with an error: {error}",
     "Из YouTube поддерживаются ссылки на видео, альбомы и плейлисты":
         "From YouTube, links to videos, albums and playlists are supported",
     "В альбоме YouTube Music нет треков": "This YouTube Music album has no tracks",
@@ -135,13 +145,13 @@ ENGLISH = {
     "По этой ссылке не нашлось музыки. Подойдут ссылки из {services}":
         "No music behind that link. Links from {services} will do",
     "Не удалось открыть ссылку: {error}": "Could not open the link: {error}",
-    "Spotify, Apple Music, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp":
-        "Spotify, Apple Music, YouTube, SoundCloud, Last.fm and sites such as Bandcamp",
+    "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp":
+        "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm and sites such as Bandcamp",
     "VK показывает музыку только после входа в аккаунт, поэтому альбом по этой ссылке "
-    "не прочитать. Найдите этот релиз в Spotify, Apple Music, YouTube или SoundCloud и "
-    "вставьте ссылку оттуда.":
+    "не прочитать. Найдите этот релиз в Spotify, Apple Music, Deezer, YouTube или "
+    "SoundCloud и вставьте ссылку оттуда.":
         "VK only shows music to a signed-in account, so an album cannot be read from that "
-        "link. Find the release on Spotify, Apple Music, YouTube or SoundCloud and paste "
+        "link. Find the release on Spotify, Apple Music, Deezer, YouTube or SoundCloud and paste "
         "that link instead.",
     "Плейлист": "Playlist",
 
