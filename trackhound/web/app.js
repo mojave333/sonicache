@@ -1967,7 +1967,9 @@ function fillAlbumPage(item) {
   } else {
     tintPage(null, owner);
   }
-  $("[data-page-action=again]", page).hidden = !item.link;
+  // Only an album with tracks still to come has anything to fetch; the count in
+  // its marker says so at once, the tracklist confirms it once the page is read
+  $("[data-page-action=again]", page).hidden = !item.link || !(item.expected > item.tracks);
   const watch = $("[data-page-action=watch]", page);
   watch.hidden = !item.link || !item.album;
   renderWatchButton(item.link);
@@ -2012,6 +2014,7 @@ function renderAlbumTracks(item, data, highlight) {
     rows.push(createAlbumTrack(track, item));
   }
   const unknown = Math.max(0, data.expected - data.tracks.length - data.missing.length);
+  $("[data-page-action=again]", page).hidden = !item.link || !(data.missing.length || unknown);
   if (unknown) {
     const note = document.createElement("div");
     note.className = "album-note";
