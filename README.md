@@ -230,7 +230,7 @@ Trackhound-cli.exe --dry-run LINK
 | Option | Meaning |
 |---|---|
 | `-o`, `--output` | folder (default `%USERPROFILE%\Music\Trackhound`) |
-| `-f`, `--format` | `m4a` (default), `mp3`, `mp3-320`, `opus` |
+| `-f`, `--format` | `mp3` (default), `m4a`, `opus` |
 | `-t`, `--threads` | how many tracks to download at once, default 3 |
 | `--dry-run` | only show what was matched |
 | `--cookies-from-browser` | take cookies from a browser (`chrome`, `edge`, `firefox`…) for age-restricted tracks |
@@ -288,10 +288,9 @@ YouTube keeps two versions of every track: AAC at 128 kbit/s, cut off above 16 k
 Opus at 130 to 160 kbit/s, which reaches 20 kHz. Trackhound starts from the Opus for every
 format except a Premium account's AAC 256, which is kept as it is.
 
+- `mp3`, the default, is a constant 320 kbit/s at 44.1 kHz. It plays anywhere, car
+  stereos and DJ software included.
 - `m4a` is the Opus turned into AAC at 256 kbit/s. Almost every player takes it.
-- `mp3` is VBR V0, about 245 kbit/s: the best mp3 for its size.
-- `mp3 320` is a constant 320 kbit/s at 44.1 kHz, for car stereos and DJ software that ask
-  for exactly that. It sounds the same as `mp3`; the files are larger.
 - `opus` is the Opus as it is, with no re-encoding. Not every player understands it.
 
 No format makes the sound better than the stream it came from, and none of the free

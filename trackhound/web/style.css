@@ -500,9 +500,6 @@ p { margin: 0; }
 @container content (max-width: 796px) {
   #folder span { display: none; }
   #folder { flex: none; }
-  /* Four formats leave no room for the profile's name; a chosen profile
-     still shows as the lit button */
-  #profile-name { display: none; }
   #queue-filter .count { display: none; } /* the filters themselves must stay reachable */
   .segmented button { padding: 0 10px; }
   .queue .track, .queue-grid { grid-template-columns: 34px minmax(0, 1fr) 52px 170px; }

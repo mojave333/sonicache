@@ -4,15 +4,10 @@
 const LINK_RE = /https?:\/\/[^\s"'<>]+|(?:[a-z0-9-]+\.)+(?:com|ru|fm|be|link|fi)\/[^\s"'<>]+|spotify:(?:album|track):[A-Za-z0-9]{22}/gi;
 
 const FORMAT_HINTS = {
+  mp3: "mp3 — 320 кбит/с из полной дорожки, до 20 кГц. Играет везде, включая магнитолы",
   m4a: "m4a — AAC 256 кбит/с из полной дорожки, до 20 кГц. Подходит почти всем плеерам",
-  mp3: "mp3 — переменный битрейт V0, около 245 кбит/с: лучшее качество mp3 для своего размера",
-  "mp3-320": "mp3 320 — ровно 320 кбит/с для магнитол и DJ-программ, которым это важно. "
-    + "Звучит как обычный mp3, файлы больше",
   opus: "opus — дорожка YouTube как есть, без перекодирования. Понимают его не все плееры",
 };
-// How a format is written on a card; "mp3-320" is what the settings store
-const FORMAT_LABELS = { "mp3-320": "mp3 320" };
-const formatLabel = (format) => FORMAT_LABELS[format] || format;
 
 const VIEWS = ["download", "library", "queue", "settings"];
 
@@ -365,7 +360,7 @@ function activeProfile() {
 
 function profileSummary(profile) {
   const folder = profile.folder.split(/[\\/]+/).filter(Boolean).pop() || profile.folder;
-  return [folder, formatLabel(profile.format), t(FOLDER_LAYOUTS[profile.folder_name] || profile.folder_name)]
+  return [folder, profile.format, t(FOLDER_LAYOUTS[profile.folder_name] || profile.folder_name)]
     .join(" · ");
 }
 
@@ -821,7 +816,7 @@ function addJob(id, link, dryRun, format) {
     state: "queued", stopping: false, title: prettyLink(link), sub: "", message: "", folder: "",
     done: 0, total: 0, result: null, summary: "", tracks: new Map(), expanded: false,
   };
-  $(".tag", node).textContent = dryRun ? t("проверка") : formatLabel(format);
+  $(".tag", node).textContent = dryRun ? t("проверка") : format;
   $(".job-row", node).addEventListener("click", (event) => {
     if (!event.target.closest(".cell-actions") && job.tracks.size) setExpanded(job, !job.expanded);
   });
@@ -1309,7 +1304,7 @@ function renderStatusBar() {
   status.title = library ? state.settings.folder : "";
   const { format, threads, dry_run: dryRun } = state.settings;
   $("#status-mode").textContent = t("{mode} · {threads} {threadWord}", {
-    mode: dryRun ? t("только проверка") : formatLabel(format),
+    mode: dryRun ? t("только проверка") : format,
     threads,
     threadWord: plural(threads, "поток", "потока", "потоков"),
   });

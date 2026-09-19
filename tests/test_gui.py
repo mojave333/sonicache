@@ -14,7 +14,7 @@ class TestNormalize:
         settings = gui._normalize({})
         assert settings == {
             "folder": str(DEFAULT_OUTPUT_DIR),
-            "format": "m4a",
+            "format": "mp3",
             "threads": 3,
             "theme": "system",
             "dry_run": False,
@@ -37,8 +37,8 @@ class TestNormalize:
     def test_unreadable_threads_fall_back_to_three(self, given):
         assert gui._normalize({"threads": given})["threads"] in (1, 3)
 
-    @pytest.mark.parametrize("given, expected", [("mp3", "mp3"), ("opus", "opus"),
-                                                 ("flac", "m4a"), (None, "m4a")])
+    @pytest.mark.parametrize("given, expected", [("m4a", "m4a"), ("opus", "opus"),
+                                                 ("flac", "mp3"), (None, "mp3")])
     def test_only_known_formats_survive(self, given, expected):
         assert gui._normalize({"format": given})["format"] == expected
 
@@ -129,7 +129,7 @@ class TestSettingsFile:
         broken = tmp_path / ".trackhound.json"
         broken.write_text("{ not json", encoding="utf-8")
         monkeypatch.setattr(gui, "SETTINGS_FILE", broken)
-        assert gui._load_settings()["format"] == "m4a"
+        assert gui._load_settings()["format"] == "mp3"
 
     def test_check_only_is_never_remembered(self, tmp_path, monkeypatch):
         path = tmp_path / ".trackhound.json"
@@ -397,7 +397,7 @@ class TestProfiles:
 
     def test_values_are_checked_the_way_the_live_settings_are(self):
         odd = gui._normalize({"profiles": [self.profile(format="flac", folder_name="sideways")]})
-        assert odd["profiles"][0]["format"] == "m4a"
+        assert odd["profiles"][0]["format"] == "mp3"
         assert odd["profiles"][0]["folder_name"] == "flat"
 
     @pytest.mark.parametrize("raw", ["not a list", 7, None, [None, 5, "x"]])

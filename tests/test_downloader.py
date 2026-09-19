@@ -268,7 +268,7 @@ class TestDirectMatch:
 class TestOptions:
     def test_defaults_are_the_documented_ones(self, tmp_path):
         options = Options(tmp_path)
-        assert (options.audio_format, options.threads, options.dry_run) == ("m4a", 3, False)
+        assert (options.audio_format, options.threads, options.dry_run) == ("mp3", 3, False)
 
 
 class Answer:
@@ -340,7 +340,7 @@ class TestFormats:
                 return False
 
             def download(self, urls):
-                (tmp_path / f"stem.{downloader.extension(audio_format)}").write_bytes(b"audio")
+                (tmp_path / f"stem.{audio_format}").write_bytes(b"audio")
 
         monkeypatch.setattr(downloader.yt_dlp, "YoutubeDL", FakeYoutubeDL)
         loader = downloader.Downloader(Options(tmp_path, audio_format), log=lambda message: None)
@@ -364,20 +364,17 @@ class TestFormats:
         assert opts["format"].startswith("bestaudio[ext=m4a]/")
         assert "postprocessors" not in opts
 
-    def test_mp3_320_is_a_constant_320_at_441_khz(self, monkeypatch, tmp_path):
-        opts, path = self.fetch(monkeypatch, tmp_path, "mp3-320")
+    def test_mp3_is_a_constant_320_at_441_khz(self, monkeypatch, tmp_path):
+        opts, path = self.fetch(monkeypatch, tmp_path, "mp3")
         assert opts["postprocessors"][0]["preferredcodec"] == "mp3"
         assert opts["postprocessors"][0]["preferredquality"] == "320"
         assert opts["postprocessor_args"] == {"extractaudio": ["-ar", "44100"]}
         assert path.name == "stem.mp3"
 
-    def test_plain_mp3_stays_vbr(self, monkeypatch, tmp_path):
-        opts, _ = self.fetch(monkeypatch, tmp_path, "mp3")
-        assert opts["postprocessors"][0]["preferredquality"] == "0"
-        assert "postprocessor_args" not in opts
+    def test_other_formats_keep_their_sample_rate(self, monkeypatch, tmp_path):
+        for audio_format in ("m4a", "opus"):
+            opts, _ = self.fetch(monkeypatch, tmp_path, audio_format)
+            assert "postprocessor_args" not in opts
 
-    @pytest.mark.parametrize("audio_format, suffix", [("m4a", "m4a"), ("mp3", "mp3"), ("mp3-320", "mp3"),
-                                                      ("opus", "opus")])
-    def test_every_format_has_its_file_extension(self, audio_format, suffix):
-        assert audio_format in downloader.FORMATS
-        assert downloader.extension(audio_format) == suffix
+    def test_mp3_comes_first_and_is_the_default(self, tmp_path):
+        assert downloader.FORMATS[0] == "mp3" == Options(tmp_path).audio_format

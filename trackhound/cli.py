@@ -55,8 +55,8 @@ def main(argv: list[str] | None = None) -> int:
                                "«Исполнитель - Альбом»"))
     parser.add_argument("-o", "--output", type=Path, default=DEFAULT_OUTPUT_DIR,
                         help=t("папка для музыки (по умолчанию {path})", path=DEFAULT_OUTPUT_DIR))
-    parser.add_argument("-f", "--format", choices=FORMATS, default="m4a",
-                        help=t("формат файлов: m4a (по умолчанию, AAC 256), mp3 (VBR V0), mp3-320, opus"))
+    parser.add_argument("-f", "--format", choices=FORMATS, default="mp3",
+                        help=t("формат файлов: mp3 (по умолчанию, 320 кбит/с), m4a (AAC 256), opus"))
     parser.add_argument("-t", "--threads", type=int, default=3,
                         help=t("сколько треков качать одновременно (по умолчанию 3)"))
     parser.add_argument("--dry-run", action="store_true",

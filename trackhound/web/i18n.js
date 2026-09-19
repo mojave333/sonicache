@@ -309,11 +309,8 @@ const TRANSLATIONS = {
   "Загрузка продолжается": "The download continues",
   "m4a — AAC 256 кбит/с из полной дорожки, до 20 кГц. Подходит почти всем плеерам":
     "m4a — AAC 256 kbit/s from the full-band stream, up to 20 kHz. Almost every player takes it",
-  "mp3 — переменный битрейт V0, около 245 кбит/с: лучшее качество mp3 для своего размера":
-    "mp3 — variable bitrate V0, about 245 kbit/s: the best mp3 for its size",
-  "mp3 320 — ровно 320 кбит/с для магнитол и DJ-программ, которым это важно. Звучит как обычный mp3, файлы больше":
-    "mp3 320 — a constant 320 kbit/s for car stereos and DJ software that care. "
-    + "Sounds like the other mp3, the files are larger",
+  "mp3 — 320 кбит/с из полной дорожки, до 20 кГц. Играет везде, включая магнитолы":
+    "mp3 — 320 kbit/s from the full-band stream, up to 20 kHz. Plays anywhere, car stereos included",
   "opus — дорожка YouTube как есть, без перекодирования. Понимают его не все плееры":
     "opus — YouTube's stream as it is, no re-encoding. Not every player understands it",
 };
