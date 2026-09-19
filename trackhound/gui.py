@@ -32,7 +32,7 @@ from . import __version__, logs, watch
 from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
-                                Downloader, Options, use_proxy)
+                                Downloader, Options, extension, use_proxy)
 
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
@@ -50,7 +50,7 @@ COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera"
 # Speeds offered in the settings, bytes per second; 0 is no limit
 RATE_LIMITS = (0, 512_000, 1_048_576, 2_097_152, 5_242_880, 10_485_760)
 _PROXY_RE = re.compile(r"^(?:https?|socks4|socks5h?)://[^\s/]+$", re.I)
-AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
+AUDIO_SUFFIXES = {f".{extension(name)}" for name in FORMATS}
 # What a profile remembers: where the music goes and in what shape. The rest of
 # the settings — theme, language, proxy — are about the program, not the music,
 # and stay the same whichever profile is picked.

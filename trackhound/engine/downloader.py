@@ -32,7 +32,9 @@ from .matcher import SOURCE_NAMES, Match, Matcher
 from .models import Album, Track
 from .net import BROWSER_UA
 
-FORMATS = ("m4a", "mp3", "opus")
+# "mp3" is VBR V0, the best mp3 for its size; "mp3-320" is constant 320 kbit/s
+# for players and DJ software that insist on it. Both are .mp3 files.
+FORMATS = ("m4a", "mp3", "mp3-320", "opus")
 # How a track is named inside an album folder
 TRACK_NAMES = ("auto", "artist", "title")
 # How the album folder itself is named, inside the music folder
@@ -53,6 +55,11 @@ _RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)
 
 class DownloaderError(Exception):
     pass
+
+
+def extension(audio_format: str) -> str:
+    """The file extension a format is saved with: "mp3-320" is an .mp3 too."""
+    return audio_format.split("-", 1)[0]
 
 
 def tool_dirs() -> list[Path]:
@@ -246,11 +253,11 @@ class Downloader:
             self._track_event(track, "cancel")
             return None
         label = f"{track.artists} - {track.title}"
-        target = folder / f"{_safe_name(_file_stem(album, track, single, self.options.track_name))}.{self.options.audio_format}"
+        target = folder / f"{_safe_name(_file_stem(album, track, single, self.options.track_name))}.{extension(self.options.audio_format)}"
         if not self.options.dry_run:
             candidates = [target]
             if legacy := _legacy_stem(album, track, single, self.options.track_name):
-                candidates.append(folder / f"{_safe_name(legacy)}.{self.options.audio_format}")
+                candidates.append(folder / f"{_safe_name(legacy)}.{extension(self.options.audio_format)}")
             existing = next((path for path in candidates if path.exists()), None)
             if existing is not None:
                 self._paths[track.id] = existing
@@ -375,6 +382,11 @@ class Downloader:
 
         if match.source == "soundcloud":
             format_spec = "bestaudio/best"  # AAC 160k when available; previews rank last
+        elif audio_format == "m4a" and self.ffmpeg:
+            # YouTube's own AAC is 128 kbit/s and cut off at 16 kHz, while its Opus
+            # stream reaches 20 kHz. So m4a is made from the Opus, at 256 kbit/s,
+            # unless YouTube offers AAC as good as that itself (Premium accounts).
+            format_spec = "bestaudio[ext=m4a][abr>=200]/bestaudio[acodec=opus]/bestaudio[ext=m4a]/bestaudio/best"
         else:
             format_spec = {"m4a": "bestaudio[ext=m4a]/bestaudio/best",
                            "opus": "bestaudio[acodec=opus]/bestaudio/best"}.get(audio_format, "bestaudio/best")
@@ -405,18 +417,21 @@ class Downloader:
             opts["ffmpeg_location"] = self.ffmpeg
             opts["postprocessors"] = [{
                 "key": "FFmpegExtractAudio",
-                "preferredcodec": audio_format,
-                # applies only when re-encoding: best VBR for mp3, kbit/s otherwise
-                "preferredquality": {"mp3": "0", "m4a": "192", "opus": "160"}[audio_format],
+                "preferredcodec": extension(audio_format),
+                # Applies only when re-encoding: VBR V0 for mp3, kbit/s otherwise
+                "preferredquality": {"mp3": "0", "mp3-320": "320", "m4a": "256", "opus": "160"}[audio_format],
             }]
+            if audio_format == "mp3-320":
+                # YouTube's Opus is 48 kHz; the players this format is for expect a CD's 44.1
+                opts["postprocessor_args"] = {"extractaudio": ["-ar", "44100"]}
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([match.url])
 
-        path = folder / f"{stem}.{audio_format}"
+        path = folder / f"{stem}.{extension(audio_format)}"
         if not path.exists():
             got = ", ".join(p.suffix for p in folder.glob(f"{stem}.*")) or t("ничего")
             raise DownloaderError(t("ожидался файл .{format}, получено: {got}",
-                                    format=audio_format, got=got))
+                                    format=extension(audio_format), got=got))
         return path
 
     def _track_event(self, track: Track, state: str, text: str = "", source: str = "", **extra) -> None:

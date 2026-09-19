@@ -4,10 +4,15 @@
 const LINK_RE = /https?:\/\/[^\s"'<>]+|(?:[a-z0-9-]+\.)+(?:com|ru|fm|be|link|fi)\/[^\s"'<>]+|spotify:(?:album|track):[A-Za-z0-9]{22}/gi;
 
 const FORMAT_HINTS = {
-  m4a: "m4a — звук как есть, без перекодирования. Подходит почти всем плеерам",
-  mp3: "mp3 — для старых плееров и магнитол. Перекодируется, файлы чуть больше",
-  opus: "opus — компактнее при том же качестве, но понимают его не все плееры",
+  m4a: "m4a — AAC 256 кбит/с из полной дорожки, до 20 кГц. Подходит почти всем плеерам",
+  mp3: "mp3 — переменный битрейт V0, около 245 кбит/с: лучшее качество mp3 для своего размера",
+  "mp3-320": "mp3 320 — ровно 320 кбит/с для магнитол и DJ-программ, которым это важно. "
+    + "Звучит как обычный mp3, файлы больше",
+  opus: "opus — дорожка YouTube как есть, без перекодирования. Понимают его не все плееры",
 };
+// How a format is written on a card; "mp3-320" is what the settings store
+const FORMAT_LABELS = { "mp3-320": "mp3 320" };
+const formatLabel = (format) => FORMAT_LABELS[format] || format;
 
 const VIEWS = ["download", "library", "queue", "settings"];
 
@@ -360,7 +365,7 @@ function activeProfile() {
 
 function profileSummary(profile) {
   const folder = profile.folder.split(/[\\/]+/).filter(Boolean).pop() || profile.folder;
-  return [folder, profile.format, t(FOLDER_LAYOUTS[profile.folder_name] || profile.folder_name)]
+  return [folder, formatLabel(profile.format), t(FOLDER_LAYOUTS[profile.folder_name] || profile.folder_name)]
     .join(" · ");
 }
 
@@ -812,11 +817,11 @@ function addJob(id, link, dryRun, format) {
 
   const node = $("#job-template").content.firstElementChild.cloneNode(true);
   const job = {
-    id, link, dryRun, node,
+    id, link, dryRun, node, format,
     state: "queued", stopping: false, title: prettyLink(link), sub: "", message: "", folder: "",
     done: 0, total: 0, result: null, summary: "", tracks: new Map(), expanded: false,
   };
-  $(".tag", node).textContent = dryRun ? t("проверка") : format;
+  $(".tag", node).textContent = dryRun ? t("проверка") : formatLabel(format);
   $(".job-row", node).addEventListener("click", (event) => {
     if (!event.target.closest(".cell-actions") && job.tracks.size) setExpanded(job, !job.expanded);
   });
@@ -1254,9 +1259,8 @@ function removeJob(job, fade = false) {
 
 async function retryJob(job) {
   const jobs = await api().download([job.link], { ...state.settings, dry_run: job.dryRun });
-  const format = $(".tag", job.node).textContent;
   removeJob(job);
-  for (const { job: id, link } of jobs) addJob(id, link, job.dryRun, format);
+  for (const { job: id, link } of jobs) addJob(id, link, job.dryRun, job.format);
 }
 
 /* Queue */
@@ -1305,7 +1309,7 @@ function renderStatusBar() {
   status.title = library ? state.settings.folder : "";
   const { format, threads, dry_run: dryRun } = state.settings;
   $("#status-mode").textContent = t("{mode} · {threads} {threadWord}", {
-    mode: dryRun ? t("только проверка") : format,
+    mode: dryRun ? t("только проверка") : formatLabel(format),
     threads,
     threadWord: plural(threads, "поток", "потока", "потоков"),
   });

@@ -23,7 +23,7 @@ ffmpeg and a JavaScript runtime (Deno, or Node.js 22+) are looked for on PATH.
 
 from . import batch
 from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
-                         DownloaderError, Options, Report, find_tool, use_proxy)
+                         DownloaderError, Options, Report, extension, find_tool, use_proxy)
 from .i18n import set_language
 from .models import Album, Release, SourceError, Track
 from .sources import resolve, search, search_track
@@ -31,5 +31,5 @@ from .sources import resolve, search, search_track
 __all__ = [
     "DEFAULT_OUTPUT_DIR", "FOLDER_NAMES", "FORMATS", "TRACK_NAMES",
     "Album", "Downloader", "DownloaderError", "Options", "Release", "Report", "SourceError", "Track",
-    "batch", "find_tool", "resolve", "search", "search_track", "set_language", "use_proxy",
+    "batch", "extension", "find_tool", "resolve", "search", "search_track", "set_language", "use_proxy",
 ]

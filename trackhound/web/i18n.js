@@ -307,12 +307,15 @@ const TRANSLATIONS = {
   "Интерфейс не запустился: {error}": "The interface did not start: {error}",
   "Загрузка на паузе": "The download is paused",
   "Загрузка продолжается": "The download continues",
-  "m4a — звук как есть, без перекодирования. Подходит почти всем плеерам":
-    "m4a — the audio as it is, no re-encoding. Almost every player takes it",
-  "mp3 — для старых плееров и магнитол. Перекодируется, файлы чуть больше":
-    "mp3 — for old players and car stereos. Re-encoded, the files are a little larger",
-  "opus — компактнее при том же качестве, но понимают его не все плееры":
-    "opus — smaller at the same quality, but not every player understands it",
+  "m4a — AAC 256 кбит/с из полной дорожки, до 20 кГц. Подходит почти всем плеерам":
+    "m4a — AAC 256 kbit/s from the full-band stream, up to 20 kHz. Almost every player takes it",
+  "mp3 — переменный битрейт V0, около 245 кбит/с: лучшее качество mp3 для своего размера":
+    "mp3 — variable bitrate V0, about 245 kbit/s: the best mp3 for its size",
+  "mp3 320 — ровно 320 кбит/с для магнитол и DJ-программ, которым это важно. Звучит как обычный mp3, файлы больше":
+    "mp3 320 — a constant 320 kbit/s for car stereos and DJ software that care. "
+    + "Sounds like the other mp3, the files are larger",
+  "opus — дорожка YouTube как есть, без перекодирования. Понимают его не все плееры":
+    "opus — YouTube's stream as it is, no re-encoding. Not every player understands it",
 };
 
 // Russian has three plural forms and English two. The Russian singular is the

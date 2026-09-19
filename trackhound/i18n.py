@@ -20,8 +20,8 @@ ENGLISH.update({
     "ссылки на альбомы, плейлисты или треки — либо название: «Исполнитель - Альбом»":
         "links to albums, playlists or tracks — or a name: \"Artist - Album\"",
     "папка для музыки (по умолчанию {path})": "music folder (default {path})",
-    "формат файлов (по умолчанию m4a — без перекодирования)":
-        "file format (default m4a — no re-encoding)",
+    "формат файлов: m4a (по умолчанию, AAC 256), mp3 (VBR V0), mp3-320, opus":
+        "file format: m4a (the default, AAC 256), mp3 (VBR V0), mp3-320, opus",
     "сколько треков качать одновременно (по умолчанию 3)":
         "how many tracks to download at once (default 3)",
     "только показать найденные совпадения, ничего не скачивать":

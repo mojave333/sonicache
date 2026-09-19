@@ -321,3 +321,63 @@ def test_mmss():
     assert _mmss(0) == "0:00"
     assert _mmss(61.4) == "1:01"
     assert _mmss(3599) == "59:59"
+
+
+class TestFormats:
+    """Which stream is asked for, and what ffmpeg is told to make of it."""
+
+    def fetch(self, monkeypatch, tmp_path, audio_format, ffmpeg="ffmpeg", source="song"):
+        seen = {}
+
+        class FakeYoutubeDL:
+            def __init__(self, opts):
+                seen.update(opts)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def download(self, urls):
+                (tmp_path / f"stem.{downloader.extension(audio_format)}").write_bytes(b"audio")
+
+        monkeypatch.setattr(downloader.yt_dlp, "YoutubeDL", FakeYoutubeDL)
+        loader = downloader.Downloader(Options(tmp_path, audio_format), log=lambda message: None)
+        loader.ffmpeg = ffmpeg
+        match = downloader.Match(source=source, url="https://music.youtube.test/watch?v=x", page_url="",
+                                 title="T", artists="A", duration=200, score=1.0)
+        track = Track(id="1", title="T", artists="A", duration=200, track_number=1)
+        path = loader._download_audio(match, tmp_path, "stem", track, "YouTube Music")
+        return seen, path
+
+    def test_m4a_is_made_from_the_full_band_opus(self, monkeypatch, tmp_path):
+        opts, path = self.fetch(monkeypatch, tmp_path, "m4a")
+        assert opts["format"].index("bestaudio[acodec=opus]") < opts["format"].index("bestaudio[ext=m4a]/")
+        assert opts["format"].startswith("bestaudio[ext=m4a][abr>=200]")  # Premium's AAC 256 as is
+        assert opts["postprocessors"][0]["preferredcodec"] == "m4a"
+        assert opts["postprocessors"][0]["preferredquality"] == "256"
+        assert path.suffix == ".m4a"
+
+    def test_m4a_without_ffmpeg_takes_youtubes_own_aac(self, monkeypatch, tmp_path):
+        opts, _ = self.fetch(monkeypatch, tmp_path, "m4a", ffmpeg=None)
+        assert opts["format"].startswith("bestaudio[ext=m4a]/")
+        assert "postprocessors" not in opts
+
+    def test_mp3_320_is_a_constant_320_at_441_khz(self, monkeypatch, tmp_path):
+        opts, path = self.fetch(monkeypatch, tmp_path, "mp3-320")
+        assert opts["postprocessors"][0]["preferredcodec"] == "mp3"
+        assert opts["postprocessors"][0]["preferredquality"] == "320"
+        assert opts["postprocessor_args"] == {"extractaudio": ["-ar", "44100"]}
+        assert path.name == "stem.mp3"
+
+    def test_plain_mp3_stays_vbr(self, monkeypatch, tmp_path):
+        opts, _ = self.fetch(monkeypatch, tmp_path, "mp3")
+        assert opts["postprocessors"][0]["preferredquality"] == "0"
+        assert "postprocessor_args" not in opts
+
+    @pytest.mark.parametrize("audio_format, suffix", [("m4a", "m4a"), ("mp3", "mp3"), ("mp3-320", "mp3"),
+                                                      ("opus", "opus")])
+    def test_every_format_has_its_file_extension(self, audio_format, suffix):
+        assert audio_format in downloader.FORMATS
+        assert downloader.extension(audio_format) == suffix
