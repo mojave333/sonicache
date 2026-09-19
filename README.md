@@ -25,9 +25,11 @@ SoundCloud, Last.fm and sites such as Bandcamp.
 ---
 
 Titles, artists, track numbers, the year and the cover are read from the page behind the
-link. The genre comes from the same place when the service names one (Deezer and Apple
-Music do); for Spotify, YouTube and Last.fm the album is looked up by name in Apple's
-catalogue and then on Deezer. Playlists get no genre, since their songs come from many. When the service streams the audio openly (YouTube, SoundCloud, Bandcamp), the track
+link. The genres come from [MusicBrainz](https://musicbrainz.org/), where listeners vote on
+them much as on Rate Your Music: up to three of the most voted, such as "Alternative Rock;
+Rock; Art Rock". An album nobody has voted on keeps the genre its service names (Deezer and
+Apple Music do); for Spotify, YouTube and Last.fm it is looked up by name in Apple's catalogue
+and then on Deezer. Playlists get no genre, since their songs come from many. When the service streams the audio openly (YouTube, SoundCloud, Bandcamp), the track
 is taken from there. When it does not (Spotify, Apple Music, Deezer, Last.fm), the same
 track is looked for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp does the
 downloading, after which the files get their tags and cover art.

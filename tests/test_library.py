@@ -155,6 +155,10 @@ def test_the_genre_goes_into_every_format(tmp_path, ext):
 
 
 class TestGenre:
+    @pytest.fixture(autouse=True)
+    def nothing_on_musicbrainz(self, monkeypatch):
+        monkeypatch.setattr(sources, "musicbrainz_genres", lambda artist, title: [])
+
     def test_apple_music_names_the_genre_of_its_album(self, monkeypatch):
         monkeypatch.setattr(sources, "_itunes", lambda endpoint, **params: [
             {"wrapperType": "collection", "collectionName": "Discovery", "artistName": "Daft Punk",
@@ -210,23 +214,83 @@ class TestGenreLookupWhenDownloading:
 
     def test_an_album_without_a_genre_gets_one_looked_up(self, tmp_path, monkeypatch):
         album = self.album()
-        monkeypatch.setattr(downloader.sources, "find_genre", lambda artist, title: "Electronic")
+        monkeypatch.setattr(downloader.sources, "find_genre", lambda artist, title, known="": "Electronic")
         self.downloader_for(tmp_path, monkeypatch, album).download_link("x")
         assert album.genre == "Electronic"
 
-    @pytest.mark.parametrize("kind, genre, dry_run", [("playlist", "", False), ("album", "House", False),
-                                                      ("album", "", True)])
-    def test_no_lookup_for_playlists_known_genres_or_dry_runs(self, tmp_path, monkeypatch, kind, genre, dry_run):
+    @pytest.mark.parametrize("kind, genre, dry_run", [("playlist", "", False), ("album", "", True)])
+    def test_no_lookup_for_playlists_or_dry_runs(self, tmp_path, monkeypatch, kind, genre, dry_run):
         album = self.album(kind, genre)
-        monkeypatch.setattr(downloader.sources, "find_genre", lambda artist, title: pytest.fail("looked up"))
+        monkeypatch.setattr(downloader.sources, "find_genre", lambda artist, title, known="": pytest.fail("looked up"))
         self.downloader_for(tmp_path, monkeypatch, album, dry_run).download_link("x")
         assert album.genre == genre
 
     def test_a_failed_lookup_does_not_stop_the_download(self, tmp_path, monkeypatch):
-        def broken(artist, title):
+        def broken(artist, title, known=""):
             raise RuntimeError("catalogue down")
 
         album = self.album()
         monkeypatch.setattr(downloader.sources, "find_genre", broken)
         assert isinstance(self.downloader_for(tmp_path, monkeypatch, album).download_link("x"), downloader.Report)
         assert album.genre == ""
+
+
+class TestMusicBrainz:
+    GROUPS = {"release-groups": [
+        {"id": "wrong", "title": "In Rainbows Disk 2", "artist-credit": [{"name": "Radiohead"}]},
+        {"id": "right", "title": "In Rainbows", "artist-credit": [{"name": "Radiohead"}]},
+    ]}
+    GENRES = {"genres": [{"name": "rock", "count": 12}, {"name": "alternative rock", "count": 20},
+                         {"name": "art rock", "count": 9}, {"name": "indie rock", "count": 4},
+                         {"name": "space rock", "count": 2}]}
+
+    @pytest.fixture
+    def answers(self, monkeypatch):
+        asked = []
+
+        def fetch_json(url, **kwargs):
+            asked.append((url, kwargs.get("user_agent", "")))
+            return self.GENRES if "/right?" in url else self.GROUPS
+
+        monkeypatch.setattr(sources, "fetch_json", fetch_json)
+        monkeypatch.setattr(sources.time, "sleep", lambda seconds: None)
+        return asked
+
+    def test_the_three_most_voted_genres_of_the_right_album(self, answers):
+        assert sources.musicbrainz_genres("Radiohead", "In Rainbows") == ["Alternative Rock", "Rock", "Art Rock"]
+        assert all("Trackhound" in agent for _, agent in answers)  # MusicBrainz wants to know who asks
+        assert answers[1][0].startswith("https://musicbrainz.org/ws/2/release-group/right?inc=genres")
+
+    def test_a_genre_far_behind_the_first_is_left_out(self, answers, monkeypatch):
+        monkeypatch.setattr(self, "GENRES", {"genres": [{"name": "electronic", "count": 20},
+                                                         {"name": "synth-pop", "count": 4}]})
+        assert sources.musicbrainz_genres("Radiohead", "In Rainbows") == ["Electronic"]
+
+    def test_find_genre_prefers_musicbrainz_to_the_services_own(self, answers):
+        assert sources.find_genre("Radiohead", "In Rainbows", "Alternative") == "Alternative Rock; Rock; Art Rock"
+
+    def test_the_services_genre_stays_when_musicbrainz_has_none(self, monkeypatch):
+        monkeypatch.setattr(sources, "musicbrainz_genres", lambda artist, title: [])
+        monkeypatch.setattr(sources, "_itunes", lambda *a, **k: pytest.fail("the service had named one"))
+        assert sources.find_genre("Daft Punk", "Discovery", "Electro") == "Electro"
+
+    def test_musicbrainz_being_down_is_not_an_error(self, monkeypatch):
+        def down(artist, title):
+            raise SourceError("503")
+
+        monkeypatch.setattr(sources, "musicbrainz_genres", down)
+        assert sources.find_genre("Daft Punk", "Discovery", "Electro") == "Electro"
+
+    def test_requests_keep_a_second_apart(self, monkeypatch):
+        naps = []
+        monkeypatch.setattr(sources, "fetch_json", lambda url, **kwargs: {})
+        monkeypatch.setattr(sources.time, "sleep", naps.append)
+        sources._musicbrainz("release-group/x?inc=genres")
+        sources._musicbrainz("release-group/y?inc=genres")
+        assert naps and naps[-1] > 1.0
+
+    @pytest.mark.parametrize("name, cased", [("alternative rock", "Alternative Rock"), ("synth-pop", "Synth-Pop"),
+                                             ("drum and bass", "Drum and Bass"), ("hip hop", "Hip Hop"),
+                                             ("r&b", "R&B"), ("uk garage", "UK Garage"), ("idm", "IDM")])
+    def test_genre_names_are_capitalised(self, name, cased):
+        assert sources._genre_case(name) == cased

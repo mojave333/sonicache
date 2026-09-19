@@ -165,10 +165,10 @@ class Downloader:
 
         release = sources.resolve(link)
         album, tracks, single = release.album, release.tracks, release.single
-        if not album.genre and album.kind != "playlist" and not self.options.dry_run:
+        if album.kind != "playlist" and not self.options.dry_run:
             # A playlist mixes genres, so one guessed for its name would be wrong on most tracks
             try:
-                album.genre = sources.find_genre(album.artist, album.name)
+                album.genre = sources.find_genre(album.artist, album.name, album.genre)
             except Exception as e:  # the genre is a nicety: no lookup failure may stop a download
                 log.getChild("download").warning("жанр для «%s» не нашёлся: %s", album.name, e)
         if single:

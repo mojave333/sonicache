@@ -35,9 +35,9 @@ def fetch_text(url: str, *, service: str, user_agent: str = BROWSER_UA, retries:
     raise AssertionError("unreachable")
 
 
-def fetch_json(url: str, *, service: str) -> dict:
+def fetch_json(url: str, *, service: str, user_agent: str = BROWSER_UA) -> dict:
     try:
-        return json.loads(fetch_text(url, service=service))
+        return json.loads(fetch_text(url, service=service, user_agent=user_agent))
     except ValueError as e:
         raise SourceError(t("{service} вернул непонятный ответ: {url}",
                             service=service, url=url)) from e

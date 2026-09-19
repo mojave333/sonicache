@@ -1992,7 +1992,8 @@ function renderAlbumTracks(item, data, highlight) {
   const page = $("#album-page");
   const formats = data.tracks.map((track) => track.format);
   const format = formats.sort((a, b) => formats.filter((f) => f === b).length - formats.filter((f) => f === a).length)[0] || "";
-  const genre = data.tracks.map((track) => track.genre).find(Boolean) || "";
+  // "Alternative Rock; Art Rock" in the tags reads better with commas on the page
+  const genre = (data.tracks.map((track) => track.genre).find(Boolean) || "").replace(/\s*;\s*/g, ", ");
   $(".album-sub", page).textContent = albumSubline(item, format, genre);
   const rows = [];
   const all = [...data.tracks.map((track) => ({ ...track, missing: false })),

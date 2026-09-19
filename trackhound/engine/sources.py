@@ -11,6 +11,8 @@ from __future__ import annotations
 import html
 import json
 import re
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,6 +41,13 @@ _LASTFM_ROW_RE = re.compile(r'<tr\s+class="\s*chartlist-row.*?</tr>', re.S)
 _VIDEO_TYPES = {"MUSIC_VIDEO_TYPE_UGC", "MUSIC_VIDEO_TYPE_OMV", "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"}
 _YTDLP_OPTS = {"quiet": True, "no_warnings": True, "skip_download": True, "logger": YtdlpLogger("sources")}
 _SERVICE_NAMES = {"soundcloud": "SoundCloud", "bandcamp": "Bandcamp", "mixcloud": "Mixcloud"}
+# MusicBrainz asks every program to name itself and to send one request a second
+_MUSICBRAINZ_UA = "Trackhound ( https://github.com/mojave333/trackhound )"
+_MUSICBRAINZ_LOCK = threading.Lock()
+_musicbrainz_last = 0.0
+GENRE_LIMIT = 3  # the most voted genres written into the tags
+_GENRE_SMALL_WORDS = {"and", "of", "the", "n", "in", "de"}
+_GENRE_CAPITALS = {"r&b", "idm", "edm", "ebm", "uk", "us", "dj", "mpb", "aor", "nwobhm", "ccm", "dnb"}
 
 
 def resolve(link: str) -> Release:
@@ -525,15 +534,25 @@ def _lastfm_tracklist(url: str, artist: str, album_name: str) -> Release:
     return Release(album, tracks)
 
 
-def find_genre(artist: str, title: str) -> str:
-    """The genre of an album the service did not name one for.
+def find_genre(artist: str, title: str, known: str = "") -> str:
+    """The genres to tag an album with, most voted first: "Alternative Rock; Art Rock".
 
-    Spotify, YouTube and Last.fm give none, so the same album is looked up in
-    Apple's catalogue and then on Deezer; "" when neither knows it by that
-    artist and title.
+    MusicBrainz comes first: its genres are voted on by listeners, as on Rate
+    Your Music, and are as fine-grained. An album nobody has voted on there
+    keeps the genre its own service named (Deezer and Apple Music name one);
+    for Spotify, YouTube and Last.fm, which name none, the album is looked up
+    in Apple's catalogue and then on Deezer. "" when nothing knows it.
     """
     if not artist or not title:
-        return ""
+        return known
+    try:
+        genres = musicbrainz_genres(artist, title)
+    except SourceError:
+        genres = []
+    if genres:
+        return "; ".join(genres)
+    if known:
+        return known
     fields = lambda result: (_split_kind(result.get("collectionName", ""))[0], result.get("artistName", ""))
     try:
         best = _best(_itunes("search", term=f"{artist} {title}", entity="album", limit=10), title, artist, fields)
@@ -551,6 +570,57 @@ def find_genre(artist: str, title: str) -> str:
     except SourceError:
         pass
     return ""
+
+
+def musicbrainz_genres(artist: str, title: str) -> list[str]:
+    """Up to GENRE_LIMIT genres of the album, by listeners' votes on MusicBrainz.
+
+    A genre with far fewer votes than the first is left out: one listener's
+    guess should not stand beside what twenty agreed on.
+    """
+    query = urllib.parse.quote(f'releasegroup:"{_lucene(title)}" AND artist:"{_lucene(artist)}"')
+    found = _musicbrainz(f"release-group/?query={query}&limit=5")
+    fields = lambda group: (group.get("title", ""),
+                            " ".join(credit.get("name", "") for credit in group.get("artist-credit") or []))
+    best = _best(found.get("release-groups") or [], title, artist, fields)
+    if not best:
+        return []
+    genres = _musicbrainz(f"release-group/{best['id']}?inc=genres").get("genres") or []
+    ranked = sorted(genres, key=lambda genre: (-genre.get("count", 0), genre.get("name", "")))
+    if not ranked:
+        return []
+    top = ranked[0].get("count", 0)
+    chosen = [genre["name"] for genre in ranked[:GENRE_LIMIT]
+              if genre.get("name") and genre.get("count", 0) * 4 >= top]
+    return [_genre_case(name) for name in chosen]
+
+
+def _musicbrainz(path: str) -> dict:
+    global _musicbrainz_last
+    with _MUSICBRAINZ_LOCK:
+        wait = _musicbrainz_last + 1.1 - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            return fetch_json(f"https://musicbrainz.org/ws/2/{path}&fmt=json" if "?" in path
+                              else f"https://musicbrainz.org/ws/2/{path}?fmt=json",
+                              service="MusicBrainz", user_agent=_MUSICBRAINZ_UA)
+        finally:
+            _musicbrainz_last = time.monotonic()
+
+
+def _lucene(text: str) -> str:
+    """Quotes and backslashes would end the phrase in a MusicBrainz query."""
+    return text.replace("\\", " ").replace('"', " ")
+
+
+def _genre_case(name: str) -> str:
+    """MusicBrainz writes "alternative rock"; tags usually say "Alternative Rock"."""
+    words = name.split(" ")
+    return " ".join(word if index and word in _GENRE_SMALL_WORDS
+                    else "-".join(part.upper() if part in _GENRE_CAPITALS else part[:1].upper() + part[1:]
+                                  for part in word.split("-"))
+                    for index, word in enumerate(words))
 
 
 def artist_picture(name: str) -> str:
