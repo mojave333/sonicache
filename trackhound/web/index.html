@@ -26,6 +26,8 @@
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
     <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m11 18-6-6 6-6"/></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
     <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
     <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/></symbol>
@@ -197,9 +199,14 @@
 
       <section id="view-library" class="view" aria-label="Библиотека" hidden>
         <div class="toolbar">
-          <div class="field">
+          <div id="library-tabs" class="tabs" role="tablist" aria-label="Библиотека">
+            <button type="button" role="tab" data-tab="albums" aria-selected="true">Альбомы</button>
+            <button type="button" role="tab" data-tab="tracks" aria-selected="false">Треки</button>
+            <button type="button" role="tab" data-tab="artists" aria-selected="false">Исполнители</button>
+          </div>
+          <div class="field library-search">
             <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
-            <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Поиск по исполнителю или названию" aria-label="Поиск">
+            <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Поиск в библиотеке" aria-label="Поиск">
           </div>
           <button type="button" id="library-again" class="tool-btn" hidden>
             <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Скачать снова</span>
@@ -216,16 +223,60 @@
             </button>
           </div>
         </div>
-        <div class="list-head columns library-grid" role="row">
-          <span></span><span role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="title">Название<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="year">Год<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="tracks">Треков<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num col-size" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="size">Размер<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="col-date" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="modified">Изменён<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span></span>
-        </div>
-        <div class="list-scroll" id="library-scroll">
-          <div id="library-empty" class="empty">
-            <svg class="icon" aria-hidden="true"><use href="#i-library"/></svg>
-            <p class="empty-title"></p>
-            <p class="empty-text"></p>
+        <div class="library-bar">
+          <span id="library-summary" class="library-summary"></span>
+          <label class="pick">Сортировка: <select id="library-sort" aria-label="Сортировка"></select><svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg></label>
+          <label class="pick">Порядок: <select id="library-order" aria-label="Порядок"></select><svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg></label>
+          <div id="library-view" class="segmented small" role="radiogroup" aria-label="Вид">
+            <button type="button" role="radio" data-library-view="grid" title="Сетка обложек" aria-label="Сетка обложек"><svg class="icon sm" aria-hidden="true"><use href="#i-grid"/></svg></button>
+            <button type="button" role="radio" data-library-view="list" title="Список" aria-label="Список"><svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg></button>
           </div>
-          <ol id="library" class="rows" role="listbox" aria-multiselectable="true" aria-label="Альбомы и треки"></ol>
+        </div>
+        <div class="library-body">
+          <div id="library-panel" class="library-panel">
+            <div class="list-head columns library-grid" role="row" id="library-head">
+              <span></span><span role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="title">Название<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="year">Год<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="tracks">Треков<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num col-size" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="size">Размер<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="col-date" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="modified">Изменён<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span></span>
+            </div>
+            <div class="list-scroll" id="library-scroll">
+              <div id="library-empty" class="empty">
+                <svg class="icon" aria-hidden="true"><use href="#i-library"/></svg>
+                <p class="empty-title"></p>
+                <p class="empty-text"></p>
+              </div>
+              <ol id="library" class="rows" role="listbox" aria-multiselectable="true" aria-label="Альбомы и треки"></ol>
+              <div id="library-cards" class="cards" role="listbox" aria-multiselectable="true" aria-label="Альбомы и треки"></div>
+              <ol id="library-tracks" class="rows" aria-label="Треки"></ol>
+              <div id="library-artists" class="cards artists" aria-label="Исполнители"></div>
+            </div>
+          </div>
+          <div id="library-page" class="library-page" hidden>
+            <button type="button" class="page-back" id="page-back">
+              <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span id="page-back-label">Альбомы</span>
+            </button>
+            <div id="album-page" class="album-page">
+              <div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
+              <div class="album-info">
+                <h2 class="album-title"></h2>
+                <p class="album-sub"></p>
+                <div class="album-actions">
+                  <button type="button" class="tool-btn" data-page-action="open"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Открыть папку</span></button>
+                  <button type="button" class="tool-btn" data-page-action="again"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Докачать недостающее</span></button>
+                  <button type="button" class="tool-btn" data-page-action="watch" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg><span>Следить</span></button>
+                </div>
+                <div class="album-tracks" role="table" aria-label="Треки альбома">
+                  <div class="album-track album-head" role="row"><span role="columnheader" class="n">#</span><span role="columnheader">Трек</span><span role="columnheader" class="artists">Исполнители</span><span role="columnheader" class="num">Время</span></div>
+                  <div class="album-list"></div>
+                </div>
+              </div>
+            </div>
+            <div id="artist-page" class="artist-page">
+              <div class="artist-head">
+                <div class="artist-photo"><img alt="" hidden><span class="initials"></span></div>
+                <div><h2 class="artist-name"></h2><p class="album-sub artist-sub"></p></div>
+              </div>
+              <div class="cards artist-albums"></div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -516,6 +567,32 @@
         <div class="bar" hidden><span class="bar-fill"></span></div>
       </div>
     </li>
+  </template>
+
+  <template id="card-template">
+    <div class="card" role="option" aria-selected="false" tabindex="-1">
+      <div class="card-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
+      <p class="card-title"></p>
+      <p class="card-sub"></p>
+    </div>
+  </template>
+
+  <template id="library-track-template">
+    <li class="row track-item" tabindex="-1">
+      <div class="cover"><img alt="" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg></div>
+      <span class="title"></span>
+      <span class="sub cell-artists"></span>
+      <span class="sub cell-album"></span>
+      <span class="num sub cell-time"></span>
+    </li>
+  </template>
+
+  <template id="artist-template">
+    <div class="card artist-card" tabindex="-1">
+      <div class="artist-photo"><img alt="" hidden><span class="initials"></span></div>
+      <p class="card-title"></p>
+      <p class="card-sub"></p>
+    </div>
   </template>
 
   <template id="library-template">

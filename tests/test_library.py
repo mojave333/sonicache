@@ -1,0 +1,142 @@
+"""What the library reads out of the music folder: tags, covers, missing tracks, artist photos."""
+
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from trackhound import gui
+from trackhound.engine import downloader, sources
+from trackhound.engine.models import Album, SourceError, Track
+
+FFMPEG = downloader.find_tool("ffmpeg")
+CODECS = {"m4a": ["-c:a", "aac", "-b:a", "96k"], "mp3": ["-c:a", "libmp3lame", "-b:a", "128k"],
+          "opus": ["-c:a", "libopus", "-b:a", "64k"]}
+PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
+
+
+def tagged(folder: Path, ext: str, number: int, title: str, cover: bytes | None = None) -> Path:
+    """A one-second file tagged the way the downloader tags its own."""
+    path = folder / f"{number:02d}. {title}.{ext}"
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                    "-i", "sine=frequency=440:duration=1", *CODECS[ext], str(path)], check=True)
+    tracks = [Track(id=str(n), title=f"T{n}", artists="Radiohead", duration=1, track_number=n)
+              for n in (1, 2, 3)]
+    album = Album(id="a", name="In Rainbows", artist="Radiohead", release_date="2007-10-10", tracks=tracks)
+    track = Track(id=str(number), title=title, artists="Radiohead, Guest", duration=1, track_number=number)
+    downloader._write_tags(path, album, track, cover)
+    return path
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+class TestTags:
+    @pytest.mark.parametrize("ext", ["m4a", "mp3", "opus"])
+    def test_what_the_downloader_wrote_is_read_back(self, tmp_path, ext):
+        info = gui._tags(tagged(tmp_path, ext, 2, "Bodysnatchers"))
+        assert (info["title"], info["artists"], info["album"], info["album_artist"]) == (
+            "Bodysnatchers", "Radiohead, Guest", "In Rainbows", "Radiohead")
+        assert (info["number"], info["disc"], info["year"], info["format"]) == (2, 1, "2007", ext)
+        assert info["duration"] == 1 and info["bitrate"] > 0
+
+    @pytest.mark.parametrize("ext", ["m4a", "mp3", "opus"])
+    def test_the_cover_inside_a_file_is_found(self, tmp_path, ext):
+        path = tagged(tmp_path, ext, 1, "15 Step", cover=PNG)
+        assert gui._embedded_cover(path) == PNG
+        assert gui.Api.cover(None, str(path)).startswith("data:image/png;base64,")
+
+    def test_a_file_without_tags_is_named_after_itself(self, tmp_path):
+        path = tmp_path / "Loose Song.mp3"
+        subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                        "-i", "sine=duration=1", "-map_metadata", "-1", *CODECS["mp3"], str(path)], check=True)
+        info = gui._tags(path)
+        assert (info["title"], info["number"], info["artists"]) == ("Loose Song", 0, "")
+        assert gui._embedded_cover(path) is None
+
+    def test_the_album_page_lists_the_tracks_in_order_and_the_missing_ones(self, tmp_path):
+        folder = tmp_path / "Radiohead - In Rainbows (2007)"
+        folder.mkdir()
+        tagged(folder, "mp3", 3, "Nude")
+        tagged(folder, "mp3", 1, "15 Step")
+        (folder / downloader.MARKER_NAME).write_text(json.dumps({
+            "link": "https://www.deezer.com/album/1", "tracks": 3, "service": "Deezer",
+            "tracklist": [{"disc": 1, "number": n, "title": title, "artists": "Radiohead", "duration": 200}
+                          for n, title in ((1, "15 Step"), (2, "Bodysnatchers"), (3, "Nude"))],
+        }), encoding="utf-8")
+        page = gui.Api.album(None, str(folder))
+        assert [track["title"] for track in page["tracks"]] == ["15 Step", "Nude"]
+        assert [track["title"] for track in page["missing"]] == ["Bodysnatchers"]
+        assert (page["expected"], page["link"], page["service"]) == (3, "https://www.deezer.com/album/1", "Deezer")
+
+
+class TestMarker:
+    def test_the_marker_keeps_the_whole_tracklist(self, tmp_path):
+        tracks = [Track(id="1", title="One More Time", artists="Daft Punk", duration=320.4, track_number=1),
+                  Track(id="2", title="Too Long", artists="Daft Punk", duration=600, track_number=1, disc_number=2)]
+        album = Album(id="a", name="Discovery", artist="Daft Punk", tracks=tracks)
+        downloader._write_marker(tmp_path, album, "https://example.test/album")
+        marker = json.loads((tmp_path / downloader.MARKER_NAME).read_text(encoding="utf-8"))
+        assert marker["tracklist"] == [
+            {"disc": 1, "number": 1, "title": "One More Time", "artists": "Daft Punk", "duration": 320},
+            {"disc": 2, "number": 1, "title": "Too Long", "artists": "Daft Punk", "duration": 600},
+        ]
+
+
+class TestArtistPicture:
+    @pytest.fixture
+    def data_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(gui.logs, "data_dir", lambda: tmp_path)
+        return tmp_path
+
+    def test_a_name_is_asked_about_once(self, data_dir, monkeypatch):
+        asked = []
+        monkeypatch.setattr(gui.sources, "artist_picture",
+                            lambda name: asked.append(name) or "https://img.test/r.jpg")
+        api = gui.Api.__new__(gui.Api)
+        assert api.artist_picture("Radiohead") == "https://img.test/r.jpg"
+        assert api.artist_picture("  radiohead ") == "https://img.test/r.jpg"
+        assert asked == ["Radiohead"]
+
+    def test_an_unknown_artist_waits_a_week_before_the_next_question(self, data_dir, monkeypatch):
+        asked = []
+        monkeypatch.setattr(gui.sources, "artist_picture", lambda name: asked.append(name) or "")
+        api = gui.Api.__new__(gui.Api)
+        assert api.artist_picture("Nobody") == "" and api.artist_picture("Nobody") == ""
+        assert asked == ["Nobody"]
+        stale = json.loads((data_dir / gui.ARTISTS_FILE).read_text(encoding="utf-8"))
+        stale["nobody"]["asked"] -= gui.ARTIST_RETRY + 1
+        (data_dir / gui.ARTISTS_FILE).write_text(json.dumps(stale), encoding="utf-8")
+        api.artist_picture("Nobody")
+        assert asked == ["Nobody", "Nobody"]
+
+    def test_being_offline_is_not_remembered(self, data_dir, monkeypatch):
+        def offline(name):
+            raise SourceError("no network")
+
+        monkeypatch.setattr(gui.sources, "artist_picture", offline)
+        assert gui.Api.__new__(gui.Api).artist_picture("Radiohead") == ""
+        assert not (data_dir / gui.ARTISTS_FILE).exists()
+
+
+class TestDeezerArtist:
+    def answer(self, monkeypatch, items):
+        monkeypatch.setattr(sources, "fetch_json", lambda url, **kwargs: {"data": items})
+
+    def test_only_the_exact_name_counts(self, monkeypatch):
+        self.answer(monkeypatch, [{"name": "Radiohead Tribute", "picture_big": "https://img.test/fake.jpg"},
+                                  {"name": "Radiohead", "picture_big": "https://img.test/real.jpg"}])
+        assert sources.artist_picture("radiohead") == "https://img.test/real.jpg"
+
+    def test_deezers_placeholder_is_no_photo(self, monkeypatch):
+        self.answer(monkeypatch, [{"name": "Kino",
+                                   "picture_big": "https://cdn.test/images/artist//500x500-000000-80-0-0.jpg"}])
+        assert sources.artist_picture("Kino") == ""
+
+    def test_nobody_by_that_name(self, monkeypatch):
+        self.answer(monkeypatch, [{"name": "Someone Else", "picture_big": "https://img.test/x.jpg"}])
+        assert sources.artist_picture("Radiohead") == ""
+
+
+@pytest.mark.parametrize("given, expected", [("grid", "grid"), ("list", "list"), ("tiles", "grid"), (None, "grid")])
+def test_the_library_view_setting(given, expected):
+    assert gui._normalize({"library_view": given})["library_view"] == expected

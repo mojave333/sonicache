@@ -140,13 +140,29 @@ the next run. The status bar at the bottom counts the tracks and estimates what 
 
 ### Library
 
-The library shows what is already in the folder, albums and single tracks, with a search and
-sortable columns. A double click opens the folder in the file manager. Rows are selected the
-way they are in a file manager (click, Ctrl, Shift, Ctrl+A, arrows, Home and End), the right
-button opens a menu of actions, and the selection goes to the trash, from where it can be
-restored. Albums downloaded by this program have a "Download again" button. The link is kept
-in a `.trackhound.json` file inside the album's folder, so missing tracks are filled in
-without hunting for the link again.
+The library shows what is already in the music folder, on three tabs: Albums, Tracks and
+Artists. Each has a search, a sort order and a direction. Albums come as a grid of covers
+or, with the switch beside the sorting, as a table with sortable columns.
+
+A click on a cover opens the album's page: the cover grows out of the grid into a large one
+beside the title, the year, the size and the tracks, read from the files' own tags. For an
+album this program downloaded, the tracks that never arrived are listed too, greyed out,
+since the `.trackhound.json` file in the album's folder keeps the link and the whole
+tracklist. From the page the album can be opened in the file manager, completed ("Fetch what
+is missing" downloads the same link again and skips what is on disk) or watched for new
+tracks. Escape, Backspace or the mouse's back button returns to the grid, and the cover
+flies back to its place.
+
+Tracks lists every file with its artists, album and length; a double click opens its album
+with the track picked out. Artists groups the albums and single tracks by the name in their
+folder, each with a round photo that Deezer's public catalogue provides (looked up once per
+name and remembered) or initials on a colour of their own when it has none. An artist's page
+shows their albums.
+
+In the grid and in the table, albums are selected the way files are in a file manager: Ctrl
+and Shift with a click, Ctrl+A, the arrows, Home and End (a plain click on a cover opens it).
+The right button opens a menu of actions, and the selection goes to the trash, from where it
+can be restored.
 
 ### Queue
 

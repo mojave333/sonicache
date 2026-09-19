@@ -27,10 +27,13 @@ import webbrowser
 from pathlib import Path
 
 import webview
+from mutagen import File as MutagenFile
+from mutagen.flac import Picture
 
 from . import __version__, logs, watch
 from .i18n import LANGUAGES, resolve, set_language, t
-from .engine import batch
+from .engine import batch, sources
+from .engine.models import SourceError
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, use_proxy)
 
@@ -61,6 +64,14 @@ LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thous
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 _TRACK_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+)$")
+LIBRARY_VIEWS = ("grid", "list")
+ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the history
+ARTIST_RETRY = 7 * 86400  # an artist Deezer did not know is asked about again after a week
+# Tags read from a file, kept while its size and time stay the same: the Tracks
+# tab reads every file in the library, and the second visit should be instant
+_TAG_CACHE: dict[tuple[str, int, int], dict] = {}
+_ARTIST_LOCK = threading.Lock()
+_ARTIST_QUERIES = threading.BoundedSemaphore(4)  # Deezer allows 50 requests in 5 seconds
 
 
 class Api:
@@ -469,13 +480,107 @@ class Api:
         webbrowser.open(url)
         return True
 
-    def cover(self, folder: str) -> str | None:
+    def cover(self, path: str) -> str | None:
+        """An album's cover.jpg, or the picture inside a single track's file."""
+        target = Path(path)
         try:
-            data = (Path(folder) / "cover.jpg").read_bytes()
+            data = (target / "cover.jpg").read_bytes() if target.is_dir() else _embedded_cover(target)
         except OSError:
+            return None
+        if not data:
             return None
         mime = "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
         return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+
+    def album(self, path: str) -> dict:
+        """The tracks of one library entry as their tags tell it, for the album page.
+
+        An album this program downloaded also knows its whole tracklist, so the
+        tracks that never arrived are listed too.
+        """
+        target = Path(path)
+        try:
+            files = sorted(file for file in target.iterdir() if _is_audio(file)) if target.is_dir() else [target]
+        except OSError:
+            files = []
+        tracks = [{**_tags(file), "path": str(file)} for file in files]
+        tracks.sort(key=lambda track: (track["disc"], track["number"] or 999, track["title"].casefold()))
+        marker = _read_marker(target) if target.is_dir() else {}
+        have = {(track["disc"], track["number"]) for track in tracks}
+        missing = [item for item in marker.get("tracklist") or []
+                   if isinstance(item, dict) and (item.get("disc", 1), item.get("number")) not in have]
+        return {
+            "tracks": tracks,
+            "missing": missing,
+            # Older downloads kept only the count: then the page says how many are missing
+            "expected": marker.get("tracks") or 0,
+            "link": marker.get("link", ""),
+            "service": marker.get("service", ""),
+        }
+
+    def tracks(self, folder: str) -> list[dict]:
+        """Every track in the music folder with its tags, for the Tracks tab."""
+        result = []
+        for item in self.library(folder):
+            entry = Path(item["path"])
+            try:
+                files = [file for file in entry.iterdir() if _is_audio(file)] if item["album"] else [entry]
+            except OSError:
+                continue
+            for file in files:
+                try:
+                    modified = file.stat().st_mtime
+                except OSError:
+                    continue
+                result.append({**_tags(file), "path": str(file), "entry": item["path"],
+                               "cover": item["cover"], "modified": modified})
+        return result
+
+    def artist_picture(self, name: str) -> str:
+        """A photo of the artist, looked up on Deezer once and remembered."""
+        key = " ".join(str(name or "").split()).casefold()
+        if not key:
+            return ""
+        path = logs.data_dir() / ARTISTS_FILE
+        with _ARTIST_LOCK:
+            known = _read_json(path)
+        entry = known.get(key)
+        if isinstance(entry, dict) and (entry.get("url") or time.time() - entry.get("asked", 0) < ARTIST_RETRY):
+            return entry.get("url", "")
+        with _ARTIST_QUERIES:
+            try:
+                url = sources.artist_picture(name)
+            except SourceError:
+                return ""  # offline or refused: asked again next time, nothing remembered
+        with _ARTIST_LOCK:
+            known = _read_json(path)
+            known[key] = {"url": url, "asked": int(time.time())}
+            _write_json(path, known)
+        return url
+
+    def watch_album(self, path: str) -> list[dict]:
+        """Starts watching an album from its page in the library.
+
+        New tracks go to the music folder the album sits in, in the format its
+        files already have, named by the current rules.
+        """
+        target = Path(path)
+        marker = _read_marker(target)
+        link = marker.get("link")
+        if not link:
+            return self.watched()
+        try:
+            formats = [file.suffix[1:].lower() for file in target.iterdir() if _is_audio(file)]
+        except OSError:
+            formats = []
+        settings = {**_load_settings(), "folder": str(target.parent)}
+        if formats:
+            settings["format"] = max(set(formats), key=formats.count)
+        with self._lock:
+            self._watched = watch.add(self._watched, link, marker.get("album") or target.name,
+                                      marker.get("service", ""), settings)
+            watch.save(self._watched)
+        return self.watched()
 
     def poll(self) -> list[dict]:
         events = []
@@ -740,6 +845,96 @@ def _library_item(path: Path, files: list[Path]) -> dict:
     }
 
 
+def _tags(path: Path) -> dict:
+    """Title, artists, album, numbers, length and bitrate of one file."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return _blank_tags(path)
+    key = (str(path), stat.st_mtime_ns, stat.st_size)
+    if key in _TAG_CACHE:
+        return _TAG_CACHE[key]
+    info = _blank_tags(path)
+    try:
+        audio = MutagenFile(path, easy=True)
+    except Exception:  # a broken or half-written file still gets its row
+        audio = None
+    if audio is not None:
+        tags = audio.tags or {}
+
+        def first(name: str) -> str:
+            try:
+                values = tags.get(name) or []
+            except (KeyError, ValueError):
+                values = []
+            return str(values[0]).strip() if values else ""
+
+        info.update({
+            "title": first("title") or info["title"],
+            "artists": first("artist"),
+            "album": first("album"),
+            "album_artist": first("albumartist"),
+            "number": _leading_number(first("tracknumber")),
+            "disc": _leading_number(first("discnumber")) or 1,
+            "year": first("date")[:4],
+            "duration": round(getattr(audio.info, "length", 0) or 0),
+            "bitrate": round((getattr(audio.info, "bitrate", 0) or 0) / 1000),
+        })
+    if len(_TAG_CACHE) > 50_000:
+        _TAG_CACHE.clear()
+    _TAG_CACHE[key] = info
+    return info
+
+
+def _blank_tags(path: Path) -> dict:
+    return {"title": path.stem, "artists": "", "album": "", "album_artist": "", "number": 0, "disc": 1,
+            "year": "", "duration": 0, "bitrate": 0, "format": path.suffix[1:].lower()}
+
+
+def _leading_number(text: str) -> int:
+    """A "3/10" and a "03" are both track 3."""
+    match = re.match(r"\s*(\d+)", text or "")
+    return int(match.group(1)) if match else 0
+
+
+def _embedded_cover(path: Path) -> bytes | None:
+    """The front cover stored inside an mp3, m4a or opus file."""
+    try:
+        audio = MutagenFile(path)
+    except Exception:
+        return None
+    tags = getattr(audio, "tags", None)
+    if not tags:
+        return None
+    if hasattr(tags, "getall"):  # ID3
+        pictures = tags.getall("APIC")
+        return pictures[0].data if pictures else None
+    if "covr" in tags:  # MP4
+        return bytes(tags["covr"][0])
+    for block in tags.get("metadata_block_picture", []) if hasattr(tags, "get") else []:
+        try:
+            return Picture(base64.b64decode(block)).data
+        except (ValueError, TypeError):
+            continue
+    return None
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_json(path: Path, data: dict) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    except OSError as e:
+        logs.log.warning("не записал %s: %s", path.name, e)
+
+
 def _read_marker(folder: Path) -> dict:
     try:
         data = json.loads((folder / MARKER_NAME).read_text(encoding="utf-8"))
@@ -793,6 +988,7 @@ def _normalize(settings: dict) -> dict:
         "sidebar": sidebar,
         "replaygain": bool(settings.get("replaygain", False)),
         "profiles": _profiles(settings.get("profiles")),
+        "library_view": settings.get("library_view") if settings.get("library_view") in LIBRARY_VIEWS else "grid",
     }
 
 

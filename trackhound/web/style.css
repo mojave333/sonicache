@@ -430,6 +430,125 @@ p { margin: 0; }
 .library-row .open { opacity: 0; }
 .library-row:hover .open, .library-row:focus-within .open { opacity: 1; }
 
+/* Library tabs: the line under the chosen one slides to the next, the way a
+   Material tab strip moves. The script places it through --ink-x and --ink-w. */
+.tabs { position: relative; display: flex; flex: none; gap: 4px; height: 34px; }
+.tabs button {
+  padding: 0 10px; border-radius: var(--radius); color: var(--text-subtle); font-size: 15px; white-space: nowrap;
+}
+.tabs button:hover { background: var(--hover); color: var(--text); }
+.tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; }
+.tabs::after {
+  content: ""; position: absolute; left: 0; bottom: -1px; width: var(--ink-w, 0); height: 2px;
+  border-radius: 1px; background: var(--accent-fg); transform: translateX(var(--ink-x, 0));
+}
+.tabs.ink-ready::after { transition: transform var(--settle) var(--ease), width var(--settle) var(--ease); }
+.library-search { flex: 0 1 280px; margin-left: auto; }
+
+.library-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; flex: none; min-height: 40px; padding: 4px 16px;
+  border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: 13px;
+}
+.library-summary { margin-right: auto; font-variant-numeric: tabular-nums; }
+.pick { position: relative; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.pick select {
+  appearance: none; height: 26px; padding: 0 20px 0 6px; border: 0; border-radius: 4px; background: transparent;
+  color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+.pick select:hover { background: var(--hover); }
+.pick select option { background: var(--field); color: var(--text); font-weight: 400; }
+.pick .icon { position: absolute; right: 2px; pointer-events: none; }
+.segmented.small { height: 28px; }
+.segmented.small button { padding: 0 7px; }
+
+.library-body { position: relative; display: flex; flex: 1; min-height: 0; }
+/* Sorting and the view switch mean nothing on an album's page */
+.page-open .library-bar .pick, .page-open #library-view { visibility: hidden; }
+.library-panel { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+
+/* Cover grid */
+.cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px 18px;
+  align-content: start; padding: 18px 18px 28px;
+}
+.card { min-width: 0; border-radius: 8px; cursor: pointer; outline: none; }
+.card .card-cover {
+  width: 100%; height: auto; aspect-ratio: 1; border-radius: 6px;
+  transition: transform var(--settle) var(--ease), box-shadow var(--settle) var(--ease);
+}
+.card-cover .icon { width: 30px; height: 30px; stroke-width: 1.5; }
+.card:hover .card-cover { transform: translateY(-3px); box-shadow: 0 8px 20px rgb(0 0 0 / 0.22); }
+.card:active .card-cover { transform: translateY(-1px) scale(0.985); transition-duration: var(--press); }
+.card:focus-visible .card-cover { outline: 2px solid var(--accent-fg); outline-offset: 3px; }
+.card.is-selected .card-cover { outline: 3px solid var(--accent-fg); outline-offset: 3px; }
+.card-title { margin-top: 9px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-sub { color: var(--text-subtle); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Cards rise into place one after another when a tab or a view is drawn */
+.cards.entering .card { animation: card-in 360ms var(--ease) both; animation-delay: calc(var(--i, 0) * 18ms); }
+@keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } }
+.cover img:not([hidden]) { animation: img-in 260ms ease-out; }
+@keyframes img-in { from { opacity: 0; } }
+
+/* Artists */
+.artists .card { text-align: center; }
+.artist-photo {
+  position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; overflow: hidden;
+  border-radius: 50%; background: hsl(var(--hue, 260) 32% 42%); color: #FFFFFF;
+  transition: transform var(--settle) var(--ease), box-shadow var(--settle) var(--ease);
+}
+.artist-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.artist-photo img:not([hidden]) { animation: img-in 260ms ease-out; }
+.artist-photo .initials { font-size: 26px; font-weight: 600; letter-spacing: 0.02em; }
+.artist-card:hover .artist-photo { transform: translateY(-3px); box-shadow: 0 8px 20px rgb(0 0 0 / 0.22); }
+.artist-card:focus-visible .artist-photo { outline: 2px solid var(--accent-fg); outline-offset: 3px; }
+
+/* Tracks */
+.track-item { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 52px; cursor: default; }
+.track-item .title { min-width: 0; }
+
+/* Album and artist pages: drawn over the grid, which keeps its scroll position underneath */
+.library-page {
+  position: absolute; inset: 0; z-index: 2; overflow-y: auto; padding: 14px 24px 32px; background: var(--bg);
+  container: page / inline-size;
+}
+.page-back {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; margin: 0 0 14px -8px; padding: 0 10px;
+  border-radius: var(--radius); color: var(--text-muted);
+}
+.page-back:hover { background: var(--hover); color: var(--text); }
+.album-page { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; align-items: start; max-width: 1100px; }
+.album-page .album-cover { width: 240px; height: 240px; border-radius: 8px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
+.album-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
+.album-title { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.album-sub { margin: 4px 0 14px; color: var(--text-subtle); }
+.album-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.album-actions .tool-btn[aria-pressed="true"] { border-color: var(--accent-edge); background: var(--selected); color: var(--accent-fg); }
+.album-track {
+  display: grid; grid-template-columns: 34px minmax(0, 1.6fr) minmax(0, 1fr) 56px; gap: 12px; align-items: center;
+  min-height: 38px; padding: 6px 10px; border-bottom: 1px solid var(--divider);
+}
+.album-track > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-list .album-track:hover { background: var(--hover); }
+.album-head { min-height: 30px; color: var(--text-subtle); font-size: 12px; }
+.album-track .n, .album-track .num { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+.album-track .artists { color: var(--text-subtle); }
+.album-track.missing { color: var(--text-subtle); }
+.album-track.missing .gone { font-size: 12px; }
+.album-track.highlight { animation: highlight 1.6s ease-out; }
+@keyframes highlight { from { background: var(--selected); } }
+.disc-head { padding: 16px 10px 6px; color: var(--text-subtle); font-size: 12px; font-weight: 600; }
+.album-note { padding: 10px; color: var(--text-subtle); font-size: 13px; }
+.artist-head { display: flex; align-items: center; gap: 22px; max-width: 1100px; margin-bottom: 6px; }
+.artist-head .artist-photo { width: 150px; flex: none; box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
+.artist-head .artist-photo .initials { font-size: 44px; }
+.artist-albums { padding: 18px 0 0; }
+@container page (max-width: 640px) {
+  .album-page { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .album-page .album-cover { width: 180px; height: 180px; }
+  .album-track { grid-template-columns: 28px minmax(0, 1fr) 48px; }
+  .album-track .artists { display: none; }
+}
+
 .empty {
   position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 5px;
   padding: 28px; text-align: center; color: var(--text-subtle);
@@ -498,6 +617,12 @@ p { margin: 0; }
   .col-size { display: none; }
 }
 @container content (max-width: 796px) {
+  .library-search { flex-basis: 180px; }
+  #library-folder span { display: none; }
+  #library-folder { flex: none; }
+  .cards { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px 14px; padding: 14px; }
+  .track-item { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) 52px; }
+  .track-item .cell-album { display: none; }
   #folder span { display: none; }
   #folder { flex: none; }
   #queue-filter .count { display: none; } /* the filters themselves must stay reachable */
@@ -531,5 +656,7 @@ p { margin: 0; }
   .btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
   .nav-item:active, .stepper button:active { transform: none; }
   .expander[aria-expanded="true"] .icon { transition: none; }
+  .cards.entering .card { animation: fade-in var(--quick) ease-out; }
+  .card:hover .card-cover, .artist-card:hover .artist-photo { transform: none; }
   @keyframes fade-in { from { opacity: 0; } }
 }

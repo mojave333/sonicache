@@ -538,6 +538,9 @@ def _write_marker(folder: Path, album: Album, link: str) -> None:
         "kind": album.kind,
         "service": album.service,
         "tracks": len(album.tracks),
+        # The whole tracklist, so the library can name the tracks that are missing
+        "tracklist": [{"disc": t.disc_number, "number": t.track_number, "title": t.title,
+                       "artists": t.artists, "duration": round(t.duration)} for t in album.tracks],
     }
     try:
         (folder / MARKER_NAME).write_text(json.dumps(marker, ensure_ascii=False, indent=2),

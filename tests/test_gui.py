@@ -27,6 +27,7 @@ class TestNormalize:
             "sidebar": 64,
             "replaygain": False,
             "profiles": [],
+            "library_view": "grid",
         }
 
     @pytest.mark.parametrize("given, expected", [(0, 1), (1, 1), (4, 4), (8, 8), (99, 8), ("5", 5)])

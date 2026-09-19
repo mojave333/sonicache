@@ -47,11 +47,31 @@ const ACTIVE = new Set(["queued", "running"]);
 // descending, because that is the useful end of each.
 const COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const LIBRARY_SORTS = {
-  title: { dir: 1, value: (item) => `${item.title} ${item.artist}` },
-  year: { dir: -1, value: (item) => Number(item.year) || 0 },
-  tracks: { dir: -1, value: (item) => item.tracks },
-  size: { dir: -1, value: (item) => item.size },
-  modified: { dir: -1, value: (item) => item.modified },
+  modified: { dir: -1, kind: "date", label: "по добавлению", value: (item) => item.modified },
+  title: { dir: 1, kind: "text", label: "по названию", value: (item) => `${item.title} ${item.artist}` },
+  artist: { dir: 1, kind: "text", label: "по исполнителю", value: (item) => `${item.artist} ${item.year} ${item.title}` },
+  year: { dir: -1, kind: "date", label: "по году", value: (item) => Number(item.year) || 0 },
+  tracks: { dir: -1, kind: "number", label: "по числу треков", value: (item) => item.tracks },
+  size: { dir: -1, kind: "number", label: "по размеру", value: (item) => item.size },
+};
+const trackPlace = (track) => `${String(track.disc).padStart(2, "0")}${String(track.number).padStart(3, "0")}`;
+const TRACK_SORTS = {
+  title: { dir: 1, kind: "text", label: "по названию", value: (track) => track.title },
+  artist: { dir: 1, kind: "text", label: "по исполнителю", value: (track) => `${track.artists} ${track.album} ${trackPlace(track)}` },
+  album: { dir: 1, kind: "text", label: "по альбому", value: (track) => `${track.album} ${trackPlace(track)}` },
+  modified: { dir: -1, kind: "date", label: "по добавлению", value: (track) => track.modified },
+  duration: { dir: -1, kind: "number", label: "по длительности", value: (track) => track.duration },
+};
+const ARTIST_SORTS = {
+  name: { dir: 1, kind: "text", label: "по имени", value: (artist) => artist.name },
+  count: { dir: -1, kind: "number", label: "по числу альбомов", value: (artist) => artist.albums * 1000 + artist.singles },
+  modified: { dir: -1, kind: "date", label: "по добавлению", value: (artist) => artist.modified },
+};
+// What "which way" means depends on what is sorted
+const ORDER_LABELS = {
+  text: { 1: "А → Я", "-1": "Я → А" },
+  date: { "-1": "новые сверху", 1: "старые сверху" },
+  number: { "-1": "больше сверху", 1: "меньше сверху" },
 };
 
 const state = {
@@ -66,12 +86,23 @@ const state = {
   run: null, // jobs added since the queue was last idle; the status bar sums them up
   library: {
     items: [], folder: null, stale: true, loading: false, token: 0,
-    sort: { key: "modified", dir: -1 }, // newest first, the way the folder itself is read
+    tab: "albums", view: "grid",
+    sorts: { // newest first, the way the folder itself is read
+      albums: { key: "modified", dir: -1 },
+      tracks: { key: "modified", dir: -1 },
+      artists: { key: "name", dir: 1 },
+    },
+    scroll: {}, // where each tab was left
     shown: [], // paths in the order drawn, so Shift-click knows what a range covers
     selected: new Set(),
     anchor: null,
+    artists: null, // grouped from the items when first asked for
+    trackList: { items: [], folder: null, stale: true, loading: false, token: 0 },
+    pages: [], // the album and artist pages open over the grid, the top one last
+    pageToken: 0,
   },
   covers: new Map(),
+  artistPhotos: new Map(),
   update: null, // { version, url } once a newer release is published
   diagnostics: null, // log path and yt-dlp version, read once at startup
   paused: false,
@@ -81,13 +112,22 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => root.querySelectorAll(selector);
 const api = () => window.pywebview.api;
 
+// Covers and photos are fetched as they scroll into sight. The viewport is the
+// root because the album pages scroll in a box of their own.
 const coverObserver = new IntersectionObserver((entries) => {
   for (const entry of entries) {
     if (!entry.isIntersecting) continue;
     coverObserver.unobserve(entry.target);
     showLibraryCover(entry.target);
   }
-}, { root: $("#library-scroll"), rootMargin: "200px" });
+}, { rootMargin: "200px" });
+const artistObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    artistObserver.unobserve(entry.target);
+    showArtistPhoto(entry.target);
+  }
+}, { rootMargin: "200px" });
 
 applyTheme();
 
@@ -106,6 +146,7 @@ else window.addEventListener("pywebviewready", boot);
 async function init() {
   const data = await api().init();
   state.settings = data.settings;
+  state.library.view = data.settings.library_view === "list" ? "list" : "grid";
   state.problems = data.problems;
   state.watched = data.watched || [];
   setLanguage(data.language); // translates the markup before anything is drawn
@@ -555,6 +596,31 @@ function bindUi() {
   $("#library").addEventListener("click", onLibraryClick);
   $("#library").addEventListener("keydown", onLibraryKey);
   $("#library").addEventListener("contextmenu", onLibraryContextMenu);
+  $("#library-cards").addEventListener("click", onCardsClick);
+  $("#library-cards").addEventListener("keydown", onCardsKey);
+  $("#library-cards").addEventListener("contextmenu", onCardsContextMenu);
+  $("#library-artists").addEventListener("click", onArtistsClick);
+  $("#library-artists").addEventListener("keydown", onCardsKey);
+  $(".artist-albums").addEventListener("click", onCardsClick);
+  $(".artist-albums").addEventListener("keydown", onCardsKey);
+  $("#library-tracks").addEventListener("dblclick", (event) => {
+    const row = event.target.closest(".track-item");
+    if (row) openTrack(row);
+  });
+  $("#library-tracks").addEventListener("keydown", onTracksKey);
+  for (const tab of $$("#library-tabs [role=tab]")) {
+    tab.addEventListener("click", () => showLibraryTab(tab.dataset.tab));
+  }
+  radioGroup($("#library-view"), "data-library-view", setLibraryView);
+  $("#library-sort").addEventListener("change", onSortPick);
+  $("#library-order").addEventListener("change", onSortPick);
+  $("#page-back").addEventListener("click", () => closePage());
+  $("#album-page").addEventListener("click", onPageAction);
+  // The mouse's back button, as in a browser
+  $("#view-library").addEventListener("mouseup", (event) => {
+    if (event.button === 3 && !$("#library-page").hidden) closePage();
+  });
+  new ResizeObserver(() => placeTabInk(false)).observe($("#library-tabs"));
   $("#library-menu").addEventListener("click", onLibraryMenuClick);
   // Anywhere else — including another window — closes the menu
   document.addEventListener("pointerdown", (event) => {
@@ -617,6 +683,13 @@ function onLibraryShortcut(event) {
     closeLibraryMenu();
     return;
   }
+  const pageOpen = !$("#library-page").hidden;
+  if (pageOpen && (event.key === "Escape" || event.key === "Backspace" || (event.altKey && event.key === "ArrowLeft"))) {
+    event.preventDefault();
+    closePage();
+    return;
+  }
+  if (pageOpen) return;
   if (event.ctrlKey && !event.altKey && event.code === "KeyA") {
     event.preventDefault();
     state.library.selected = new Set(shown);
@@ -639,6 +712,7 @@ function showView(name) {
   setMenuOpen(false, false);
   if (name === "download") $("#link").focus();
   if (name === "library") {
+    requestAnimationFrame(() => placeTabInk(false)); // the tabs have no size until the view shows
     if (state.library.stale || state.library.folder !== state.settings.folder) loadLibrary();
   } else {
     clearSelection();
@@ -1377,6 +1451,18 @@ function estimate(tracks, finished) {
 
 /* Library */
 
+// Motion follows Material's emphasized curve: things leave fast and land softly.
+const EMPHASIZED = "cubic-bezier(0.2, 0, 0, 1)";
+const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function librarySorts(tab = state.library.tab) {
+  return { albums: LIBRARY_SORTS, tracks: TRACK_SORTS, artists: ARTIST_SORTS }[tab];
+}
+
+function currentSort(tab = state.library.tab) {
+  return state.library.sorts[tab];
+}
+
 // The status bar talks about downloads everywhere else; on this tab it counts
 // what the folder holds, and what is picked out of it.
 function libraryStatus() {
@@ -1387,8 +1473,24 @@ function libraryStatus() {
     return t("Выбрано: {count} · {size}", { count: selected.size, size: formatSize(size) });
   }
   if (!items.length) return t("В папке пока нет музыки");
-  if (shown.length < items.length) {
+  if (state.library.tab === "albums" && shown.length < items.length) {
     return t("Найдено: {shown} из {total}", { shown: shown.length, total: items.length });
+  }
+  return librarySummary();
+}
+
+function librarySummary() {
+  const { items, tab } = state.library;
+  if (!items.length) return "";
+  if (tab === "artists") {
+    const count = libraryArtists().length;
+    return t("{count} {artistWord}", { count, artistWord: plural(count, "исполнитель", "исполнителя", "исполнителей") });
+  }
+  if (tab === "tracks" && state.library.trackList.items.length) {
+    const list = state.library.trackList.items;
+    const seconds = list.reduce((total, track) => total + track.duration, 0);
+    return [t("{tracks} {trackWord}", { tracks: list.length, trackWord: plural(list.length, "трек", "трека", "треков") }),
+      formatLength(seconds)].join(" · ");
   }
   const albums = items.filter((item) => item.album).length;
   const tracks = items.reduce((total, item) => total + item.tracks, 0);
@@ -1406,6 +1508,7 @@ async function loadLibrary() {
   const token = ++library.token;
   if (library.folder !== folder) library.items = [];
   library.loading = true;
+  library.trackList.stale = true;
   renderLibrary();
   let items;
   try {
@@ -1416,64 +1519,689 @@ async function loadLibrary() {
   }
   if (token !== library.token) return;
   Object.assign(library, { items, folder, stale: false, loading: false });
-  renderLibrary();
+  library.artists = null;
+  renderLibrary({ enter: true });
+  if (library.tab === "tracks") loadTracks();
 }
 
-function renderLibrary() {
+// Every file's tags are read for this tab, so it is asked for only when opened
+async function loadTracks() {
+  const list = state.library.trackList;
+  const folder = state.settings.folder;
+  if (!list.stale && list.folder === folder) return;
+  const token = ++list.token;
+  list.loading = true;
+  renderLibrary();
+  let items;
+  try {
+    items = await api().tracks(folder);
+  } catch (error) {
+    console.error(error);
+    items = [];
+  }
+  if (token !== list.token) return;
+  Object.assign(list, { items, folder, stale: false, loading: false });
+  renderLibrary({ enter: true });
+}
+
+function renderLibrary({ enter = false } = {}) {
   const library = state.library;
-  const { items, loading, selected } = library;
-  const query = $("#library-filter").value.trim();
-  const needle = query.toLocaleLowerCase();
-  const found = needle
-    ? items.filter((item) => `${item.artist} ${item.title}`.toLocaleLowerCase().includes(needle))
-    : items;
-  const shown = sortLibrary(found);
-  library.shown = shown.map((item) => item.path);
-  // A row that the filter hides must not stay selected: a batch delete would
-  // then take away something nobody can see.
-  const visible = new Set(library.shown);
-  for (const path of selected) if (!visible.has(path)) selected.delete(path);
-  $("#library").replaceChildren(...shown.map(createLibraryRow));
-  const rows = $$("#library .library-row");
-  rows.forEach((row, index) => { row.tabIndex = index ? -1 : 0; }); // one tab stop, arrows do the rest
-  renderSortHeader();
+  const { tab } = library;
+  const grid = tab === "albums" && library.view === "grid";
+  $("#library").hidden = !(tab === "albums" && !grid);
+  $("#library-head").hidden = !(tab === "albums" && !grid);
+  $("#library-cards").hidden = !grid;
+  $("#library-tracks").hidden = tab !== "tracks";
+  $("#library-artists").hidden = tab !== "artists";
+  $("#library-view").hidden = tab !== "albums";
+  syncRadios($("#library-view"), "data-library-view", library.view);
+  renderSortPickers();
+  const shownCount = tab === "albums" ? renderAlbums(grid, enter)
+    : tab === "tracks" ? renderTracks(enter) : renderArtists(enter);
+  $("#library-summary").textContent = librarySummary();
   renderSelection();
 
   const empty = $("#library-empty");
-  empty.hidden = shown.length > 0;
+  empty.hidden = shownCount > 0;
+  const query = $("#library-filter").value.trim();
   let [title, text] = [t("Ничего не найдено"), t("По запросу «{query}»", { query })];
-  if (!items.length) {
-    [title, text] = loading ? [t("Читаем папку…"), ""]
-                            : [t("В папке пока нет музыки"), state.settings.folder];
+  const loading = library.loading || (tab === "tracks" && library.trackList.loading);
+  if (!library.items.length || (tab === "tracks" && !library.trackList.items.length)) {
+    [title, text] = loading ? [t("Читаем папку…"), ""] : [t("В папке пока нет музыки"), state.settings.folder];
   }
   $(".empty-title", empty).textContent = title;
   $(".empty-text", empty).textContent = text;
 }
 
-function sortLibrary(items) {
-  const { key, dir } = state.library.sort;
-  const { value } = LIBRARY_SORTS[key];
-  return [...items].sort((a, b) => dir * compare(value(a), value(b)) || COLLATOR.compare(a.title, b.title));
+function libraryQuery() {
+  return $("#library-filter").value.trim().toLocaleLowerCase();
+}
+
+function sortBy(list, sorts, { key, dir }, tieBreak) {
+  const { value } = sorts[key];
+  return [...list].sort((a, b) => dir * compare(value(a), value(b)) || tieBreak(a, b));
 }
 
 function compare(a, b) {
   return typeof a === "number" ? a - b : COLLATOR.compare(a, b);
 }
 
+function renderAlbums(grid, enter) {
+  const library = state.library;
+  const needle = libraryQuery();
+  const found = needle
+    ? library.items.filter((item) => `${item.artist} ${item.title}`.toLocaleLowerCase().includes(needle))
+    : library.items;
+  const shown = sortBy(found, LIBRARY_SORTS, library.sorts.albums, (a, b) => COLLATOR.compare(a.title, b.title));
+  library.shown = shown.map((item) => item.path);
+  // Something the filter hides must not stay selected: a batch delete would
+  // then take away something nobody can see.
+  const visible = new Set(library.shown);
+  for (const path of library.selected) if (!visible.has(path)) library.selected.delete(path);
+  if (grid) {
+    const cards = $("#library-cards");
+    cards.replaceChildren(...shown.map((item, index) => createCard(item, index)));
+    cards.querySelector(".card")?.setAttribute("tabindex", "0");
+    playEntrance(cards, enter);
+    $("#library").replaceChildren();
+  } else {
+    $("#library").replaceChildren(...shown.map(createLibraryRow));
+    $$("#library .library-row").forEach((row, index) => { row.tabIndex = index ? -1 : 0; });
+    $("#library-cards").replaceChildren();
+    renderSortHeader();
+  }
+  return shown.length;
+}
+
+function renderTracks(enter) {
+  const list = state.library.trackList;
+  const needle = libraryQuery();
+  const found = needle
+    ? list.items.filter((track) => `${track.title} ${track.artists} ${track.album}`.toLocaleLowerCase().includes(needle))
+    : list.items;
+  // Tracks that tie (one album's tracks share a date) keep the album's own order
+  const albumOrder = TRACK_SORTS.album.value;
+  const shown = sortBy(found, TRACK_SORTS, state.library.sorts.tracks, (a, b) => compare(albumOrder(a), albumOrder(b)));
+  const rows = shown.map(createLibraryTrack);
+  $("#library-tracks").replaceChildren(...rows);
+  if (rows[0]) rows[0].tabIndex = 0;
+  if (enter && rows.length && !reduceMotion()) {
+    $("#library-tracks").animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
+                                 { duration: 300, easing: EMPHASIZED });
+  }
+  return shown.length;
+}
+
+// Artists are what the folder names say: every album and single track by the same name
+function libraryArtists() {
+  const library = state.library;
+  if (library.artists) return library.artists;
+  const byName = new Map();
+  for (const item of library.items) {
+    const name = item.artist || t("Без исполнителя");
+    const key = name.toLocaleLowerCase();
+    if (!byName.has(key)) byName.set(key, { name, key, items: [], albums: 0, singles: 0, modified: 0 });
+    const artist = byName.get(key);
+    artist.items.push(item);
+    if (item.album) artist.albums += 1;
+    else artist.singles += 1;
+    artist.modified = Math.max(artist.modified, item.modified);
+  }
+  library.artists = [...byName.values()];
+  return library.artists;
+}
+
+function renderArtists(enter) {
+  const needle = libraryQuery();
+  const found = libraryArtists().filter((artist) => !needle || artist.key.includes(needle));
+  const shown = sortBy(found, ARTIST_SORTS, state.library.sorts.artists, (a, b) => COLLATOR.compare(a.name, b.name));
+  const box = $("#library-artists");
+  box.replaceChildren(...shown.map((artist, index) => createArtistCard(artist, index)));
+  box.querySelector(".card")?.setAttribute("tabindex", "0");
+  playEntrance(box, enter);
+  return shown.length;
+}
+
+function artistCounts(artist) {
+  const parts = [];
+  if (artist.albums) {
+    parts.push(t("{count} {albumWord}", { count: artist.albums, albumWord: plural(artist.albums, "альбом", "альбома", "альбомов") }));
+  }
+  if (artist.singles) {
+    parts.push(t("{count} {trackWord}", { count: artist.singles, trackWord: plural(artist.singles, "трек", "трека", "треков") }));
+  }
+  return parts.join(", ");
+}
+
+// Cards rise into place one after another, the first screenful only: a delay
+// for card 300 would be a wait, not a flourish
+function playEntrance(container, enter) {
+  container.classList.remove("entering");
+  if (!enter || reduceMotion()) return;
+  void container.offsetWidth; // restart the animation on a container that played it before
+  container.classList.add("entering");
+  setTimeout(() => container.classList.remove("entering"), 900);
+}
+
+function renderSortPickers() {
+  const sorts = librarySorts();
+  const { key, dir } = currentSort();
+  const sortPick = $("#library-sort");
+  sortPick.replaceChildren(...Object.entries(sorts).map(([name, sort]) => new Option(t(sort.label), name)));
+  sortPick.value = key;
+  const labels = ORDER_LABELS[sorts[key].kind];
+  const orderPick = $("#library-order");
+  orderPick.replaceChildren(new Option(t(labels[sorts[key].dir]), String(sorts[key].dir)),
+                            new Option(t(labels[-sorts[key].dir]), String(-sorts[key].dir)));
+  orderPick.value = String(dir);
+}
+
 function sortLibraryBy(key) {
-  const sort = state.library.sort;
+  const sort = state.library.sorts.albums;
   sort.dir = sort.key === key ? -sort.dir : LIBRARY_SORTS[key].dir;
   sort.key = key;
   renderLibrary();
 }
 
 function renderSortHeader() {
-  const { key, dir } = state.library.sort;
+  const { key, dir } = state.library.sorts.albums;
   for (const button of $$("#view-library .sort")) {
     const active = button.dataset.sort === key;
     const order = dir > 0 ? "ascending" : "descending";
     button.closest("[role=columnheader]").setAttribute("aria-sort", active ? order : "none");
   }
+}
+
+function onSortPick() {
+  const sort = currentSort();
+  const key = $("#library-sort").value;
+  if (key !== sort.key) Object.assign(sort, { key, dir: librarySorts()[key].dir });
+  else sort.dir = Number($("#library-order").value);
+  renderLibrary();
+}
+
+/* Tabs, views and the pages drawn over them */
+
+function placeTabInk(animate = true) {
+  const tabs = $("#library-tabs");
+  const chosen = $("[aria-selected=true]", tabs);
+  if (!chosen || !chosen.offsetWidth) return;
+  tabs.classList.toggle("ink-ready", animate && !reduceMotion());
+  tabs.style.setProperty("--ink-x", `${chosen.offsetLeft + 8}px`);
+  tabs.style.setProperty("--ink-w", `${chosen.offsetWidth - 16}px`);
+}
+
+// Material's "fade through": what leaves fades out quickly, what arrives fades
+// in while growing from just under its size
+function fadeThrough(change) {
+  const panel = $("#library-panel");
+  if (reduceMotion()) {
+    change();
+    return;
+  }
+  // The swap waits on a timer, not on the animation: a window in the
+  // background may hold animations still, and the tab must change regardless
+  const out = panel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 90, easing: "ease-in", fill: "forwards" });
+  setTimeout(() => {
+    change();
+    out.cancel();
+    panel.animate([{ opacity: 0, transform: "scale(0.985)" }, { opacity: 1, transform: "none" }],
+                  { duration: 240, easing: EMPHASIZED });
+  }, 90);
+}
+
+function showLibraryTab(tab) {
+  const library = state.library;
+  if (tab === library.tab && $("#library-page").hidden) return;
+  closePage({ instant: true });
+  library.scroll[library.tab] = $("#library-scroll").scrollTop;
+  for (const button of $$("#library-tabs [role=tab]")) {
+    button.setAttribute("aria-selected", String(button.dataset.tab === tab));
+  }
+  placeTabInk();
+  clearSelection();
+  fadeThrough(() => {
+    library.tab = tab;
+    renderLibrary({ enter: true });
+    $("#library-scroll").scrollTop = library.scroll[tab] || 0;
+    if (tab === "tracks") loadTracks();
+    renderStatusBar();
+  });
+}
+
+function setLibraryView(view) {
+  if (view === state.library.view) return;
+  fadeThrough(() => {
+    state.library.view = view;
+    renderLibrary({ enter: true });
+  });
+  updateSettings({ library_view: view });
+}
+
+// An animation's end, or its planned end, whichever comes first: a window in
+// the background may hold animations still, and nothing may wait on them forever
+function settled(animation, duration) {
+  return Promise.race([animation.finished.catch(() => {}), new Promise((resolve) => setTimeout(resolve, duration + 80))]);
+}
+
+function rectOf(element) {
+  const box = element?.getBoundingClientRect();
+  return box && box.width ? box : null;
+}
+
+// The cover the person clicked grows into the page's cover (and shrinks back
+// on the way out): one picture moving, which says where the page came from
+function morph(element, from, to, { duration = 440 } = {}) {
+  if (!from || !to || reduceMotion()) return Promise.resolve();
+  const dx = from.left - to.left;
+  const dy = from.top - to.top;
+  const sx = from.width / to.width;
+  const sy = from.height / to.height;
+  const moved = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+  return settled(element.animate([{ transformOrigin: "0 0", transform: moved }, { transformOrigin: "0 0", transform: "none" }],
+                                 { duration, easing: EMPHASIZED }), duration);
+}
+
+function morphBack(element, to, { duration = 360 } = {}) {
+  const from = rectOf(element);
+  if (!from || !to || reduceMotion()) return Promise.resolve();
+  const moved = `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${to.width / from.width}, ${to.height / from.height})`;
+  return settled(element.animate([{ transformOrigin: "0 0", transform: "none" }, { transformOrigin: "0 0", transform: moved }],
+                                 { duration, easing: EMPHASIZED, fill: "forwards" }), duration);
+}
+
+// Everything on the page but the moving picture rises in a little after it
+function riseIn(elements, delay = 90) {
+  if (reduceMotion()) return;
+  elements.forEach((element, index) => element?.animate(
+    [{ opacity: 0, transform: "translateY(16px)" }, { opacity: 1, transform: "none" }],
+    { duration: 320, delay: delay + index * 45, easing: EMPHASIZED, fill: "backwards" }));
+}
+
+function showPage(kind) {
+  const page = $("#library-page");
+  $("#view-library").classList.add("page-open");
+  $("#album-page").hidden = kind !== "album";
+  $("#artist-page").hidden = kind !== "artist";
+  page.hidden = false;
+  page.scrollTop = 0;
+  $("#library-panel").inert = true;
+  if (!reduceMotion()) {
+    page.animate([{ backgroundColor: "transparent" }, { backgroundColor: getComputedStyle(page).backgroundColor }],
+                 { duration: 260, easing: EMPHASIZED });
+  }
+}
+
+function backLabel() {
+  const stack = state.library.pages;
+  const below = stack[stack.length - 2];
+  if (below) return below.kind === "artist" ? below.artist.name : below.item.title;
+  return t({ albums: "Альбомы", tracks: "Треки", artists: "Исполнители" }[state.library.tab]);
+}
+
+async function openAlbum(item, source = null, highlight = "") {
+  const library = state.library;
+  const from = rectOf(source && $(".cover", source));
+  library.pages.push({ kind: "album", item, source, from });
+  const token = ++library.pageToken;
+  fillAlbumPage(item);
+  $("#page-back-label").textContent = backLabel();
+  showPage("album");
+  const cover = $(".album-cover", $("#album-page"));
+  if (source) $(".cover", source).style.visibility = "hidden";
+  const info = $(".album-info", $("#album-page"));
+  riseIn([$("#page-back"), ...info.children]);
+  if (!from && !reduceMotion()) {
+    cover.animate([{ opacity: 0, transform: "scale(0.92)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: EMPHASIZED });
+  }
+  morph(cover, from, rectOf(cover)).then(() => { if (source) $(".cover", source).style.visibility = ""; });
+  $("#page-back").focus({ preventScroll: true });
+
+  let data;
+  try {
+    data = await api().album(item.path);
+  } catch (error) {
+    console.error(error);
+    data = { tracks: [], missing: [], expected: 0, link: item.link, service: "" };
+  }
+  if (token !== library.pageToken) return;
+  renderAlbumTracks(item, data, highlight);
+}
+
+function fillAlbumPage(item) {
+  const page = $("#album-page");
+  $(".album-title", page).textContent = item.title;
+  page.dataset.path = item.path;
+  $(".album-sub", page).textContent = albumSubline(item);
+  const image = $(".album-cover img", page);
+  image.hidden = true;
+  image.removeAttribute("src");
+  if (item.cover) {
+    if (!state.covers.has(item.path)) state.covers.set(item.path, api().cover(item.path));
+    state.covers.get(item.path).then((src) => { if (src && page.dataset.path === item.path) loadCover($(".album-cover", page), src); });
+  }
+  $("[data-page-action=again]", page).hidden = !item.link;
+  const watch = $("[data-page-action=watch]", page);
+  watch.hidden = !item.link || !item.album;
+  renderWatchButton(item.link);
+  $(".album-list", page).replaceChildren();
+}
+
+function albumSubline(item, format = "") {
+  const parts = [item.artist, item.year,
+    t("{tracks} {trackWord}", { tracks: item.tracks, trackWord: plural(item.tracks, "трек", "трека", "треков") }),
+    formatSize(item.size), format];
+  return parts.filter(Boolean).join(" · ");
+}
+
+function renderWatchButton(link) {
+  const button = $("[data-page-action=watch]", $("#album-page"));
+  const watching = Boolean(link) && isWatched(link);
+  button.setAttribute("aria-pressed", String(watching));
+  $("span", button).textContent = t(watching ? "Следим" : "Следить");
+}
+
+function renderAlbumTracks(item, data, highlight) {
+  const page = $("#album-page");
+  const formats = data.tracks.map((track) => track.format);
+  const format = formats.sort((a, b) => formats.filter((f) => f === b).length - formats.filter((f) => f === a).length)[0] || "";
+  $(".album-sub", page).textContent = albumSubline(item, format);
+  const rows = [];
+  const all = [...data.tracks.map((track) => ({ ...track, missing: false })),
+    ...data.missing.map((track) => ({ ...track, missing: true }))];
+  all.sort((a, b) => (a.disc || 1) - (b.disc || 1) || (a.number || 999) - (b.number || 999));
+  const discs = new Set(all.map((track) => track.disc || 1)).size;
+  let disc = 0;
+  for (const track of all) {
+    if (discs > 1 && (track.disc || 1) !== disc) {
+      disc = track.disc || 1;
+      const head = document.createElement("div");
+      head.className = "disc-head";
+      head.textContent = t("Диск {number}", { number: disc });
+      rows.push(head);
+    }
+    rows.push(createAlbumTrack(track, item));
+  }
+  const unknown = Math.max(0, data.expected - data.tracks.length - data.missing.length);
+  if (unknown) {
+    const note = document.createElement("div");
+    note.className = "album-note";
+    note.textContent = t("Ещё {count} {trackWord} нет в папке",
+                         { count: unknown, trackWord: plural(unknown, "трек", "трека", "треков") });
+    rows.push(note);
+  }
+  const list = $(".album-list", page);
+  list.replaceChildren(...rows);
+  if (!reduceMotion()) {
+    list.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: EMPHASIZED });
+  }
+  const target = highlight && [...$$(".album-track", list)].find((row) => row.dataset.path === highlight);
+  if (target) {
+    target.scrollIntoView({ block: "center" });
+    target.classList.add("highlight");
+  }
+}
+
+function createAlbumTrack(track, item) {
+  const row = document.createElement("div");
+  row.className = `album-track${track.missing ? " missing" : ""}`;
+  row.setAttribute("role", "row");
+  if (track.path) row.dataset.path = track.path;
+  const number = document.createElement("span");
+  number.className = "n";
+  number.textContent = track.number || "";
+  const title = document.createElement("span");
+  title.textContent = track.title;
+  if (track.missing) {
+    const gone = document.createElement("span");
+    gone.className = "gone";
+    gone.textContent = ` · ${t("нет в папке")}`;
+    title.append(gone);
+  }
+  const artists = document.createElement("span");
+  artists.className = "artists";
+  artists.textContent = track.artists || item.artist;
+  const time = document.createElement("span");
+  time.className = "num";
+  time.textContent = track.duration ? formatDuration(track.duration) : "";
+  row.append(number, title, artists, time);
+  return row;
+}
+
+function openArtist(artist, source = null) {
+  const library = state.library;
+  const from = rectOf(source && $(".artist-photo", source));
+  library.pages.push({ kind: "artist", artist, source, from });
+  const page = $("#artist-page");
+  $(".artist-name", page).textContent = artist.name;
+  $(".artist-sub", page).textContent = artistCounts(artist);
+  fillArtistPhoto($(".artist-photo", page), artist.name);
+  const items = sortBy(artist.items, LIBRARY_SORTS, { key: "year", dir: -1 }, (a, b) => COLLATOR.compare(a.title, b.title));
+  const cards = $(".artist-albums", page);
+  cards.replaceChildren(...items.map((item, index) => createCard(item, index)));
+  $("#page-back-label").textContent = backLabel();
+  showPage("artist");
+  const photo = $(".artist-photo", page);
+  if (source) $(".artist-photo", source).style.visibility = "hidden";
+  riseIn([$("#page-back"), $(".artist-head > div:last-child", page)]);
+  playEntrance(cards, true);
+  morph(photo, from, rectOf(photo)).then(() => { if (source) $(".artist-photo", source).style.visibility = ""; });
+  $("#page-back").focus({ preventScroll: true });
+}
+
+// Back to where the page was opened from; the picture flies home to its card
+async function closePage({ instant = false } = {}) {
+  const library = state.library;
+  const page = $("#library-page");
+  if (page.hidden) return;
+  const top = library.pages.pop();
+  library.pageToken += 1;
+  const below = library.pages[library.pages.length - 1];
+  const fly = top.kind === "album" ? $(".album-cover", $("#album-page")) : $(".artist-photo", $("#artist-page"));
+  const sourcePicture = top.source && $(top.kind === "album" ? ".cover" : ".artist-photo", top.source);
+
+  if (below) {
+    // From an album back to the artist whose page it was opened from
+    $("#album-page").hidden = true;
+    $("#artist-page").hidden = false;
+    $("#page-back-label").textContent = backLabel();
+    page.scrollTop = 0;
+    if (!instant && sourcePicture && !reduceMotion()) {
+      riseIn([$(".artist-head", $("#artist-page"))], 0);
+    }
+    sourcePicture?.focus?.();
+    top.source?.focus();
+    return;
+  }
+  library.pages = [];
+  if (instant || reduceMotion() || !top.source || !top.source.isConnected) {
+    finishClose(page);
+    if (!instant && !reduceMotion()) {
+      $("#library-panel").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: EMPHASIZED });
+    }
+    top.source?.focus();
+    return;
+  }
+  const to = rectOf(sourcePicture);
+  if (sourcePicture) sourcePicture.style.visibility = "hidden";
+  const others = [...page.children].filter((child) => !child.hidden);
+  for (const element of [$("#page-back"), ...$$(".album-info > *, .artist-head > div:last-child, .artist-albums", page)]) {
+    element.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" });
+  }
+  const background = page.animate([{ backgroundColor: getComputedStyle(page).backgroundColor }, { backgroundColor: "transparent" }],
+                                  { duration: 320, easing: EMPHASIZED, fill: "forwards" });
+  await Promise.all([morphBack(fly, to), settled(background, 320)]);
+  finishClose(page);
+  for (const element of others) element.getAnimations({ subtree: true }).forEach((animation) => animation.cancel());
+  if (sourcePicture) sourcePicture.style.visibility = "";
+  top.source.focus({ preventScroll: true });
+}
+
+function finishClose(page) {
+  page.getAnimations().forEach((animation) => animation.cancel());
+  for (const element of $$("*", page)) element.getAnimations().forEach((animation) => animation.cancel());
+  page.hidden = true;
+  $("#library-panel").inert = false;
+  $("#view-library").classList.remove("page-open");
+}
+
+/* Cards: a click opens, Ctrl and Shift pick, the right button offers the menu */
+
+function createCard(item, index) {
+  const card = $("#card-template").content.firstElementChild.cloneNode(true);
+  card.dataset.path = item.path;
+  card.style.setProperty("--i", Math.min(index, 24));
+  $(".card-title", card).textContent = item.title;
+  $(".card-title", card).title = item.title;
+  const year = item.album ? item.year : t("трек");
+  $(".card-sub", card).textContent = [item.artist, year].filter(Boolean).join(" · ");
+  if (state.library.selected.has(item.path)) card.classList.add("is-selected");
+  if (item.cover) coverObserver.observe(card);
+  return card;
+}
+
+function itemByPath(path) {
+  return state.library.items.find((item) => item.path === path);
+}
+
+function onCardsClick(event) {
+  const card = event.target.closest(".card");
+  if (!card) return;
+  if (event.ctrlKey || event.shiftKey) {
+    selectRow(card.dataset.path, event);
+    return;
+  }
+  const item = itemByPath(card.dataset.path);
+  if (item) openAlbum(item, card);
+}
+
+function onCardsKey(event) {
+  const cards = [...event.currentTarget.querySelectorAll(".card")];
+  const current = cards.indexOf(document.activeElement.closest(".card"));
+  if (current === -1) return;
+  const card = cards[current];
+  if (event.key === "Enter") {
+    event.preventDefault();
+    card.click();
+    return;
+  }
+  if (event.key === " " && card.dataset.path && event.currentTarget.id === "library-cards") {
+    event.preventDefault();
+    selectRow(card.dataset.path, { ctrlKey: true });
+    return;
+  }
+  // Up and down jump a whole row of the grid, however many columns fit
+  const columns = getComputedStyle(event.currentTarget).gridTemplateColumns.split(" ").length;
+  const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: columns, ArrowUp: -columns, Home: "first", End: "last" }[event.key];
+  if (step === undefined) return;
+  event.preventDefault();
+  let next = step === "first" ? 0 : step === "last" ? cards.length - 1 : current + step;
+  next = Math.max(0, Math.min(cards.length - 1, next));
+  for (const other of cards) other.tabIndex = other === cards[next] ? 0 : -1;
+  cards[next].focus();
+  cards[next].scrollIntoView({ block: "nearest" });
+  if (event.shiftKey && cards[next].dataset.path) selectRow(cards[next].dataset.path, { shiftKey: true });
+}
+
+function onCardsContextMenu(event) {
+  const card = event.target.closest(".card");
+  if (!card) return;
+  event.preventDefault();
+  if (!state.library.selected.has(card.dataset.path)) selectRow(card.dataset.path, {});
+  openLibraryMenu(event.clientX, event.clientY);
+}
+
+/* Tracks */
+
+function createLibraryTrack(track) {
+  const row = $("#library-track-template").content.firstElementChild.cloneNode(true);
+  row.dataset.path = track.path;
+  row.dataset.entry = track.entry;
+  $(".title", row).textContent = track.title;
+  $(".title", row).title = track.path;
+  $(".cell-artists", row).textContent = track.artists;
+  $(".cell-album", row).textContent = track.album;
+  $(".cell-time", row).textContent = track.duration ? formatDuration(track.duration) : "";
+  if (track.cover) {
+    row.dataset.cover = track.entry;
+    coverObserver.observe(row);
+  }
+  return row;
+}
+
+function openTrack(row) {
+  const item = itemByPath(row.dataset.entry);
+  if (item) openAlbum(item, null, row.dataset.path);
+}
+
+function onTracksKey(event) {
+  const rows = [...$$("#library-tracks .track-item")];
+  const current = rows.indexOf(document.activeElement.closest(".track-item"));
+  if (current === -1) return;
+  if (event.key === "Enter") {
+    event.preventDefault();
+    openTrack(rows[current]);
+    return;
+  }
+  const step = { ArrowDown: 1, ArrowUp: -1, Home: "first", End: "last" }[event.key];
+  if (!step) return;
+  event.preventDefault();
+  let next = step === "first" ? 0 : step === "last" ? rows.length - 1 : current + step;
+  next = Math.max(0, Math.min(rows.length - 1, next));
+  for (const other of rows) other.tabIndex = other === rows[next] ? 0 : -1;
+  rows[next].focus();
+}
+
+/* Artists */
+
+function createArtistCard(artist, index) {
+  const card = $("#artist-template").content.firstElementChild.cloneNode(true);
+  card.dataset.artist = artist.key;
+  card.style.setProperty("--i", Math.min(index, 24));
+  $(".card-title", card).textContent = artist.name;
+  $(".card-sub", card).textContent = artistCounts(artist);
+  fillArtistPhoto($(".artist-photo", card), artist.name, true);
+  return card;
+}
+
+// Hues far enough apart that neighbouring artists do not look alike
+const ARTIST_HUES = [12, 35, 150, 175, 200, 222, 252, 282, 318, 345];
+
+// FNV-1a: the same name always gets the same colour, and similar names do not
+function nameHash(text) {
+  let hash = 0x811c9dc5;
+  for (const char of text.toLocaleLowerCase()) hash = Math.imul(hash ^ char.codePointAt(0), 0x01000193) >>> 0;
+  return hash;
+}
+
+// Initials on a colour of their own until (and unless) Deezer has a photo
+function fillArtistPhoto(photo, name, lazy = false) {
+  const words = name.split(/\s+/).filter(Boolean);
+  $(".initials", photo).textContent = (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 1)).toUpperCase();
+  photo.style.setProperty("--hue", ARTIST_HUES[nameHash(name) % ARTIST_HUES.length]);
+  photo.dataset.name = name;
+  const image = $("img", photo);
+  image.hidden = true;
+  image.removeAttribute("src");
+  if (lazy) artistObserver.observe(photo);
+  else showArtistPhoto(photo);
+}
+
+async function showArtistPhoto(photo) {
+  const { name } = photo.dataset;
+  if (!state.artistPhotos.has(name)) state.artistPhotos.set(name, api().artist_picture(name).catch(() => ""));
+  const url = await state.artistPhotos.get(name);
+  if (!url || photo.dataset.name !== name) return;
+  const image = $("img", photo);
+  image.addEventListener("load", () => { image.hidden = false; }, { once: true });
+  image.src = url;
+}
+
+function onArtistsClick(event) {
+  const card = event.target.closest(".artist-card");
+  if (!card) return;
+  const artist = libraryArtists().find((entry) => entry.key === card.dataset.artist);
+  if (artist) openArtist(artist, card);
 }
 
 /* Selection: click picks one row, Ctrl adds, Shift takes the range — as in Explorer */
@@ -1549,7 +2277,7 @@ function closeLibraryMenu(restoreFocus = true) {
   const menu = $("#library-menu");
   if (menu.hidden) return;
   menu.hidden = true;
-  if (restoreFocus) $(`#library .library-row[data-path]`)?.focus();
+  if (restoreFocus) $("#library .library-row[data-path], #library-cards .card[tabindex='0']")?.focus();
 }
 
 function onLibraryMenuClick(event) {
@@ -1571,7 +2299,7 @@ function clearSelection() {
 
 function renderSelection() {
   const { selected } = state.library;
-  for (const row of $$("#library .library-row")) {
+  for (const row of $$("#library .library-row, #library-cards .card")) {
     const picked = selected.has(row.dataset.path);
     row.classList.toggle("is-selected", picked);
     row.setAttribute("aria-selected", String(picked));
@@ -1596,6 +2324,21 @@ async function downloadAgain(items) {
   for (const { job, link } of jobs) addJob(job, link, dryRun, format);
   showView("download");
   announce(t("Добавлено в очередь: {count}", { count: links.length }));
+}
+
+async function onPageAction(event) {
+  const action = event.target.closest("[data-page-action]")?.dataset.pageAction;
+  const top = state.library.pages[state.library.pages.length - 1];
+  if (!action || !top || top.kind !== "album") return;
+  const { item } = top;
+  if (action === "open") api().open_folder(item.path);
+  else if (action === "again") downloadAgain([item]);
+  else if (action === "watch") {
+    const list = isWatched(item.link) ? await api().unwatch(item.link) : await api().watch_album(item.path);
+    setWatched(list);
+    renderWatchButton(item.link);
+    announce(t(isWatched(item.link) ? "Следим за «{title}»" : "Больше не следим за «{title}»", { title: item.title }));
+  }
 }
 
 async function deleteSelected() {
@@ -1666,7 +2409,7 @@ function createLibraryRow(item) {
   $(".cell-size", row).textContent = formatSize(item.size);
   $(".cell-date", row).textContent = new Date(item.modified * 1000).toLocaleDateString();
   row.dataset.path = item.path;
-  const open = () => api().open_folder(item.path);
+  const open = () => openAlbum(item, row);
   row.addEventListener("dblclick", open);
   row.addEventListener("keydown", (event) => {
     if (event.key === "Enter") open();
@@ -1677,7 +2420,7 @@ function createLibraryRow(item) {
   });
   $(".open", row).addEventListener("click", (event) => {
     event.stopPropagation();
-    open();
+    api().open_folder(item.path);
   });
   const again = $(".again", row);
   again.hidden = !item.link; // only albums this program downloaded know their link
@@ -1689,17 +2432,28 @@ function createLibraryRow(item) {
   return row;
 }
 
-async function showLibraryCover(row) {
-  const { path } = row.dataset;
+async function showLibraryCover(element) {
+  const path = element.dataset.cover || element.dataset.path;
   if (!state.covers.has(path)) state.covers.set(path, api().cover(path));
   const src = await state.covers.get(path);
-  if (src) loadCover($(".cover", row), src);
+  if (src) loadCover($(".cover", element), src);
 }
 
 function loadCover(cover, src) {
   const image = $("img", cover);
   image.addEventListener("load", () => { image.hidden = false; }, { once: true });
   image.src = src;
+}
+
+function formatDuration(seconds) {
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
+
+function formatLength(seconds) {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return t("{minutes} мин", { minutes });
+  return t("{hours} ч {minutes} мин", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
 }
 
 /* Helpers */

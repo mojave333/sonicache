@@ -518,6 +518,22 @@ def _lastfm_tracklist(url: str, artist: str, album_name: str) -> Release:
     return Release(album, tracks)
 
 
+def artist_picture(name: str) -> str:
+    """A photo of the artist from Deezer's catalogue, or "" when it has none.
+
+    Only an artist of exactly that name counts: a near match would put a
+    stranger's face on somebody's albums.
+    """
+    query = urllib.parse.quote(name)
+    data = fetch_json(f"https://api.deezer.com/search/artist?q={query}&limit=5", service="Deezer")
+    for item in data.get("data") or []:
+        if _norm(item.get("name") or "") == _norm(name):
+            url = item.get("picture_big") or item.get("picture_medium") or ""
+            # An artist without a photo gets Deezer's placeholder, whose address has no image id
+            return "" if "/images/artist//" in url else url
+    return ""
+
+
 def search(query: str) -> Release:
     """A release found by name: "Исполнитель - Альбом", or just a title.
 
