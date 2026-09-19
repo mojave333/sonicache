@@ -37,6 +37,10 @@
   --scroll-thumb: #C2C0CC;
 
   --radius: 5px;
+  /* How light the cover-coloured band is: a pastel under dark text, a deep
+     shade under light text, so the title stays readable on any cover */
+  --band-l: 89%;
+  --band-s-max: 70%;
   --sidebar: 64px; /* the script overrides this as the panel is dragged */
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
 
@@ -55,8 +59,17 @@
   initial-value: 64px;
 }
 
+/* The album page's band in its cover's colour, registered so it can fade */
+@property --band {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --band-l: 21%;
+  --band-s-max: 55%;
   --bg: #23212C;
   --chrome: #15131B;
   --inset: #1C1A23;
@@ -511,6 +524,18 @@ p { margin: 0; }
   position: absolute; inset: 0; z-index: 2; overflow-y: auto; padding: 14px 24px 32px; background: var(--bg);
   container: page / inline-size;
 }
+.library-page > :not(.page-band) { position: relative; }
+/* A band in the colour of the cover, down to the middle of it, as Harmonoid
+   draws it. The script sets the hue and the saturation it found on the page. */
+.page-band {
+  position: absolute; top: 0; left: 0; right: 0; height: 178px; pointer-events: none;
+  --band: hsl(var(--tint-h, 0) clamp(0%, var(--tint-s, 0%), var(--band-s-max)) var(--band-l) / var(--tint-a, 0));
+  background: var(--band);
+}
+/* Only a new cover fades the band: a theme switch recolours it at once, or dark
+   text would sit on the old dark shade for half a second */
+.tinting .page-band { transition: --band 520ms var(--ease); }
+.artist-open .page-band { height: 133px; }
 .page-back {
   display: inline-flex; align-items: center; gap: 6px; height: 30px; margin: 0 0 14px -8px; padding: 0 10px;
   border-radius: var(--radius); color: var(--text-muted);
@@ -544,6 +569,7 @@ p { margin: 0; }
 .artist-albums { padding: 18px 0 0; }
 @container page (max-width: 640px) {
   .album-page { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .page-band { height: 148px; }
   .album-page .album-cover { width: 180px; height: 180px; }
   .album-track { grid-template-columns: 28px minmax(0, 1fr) 48px; }
   .album-track .artists { display: none; }

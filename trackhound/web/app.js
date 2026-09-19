@@ -103,6 +103,7 @@ const state = {
   },
   covers: new Map(),
   artistPhotos: new Map(),
+  tints: new Map(), // picture address → the hue its band is drawn in
   update: null, // { version, url } once a newer release is published
   diagnostics: null, // log path and yt-dlp version, read once at startup
   paused: false,
@@ -1818,9 +1819,89 @@ function riseIn(elements, delay = 90) {
     { duration: 320, delay: delay + index * 45, easing: EMPHASIZED, fill: "backwards" }));
 }
 
+/* The band at the top of a page takes the colour of the cover, as in Harmonoid */
+
+// The hue that most of the picture's coloured pixels share, and how strong it
+// is. White, black and grey carry no hue and are left out, so a red title on
+// a white sleeve gives red, and a black-and-white photo gives a grey band.
+async function pictureTint(src) {
+  if (!state.tints.has(src)) {
+    state.tints.set(src, (async () => {
+      const image = new Image();
+      image.crossOrigin = "anonymous"; // Deezer's photos allow it, covers are data: already
+      image.src = src;
+      await image.decode();
+      const size = 48;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(image, 0, 0, size, size);
+      const { data } = context.getImageData(0, 0, size, size);
+      const buckets = Array.from({ length: 36 }, () => ({ weight: 0, x: 0, y: 0, saturation: 0 }));
+      for (let index = 0; index < data.length; index += 4) {
+        const [hue, saturation, lightness] = toHsl(data[index], data[index + 1], data[index + 2]);
+        if (saturation < 0.18 || lightness < 0.1 || lightness > 0.94) continue;
+        // Vivid mid-tones speak for the picture more than washed-out corners do
+        const weight = saturation * (1 - Math.abs(lightness - 0.5));
+        const bucket = buckets[Math.floor(hue / 10) % 36];
+        bucket.weight += weight;
+        bucket.x += Math.cos((hue * Math.PI) / 180) * weight;
+        bucket.y += Math.sin((hue * Math.PI) / 180) * weight;
+        bucket.saturation += saturation * weight;
+      }
+      // Neighbouring buckets are one colour split by the grid, so they count together
+      let best = null;
+      buckets.forEach((bucket, index) => {
+        const joined = bucket.weight + 0.5 * (buckets[(index + 35) % 36].weight + buckets[(index + 1) % 36].weight);
+        if (!best || joined > best.joined) best = { joined, bucket };
+      });
+      const pixels = size * size;
+      if (!best || best.bucket.weight < pixels * 0.015) return { hue: 0, saturation: 0 };
+      const { bucket } = best;
+      const hue = ((Math.atan2(bucket.y, bucket.x) * 180) / Math.PI + 360) % 360;
+      return { hue: Math.round(hue), saturation: Math.round((bucket.saturation / bucket.weight) * 100) };
+    })().catch(() => null));
+  }
+  return state.tints.get(src);
+}
+
+function toHsl(red, green, blue) {
+  const r = red / 255;
+  const g = green / 255;
+  const b = blue / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  if (max === min) return [0, 0, lightness];
+  const delta = max - min;
+  const saturation = delta / (1 - Math.abs(2 * lightness - 1));
+  let hue = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+  hue = (hue * 60 + 360) % 360;
+  return [hue, saturation, lightness];
+}
+
+// The band fades from what it showed to the new colour; null lets it fade away
+async function tintPage(src, owner) {
+  const page = $("#library-page");
+  const tint = src ? await pictureTint(src) : null;
+  if (owner !== state.library.pageToken) return; // another page has been opened since
+  fadeBand(page);
+  page.style.setProperty("--tint-a", tint ? "1" : "0");
+  if (!tint) return;
+  page.style.setProperty("--tint-h", tint.hue);
+  page.style.setProperty("--tint-s", `${tint.saturation}%`);
+}
+
+function fadeBand(page) {
+  page.classList.add("tinting");
+  clearTimeout(page.tintTimer);
+  page.tintTimer = setTimeout(() => page.classList.remove("tinting"), 600);
+}
+
 function showPage(kind) {
   const page = $("#library-page");
   $("#view-library").classList.add("page-open");
+  page.classList.toggle("artist-open", kind === "artist");
   $("#album-page").hidden = kind !== "album";
   $("#artist-page").hidden = kind !== "artist";
   page.hidden = false;
@@ -1876,9 +1957,15 @@ function fillAlbumPage(item) {
   const image = $(".album-cover img", page);
   image.hidden = true;
   image.removeAttribute("src");
+  const owner = state.library.pageToken;
   if (item.cover) {
     if (!state.covers.has(item.path)) state.covers.set(item.path, api().cover(item.path));
-    state.covers.get(item.path).then((src) => { if (src && page.dataset.path === item.path) loadCover($(".album-cover", page), src); });
+    state.covers.get(item.path).then((src) => {
+      if (src && page.dataset.path === item.path) loadCover($(".album-cover", page), src);
+      tintPage(src, owner);
+    });
+  } else {
+    tintPage(null, owner);
   }
   $("[data-page-action=again]", page).hidden = !item.link;
   const watch = $("[data-page-action=watch]", page);
@@ -1972,6 +2059,11 @@ function openArtist(artist, source = null) {
   const library = state.library;
   const from = rectOf(source && $(".artist-photo", source));
   library.pages.push({ kind: "artist", artist, source, from });
+  const owner = ++library.pageToken;
+  if (!state.artistPhotos.has(artist.name)) {
+    state.artistPhotos.set(artist.name, api().artist_picture(artist.name).catch(() => ""));
+  }
+  state.artistPhotos.get(artist.name).then((url) => tintPage(url || null, owner));
   const page = $("#artist-page");
   $(".artist-name", page).textContent = artist.name;
   $(".artist-sub", page).textContent = artistCounts(artist);
@@ -2004,6 +2096,8 @@ async function closePage({ instant = false } = {}) {
     // From an album back to the artist whose page it was opened from
     $("#album-page").hidden = true;
     $("#artist-page").hidden = false;
+    page.classList.add("artist-open");
+    state.artistPhotos.get(below.artist.name)?.then((url) => tintPage(url || null, library.pageToken));
     $("#page-back-label").textContent = backLabel();
     page.scrollTop = 0;
     if (!instant && sourcePicture && !reduceMotion()) {
@@ -2025,6 +2119,8 @@ async function closePage({ instant = false } = {}) {
   const to = rectOf(sourcePicture);
   if (sourcePicture) sourcePicture.style.visibility = "hidden";
   const others = [...page.children].filter((child) => !child.hidden);
+  fadeBand(page);
+  page.style.setProperty("--tint-a", "0");
   for (const element of [$("#page-back"), ...$$(".album-info > *, .artist-head > div:last-child, .artist-albums", page)]) {
     element.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" });
   }
@@ -2038,6 +2134,7 @@ async function closePage({ instant = false } = {}) {
 }
 
 function finishClose(page) {
+  page.style.setProperty("--tint-a", "0");
   page.getAnimations().forEach((animation) => animation.cancel());
   for (const element of $$("*", page)) element.getAnimations().forEach((animation) => animation.cancel());
   page.hidden = true;

@@ -145,7 +145,9 @@ Artists. Each has a search, a sort order and a direction. Albums come as a grid 
 or, with the switch beside the sorting, as a table with sortable columns.
 
 A click on a cover opens the album's page: the cover grows out of the grid into a large one
-beside the title, the year, the size and the tracks, read from the files' own tags. For an
+beside the title, the year, the size and the tracks, read from the files' own tags. The top of
+the page takes the cover's main colour, a pastel in the light theme and a deep shade in the
+dark one. For an
 album this program downloaded, the tracks that never arrived are listed too, greyed out,
 since the `.trackhound.json` file in the album's folder keeps the link and the whole
 tracklist. From the page the album can be opened in the file manager, completed ("Fetch what
