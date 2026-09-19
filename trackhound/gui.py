@@ -877,6 +877,7 @@ def _tags(path: Path) -> dict:
             "number": _leading_number(first("tracknumber")),
             "disc": _leading_number(first("discnumber")) or 1,
             "year": first("date")[:4],
+            "genre": first("genre"),
             "duration": round(getattr(audio.info, "length", 0) or 0),
             "bitrate": round((getattr(audio.info, "bitrate", 0) or 0) / 1000),
         })
@@ -888,7 +889,7 @@ def _tags(path: Path) -> dict:
 
 def _blank_tags(path: Path) -> dict:
     return {"title": path.stem, "artists": "", "album": "", "album_artist": "", "number": 0, "disc": 1,
-            "year": "", "duration": 0, "bitrate": 0, "format": path.suffix[1:].lower()}
+            "year": "", "genre": "", "duration": 0, "bitrate": 0, "format": path.suffix[1:].lower()}
 
 
 def _leading_number(text: str) -> int:

@@ -143,6 +143,7 @@ def _apple_album(collection_id: int | str, country: str = "us") -> Release:
         cover_url=re.sub(r"/\d+x\d+bb(\.\w+)$", r"/1000x1000bb\1", collection.get("artworkUrl100") or ""),
         tracks=tracks,
         service="Apple Music",
+        genre=collection.get("primaryGenreName") or "",
     )
     return Release(album, tracks)
 
@@ -261,8 +262,14 @@ def _deezer_album(album_id: str) -> Release:
         cover_url=data.get("cover_xl") or data.get("cover_big") or "",
         tracks=tracks,
         service="Deezer",
+        genre=_deezer_genre(data),
     )
     return Release(album, tracks)
+
+
+def _deezer_genre(album: dict) -> str:
+    genres = (album.get("genres") or {}).get("data") or []
+    return (genres[0].get("name") or "") if genres else ""
 
 
 def _deezer_playlist(playlist_id: str) -> Release:
@@ -516,6 +523,34 @@ def _lastfm_tracklist(url: str, artist: str, album_name: str) -> Release:
     album = Album(id=url, name=album_name, artist=artist, release_date=released.group(1) if released else "",
                   cover_url=cover.group(1) if cover else "", tracks=tracks, service="Last.fm")
     return Release(album, tracks)
+
+
+def find_genre(artist: str, title: str) -> str:
+    """The genre of an album the service did not name one for.
+
+    Spotify, YouTube and Last.fm give none, so the same album is looked up in
+    Apple's catalogue and then on Deezer; "" when neither knows it by that
+    artist and title.
+    """
+    if not artist or not title:
+        return ""
+    fields = lambda result: (_split_kind(result.get("collectionName", ""))[0], result.get("artistName", ""))
+    try:
+        best = _best(_itunes("search", term=f"{artist} {title}", entity="album", limit=10), title, artist, fields)
+    except SourceError:
+        best = None
+    if best and best.get("primaryGenreName"):
+        return best["primaryGenreName"]
+    try:
+        query = urllib.parse.quote(f'artist:"{artist}" album:"{title}"')
+        found = fetch_json(f"https://api.deezer.com/search/album?q={query}&limit=5", service="Deezer")
+        best = _best(found.get("data") or [], title, artist,
+                     lambda result: (result.get("title", ""), (result.get("artist") or {}).get("name", "")))
+        if best:
+            return _deezer_genre(_deezer_get(f"album/{best['id']}", ""))
+    except SourceError:
+        pass
+    return ""
 
 
 def artist_picture(name: str) -> str:

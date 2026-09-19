@@ -20,7 +20,7 @@ from typing import Callable
 import yt_dlp
 from mutagen import File as MutagenFile
 from mutagen.flac import Picture
-from mutagen.id3 import APIC, ID3, TALB, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK
+from mutagen.id3 import APIC, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.oggopus import OggOpus
 from yt_dlp.utils import DownloadCancelled
@@ -165,6 +165,12 @@ class Downloader:
 
         release = sources.resolve(link)
         album, tracks, single = release.album, release.tracks, release.single
+        if not album.genre and album.kind != "playlist" and not self.options.dry_run:
+            # A playlist mixes genres, so one guessed for its name would be wrong on most tracks
+            try:
+                album.genre = sources.find_genre(album.artist, album.name)
+            except Exception as e:  # the genre is a nicety: no lookup failure may stop a download
+                log.getChild("download").warning("жанр для «%s» не нашёлся: %s", album.name, e)
         if single:
             folder = self.options.output_dir
             details = [album.name != tracks[0].title and t("из «{album}»", album=album.name),
@@ -537,6 +543,7 @@ def _write_marker(folder: Path, album: Album, link: str) -> None:
         "year": album.year,
         "kind": album.kind,
         "service": album.service,
+        "genre": album.genre,
         "tracks": len(album.tracks),
         # The whole tracklist, so the library can name the tracks that are missing
         "tracklist": [{"disc": t.disc_number, "number": t.track_number, "title": t.title,
@@ -602,6 +609,8 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
         tags["disk"] = [(track.disc_number, album.total_discs)]
         if album.release_date:
             tags["\xa9day"] = album.release_date
+        if album.genre:
+            tags["\xa9gen"] = album.genre
         if cover:
             image_format = MP4Cover.FORMAT_PNG if mime == "image/png" else MP4Cover.FORMAT_JPEG
             tags["covr"] = [MP4Cover(cover, imageformat=image_format)]
@@ -617,6 +626,8 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
         tags.add(TPOS(encoding=3, text=f"{track.disc_number}/{album.total_discs}"))
         if album.release_date:
             tags.add(TDRC(encoding=3, text=album.release_date))
+        if album.genre:
+            tags.add(TCON(encoding=3, text=album.genre))
         if cover:
             tags.add(APIC(encoding=3, mime=mime, type=3, desc="Cover", data=cover))
         tags.save(path, v2_version=3)  # ID3v2.3 for Windows Explorer and old players
@@ -633,6 +644,8 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
         audio["disctotal"] = str(album.total_discs)
         if album.release_date:
             audio["date"] = album.release_date
+        if album.genre:
+            audio["genre"] = album.genre
         if cover:
             picture = Picture()
             picture.type, picture.mime, picture.desc, picture.data = 3, mime, "Cover", cover

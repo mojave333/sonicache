@@ -140,3 +140,93 @@ class TestDeezerArtist:
 @pytest.mark.parametrize("given, expected", [("grid", "grid"), ("list", "list"), ("tiles", "grid"), (None, "grid")])
 def test_the_library_view_setting(given, expected):
     assert gui._normalize({"library_view": given})["library_view"] == expected
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+@pytest.mark.parametrize("ext", ["m4a", "mp3", "opus"])
+def test_the_genre_goes_into_every_format(tmp_path, ext):
+    path = tmp_path / f"song.{ext}"
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                    "-i", "sine=duration=1", *CODECS[ext], str(path)], check=True)
+    track = Track(id="1", title="Ebony", artists="Dean Blunt", duration=1, track_number=1)
+    album = Album(id="a", name="Black is Beautiful", artist="Dean Blunt", tracks=[track], genre="Electronic")
+    downloader._write_tags(path, album, track, None)
+    assert gui._tags(path)["genre"] == "Electronic"
+
+
+class TestGenre:
+    def test_apple_music_names_the_genre_of_its_album(self, monkeypatch):
+        monkeypatch.setattr(sources, "_itunes", lambda endpoint, **params: [
+            {"wrapperType": "collection", "collectionName": "Discovery", "artistName": "Daft Punk",
+             "primaryGenreName": "Electronic"},
+            {"wrapperType": "track", "kind": "song", "trackId": 1, "trackName": "One More Time",
+             "artistName": "Daft Punk", "trackNumber": 1}])
+        assert sources._apple_album("1").album.genre == "Electronic"
+
+    def test_deezer_takes_the_first_of_its_genres(self):
+        assert sources._deezer_genre({"genres": {"data": [{"name": "Electro"}, {"name": "Dance"}]}}) == "Electro"
+        assert sources._deezer_genre({}) == ""
+
+    def test_a_missing_genre_is_looked_up_in_apples_catalogue(self, monkeypatch):
+        monkeypatch.setattr(sources, "_itunes", lambda endpoint, **params: [
+            {"collectionName": "Black is Beautiful - EP", "artistName": "Dean Blunt & Inga Copeland",
+             "primaryGenreName": "Electronic"}])
+        monkeypatch.setattr(sources, "fetch_json", lambda url, **kwargs: pytest.fail("Deezer was not needed"))
+        assert sources.find_genre("Dean Blunt", "Black is Beautiful") == "Electronic"
+
+    def test_deezer_is_asked_when_apple_does_not_know(self, monkeypatch):
+        monkeypatch.setattr(sources, "_itunes", lambda endpoint, **params: [])
+        answers = {
+            "search": {"data": [{"id": 302127, "title": "Discovery", "artist": {"name": "Daft Punk"}}]},
+            "album": {"genres": {"data": [{"name": "Electro"}]}},
+        }
+        monkeypatch.setattr(sources, "fetch_json",
+                            lambda url, **kwargs: answers["search" if "/search/" in url else "album"])
+        assert sources.find_genre("Daft Punk", "Discovery") == "Electro"
+
+    def test_a_different_album_gives_no_genre(self, monkeypatch):
+        monkeypatch.setattr(sources, "_itunes", lambda endpoint, **params: [
+            {"collectionName": "Homework", "artistName": "Daft Punk", "primaryGenreName": "Dance"}])
+        monkeypatch.setattr(sources, "fetch_json", lambda url, **kwargs: {"data": []})
+        assert sources.find_genre("Daft Punk", "Discovery") == ""
+
+    def test_the_marker_remembers_the_genre(self, tmp_path):
+        album = Album(id="a", name="Discovery", artist="Daft Punk", genre="Electro",
+                      tracks=[Track(id="1", title="Aerodynamic", artists="Daft Punk", duration=212, track_number=2)])
+        downloader._write_marker(tmp_path, album, "https://www.deezer.com/album/302127")
+        assert json.loads((tmp_path / downloader.MARKER_NAME).read_text(encoding="utf-8"))["genre"] == "Electro"
+
+
+class TestGenreLookupWhenDownloading:
+    def downloader_for(self, tmp_path, monkeypatch, album, dry_run=False):
+        monkeypatch.setattr(downloader.sources, "resolve", lambda link: sources.Release(album, album.tracks))
+        loader = downloader.Downloader(downloader.Options(tmp_path, dry_run=dry_run), log=lambda message: None)
+        monkeypatch.setattr(loader, "_download_tracks", lambda *args, **kwargs: downloader.Report())
+        return loader
+
+    def album(self, kind="album", genre=""):
+        return Album(id="a", name="Discovery", artist="Daft Punk", kind=kind, genre=genre,
+                     tracks=[Track(id="1", title="One More Time", artists="Daft Punk", duration=320, track_number=1)])
+
+    def test_an_album_without_a_genre_gets_one_looked_up(self, tmp_path, monkeypatch):
+        album = self.album()
+        monkeypatch.setattr(downloader.sources, "find_genre", lambda artist, title: "Electronic")
+        self.downloader_for(tmp_path, monkeypatch, album).download_link("x")
+        assert album.genre == "Electronic"
+
+    @pytest.mark.parametrize("kind, genre, dry_run", [("playlist", "", False), ("album", "House", False),
+                                                      ("album", "", True)])
+    def test_no_lookup_for_playlists_known_genres_or_dry_runs(self, tmp_path, monkeypatch, kind, genre, dry_run):
+        album = self.album(kind, genre)
+        monkeypatch.setattr(downloader.sources, "find_genre", lambda artist, title: pytest.fail("looked up"))
+        self.downloader_for(tmp_path, monkeypatch, album, dry_run).download_link("x")
+        assert album.genre == genre
+
+    def test_a_failed_lookup_does_not_stop_the_download(self, tmp_path, monkeypatch):
+        def broken(artist, title):
+            raise RuntimeError("catalogue down")
+
+        album = self.album()
+        monkeypatch.setattr(downloader.sources, "find_genre", broken)
+        assert isinstance(self.downloader_for(tmp_path, monkeypatch, album).download_link("x"), downloader.Report)
+        assert album.genre == ""

@@ -34,6 +34,7 @@ class Album:
     cover_url: str = ""
     tracks: list[Track] = field(default_factory=list)
     service: str = ""  # where the link came from, e.g. "Apple Music"
+    genre: str = ""  # "Electronic"; from the service, or looked up by find_genre()
     # A caveat about the release itself, shown next to it: a playlist page that
     # only handed over its first tracks says so here.
     note: str = ""

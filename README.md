@@ -25,7 +25,9 @@ SoundCloud, Last.fm and sites such as Bandcamp.
 ---
 
 Titles, artists, track numbers, the year and the cover are read from the page behind the
-link. When the service streams the audio openly (YouTube, SoundCloud, Bandcamp), the track
+link. The genre comes from the same place when the service names one (Deezer and Apple
+Music do); for Spotify, YouTube and Last.fm the album is looked up by name in Apple's
+catalogue and then on Deezer. Playlists get no genre, since their songs come from many. When the service streams the audio openly (YouTube, SoundCloud, Bandcamp), the track
 is taken from there. When it does not (Spotify, Apple Music, Deezer, Last.fm), the same
 track is looked for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp does the
 downloading, after which the files get their tags and cover art.
@@ -33,7 +35,7 @@ downloading, after which the files get their tags and cover art.
 - Python, ffmpeg and Deno come inside the installer, so there is nothing else to set up.
 - No accounts or API keys; everything runs on your own machine.
 - A name works when you have no link: write "Daft Punk - Discovery".
-- Every file gets tags and cover art, and multi-disc albums are numbered properly.
+- Every file gets tags, the genre and cover art, and multi-disc albums are numbered properly.
 - Optional ReplayGain tags make a shuffled library play at one volume.
 - A text file of links or a playlist exported as CSV can be queued in one go.
 - Watched playlists are checked twice a day, and only the tracks added since are downloaded.
