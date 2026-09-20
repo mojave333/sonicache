@@ -295,3 +295,45 @@ class TestMusicBrainz:
                                              ("r&b", "R&B"), ("uk garage", "UK Garage"), ("idm", "IDM")])
     def test_genre_names_are_capitalised(self, name, cased):
         assert sources._genre_case(name) == cased
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+class TestLibraryScan:
+    """The music folder holds albums, single tracks and, in the nested naming,
+    a folder per artist with the albums inside it."""
+
+    def music(self, root: Path) -> None:
+        flat = root / "Daft Punk - Discovery (2001)"
+        flat.mkdir()
+        tagged(flat, "mp3", 1, "One More Time")
+        artist = root / "Radiohead"
+        artist.mkdir()
+        nested = artist / "In Rainbows (2007)"
+        nested.mkdir()
+        tagged(nested, "mp3", 1, "15 Step")
+        single = tagged(root, "mp3", 1, "Never Gonna Give You Up")
+        single.rename(root / "Rick Astley - Never Gonna Give You Up.mp3")  # as a single track is named
+        (root / "Pictures").mkdir()  # a folder with no music anywhere in it
+
+    def test_flat_and_nested_albums_and_single_tracks_are_all_found(self, tmp_path):
+        self.music(tmp_path)
+        items = {item["title"]: item for item in gui.Api.library(None, str(tmp_path))}
+        assert set(items) == {"Discovery", "In Rainbows", "Never Gonna Give You Up"}
+        assert items["In Rainbows"]["artist"] == "Radiohead"  # taken from the folder above it
+        assert items["In Rainbows"]["year"] == "2007"
+        assert items["In Rainbows"]["path"] == str(tmp_path / "Radiohead" / "In Rainbows (2007)")
+        assert items["Discovery"]["artist"] == "Daft Punk"
+        assert items["Discovery"]["album"] and not items["Never Gonna Give You Up"]["album"]
+        assert items["Never Gonna Give You Up"]["artist"] == "Rick Astley"
+
+    def test_an_artist_folder_is_not_an_album_itself(self, tmp_path):
+        self.music(tmp_path)
+        paths = [item["path"] for item in gui.Api.library(None, str(tmp_path))]
+        assert str(tmp_path / "Radiohead") not in paths
+        assert str(tmp_path / "Pictures") not in paths
+
+    def test_the_tracks_tab_reaches_into_a_nested_album(self, tmp_path):
+        self.music(tmp_path)
+        tracks = gui.Api.tracks(gui.Api.__new__(gui.Api), str(tmp_path))
+        assert len(tracks) == 3
+        assert str(tmp_path / "Radiohead" / "In Rainbows (2007)") in {track["entry"] for track in tracks}

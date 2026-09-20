@@ -145,7 +145,8 @@ the next run. The status bar at the bottom counts the tracks and estimates what 
 ### Library
 
 The library shows what is already in the music folder, on three tabs: Albums, Tracks and
-Artists. Each has a search, a sort order and a direction. Albums come as a grid of covers
+Artists. Albums sitting in a folder per artist, which the "nested" naming makes, are found
+too, and take their artist from the folder above them. Each has a search, a sort order and a direction. Albums come as a grid of covers
 or, with the switch beside the sorting, as a table with sortable columns.
 
 A click on a cover opens the album's page: the cover grows out of the grid into a large one

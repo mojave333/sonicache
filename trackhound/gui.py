@@ -64,6 +64,8 @@ LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thous
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 _TRACK_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+)$")
+# An album inside an artist's folder is named without the artist: "Discovery (2001)"
+_ALBUM_UNDER_ARTIST = re.compile(r"^(?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 LIBRARY_VIEWS = ("grid", "list")
 ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the history
 ARTIST_RETRY = 7 * 86400  # an artist Deezer did not know is asked about again after a week
@@ -222,20 +224,29 @@ class Api:
         return True
 
     def library(self, folder: str) -> list[dict]:
-        """Album folders and single tracks in the music folder, newest first."""
-        try:
-            children = list(Path(folder).expanduser().iterdir())
-        except OSError:
-            return []
+        """Album folders and single tracks in the music folder, newest first.
+
+        A folder with no music of its own is an artist's folder: the "nested"
+        naming puts the albums one level down, as Artist/Album (Year). Those
+        albums take their artist from the folder above them.
+        """
         items = []
-        for path in children:
+        for path in _folder_contents(Path(folder).expanduser()):
             try:
-                if path.is_dir():
-                    files = [file for file in path.iterdir() if _is_audio(file)]
+                if not path.is_dir():
+                    if _is_audio(path):
+                        items.append(_library_item(path, [path]))
+                    continue
+                files = [file for file in path.iterdir() if _is_audio(file)]
+                if files:
+                    items.append(_library_item(path, files))
+                    continue
+                for inner in _folder_contents(path):
+                    if not inner.is_dir():
+                        continue
+                    files = [file for file in inner.iterdir() if _is_audio(file)]
                     if files:
-                        items.append(_library_item(path, files))
-                elif _is_audio(path):
-                    items.append(_library_item(path, [path]))
+                        items.append(_library_item(inner, files, artist=path.name))
             except OSError:
                 continue  # removed or locked while scanning
         items.sort(key=lambda item: item["modified"], reverse=True)
@@ -824,10 +835,18 @@ def _is_audio(path: Path) -> bool:
     return path.suffix.lower() in AUDIO_SUFFIXES and not path.name.startswith("_part_") and path.is_file()
 
 
-def _library_item(path: Path, files: list[Path]) -> dict:
+def _folder_contents(path: Path) -> list[Path]:
+    try:
+        return list(path.iterdir())
+    except OSError:
+        return []
+
+
+def _library_item(path: Path, files: list[Path], artist: str = "") -> dict:
     album = path.is_dir()
     stats = [file.stat() for file in files]
-    match = (_ALBUM_NAME if album else _TRACK_NAME).match(path.name if album else path.stem)
+    pattern = _ALBUM_UNDER_ARTIST if artist else _ALBUM_NAME if album else _TRACK_NAME
+    match = pattern.match(path.name if album else path.stem)
     marker = _read_marker(path) if album else {}
     return {
         # The link the album came from, when it was downloaded by this program
@@ -835,7 +854,7 @@ def _library_item(path: Path, files: list[Path]) -> dict:
         "expected": marker.get("tracks") or 0,
         "album": album,
         "title": match["title"] if match else (path.name if album else path.stem),
-        "artist": match["artist"] if match else "",
+        "artist": artist or (match["artist"] if match and not artist else ""),
         "year": (match["year"] or "") if match and album else "",
         "path": str(path),
         "tracks": len(files),
