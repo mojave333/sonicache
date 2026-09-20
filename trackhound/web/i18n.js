@@ -32,7 +32,8 @@ const TRANSLATIONS = {
     "ReplayGain tags: the player makes the tracks equally loud. The audio is not changed; it takes a player that reads them — foobar2000, MusicBee, AIMP, VLC",
   "Выкл": "Off",
   "Вкл": "On",
-  "Измеряем громкость…": "Measuring the loudness…",
+  "Ищем источник": "Looking for a source",
+  "Выравниваем громкость": "Levelling the loudness",
 
   // Lists from a file
   "Скачать список из файла…": "Download a list from a file…",

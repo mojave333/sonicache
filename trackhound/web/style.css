@@ -411,6 +411,12 @@ p { margin: 0; }
   border-radius: 4px; background: var(--selected); color: var(--text-subtle);
 }
 .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* While an album is downloading its cover stands in for the progress: grey to
+   begin with, taking its colour back from the bottom up as tracks arrive */
+.is-running .cover img { filter: grayscale(1) brightness(0.75); }
+.cover .cover-fill { filter: none; clip-path: inset(calc(100% - var(--p, 0) * 100%) 0 0 0);
+  transition: clip-path var(--settle) var(--ease); }
+.job:not(.is-running) .cover .cover-fill { display: none; }
 .cell-main { min-width: 0; }
 .title, .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub { color: var(--text-subtle); font-size: 13px; }
@@ -448,6 +454,15 @@ p { margin: 0; }
   transition: width 260ms var(--ease);
 }
 .bar.indeterminate .bar-fill { width: 34%; animation: indeterminate 1.3s ease-in-out infinite; }
+/* One mark per track: how far the album has come and how long it is, in one row */
+.steps { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; height: 5px; }
+.step { border-radius: 1px; background: var(--divider); }
+.step.done { background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-edge); }
+.step.failed { background: var(--danger); }
+.step.now {
+  background: linear-gradient(to right, var(--accent) calc(var(--p, 0) * 100%), var(--divider) 0);
+  transition: background 200ms var(--ease);
+}
 @keyframes indeterminate {
   from { transform: translateX(-110%); }
   to { transform: translateX(300%); }
@@ -628,6 +643,12 @@ p { margin: 0; }
 .empty .scene { height: 168px; width: auto; max-width: 100%; margin-bottom: 4px; }
 .empty-title { color: var(--text-muted); font-weight: 600; }
 .empty-title:empty { display: none; }
+/* Nothing is known about the release yet, so its line is a grey block rather
+   than an empty space. No shimmer: the block says "waiting" well enough. */
+.job.unread .sub::after {
+  content: ""; display: block; width: 160px; max-width: 60%; height: 9px; margin-top: 3px;
+  border-radius: 4px; background: var(--divider);
+}
 .empty-text { font-size: 13px; }
 .empty-text:empty { display: none; }
 
