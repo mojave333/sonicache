@@ -533,6 +533,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/watch.py` | the list of watched playlists |
 | `trackhound/gui.py` | the window (pywebview) and the bridge to the downloader |
 | `trackhound/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
+| `trackhound/web/art/`, `trackhound/web/fonts/` | the drawing on the empty screen and the Commissioner font |
 | `trackhound/cli.py`, `main.py` | the command line and the entry point |
 | `tests/` | offline tests of the link parsing, the matching and the file names |
 | `trackhound.spec`, `scripts/fetch-vendor.ps1` | building the exe |
@@ -546,7 +547,9 @@ The rest of `trackhound/` is the program built on top of it.
 linking rather than mere aggregation, so the copyleft covers the whole project.
 
 Other dependencies: yt-dlp and yt-dlp-ejs are under the Unlicense, ytmusicapi under MIT,
-pywebview under BSD-3-Clause.
+pywebview under BSD-3-Clause. The window writes its names and headings in Commissioner, which
+travels with the program in `trackhound/web/fonts/` under the SIL Open Font License; the
+licence text sits beside the files.
 
 The release builds carry two separate programs, each under its own licence: ffmpeg (GPL,
 sources at [ffmpeg.org](https://ffmpeg.org/download.html)) and Deno from
