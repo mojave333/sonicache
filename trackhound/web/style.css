@@ -580,12 +580,9 @@ p { margin: 0; }
   padding: 28px; text-align: center; color: var(--text-subtle);
 }
 .empty .icon { width: 26px; height: 26px; margin-bottom: 6px; stroke-width: 1.5; }
-/* An empty screen is drawn, not lettered: the aardvark of the logo, in the two
-   versions a light and a dark page each need */
+/* An empty screen is drawn, not lettered: the aardvark of the logo, the same
+   drawing on either theme */
 .empty .scene { height: 168px; width: auto; max-width: 100%; margin-bottom: 4px; }
-.empty .scene-dark { display: none; }
-:root[data-theme="dark"] .empty .scene-light { display: none; }
-:root[data-theme="dark"] .empty .scene-dark { display: block; }
 .empty-title { color: var(--text-muted); font-weight: 600; }
 .empty-title:empty { display: none; }
 .empty-text { font-size: 13px; }
