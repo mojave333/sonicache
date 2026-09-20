@@ -205,6 +205,7 @@ class TestGenreLookupWhenDownloading:
     def downloader_for(self, tmp_path, monkeypatch, album, dry_run=False):
         monkeypatch.setattr(downloader.sources, "resolve", lambda link: sources.Release(album, album.tracks))
         loader = downloader.Downloader(downloader.Options(tmp_path, dry_run=dry_run), log=lambda message: None)
+        loader.ffmpeg = "ffmpeg"  # nothing is encoded here, but mp3 refuses to start without it
         monkeypatch.setattr(loader, "_download_tracks", lambda *args, **kwargs: downloader.Report())
         return loader
 
