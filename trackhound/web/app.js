@@ -42,13 +42,6 @@ const QUEUE_EMPTY = {
 };
 
 const ACTIVE = new Set(["queued", "running"]);
-// Past this many tracks a mark each would be a pixel wide, so the plain bar stays
-const STEPS_LIMIT = 30;
-const STEP_STATE = {
-  done: "done", found: "done", skip: "done",
-  missing: "failed", error: "failed",
-  download: "now",
-};
 
 // Library columns that can be sorted. Text starts ascending, numbers and dates
 // descending, because that is the useful end of each.
@@ -962,12 +955,7 @@ function renderJob(job) {
   // set elsewhere would be wiped on the next event.
   const classes = ["job", `is-${job.state}`];
   if (job.tracks.size) classes.push("has-tracks");
-  // Nothing is known about the release yet: the card waits with a grey line
-  if (ACTIVE.has(job.state) && !job.tracks.size) classes.push("unread");
   node.className = classes.join(" ");
-  // The cover takes its colour back as the album arrives
-  node.style.setProperty("--p", job.total ? jobProgress(job) : 0);
-  renderSteps(job);
   $(".job-row", node).className = `row job-row tone-${status.tone}`;
   const title = $(".title", node);
   title.textContent = job.title;
@@ -1007,10 +995,7 @@ function jobStatus(job) {
       }
       const ratio = jobProgress(job);
       const text = job.stopping ? t("Останавливаем…") : jobStage(job, ratio);
-      // The marks under the line carry the progress, so no spinner turns above it
-      const steps = stepsFit(job);
-      return { icon: steps ? "" : "spinner", tone: "primary", text,
-               progress: steps ? undefined : ratio };
+      return { icon: "spinner", tone: "primary", text, progress: ratio };
     }
     case "done": {
       const { ok, skipped } = job.result;
@@ -1032,9 +1017,9 @@ function jobStatus(job) {
   }
 }
 
-// Which of the downloader's own steps the release is on. Measuring the
-// loudness comes last and runs for the album as a whole, so it speaks for the
-// card; before the first track starts arriving there is only the search.
+// Which of the steps the downloader really takes the release is on.
+// Measuring the loudness comes last and runs for the album as a whole, so it
+// speaks for the card; before the first track arrives there is only the search.
 function jobStage(job, ratio) {
   if (job.loudness) return t("Выравниваем громкость");
   const states = [...job.tracks.values()].map((track) => track.state);
@@ -1043,36 +1028,6 @@ function jobStage(job, ratio) {
   }
   return t("{done} из {total} · {percent}%",
            { done: job.done, total: job.total, percent: Math.floor(ratio * 100) });
-}
-
-function stepsFit(job) {
-  return Boolean(job.total) && job.total <= STEPS_LIMIT;
-}
-
-// A mark per track: filled when it is here, part-filled while it downloads,
-// red when it failed, empty until its turn
-function renderSteps(job) {
-  const steps = $(".steps", job.node);
-  const show = stepsFit(job) && ACTIVE.has(job.state);
-  steps.hidden = !show;
-  if (!show) {
-    steps.replaceChildren();
-    return;
-  }
-  const tracks = [...job.tracks.values()];
-  if (steps.children.length !== job.total) {
-    steps.replaceChildren(...Array.from({ length: job.total }, () => {
-      const mark = document.createElement("span");
-      mark.className = "step";
-      return mark;
-    }));
-  }
-  [...steps.children].forEach((mark, index) => {
-    const track = tracks[index];
-    const state = track ? STEP_STATE[track.state] || "" : "";
-    mark.className = `step${state ? ` ${state}` : ""}`;
-    if (state === "now") mark.style.setProperty("--p", (track.percent || 0) / 100);
-  });
 }
 
 function jobProgress(job) {
@@ -1085,8 +1040,7 @@ function jobProgress(job) {
 
 function setStatusCell(cell, { icon, text, tip = "", progress }) {
   const statusIcon = $(".status-icon", cell);
-  statusIcon.hidden = !icon;
-  if (icon) $("use", statusIcon).setAttribute("href", `#i-${icon}`);
+  $("use", statusIcon).setAttribute("href", `#i-${icon}`);
   statusIcon.classList.toggle("spin", icon === "spinner");
   $(".status-text", cell).textContent = text;
   cell.title = tip;
@@ -2599,10 +2553,9 @@ async function showLibraryCover(element) {
 }
 
 function loadCover(cover, src) {
-  for (const image of $$("img", cover)) {
-    image.addEventListener("load", () => { image.hidden = false; }, { once: true });
-    image.src = src;
-  }
+  const image = $("img", cover);
+  image.addEventListener("load", () => { image.hidden = false; }, { once: true });
+  image.src = src;
 }
 
 function formatDuration(seconds) {
