@@ -14,7 +14,7 @@ import yt_dlp
 from ytmusicapi import YTMusic
 
 from .i18n import t
-from .logs import YtdlpLogger
+from .logs import YtdlpLogger, log
 from .models import Album, Track
 
 MIN_SCORE = 0.62  # below this a candidate is considered a different song
@@ -97,6 +97,15 @@ def ytmusic() -> YTMusic:
 
 
 class Matcher:
+    # A source whose search failed three times over is left out for a while.
+    # Where YouTube is blocked, every track would otherwise wait minutes for
+    # its retries before SoundCloud had a turn; after the rest it is asked again.
+    REST = 300  # seconds
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._resting: dict[str, tuple[float, SearchError]] = {}  # source → (until, why)
+
     def find_all(self, track: Track, album: Album, exhaustive: bool = False) -> list[Match]:
         """Every candidate good enough to be this track, best first. The next one
         is worth trying when the best refuses to download: age-gated videos,
@@ -105,11 +114,18 @@ class Matcher:
         query = f"{track.artists} {track.title}"
         best: dict[str, Match] = {}  # by url: the same song can appear in two searches
         errors = []
-        for search in (self._youtube_music_songs, self._soundcloud, self._youtube_videos):
+        # Songs and videos both come through the YouTube Music API, so they rest together
+        for search, source in ((self._youtube_music_songs, "YouTube Music"), (self._soundcloud, "SoundCloud"),
+                               (self._youtube_videos, "YouTube Music")):
+            resting = self._resting_error(source)
+            if resting:
+                errors.append(resting)
+                continue
             try:
                 candidates = search(query)
             except SearchError as e:
                 errors.append(e)
+                self._rest(source, e)
                 continue
             for candidate in candidates:
                 match = _score(candidate, track, album)
@@ -122,6 +138,21 @@ class Matcher:
         if not best and errors:  # "not found" would hide the real reason
             raise errors[0]
         return sorted(best.values(), key=lambda match: match.score, reverse=True)
+
+    def _rest(self, source: str, error: SearchError) -> None:
+        with self._lock:
+            if source in self._resting:
+                return
+            self._resting[source] = (time.monotonic() + self.REST, error)
+        log.warning("%s не отвечает, следующие %d мин ищу без него: %s", source, self.REST // 60, error)
+
+    def _resting_error(self, source: str) -> SearchError | None:
+        with self._lock:
+            until, error = self._resting.get(source, (0.0, None))
+            if until > time.monotonic():
+                return error
+            self._resting.pop(source, None)
+            return None
 
     def _youtube_music_songs(self, query: str) -> list[dict]:
         return self._youtube_music(query, "songs")

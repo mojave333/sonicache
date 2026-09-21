@@ -1,5 +1,7 @@
 """Scoring a candidate is what decides whether the right song is downloaded."""
 
+import pytest
+
 from trackhound.engine.matcher import (GOOD_SCORE, MIN_SCORE, Matcher, SearchError, _artist_score, _norm,
                                 _score, _similarity)
 from trackhound.engine.models import Album, Track
@@ -141,6 +143,40 @@ class TestFindAll:
         )
         matches = finder.find_all(track(), album(), exhaustive=True)
         assert matches[0].title == "One More Time"
+
+    def test_a_source_that_does_not_answer_rests_and_is_asked_again_later(self, monkeypatch):
+        """Where YouTube is blocked, each track must not wait out its retries."""
+        asked = []
+        clock = [1000.0]
+        finder = Matcher()
+
+        def blocked(query):
+            asked.append("youtube")
+            raise SearchError("поиск на YouTube Music не удался: timed out")
+
+        monkeypatch.setattr("trackhound.engine.matcher.time.monotonic", lambda: clock[0])
+        monkeypatch.setattr(finder, "_youtube_music_songs", blocked)
+        monkeypatch.setattr(finder, "_youtube_videos", blocked)
+        monkeypatch.setattr(finder, "_soundcloud", lambda query: [candidate(source="soundcloud")])
+        for _ in range(3):
+            assert [m.source for m in finder.find_all(track(), album())] == ["soundcloud"]
+        assert asked == ["youtube"]  # once, and not for the videos either: the same API
+        clock[0] += Matcher.REST + 1
+        finder.find_all(track(), album())
+        assert asked == ["youtube", "youtube"]
+
+    def test_a_resting_source_still_explains_an_empty_search(self, monkeypatch):
+        finder = Matcher()
+
+        def blocked(query):
+            raise SearchError("поиск на YouTube Music не удался: timed out")
+
+        monkeypatch.setattr(finder, "_youtube_music_songs", blocked)
+        monkeypatch.setattr(finder, "_youtube_videos", blocked)
+        monkeypatch.setattr(finder, "_soundcloud", lambda query: [])
+        for _ in range(2):
+            with pytest.raises(SearchError, match="timed out"):
+                finder.find_all(track(), album())
 
     def test_a_failing_source_is_reported_when_nothing_is_found(self, monkeypatch):
         finder = Matcher()
