@@ -129,9 +129,6 @@ const TRANSLATIONS = {
   "Открыть папку в проводнике": "Open the folder in the file manager",
   "Обновить": "Refresh",
   "Обновить (F5)": "Refresh (F5)",
-  "Скачать снова": "Download again",
-  "Скачать снова: докачает недостающие треки":
-    "Download again: fills in the tracks that are missing",
   "Удалить": "Delete",
   "Показать в проводнике": "Show in the file manager",
   "Альбомы и треки": "Albums and tracks",

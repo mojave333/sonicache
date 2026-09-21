@@ -159,7 +159,8 @@ album this program downloaded, the tracks that never arrived are listed too, gre
 since the `.trackhound.json` file in the album's folder keeps the link and the whole
 tracklist. From the page the album can be opened in the file manager, completed ("Fetch what
 is missing" downloads the same link again and skips what is on disk) or watched for new
-tracks. Escape, Backspace or the mouse's back button returns to the grid, and the cover
+tracks. The same button sits on the album's row, in its right-click menu and above the list,
+and everywhere it shows only while tracks are missing. Escape, Backspace or the mouse's back button returns to the grid, and the cover
 flies back to its place.
 
 Tracks lists every file with its artists, album and length; a double click opens its album

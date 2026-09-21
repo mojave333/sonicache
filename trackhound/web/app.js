@@ -598,7 +598,7 @@ function bindUi() {
   $("#library-refresh").addEventListener("click", loadLibrary);
   $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
   $("#library-delete").addEventListener("click", deleteSelected);
-  $("#library-again").addEventListener("click", () => downloadAgain(selectedItems()));
+  $("#library-again").addEventListener("click", () => downloadAgain(selectedItems().filter(hasMissing)));
   $("#library").addEventListener("click", onLibraryClick);
   $("#library").addEventListener("keydown", onLibraryKey);
   $("#library").addEventListener("contextmenu", onLibraryContextMenu);
@@ -2078,9 +2078,9 @@ function fillAlbumPage(item) {
   } else {
     tintPage(null, owner);
   }
-  // Only an album with tracks still to come has anything to fetch; the count in
-  // its marker says so at once, the tracklist confirms it once the page is read
-  $("[data-page-action=again]", page).hidden = !item.link || !(item.expected > item.tracks);
+  // The count in the marker says at once whether tracks are missing; the
+  // tracklist confirms it once the page is read
+  $("[data-page-action=again]", page).hidden = !hasMissing(item);
   const watch = $("[data-page-action=watch]", page);
   watch.hidden = !item.link || !item.album;
   renderWatchButton(item.link);
@@ -2476,7 +2476,7 @@ function onLibraryContextMenu(event) {
 function openLibraryMenu(x, y) {
   const menu = $("#library-menu");
   const items = selectedItems();
-  $("[data-action=again]", menu).hidden = !items.some((item) => item.link);
+  $("[data-action=again]", menu).hidden = !items.some(hasMissing);
   $("[data-action=open]", menu).hidden = items.length !== 1;
   menu.hidden = false;
   // Placed after it is measurable, so a menu near the edge turns back inwards
@@ -2498,7 +2498,7 @@ function onLibraryMenuClick(event) {
   if (!action) return;
   closeLibraryMenu(false);
   const items = selectedItems();
-  if (action === "again") downloadAgain(items);
+  if (action === "again") downloadAgain(items.filter(hasMissing));
   else if (action === "open" && items.length === 1) api().open_folder(items[0].path);
   else if (action === "delete") deleteSelected();
 }
@@ -2518,8 +2518,15 @@ function renderSelection() {
     row.setAttribute("aria-selected", String(picked));
   }
   $("#library-delete").hidden = !selected.size;
-  $("#library-again").hidden = !selectedItems().some((item) => item.link);
+  $("#library-again").hidden = !selectedItems().some(hasMissing);
   renderStatusBar();
+}
+
+// Only an album this program downloaded knows its tracklist, and only one
+// with tracks still missing has anything to fetch. The row, the menu, the
+// toolbar and the album page all ask this, so a whole album offers nothing.
+function hasMissing(item) {
+  return Boolean(item.link) && item.expected > item.tracks;
 }
 
 function selectedItems() {
@@ -2636,7 +2643,7 @@ function createLibraryRow(item) {
     api().open_folder(item.path);
   });
   const again = $(".again", row);
-  again.hidden = !item.link; // only albums this program downloaded know their link
+  again.hidden = !hasMissing(item);
   again.addEventListener("click", (event) => {
     event.stopPropagation();
     downloadAgain([item]);
