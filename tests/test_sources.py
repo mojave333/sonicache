@@ -256,8 +256,10 @@ class TestDeezer:
         with pytest.raises(SourceError, match="Quota limit exceeded"):
             sources.resolve("https://www.deezer.com/album/302127")
 
-    def test_an_artist_page_is_refused(self, api):
-        with pytest.raises(SourceError, match="альбомы, треки и плейлисты"):
+    def test_an_artist_page_is_not_one_release(self, api):
+        """The window and the command line open it as a discography; one that got
+        this far could not be read, and the card says where to look instead."""
+        with pytest.raises(SourceError, match="Поиск"):
             sources.resolve("https://www.deezer.com/en/artist/27")
         assert api == []
 

@@ -156,9 +156,21 @@ which one is shown.
 
 The arrow on a cover or a track puts it into the queue at once and turns into a tick; the
 view stays, so more can be picked. A click on an album opens its page with the tracklist,
-where the whole album or any one track can be queued. A click on an artist searches for
-everything of theirs. Whatever is chosen downloads exactly as its link pasted by hand would,
-with the same matching, tags and folders.
+where the whole album or any one track can be queued. Whatever is chosen downloads exactly
+as its link pasted by hand would, with the same matching, tags and folders.
+
+A click on an artist opens their page: the photo, and every release newest first, split
+into albums, singles and EPs, and compilations. "Download the discography" queues their
+albums and EPs, oldest first; singles are left out, since they are mostly songs the albums
+have as well, and each one can still be queued from its cover. "Watch for new releases"
+adds the artist to Settings → Watching: from then on the checks every 12 hours download
+whatever comes out, singles included, into the music folder. What the artist had when the
+watch began is never downloaded by it, and neither is an old record a catalogue adds late.
+
+A link to an artist pasted into the download field, or given on the command line, stands
+for the same discography: each album and EP becomes a card of its own. Deezer and YouTube
+Music list an artist's releases openly; Spotify and Apple Music do not, so their artist
+links are followed to the artist of the same name on Deezer.
 
 ### Library
 
@@ -343,6 +355,7 @@ Trackhound-cli.exe --dry-run LINK
 | Apple Music | album, song, playlist | searched |
 | Deezer | album, track, playlist, `link.deezer.com/…` | searched |
 | YouTube, YouTube Music | video, album, playlist | from the link |
+| Artists on Deezer, YouTube Music, Spotify, Apple Music | the artist's page | their albums and EPs, each downloaded as above |
 | SoundCloud | track, set | from the link; DRM-protected tracks are searched elsewhere |
 | Last.fm | album, track | the album is found on YouTube Music or Apple Music, the audio comes from there or from a search |
 | Bandcamp and other sites yt-dlp understands | album, track | from the link |
@@ -350,8 +363,8 @@ Trackhound-cli.exe --dry-run LINK
 Spotify and Apple Music playlists are read off the page, and the page does not hand over the
 whole list: Spotify gives the first 100 tracks, Apple Music the first 50. When a playlist
 holds more, the program says so on the release line, and the rest have to be added
-separately. Deezer playlists come whole, through Deezer's public API. Artist pages and VK
-are not supported; VK shows music only to a signed-in account.
+separately. Deezer playlists come whole, through Deezer's public API. VK is not supported;
+it shows music only to a signed-in account.
 
 A playlist's tracks keep their own artists, and are tagged as a compilation: the playlist's
 name as the album, "Various artists" as the album artist, and the compilation flag, so

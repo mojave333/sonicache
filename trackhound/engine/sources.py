@@ -65,6 +65,11 @@ def resolve(link: str) -> Release:
     def on(*domains: str) -> bool:
         return any(host == domain or host.endswith(f".{domain}") for domain in domains)
 
+    from .catalog import is_artist_link  # here: catalog imports this module
+    if is_artist_link(url):  # the window and the command line open these as a discography
+        raise SourceError.of("unsupported_link", "Это ссылка на исполнителя, а его альбомы прочитать не удалось: "
+                             "попробуйте ещё раз или найдите его в разделе «Поиск»")
+
     if on("spotify.com", "spotify.link", "spoti.fi"):
         return _spotify(url)  # short links are only recognised with https://
     if on("music.apple.com", "itunes.apple.com"):

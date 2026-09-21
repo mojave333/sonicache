@@ -110,7 +110,7 @@ const state = {
     pageToken: 0,
   },
   // The catalogue search: what was asked last and what came back
-  search: { query: "", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null },
+  search: { query: "", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null, pages: [] },
   covers: new Map(),
   artistPhotos: new Map(),
   tints: new Map(), // picture address → the hue its band is drawn in
@@ -461,6 +461,7 @@ function isWatched(link) {
 function setWatched(list) {
   state.watched = list || [];
   renderWatched();
+  renderArtistButtons();
   for (const job of state.jobs.values()) renderJob(job);
 }
 
@@ -476,6 +477,11 @@ function watchStatus(entry) {
     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
   if (entry.state === "running" || entry.state === "queued") return t("Проверяем…");
   if (entry.added_tracks == null) return t("Проверено {when}", { when });
+  if (entry.kind === "artist") {
+    return entry.added_tracks
+      ? t("Проверено {when}, новых релизов: {count}", { when, count: entry.added_tracks })
+      : t("Проверено {when}, новых релизов нет", { when });
+  }
   return entry.added_tracks
     ? t("Проверено {when}, новых треков: {count}", { when, count: entry.added_tracks })
     : t("Проверено {when}, новых треков нет", { when });
@@ -497,7 +503,8 @@ function renderWatched() {
     name.title = entry.link;
     const desc = document.createElement("p");
     desc.className = "setting-desc";
-    desc.textContent = [entry.service, watchStatus(entry)].filter(Boolean).join(" · ");
+    desc.textContent = [entry.kind === "artist" ? t("исполнитель") : "", entry.service, watchStatus(entry)]
+      .filter(Boolean).join(" · ");
     label.append(name, desc);
     const remove = document.createElement("button");
     remove.type = "button";
@@ -2889,7 +2896,10 @@ async function runSearch(text, again = false) {
   if (query === search.query && !again && (search.results || search.loading)) return;
   const token = ++search.token;
   Object.assign(search, { query, loading: Boolean(query), results: null });
-  closeSearchPage();
+  if (search.pages.length) {
+    search.pages = [];
+    drawSearchPage();
+  }
   renderSearch();
   if (!query) return;
   let results;
@@ -3012,13 +3022,8 @@ function onSearchClick(event) {
     queueFromSearch([holder.dataset.link]);
     return;
   }
-  if (holder.classList.contains("search-artist")) {
-    const input = $("#search-input");
-    input.value = holder._item.name;
-    runSearch(input.value, true);
-  } else if (holder.classList.contains("search-card")) {
-    openSearchAlbum(holder._item);
-  }
+  if (holder.classList.contains("search-artist")) openSearchPage("artist", holder._item);
+  else if (holder.classList.contains("search-card")) openSearchPage("album", holder._item);
 }
 
 // What is chosen here goes into the queue the way a pasted link would; the
@@ -3038,10 +3043,43 @@ async function queueFromSearch(links) {
   announce(t("Добавлено в очередь: {count}", { count: jobs.length }));
 }
 
-async function openSearchAlbum(item) {
+// The album and artist pages open over the results, one on top of another:
+// an artist's album opens over the artist, and Back returns there.
+function openSearchPage(kind, item) {
+  state.search.pages.push({ kind, item, data: null });
+  drawSearchPage();
+}
+
+function closeSearchPage() {
+  if (!state.search.pages.length) return;
+  state.search.pages.pop();
+  drawSearchPage();
+}
+
+function drawSearchPage() {
   const page = $("#search-page");
-  const token = ++state.search.token;
-  state.search.page = { item };
+  const pages = state.search.pages;
+  const top = pages[pages.length - 1] || null;
+  state.search.page = top;
+  if (!top) {
+    page.hidden = true;
+    $("#search-input").focus({ preventScroll: true });
+    return;
+  }
+  const below = pages[pages.length - 2];
+  $("#search-back-label").textContent = below ? (below.item.name || below.item.title) : t("Поиск");
+  $(".album-page", page).hidden = top.kind !== "album";
+  $(".search-artist-page", page).hidden = top.kind !== "artist";
+  page.hidden = false;
+  page.scrollTop = 0;
+  $("#search-back").focus({ preventScroll: true });
+  if (top.kind === "album") fillSearchAlbum(top);
+  else fillSearchArtist(top);
+}
+
+async function fillSearchAlbum(entry) {
+  const { item } = entry;
+  const page = $("#search-page");
   $(".album-title", page).textContent = item.title;
   $(".album-sub", page).textContent = [item.artist, t(RELEASE_KINDS[item.type] || "Альбом"), item.year]
     .filter(Boolean).join(" · ");
@@ -3049,19 +3087,18 @@ async function openSearchAlbum(item) {
   $("img", cover).hidden = true;
   $("img", cover).removeAttribute("src");
   showRemotePicture(cover, item.cover.replace("/250x250-", "/500x500-"));
-  $(".album-list", page).replaceChildren(searchNote(t("Читаем список треков…")));
   renderSearchPageButton();
-  page.hidden = false;
-  page.scrollTop = 0;
-  $("#search-back").focus({ preventScroll: true });
   riseIn([...$(".album-info", page).children]);
-  let data;
-  try {
-    data = await api().release(item.link);
-  } catch (error) {
-    data = { error: String(error) };
+  if (!entry.data) {
+    $(".album-list", page).replaceChildren(searchNote(t("Читаем список треков…")));
+    try {
+      entry.data = await api().release(item.link);
+    } catch (error) {
+      entry.data = { error: String(error) };
+    }
   }
-  if (token !== state.search.token || page.hidden) return;
+  if (state.search.page !== entry) return; // another page was opened meanwhile
+  const data = entry.data;
   if (data.error) {
     $(".album-list", page).replaceChildren(searchNote(data.error));
     return;
@@ -3085,6 +3122,84 @@ async function openSearchAlbum(item) {
   }));
 }
 
+const RELEASE_GROUPS = [
+  ["Альбомы", ["album"]],
+  ["Синглы и EP", ["single", "ep"]],
+  ["Сборники", ["compilation"]],
+];
+
+async function fillSearchArtist(entry) {
+  const { item } = entry;
+  const page = $(".search-artist-page", $("#search-page"));
+  $(".artist-name", page).textContent = item.name;
+  $(".artist-sub", page).textContent = "";
+  const photo = $(".artist-photo", page);
+  fillArtistPhoto(photo, item.name || "?", true);
+  artistObserver.unobserve(photo);
+  if (item.picture) {
+    const image = $("img", photo);
+    image.addEventListener("load", () => { image.hidden = false; }, { once: true });
+    image.src = item.picture;
+  }
+  riseIn([...$(".artist-info", page).children]);
+  if (!entry.data) {
+    $(".artist-releases", page).replaceChildren(searchNote(t("Читаем релизы…")));
+    try {
+      entry.data = await api().artist(item.link);
+    } catch (error) {
+      entry.data = { error: String(error) };
+    }
+  }
+  if (state.search.page !== entry) return;
+  const data = entry.data;
+  if (data.error) {
+    $(".artist-releases", page).replaceChildren(searchNote(data.error));
+    return;
+  }
+  const count = data.releases.length;
+  $(".artist-sub", page).textContent = [
+    t("{count} {releaseWord}", { count, releaseWord: plural(count, "релиз", "релиза", "релизов") }),
+    data.fans ? t("поклонников: {count}", { count: data.fans.toLocaleString(LANGUAGE) }) : "",
+    data.service,
+  ].filter(Boolean).join(" · ");
+  const sections = [];
+  let index = 0;
+  for (const [title, kinds] of RELEASE_GROUPS) {
+    const releases = data.releases.filter((release) => kinds.includes(release.type));
+    if (!releases.length) continue;
+    const head = document.createElement("h3");
+    head.className = "search-head";
+    head.textContent = t(title);
+    const cards = document.createElement("div");
+    cards.className = "cards";
+    cards.append(...releases.map((release) => createSearchAlbum(release, index++)));
+    sections.push(head, cards);
+  }
+  $(".artist-releases", page).replaceChildren(...sections);
+  renderArtistButtons();
+}
+
+function discographyLinks(data) {
+  return data.releases.filter((release) => release.type === "album" || release.type === "ep")
+    .map((release) => release.link).reverse(); // oldest first, the order they came out in
+}
+
+function renderArtistButtons() {
+  const entry = state.search.page;
+  if (!entry || entry.kind !== "artist" || !entry.data || entry.data.error) return;
+  const page = $(".search-artist-page", $("#search-page"));
+  const links = discographyLinks(entry.data);
+  const download = $("[data-search-action=discography]", page);
+  const queued = links.length > 0 && links.every((link) => state.search.queued.has(link));
+  download.disabled = queued || !links.length;
+  $("span", download).textContent = queued ? t("В очереди")
+    : t("Скачать дискографию: {count}", { count: links.length });
+  const watching = isWatched(entry.data.link);
+  const watchButton = $("[data-search-action=watch-artist]", page);
+  watchButton.setAttribute("aria-pressed", String(watching));
+  $("span", watchButton).textContent = t(watching ? "Следим за новыми релизами" : "Следить за новыми релизами");
+}
+
 function searchNote(text) {
   const note = document.createElement("div");
   note.className = "album-note";
@@ -3094,30 +3209,42 @@ function searchNote(text) {
 
 function renderSearchPageButton() {
   const open = state.search.page;
-  const button = $("[data-search-action=download]", $("#search-page"));
   if (!open) return;
+  if (open.kind === "artist") {
+    renderArtistButtons();
+    return;
+  }
+  const button = $("[data-search-action=download]", $("#search-page"));
   const queued = state.search.queued.has(open.item.link);
   button.disabled = queued;
   $("span", button).textContent = queued ? t("В очереди") : t("Скачать");
 }
 
-function onSearchPageClick(event) {
-  const track = event.target.closest(".queue-btn[data-link]");
-  if (track) {
-    queueFromSearch([track.dataset.link]);
+async function onSearchPageClick(event) {
+  const open = state.search.page;
+  const queue = event.target.closest(".queue-btn");
+  if (queue) {
+    event.stopPropagation();
+    const link = queue.dataset.link || queue.closest("[data-link]")?.dataset.link;
+    if (link) queueFromSearch([link]);
     return;
   }
-  if (event.target.closest("[data-search-action=download]") && state.search.page) {
-    queueFromSearch([state.search.page.item.link]);
+  const card = event.target.closest(".search-card");
+  if (card && card._item) {
+    openSearchPage("album", card._item);
+    return;
   }
-}
-
-function closeSearchPage() {
-  const page = $("#search-page");
-  if (page.hidden) return;
-  page.hidden = true;
-  state.search.page = null;
-  $("#search-input").focus({ preventScroll: true });
+  const action = event.target.closest("[data-search-action]")?.dataset.searchAction;
+  if (!action || !open) return;
+  if (action === "download") queueFromSearch([open.item.link]);
+  else if (action === "discography" && open.data) queueFromSearch(discographyLinks(open.data));
+  else if (action === "watch-artist" && open.data) {
+    const { link, name } = open.data;
+    const watching = isWatched(link);
+    setWatched(watching ? await api().unwatch(link) : await api().watch_artist(link));
+    renderArtistButtons();
+    announce(t(watching ? "Больше не следим за «{title}»" : "Следим за «{title}»", { title: name }));
+  }
 }
 
 // Tidying up: older files get the genre, year, cover, lyrics and tags they

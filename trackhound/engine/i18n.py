@@ -93,6 +93,14 @@ ENGLISH = {
     "Поиск не удался: ни Deezer, ни YouTube Music не ответили ({error})":
         "The search failed: neither Deezer nor YouTube Music answered ({error})",
     "Deezer недавно не ответил, ISRC пока не ищем": "Deezer did not answer a moment ago, so no ISRCs for now",
+    "Не похоже на ссылку на исполнителя: {link}": "This does not look like a link to an artist: {link}",
+    "Страница исполнителя не открылась: {error}": "The artist's page did not open: {error}",
+    "Исполнитель «{name}» не нашёлся на Deezer": "Deezer has no artist called \"{name}\"",
+    "Spotify не показал исполнителя {id}: вставьте ссылку на него из Deezer или YouTube Music":
+        "Spotify would not show artist {id}: paste a link to them from Deezer or YouTube Music",
+    "Apple Music не нашёл исполнителя {id}": "Apple Music has no artist {id}",
+    "Это ссылка на исполнителя, а его альбомы прочитать не удалось: попробуйте ещё раз или найдите его в разделе «Поиск»":
+        "This is a link to an artist, and their albums could not be read: try again, or find them in Search",
     "Из YouTube поддерживаются ссылки на видео, альбомы и плейлисты":
         "From YouTube, links to videos, albums and playlists are supported",
     "В альбоме YouTube Music нет треков": "This YouTube Music album has no tracks",

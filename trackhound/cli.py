@@ -9,7 +9,8 @@ from pathlib import Path
 
 from . import __version__, logs, relay_for
 from .i18n import LANGUAGES, set_language, t
-from .engine import batch, network, use_relay
+from .engine import batch, catalog, network, use_relay
+from .engine.models import SourceError
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
                                 Options, use_proxy)
 
@@ -137,9 +138,22 @@ def main(argv: list[str] | None = None) -> int:
     for problem in downloader.environment_problems():
         print(f"⚠ {problem}", file=sys.stderr)
 
+    links = []
+    for link in args.links:
+        if not catalog.is_artist_link(link):
+            links.append(link)
+            continue
+        try:  # an artist's link is their albums and EPs, oldest first
+            releases = catalog.discography(link)
+        except SourceError as e:
+            print(f"✗ {e}", file=sys.stderr)
+            continue
+        print(t("{link}: альбомов и EP: {count}", link=link, count=len(releases)))
+        links += [release["link"] for release in releases]
+
     failed = 0
     try:
-        for link in args.links:
+        for link in links:
             try:
                 report = downloader.download_link(link)
             except Exception as e:

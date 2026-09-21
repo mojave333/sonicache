@@ -234,8 +234,22 @@
           </div>
           <div id="search-page" class="library-page search-page" hidden>
             <button type="button" class="page-back" id="search-back">
-              <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span>Поиск</span>
+              <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span id="search-back-label">Поиск</span>
             </button>
+            <div class="search-artist-page" hidden>
+              <div class="artist-head">
+                <div class="artist-photo"><img alt="" hidden><span class="initials"></span></div>
+                <div class="artist-info">
+                  <h2 class="album-title artist-name"></h2>
+                  <p class="album-sub artist-sub"></p>
+                  <div class="album-actions">
+                    <button type="button" class="btn primary" data-search-action="discography"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Скачать дискографию</span></button>
+                    <button type="button" class="tool-btn" data-search-action="watch-artist" aria-pressed="false" title="Новые альбомы, EP и синглы скачаются сами: раз в 12 часов программа смотрит, что вышло"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg><span>Следить за новыми релизами</span></button>
+                  </div>
+                </div>
+              </div>
+              <div class="artist-releases"></div>
+            </div>
             <div class="album-page">
               <div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
               <div class="album-info">

@@ -266,7 +266,29 @@ class Api:
     def download(self, links: list[str], settings: dict) -> list[dict]:
         settings = _normalize(settings)
         _save_settings(settings)
-        return [self._enqueue(link, settings) for link in links]
+        return [self._enqueue(link, settings) for link in _expand_artists(links)]
+
+    def artist(self, link: str) -> dict:
+        """An artist's page for Search: picture, name and every release, newest first."""
+        try:
+            page = catalog.artist(link)
+        except SourceError as e:
+            return {"error": str(e)}
+        return {**page, "watched": any(entry["link"] == page["link"] for entry in self._watched)}
+
+    def watch_artist(self, link: str) -> list[dict]:
+        """Starts watching an artist for new releases, into the music folder.
+        What the artist has today is remembered, so none of it downloads."""
+        try:
+            page = catalog.artist(link)
+        except SourceError as e:
+            logs.log.warning("слежение: исполнитель %s не открылся: %s", link, e)
+            return self.watched()
+        with self._lock:
+            self._watched = watch.add(self._watched, page["link"], page["name"], page["service"],
+                                      _load_settings(), known=[release["link"] for release in page["releases"]])
+            watch.save(self._watched)
+        return self.watched()
 
     def download_choices(self, link: str, settings: dict, choices: dict) -> dict | None:
         """Downloads the tracks of a release a person chose a match for, each
@@ -562,6 +584,7 @@ class Api:
             for entry in self._watched:
                 last = entry.get("last") or {}
                 result.append({
+                    "kind": entry.get("kind") or "release",
                     "link": entry["link"], "title": entry.get("title") or entry["link"],
                     "service": entry.get("service") or "", "checked": entry.get("checked") or 0,
                     "state": "running" if entry.get("job") in running else last.get("state", ""),
@@ -617,12 +640,17 @@ class Api:
         the downloader skips what is already there, so only new tracks arrive.
         """
         now = time.time()
+        artists = []
         with self._lock:
             entries = list(self._watched) if force else watch.due(self._watched, now)
             if not entries:
                 return self.watched()
             settings = _load_settings()
             for entry in entries:
+                if entry.get("kind") == "artist":  # read outside the lock: it asks the catalogue
+                    entry["checked"] = now
+                    artists.append(entry)
+                    continue
                 # A check runs with nobody to ask, so the best match is taken as before
                 queued = self._enqueue(entry["link"], {**settings, **entry["settings"],
                                                        "dry_run": False, "ask_doubtful": False})
@@ -631,8 +659,33 @@ class Api:
                 self._events.put({"type": "added", **queued, "dry_run": False, "watched": True,
                                   "format": entry["settings"].get("format", settings["format"])})
             watch.save(self._watched)
+        for entry in artists:
+            self._check_artist(entry, settings)
         logs.log.info("слежение: проверяю %d", len(entries))
         return self.watched()
+
+    def _check_artist(self, entry: dict, settings: dict) -> None:
+        """Queues the releases a watched artist has put out since the last look."""
+        try:
+            releases = catalog.artist(entry["link"])["releases"]
+        except SourceError as e:
+            logs.log.warning("слежение: %s не открылся: %s", entry["link"], e)
+            with self._lock:
+                entry["last"] = {"state": "error", "ok": None, "failed": 0}
+                watch.save(self._watched)
+            return
+        with self._lock:
+            fresh = watch.new_releases(entry, releases)
+            entry["last"] = {"state": "done", "ok": len(fresh), "failed": 0}
+            for release in fresh:
+                queued = self._enqueue(release["link"], {**settings, **entry["settings"],
+                                                         "dry_run": False, "ask_doubtful": False})
+                self._events.put({"type": "added", **queued, "dry_run": False, "watched": True,
+                                  "format": entry["settings"].get("format", settings["format"])})
+            watch.save(self._watched)
+        if fresh:
+            logs.log.info("слежение: у «%s» новых релизов: %d", entry.get("title"), len(fresh))
+        self._events.put({"type": "watched", "list": self.watched()})
 
     def _watch_loop(self) -> None:
         time.sleep(30)  # let the window settle before the first check
@@ -1401,6 +1454,25 @@ def _normalize(settings: dict) -> dict:
         "profiles": _profiles(settings.get("profiles")),
         "library_view": settings.get("library_view") if settings.get("library_view") in LIBRARY_VIEWS else "grid",
     }
+
+
+def _expand_artists(links: list[str]) -> list[str]:
+    """Each artist link stands for their albums and EPs, oldest first. One
+    that cannot be read stays as it is, and its card says why."""
+    expanded = []
+    for link in links:
+        if not catalog.is_artist_link(link):
+            expanded.append(link)
+            continue
+        try:
+            releases = catalog.discography(link)
+        except SourceError as e:
+            logs.log.warning("дискография %s не прочиталась: %s", link, e)
+            expanded.append(link)
+            continue
+        logs.log.info("дискография %s: альбомов и EP: %d", link, len(releases))
+        expanded += [release["link"] for release in releases] or [link]
+    return expanded
 
 
 def _track_link(album, track) -> str:
