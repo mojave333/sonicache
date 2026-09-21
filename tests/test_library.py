@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from mutagen import File as MutagenFile
 
 from trackhound import gui
 from trackhound.engine import downloader, sources
@@ -152,6 +153,28 @@ def test_the_genre_goes_into_every_format(tmp_path, ext):
     album = Album(id="a", name="Black is Beautiful", artist="Dean Blunt", tracks=[track], genre="Electronic")
     downloader._write_tags(path, album, track, None)
     assert gui._tags(path)["genre"] == "Electronic"
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+@pytest.mark.parametrize("ext", ["m4a", "mp3", "opus"])
+@pytest.mark.parametrize("kind", ["playlist", "album"])
+def test_a_playlist_is_tagged_as_a_compilation(tmp_path, ext, kind):
+    """Players then group it as various artists, not as an album by the list's curator."""
+    path = tmp_path / f"song.{ext}"
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                    "-i", "sine=duration=1", *CODECS[ext], str(path)], check=True)
+    track = Track(id="1", title="Resonance", artists="DV-i", duration=1, track_number=1)
+    album = Album(id="p", name="Gaming Mix", artist="808filth", kind=kind, tracks=[track])
+    downloader._write_tags(path, album, track, None)
+    tags = MutagenFile(path).tags
+    flag = {"m4a": lambda: tags.get("cpil"), "mp3": lambda: "TCMP" in tags and str(tags["TCMP"]),
+            "opus": lambda: tags.get("compilation")}[ext]()
+    if kind == "playlist":
+        assert gui._tags(path)["album_artist"] == "Разные исполнители"
+        assert flag in (True, "1", ["1"])
+    else:
+        assert gui._tags(path)["album_artist"] == "808filth"
+        assert not flag
 
 
 class TestGenre:

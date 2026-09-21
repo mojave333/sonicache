@@ -287,6 +287,12 @@ holds more, the program says so on the release line, and the rest have to be add
 separately. Deezer playlists come whole, through Deezer's public API. Artist pages and VK
 are not supported; VK shows music only to a signed-in account.
 
+A playlist's tracks keep their own artists, and are tagged as a compilation: the playlist's
+name as the album, "Various artists" as the album artist, and the compilation flag, so
+players group them the way they group a soundtrack. The folder is named after whoever put
+the playlist together. No genre is written, since one genre would be wrong for most of the
+list.
+
 Where Spotify does not work, Russia among those places, it keeps its player page back but
 still gives out the pages it makes for link previews in messengers. The release is read off
 those instead: an album or a track comes whole, a playlist only with its first 30 tracks,

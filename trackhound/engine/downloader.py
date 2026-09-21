@@ -21,7 +21,7 @@ from typing import Callable
 import yt_dlp
 from mutagen import File as MutagenFile
 from mutagen.flac import Picture
-from mutagen.id3 import APIC, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK
+from mutagen.id3 import APIC, ID3, TALB, TCMP, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.oggopus import OggOpus
 from yt_dlp.utils import DownloadCancelled
@@ -644,6 +644,11 @@ def _check_duration(path: Path, track: Track) -> None:
 
 def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> None:
     track_total = sum(1 for t in album.tracks if t.disc_number == track.disc_number)
+    # A playlist gathers many artists' songs: players group it as a compilation
+    # of various artists, the way they do a soundtrack, rather than as an album
+    # by whoever put the list together. The folder keeps the curator's name.
+    compilation = album.kind == "playlist"
+    album_artist = t("Разные исполнители") if compilation else album.artist
     mime = "image/png" if cover and cover.startswith(b"\x89PNG") else "image/jpeg"
     ext = path.suffix.lower()
 
@@ -655,7 +660,9 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
         tags["\xa9nam"] = track.title
         tags["\xa9ART"] = track.artists
         tags["\xa9alb"] = album.name
-        tags["aART"] = album.artist
+        tags["aART"] = album_artist
+        if compilation:
+            tags["cpil"] = True
         tags["trkn"] = [(track.track_number, track_total)]
         tags["disk"] = [(track.disc_number, album.total_discs)]
         if album.release_date:
@@ -672,7 +679,9 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
         tags.add(TIT2(encoding=3, text=track.title))
         tags.add(TPE1(encoding=3, text=track.artists))
         tags.add(TALB(encoding=3, text=album.name))
-        tags.add(TPE2(encoding=3, text=album.artist))
+        tags.add(TPE2(encoding=3, text=album_artist))
+        if compilation:
+            tags.add(TCMP(encoding=3, text="1"))
         tags.add(TRCK(encoding=3, text=f"{track.track_number}/{track_total}"))
         tags.add(TPOS(encoding=3, text=f"{track.disc_number}/{album.total_discs}"))
         if album.release_date:
@@ -688,7 +697,9 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
         audio["title"] = track.title
         audio["artist"] = track.artists
         audio["album"] = album.name
-        audio["albumartist"] = album.artist
+        audio["albumartist"] = album_artist
+        if compilation:
+            audio["compilation"] = "1"
         audio["tracknumber"] = str(track.track_number)
         audio["tracktotal"] = str(track_total)
         audio["discnumber"] = str(track.disc_number)
