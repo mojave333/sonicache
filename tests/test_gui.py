@@ -1,6 +1,9 @@
 """Settings, the update check and the library listing behind the window."""
 
 import json
+import os
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -606,3 +609,38 @@ class TestProgress:
         api = self.api(monkeypatch, "win32", refuse)
         api.progress("normal", 0.1)
         assert api._window.titles == [f"10% · {gui.TITLE}"]
+
+
+class TestCovers:
+    """A cover reaches the window as a local address, not as the picture itself."""
+
+    JPEG = b"\xff\xd8\xff\xe0cover"
+
+    def fetch(self, url):
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # a proxy set for downloads must not get in
+        with opener.open(url, timeout=5) as response:
+            return response.headers["Content-Type"], response.read()
+
+    def test_the_cover_is_served_at_its_address(self, tmp_path):
+        (tmp_path / "cover.jpg").write_bytes(self.JPEG)
+        url = gui.Api().cover(str(tmp_path))
+        assert url.startswith("http://127.0.0.1:")
+        assert self.fetch(url) == ("image/jpeg", self.JPEG)
+
+    def test_an_album_without_a_cover_has_no_address(self, tmp_path):
+        assert gui.Api().cover(str(tmp_path)) is None
+
+    def test_only_the_addresses_given_out_are_served(self, tmp_path):
+        (tmp_path / "cover.jpg").write_bytes(self.JPEG)
+        url = gui.Api().cover(str(tmp_path))
+        with pytest.raises(urllib.error.HTTPError) as refused:
+            self.fetch(url.split("/cover/")[0] + "/cover/guessed")
+        assert refused.value.code == 404
+
+    def test_a_replaced_cover_gets_a_new_address(self, tmp_path):
+        cover = tmp_path / "cover.jpg"
+        cover.write_bytes(self.JPEG)
+        api = gui.Api()
+        first = api.cover(str(tmp_path))
+        os.utime(cover, ns=(cover.stat().st_atime_ns, cover.stat().st_mtime_ns + 10**9))
+        assert api.cover(str(tmp_path)) != first

@@ -43,7 +43,7 @@ class TestTags:
     def test_the_cover_inside_a_file_is_found(self, tmp_path, ext):
         path = tagged(tmp_path, ext, 1, "15 Step", cover=PNG)
         assert gui._embedded_cover(path) == PNG
-        assert gui.Api.cover(None, str(path)).startswith("data:image/png;base64,")
+        assert gui._cover_bytes(path) == PNG  # what the cover's address serves for a single track
 
     def test_a_file_without_tags_is_named_after_itself(self, tmp_path):
         path = tmp_path / "Loose Song.mp3"

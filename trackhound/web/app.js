@@ -1939,7 +1939,7 @@ async function pictureTint(src) {
   if (!state.tints.has(src)) {
     state.tints.set(src, (async () => {
       const image = new Image();
-      image.crossOrigin = "anonymous"; // Deezer's photos allow it, covers are data: already
+      image.crossOrigin = "anonymous"; // Deezer's photos allow it, and so do the program's covers
       image.src = src;
       await image.decode();
       const size = 48;

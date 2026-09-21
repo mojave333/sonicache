@@ -15,6 +15,7 @@ import logging
 import os
 import queue
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,7 @@ import time
 import urllib.parse
 import urllib.request
 import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import webview
@@ -95,6 +97,7 @@ class Api:
         self._updating = False
         self._watched = watch.load()
         self._watcher: threading.Thread | None = None
+        self._covers = _CoverServer()
 
     def init(self) -> dict:
         # The page is drawn and its script reached Python: the build check
@@ -511,16 +514,22 @@ class Api:
         return True
 
     def cover(self, path: str) -> str | None:
-        """An album's cover.jpg, or the picture inside a single track's file."""
+        """The address the window loads an album's cover.jpg from, or the
+        picture inside a single track's file.
+
+        It used to be the picture itself as a data: string, and the page kept
+        every one it had shown until the window closed: a library of a thousand
+        albums held hundreds of megabytes of base64. An address is a few dozen
+        characters, and the picture behind it lives in the browser's cache,
+        which lets go of what is out of sight.
+        """
         target = Path(path)
         try:
-            data = (target / "cover.jpg").read_bytes() if target.is_dir() else _embedded_cover(target)
+            stat = (target / "cover.jpg").stat() if target.is_dir() else target.stat()
         except OSError:
             return None
-        if not data:
-            return None
-        mime = "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
-        return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+        # The file's time in the address makes a replaced cover a new picture to the browser
+        return f"{self._covers.address(str(target))}?v={stat.st_mtime_ns:x}"
 
     def album(self, path: str) -> dict:
         """The tracks of one library entry as their tags tell it, for the album page.
@@ -983,6 +992,74 @@ def _leading_number(text: str) -> int:
     """A "3/10" and a "03" are both track 3."""
     match = re.match(r"\s*(\d+)", text or "")
     return int(match.group(1)) if match else 0
+
+
+class _CoverServer:
+    """Serves the library's covers to the window on 127.0.0.1.
+
+    Only a path the window has asked a cover for gets an address, and the
+    address names it by a random token, so nothing else on the computer can
+    read files through it. The server starts with the first cover asked for.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._paths: dict[str, str] = {}  # token → path
+        self._tokens: dict[str, str] = {}  # path → token
+        self._port = 0
+
+    def address(self, path: str) -> str:
+        with self._lock:
+            if not self._port:
+                self._port = self._start()
+            token = self._tokens.get(path)
+            if token is None:
+                token = secrets.token_urlsafe(16)
+                self._tokens[path] = token
+                self._paths[token] = path
+            return f"http://127.0.0.1:{self._port}/cover/{token}"
+
+    def path(self, token: str) -> str | None:
+        with self._lock:
+            return self._paths.get(token)
+
+    def _start(self) -> int:
+        covers = self
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"  # one connection for a whole screen of covers
+
+            def do_GET(self):
+                route = urllib.parse.urlsplit(self.path).path
+                path = covers.path(route.removeprefix("/cover/")) if route.startswith("/cover/") else None
+                data = _cover_bytes(Path(path)) if path else None
+                if not data:
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png" if data.startswith(b"\x89PNG") else "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "private, max-age=86400")
+                # The album page reads the cover's colour through a canvas, which needs this
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(data)
+
+            def log_message(self, format, *args):
+                pass  # a line for every cover would bury the log
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        return server.server_port
+
+
+def _cover_bytes(path: Path) -> bytes | None:
+    """An album's cover.jpg, or the picture inside a single track's file."""
+    try:
+        return (path / "cover.jpg").read_bytes() if path.is_dir() else _embedded_cover(path)
+    except OSError:
+        return None
 
 
 def _embedded_cover(path: Path) -> bytes | None:
