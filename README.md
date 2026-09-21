@@ -192,7 +192,7 @@ and everywhere it shows only while tracks are missing. Escape, Backspace or the 
 flies back to its place.
 
 Tracks lists every file with its artists, album and length; a double click opens its album
-with the track picked out. Artists groups the albums and single tracks by the name in their
+with the track picked out, and a click on its cover plays the list from there. Artists groups the albums and single tracks by the name in their
 folder, each with a round photo that Deezer's public catalogue provides (looked up once per
 name and remembered) or initials on a colour of their own when it has none. An artist's page
 shows their albums.
@@ -201,6 +201,21 @@ In the grid and in the table, albums are selected the way files are in a file ma
 and Shift with a click, Ctrl+A, the arrows, Home and End (a plain click on a cover opens it).
 The right button opens a menu of actions, and the selection goes to the trash, from where it
 can be restored.
+
+### Listening
+
+The library plays what it holds. "Play" on an album's page starts it from the top; a click
+on a track's number, or a double click on its row, starts from that track, and the album is
+the queue. A bar above the status bar then shows the track, with previous, pause and next,
+a position to drag, and the volume. The keyboard's media keys and Windows' own media
+controls work too. The file is streamed from the program itself, so nothing is copied.
+
+The cover or the lines button in the bar opens Now playing: the cover large, on a blur of
+its colours, and the words beside it. Synced lyrics, from the `.lrc` next to the file,
+scroll with the song, the line being sung lit up; a click on a line jumps there. A file with
+only plain lyrics in its tags shows those, and one with none has its lyrics looked up in
+LRCLIB for the screen, without anything being written to it. Space pauses there, and Back
+or the bar returns to where you were.
 
 ### Filling in tags
 

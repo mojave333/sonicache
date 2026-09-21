@@ -34,8 +34,8 @@ from mutagen.flac import Picture
 
 from . import __version__, logs, relay_for, tray, watch
 from .i18n import LANGUAGES, resolve, set_language, t
-from .engine import batch, catalog, network, sources, use_relay
-from .engine.models import SourceError
+from .engine import batch, catalog, lyrics, network, sources, use_relay
+from .engine.models import Album, SourceError, Track
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, use_proxy)
 from .engine.matcher import Match
@@ -847,6 +847,40 @@ class Api:
                                "cover": item["cover"], "modified": modified})
         return result
 
+    # The player: the window streams a file from the local server and reads
+    # its lyrics from beside it, from its tags, or from LRCLIB
+
+    def play(self, path: str) -> dict | None:
+        """Where the window streams one file from, with its tags and cover."""
+        target = Path(path)
+        if not _is_audio(target):
+            return None
+        folder_cover = target.parent / "cover.jpg"
+        cover = self.cover(str(target.parent if folder_cover.is_file() else target))
+        return {**_tags(target), "path": str(target), "url": self._covers.audio_address(str(target)),
+                "cover": cover or ""}
+
+    def lyrics(self, path: str) -> dict:
+        """The words of a track: synced ones from the .lrc beside it, plain ones
+        from its tags, or both from LRCLIB when the file has none."""
+        target = Path(path)
+        if not _is_audio(target):
+            return {"synced": "", "plain": "", "source": ""}
+        try:
+            synced = target.with_suffix(".lrc").read_text(encoding="utf-8-sig", errors="replace").strip()
+        except OSError:
+            synced = ""
+        plain = _embedded_lyrics(target)
+        if synced or plain:
+            return {"synced": synced, "plain": plain, "source": "file"}
+        tags = _tags(target)
+        found = lyrics.find(Track(id="", title=tags["title"], artists=tags["artists"] or tags["album_artist"],
+                                  duration=tags["duration"], track_number=0),
+                            Album(id="", name=tags["album"], artist=tags["album_artist"]))
+        if not found:
+            return {"synced": "", "plain": "", "source": ""}
+        return {"synced": found.synced, "plain": found.plain, "source": "lrclib"}
+
     def artist_picture(self, name: str) -> str:
         """A photo of the artist, looked up on Deezer once and remembered."""
         key = " ".join(str(name or "").split()).casefold()
@@ -1291,23 +1325,31 @@ class _CoverServer:
     def __init__(self):
         self._lock = threading.Lock()
         self._paths: dict[str, str] = {}  # token → path
-        self._tokens: dict[str, str] = {}  # path → token
+        self._tokens: dict[str, str] = {}  # (kind, path) → token
         self._port = 0
 
     def address(self, path: str) -> str:
+        return self._address("cover", path)
+
+    def audio_address(self, path: str) -> str:
+        """The player's address for a music file, streamed with seeking."""
+        return self._address("audio", path)
+
+    def _address(self, kind: str, path: str) -> str:
         with self._lock:
             if not self._port:
                 self._port = self._start()
-            token = self._tokens.get(path)
+            token = self._tokens.get(f"{kind}:{path}")
             if token is None:
                 token = secrets.token_urlsafe(16)
-                self._tokens[path] = token
-                self._paths[token] = path
-            return f"http://127.0.0.1:{self._port}/cover/{token}"
+                self._tokens[f"{kind}:{path}"] = token
+                self._paths[token] = f"{kind}:{path}"
+            return f"http://127.0.0.1:{self._port}/{kind}/{token}"
 
-    def path(self, token: str) -> str | None:
+    def path(self, token: str, kind: str = "cover") -> str | None:
         with self._lock:
-            return self._paths.get(token)
+            known = self._paths.get(token) or ""
+        return known.removeprefix(f"{kind}:") if known.startswith(f"{kind}:") else None
 
     def _start(self) -> int:
         covers = self
@@ -1317,6 +1359,16 @@ class _CoverServer:
 
             def do_GET(self):
                 route = urllib.parse.urlsplit(self.path).path
+                if route.startswith("/audio/"):
+                    path = covers.path(route.removeprefix("/audio/"), "audio")
+                    try:
+                        if path:
+                            _send_audio(self, Path(path))
+                        else:
+                            self.send_error(404)
+                    except (ConnectionError, OSError):
+                        pass  # the player dropped the request to seek elsewhere
+                    return
                 path = covers.path(route.removeprefix("/cover/")) if route.startswith("/cover/") else None
                 data = _cover_bytes(Path(path)) if path else None
                 if not data:
@@ -1338,6 +1390,72 @@ class _CoverServer:
         server.daemon_threads = True
         threading.Thread(target=server.serve_forever, daemon=True).start()
         return server.server_port
+
+
+AUDIO_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".opus": "audio/ogg"}
+_RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)$")
+
+
+def _send_audio(handler: BaseHTTPRequestHandler, path: Path) -> None:
+    """A music file, whole or the byte range asked for: the player seeks by
+    asking for the part of the file it jumps to."""
+    try:
+        size = path.stat().st_size
+        source = path.open("rb")
+    except OSError:
+        handler.send_error(404)
+        return
+    with source:
+        start, end = 0, size - 1
+        asked = _RANGE_RE.match(handler.headers.get("Range") or "")
+        if asked and (asked[1] or asked[2]):
+            if asked[1]:
+                start = int(asked[1])
+                end = min(int(asked[2]), size - 1) if asked[2] else size - 1
+            else:  # "bytes=-500": the last 500 bytes
+                start = max(0, size - int(asked[2]))
+            if start > end:
+                handler.send_response(416)
+                handler.send_header("Content-Range", f"bytes */{size}")
+                handler.send_header("Content-Length", "0")
+                handler.end_headers()
+                return
+        handler.send_response(206 if asked else 200)
+        handler.send_header("Content-Type", AUDIO_TYPES.get(path.suffix.lower(), "application/octet-stream"))
+        handler.send_header("Accept-Ranges", "bytes")
+        handler.send_header("Content-Length", str(end - start + 1))
+        if asked:
+            handler.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        handler.end_headers()
+        source.seek(start)
+        left = end - start + 1
+        while left > 0:
+            chunk = source.read(min(256 * 1024, left))
+            if not chunk:
+                break
+            handler.wfile.write(chunk)
+            left -= len(chunk)
+
+
+def _embedded_lyrics(path: Path) -> str:
+    """The plain lyrics in a file's own tags, "" when it has none."""
+    try:
+        tags = MutagenFile(path).tags
+    except Exception:
+        return ""
+    if tags is None:
+        return ""
+    if hasattr(tags, "getall"):  # ID3
+        found = tags.getall("USLT")
+        return str(found[0].text).strip() if found else ""
+    for key in ("\xa9lyr", "lyrics", "unsyncedlyrics"):
+        try:
+            values = tags.get(key)
+        except (KeyError, ValueError):
+            values = None
+        if values:
+            return str(values[0]).strip()
+    return ""
 
 
 def _cover_bytes(path: Path) -> bytes | None:

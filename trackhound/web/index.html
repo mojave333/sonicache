@@ -37,6 +37,11 @@
     <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6.5 4.5h11a1 1 0 0 1 1 1v14l-6.5-4-6.5 4v-14a1 1 0 0 1 1-1z"/></symbol>
     <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.1V5A1.5 1.5 0 0 1 5 3.5h7.1a1.5 1.5 0 0 1 1.06.44l7.4 7.4a1.5 1.5 0 0 1 0 2.12l-7.1 7.1a1.5 1.5 0 0 1-2.12 0l-7.4-7.4a1.5 1.5 0 0 1-.44-1.06z"/><circle cx="8.5" cy="8.5" r="1.5"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6.5 6v12"/><path d="M18 6.5v11L9.5 12z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M17.5 6v12"/><path d="M6 6.5v11l8.5-5.5z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/></symbol>
+    <symbol id="i-lyrics" viewBox="0 0 24 24"><path d="M5 6.5h14M5 11.5h14M5 16.5h9"/></symbol>
     <symbol id="i-retry" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66l.85.85"/><path d="M18.51 1.19v6h-6"/></symbol>
     <symbol id="i-brand" viewBox="440 115 525 430">
       <g transform="translate(0,768) scale(0.1,-0.1)" fill="currentColor" stroke="none">
@@ -334,6 +339,7 @@
                 <h2 class="album-title"></h2>
                 <p class="album-sub"></p>
                 <div class="album-actions">
+                  <button type="button" class="btn primary" data-page-action="play"><svg class="icon sm" aria-hidden="true"><use href="#i-play"/></svg><span>Слушать</span></button>
                   <button type="button" class="tool-btn" data-page-action="open"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Открыть папку</span></button>
                   <button type="button" class="tool-btn" data-page-action="again"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Докачать недостающее</span></button>
                   <button type="button" class="tool-btn" data-page-action="tidy" title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span>Дописать теги</span></button>
@@ -637,6 +643,44 @@
           </div>
         </div>
       </section>
+
+      <section id="view-now" class="view now-view" aria-label="Сейчас играет" hidden>
+        <img class="now-backdrop" alt="" aria-hidden="true" hidden>
+        <button type="button" class="page-back now-close" id="now-close">
+          <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span>Назад</span>
+        </button>
+        <div class="now-body">
+          <div class="now-side">
+            <div class="now-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
+            <h2 class="now-title"></h2>
+            <p class="now-sub"></p>
+          </div>
+          <div class="now-lyrics" id="now-lyrics" aria-live="off"></div>
+        </div>
+      </section>
+
+      <div id="player" class="player" hidden>
+        <button type="button" class="player-track" id="player-open" title="Сейчас играет">
+          <span class="player-cover cover"><img alt="" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg></span>
+          <span class="player-names"><span class="player-title"></span><span class="player-artist"></span></span>
+        </button>
+        <div class="player-controls">
+          <button type="button" class="icon-btn" id="player-prev" title="Предыдущий" aria-label="Предыдущий"><svg class="icon sm" aria-hidden="true"><use href="#i-prev"/></svg></button>
+          <button type="button" class="player-play" id="player-play" title="Пауза" aria-label="Пауза"><svg class="icon sm" aria-hidden="true"><use href="#i-pause"/></svg></button>
+          <button type="button" class="icon-btn" id="player-next" title="Следующий" aria-label="Следующий"><svg class="icon sm" aria-hidden="true"><use href="#i-next"/></svg></button>
+        </div>
+        <div class="player-seek">
+          <span class="player-time" id="player-time">0:00</span>
+          <input type="range" id="player-position" min="0" max="1000" value="0" step="1" aria-label="Позиция">
+          <span class="player-time" id="player-length">0:00</span>
+        </div>
+        <div class="player-extra">
+          <button type="button" class="icon-btn" id="player-lyrics" title="Текст песни" aria-label="Текст песни" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-lyrics"/></svg></button>
+          <button type="button" class="icon-btn" id="player-mute" title="Без звука" aria-label="Без звука"><svg class="icon sm" aria-hidden="true"><use href="#i-volume"/></svg></button>
+          <input type="range" id="player-volume" min="0" max="100" value="80" aria-label="Громкость">
+          <button type="button" class="icon-btn" id="player-stop" title="Закрыть плеер" aria-label="Закрыть плеер"><svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </div>
+      </div>
 
       <footer class="statusbar">
         <span id="status-text"></span>

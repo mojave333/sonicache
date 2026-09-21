@@ -736,6 +736,7 @@ function bindUi() {
 
   $("#library-filter").addEventListener("input", renderLibrary);
   bindSearch();
+  bindPlayer();
   $("#library-refresh").addEventListener("click", loadLibrary);
   $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
   $("#library-delete").addEventListener("click", deleteSelected);
@@ -868,6 +869,7 @@ function showView(name) {
   for (const view of $$(".view")) view.hidden = view.id !== `view-${name}`;
   setMenuOpen(false, false);
   if (name === "download") $("#link").focus();
+  $("#player-lyrics")?.setAttribute("aria-pressed", String(name === "now"));
   if (name === "search") {
     renderSearch();
     $("#search-input").focus();
@@ -2035,6 +2037,7 @@ function renderTracks(enter) {
   const shown = sortBy(found, TRACK_SORTS, state.library.sorts.tracks, (a, b) => compare(albumOrder(a), albumOrder(b)));
   const rows = shown.map(createLibraryTrack);
   $("#library-tracks").replaceChildren(...rows);
+  markPlayingRows();
   if (rows[0]) rows[0].tabIndex = 0;
   if (enter && rows.length && !reduceMotion()) {
     $("#library-tracks").animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
@@ -2435,6 +2438,7 @@ function renderAlbumTracks(item, data, highlight) {
   }
   const list = $(".album-list", page);
   list.replaceChildren(...rows);
+  markPlayingRows();
   if (!reduceMotion()) {
     list.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: EMPHASIZED });
   }
@@ -2640,6 +2644,15 @@ function createLibraryTrack(track) {
     coverObserver.observe(row);
   }
   return row;
+}
+
+// A track in the Tracks tab plays from its cover; the list as shown is the queue
+function onTrackCoverClick(event) {
+  const cover = event.target.closest("#library-tracks .track-item .cover");
+  if (!cover) return;
+  event.stopPropagation();
+  const rows = [...$$("#library-tracks .track-item")];
+  playQueue(rows.map((row) => row.dataset.path), rows.indexOf(cover.closest(".track-item")));
 }
 
 function openTrack(row) {
@@ -2856,6 +2869,7 @@ async function onPageAction(event) {
   if (action === "open") api().open_folder(item.path);
   else if (action === "again") downloadAgain([item]);
   else if (action === "tidy") tidyLibrary([item]);
+  else if (action === "play") playAlbumPage(0);
   else if (action === "watch") {
     const list = isWatched(item.link) ? await api().unwatch(item.link) : await api().watch_album(item.path);
     setWatched(list);
@@ -3245,6 +3259,358 @@ async function onSearchPageClick(event) {
     renderArtistButtons();
     announce(t(watching ? "Больше не следим за «{title}»" : "Следим за «{title}»", { title: name }));
   }
+}
+
+/* Player */
+
+// One audio element for the whole window. The queue is a list of paths: an
+// album page, or the Tracks tab as it was shown when a track was started.
+const player = {
+  audio: new Audio(),
+  queue: [],
+  index: -1,
+  info: null,
+  lines: [], // synced lyrics: { time, text, node }
+  current: -1,
+  token: 0,
+  seeking: false,
+  previousView: "library",
+};
+
+function bindPlayer() {
+  const { audio } = player;
+  audio.preload = "auto";
+  let volume = 0.8;
+  try {
+    volume = Number(localStorage.getItem("player-volume") ?? 0.8);
+  } catch {
+    // no storage: the default is fine
+  }
+  audio.volume = Math.min(1, Math.max(0, Number.isFinite(volume) ? volume : 0.8));
+  $("#player-volume").value = Math.round(audio.volume * 100);
+  audio.addEventListener("timeupdate", renderPlayerTime);
+  audio.addEventListener("durationchange", renderPlayerTime);
+  audio.addEventListener("play", renderPlayerButton);
+  audio.addEventListener("pause", renderPlayerButton);
+  audio.addEventListener("ended", () => stepTrack(1, true));
+  audio.addEventListener("error", () => {
+    if (!player.info) return;
+    announce(t("Не получилось сыграть «{title}»", { title: player.info.title }));
+    stepTrack(1, true);
+  });
+  $("#player-play").addEventListener("click", togglePlay);
+  $("#player-prev").addEventListener("click", () => stepTrack(-1));
+  $("#player-next").addEventListener("click", () => stepTrack(1));
+  $("#player-stop").addEventListener("click", stopPlayer);
+  $("#player-open").addEventListener("click", () => (state.view === "now" ? closeNowPlaying() : openNowPlaying()));
+  $("#player-lyrics").addEventListener("click", () => (state.view === "now" ? closeNowPlaying() : openNowPlaying()));
+  $("#now-close").addEventListener("click", closeNowPlaying);
+  const position = $("#player-position");
+  position.addEventListener("input", () => {
+    player.seeking = true;
+    if (audio.duration) $("#player-time").textContent = formatDuration(position.value / 1000 * audio.duration);
+  });
+  position.addEventListener("change", () => {
+    if (audio.duration) audio.currentTime = position.value / 1000 * audio.duration;
+    player.seeking = false;
+  });
+  $("#player-volume").addEventListener("input", (event) => {
+    audio.volume = event.target.value / 100;
+    audio.muted = false;
+    renderPlayerVolume();
+    try {
+      localStorage.setItem("player-volume", String(audio.volume));
+    } catch {
+      // remembered for this run only
+    }
+  });
+  $("#player-mute").addEventListener("click", () => {
+    audio.muted = !audio.muted;
+    renderPlayerVolume();
+  });
+  $("#now-lyrics").addEventListener("click", (event) => {
+    const line = event.target.closest("[data-time]");
+    if (line) audio.currentTime = Number(line.dataset.time);
+  });
+  $("#library-tracks").addEventListener("click", onTrackCoverClick, true);
+  $(".album-list", $("#album-page")).addEventListener("click", (event) => {
+    const number = event.target.closest(".album-track[data-path] .n");
+    if (number) playAlbumPage(number.closest(".album-track"));
+  });
+  $(".album-list", $("#album-page")).addEventListener("dblclick", (event) => {
+    const row = event.target.closest(".album-track[data-path]");
+    if (row) playAlbumPage(row);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.code !== "Space" || !player.info || event.target.closest?.("input, textarea, button, [contenteditable]")) return;
+    if (state.view !== "now") return; // elsewhere Space picks rows and presses buttons
+    event.preventDefault();
+    togglePlay();
+  });
+  if ("mediaSession" in navigator) {
+    // The keyboard's media keys and the system's own media controls
+    navigator.mediaSession.setActionHandler("play", () => audio.play());
+    navigator.mediaSession.setActionHandler("pause", () => audio.pause());
+    navigator.mediaSession.setActionHandler("previoustrack", () => stepTrack(-1));
+    navigator.mediaSession.setActionHandler("nexttrack", () => stepTrack(1));
+    navigator.mediaSession.setActionHandler("seekto", (details) => { audio.currentTime = details.seekTime; });
+  }
+  renderPlayerVolume();
+}
+
+// The album page's own files, in the order shown; starting at a row or a position
+function playAlbumPage(start) {
+  const rows = [...$$(".album-list .album-track[data-path]", $("#album-page"))];
+  if (!rows.length) return;
+  const index = typeof start === "number" ? start : Math.max(0, rows.indexOf(start));
+  playQueue(rows.map((row) => row.dataset.path), index);
+}
+
+function playQueue(paths, index) {
+  if (!paths.length) return;
+  player.queue = paths;
+  player.index = Math.min(Math.max(0, index), paths.length - 1);
+  loadTrack();
+}
+
+async function loadTrack() {
+  const token = ++player.token;
+  const path = player.queue[player.index];
+  let info = null;
+  try {
+    info = await api().play(path);
+  } catch (error) {
+    console.error(error);
+  }
+  if (token !== player.token) return;
+  if (!info) {
+    stepTrack(1, true);
+    return;
+  }
+  player.info = info;
+  player.audio.src = info.url;
+  player.audio.play().catch(() => renderPlayerButton());
+  renderPlayer();
+  loadLyrics(path, token);
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: info.title, artist: info.artists, album: info.album,
+      artwork: info.cover ? [{ src: info.cover, sizes: "512x512" }] : [],
+    });
+  }
+}
+
+// Forward or back through the queue. At the end the player stops; "back" in
+// the first seconds of a track goes to the one before, later it starts over.
+function stepTrack(step, automatic = false) {
+  if (!player.queue.length) return;
+  if (step < 0 && player.audio.currentTime > 3) {
+    player.audio.currentTime = 0;
+    return;
+  }
+  const next = player.index + step;
+  if (next < 0 || next >= player.queue.length) {
+    if (automatic) {
+      player.audio.pause();
+      player.audio.currentTime = 0;
+      renderPlayerButton();
+    }
+    return;
+  }
+  player.index = next;
+  loadTrack();
+}
+
+function togglePlay() {
+  if (!player.info) return;
+  if (player.audio.paused) player.audio.play();
+  else player.audio.pause();
+}
+
+function stopPlayer() {
+  player.token += 1;
+  player.audio.pause();
+  player.audio.removeAttribute("src");
+  player.audio.load();
+  Object.assign(player, { queue: [], index: -1, info: null, lines: [], current: -1 });
+  if (state.view === "now") closeNowPlaying();
+  renderPlayer();
+}
+
+function renderPlayer() {
+  const bar = $("#player");
+  const info = player.info;
+  bar.hidden = !info;
+  markPlayingRows();
+  if (!info) return;
+  $(".player-title", bar).textContent = info.title;
+  $(".player-title", bar).title = info.title;
+  $(".player-artist", bar).textContent = info.artists || info.album_artist;
+  setPlayerPicture($(".player-cover", bar), info.cover);
+  $("#player-prev").disabled = player.index <= 0 && player.audio.currentTime <= 3;
+  $("#player-next").disabled = player.index >= player.queue.length - 1;
+  renderPlayerButton();
+  renderPlayerTime();
+  renderNowPlaying();
+}
+
+function setPlayerPicture(box, url) {
+  const image = $("img", box);
+  if (image.dataset.src === url) return;
+  image.dataset.src = url || "";
+  image.hidden = true;
+  image.removeAttribute("src");
+  if (!url) return;
+  image.addEventListener("load", () => { image.hidden = false; }, { once: true });
+  image.src = url;
+}
+
+function renderPlayerButton() {
+  const playing = !player.audio.paused;
+  const button = $("#player-play");
+  $("use", button).setAttribute("href", playing ? "#i-pause" : "#i-play");
+  button.title = t(playing ? "Пауза" : "Слушать");
+  button.setAttribute("aria-label", button.title);
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+}
+
+function renderPlayerTime() {
+  const { audio } = player;
+  const length = audio.duration || player.info?.duration || 0;
+  if (!player.seeking) {
+    $("#player-time").textContent = formatDuration(audio.currentTime || 0);
+    $("#player-position").value = length ? Math.round((audio.currentTime / length) * 1000) : 0;
+  }
+  $("#player-length").textContent = formatDuration(length);
+  highlightLyric();
+}
+
+function renderPlayerVolume() {
+  const { audio } = player;
+  const silent = audio.muted || audio.volume === 0;
+  $("use", $("#player-mute")).setAttribute("href", silent ? "#i-mute" : "#i-volume");
+  $("#player-mute").title = t(silent ? "Со звуком" : "Без звука");
+}
+
+// The row of the track that plays, wherever it is on screen
+function markPlayingRows() {
+  const path = player.info?.path;
+  for (const row of $$(".album-track.is-playing, .track-item.is-playing")) row.classList.remove("is-playing");
+  if (!path) return;
+  for (const row of $$(".album-list .album-track[data-path], #library-tracks .track-item")) {
+    if (row.dataset.path === path) row.classList.add("is-playing");
+  }
+}
+
+/* Now playing */
+
+function openNowPlaying() {
+  if (!player.info) return;
+  if (state.view !== "now") player.previousView = state.view;
+  showView("now");
+  renderNowPlaying();
+  scrollToLyric(true);
+}
+
+function closeNowPlaying() {
+  showView(player.previousView || "library");
+}
+
+function renderNowPlaying() {
+  const view = $("#view-now");
+  const info = player.info;
+  $("#player-lyrics").setAttribute("aria-pressed", String(state.view === "now"));
+  if (!info) return;
+  $(".now-title", view).textContent = info.title;
+  $(".now-sub", view).textContent = [info.artists || info.album_artist, info.album, info.year].filter(Boolean).join(" · ");
+  setPlayerPicture($(".now-cover", view), info.cover);
+  const backdrop = $(".now-backdrop", view);
+  if (backdrop.dataset.src !== info.cover) {
+    backdrop.dataset.src = info.cover || "";
+    backdrop.hidden = true;
+    if (info.cover) {
+      backdrop.addEventListener("load", () => { backdrop.hidden = false; }, { once: true });
+      backdrop.src = info.cover;
+    }
+  }
+}
+
+async function loadLyrics(path, token) {
+  const box = $("#now-lyrics");
+  player.lines = [];
+  player.current = -1;
+  box.replaceChildren(lyricsNote(t("Ищем текст…")));
+  let words;
+  try {
+    words = await api().lyrics(path);
+  } catch (error) {
+    words = { synced: "", plain: "" };
+  }
+  if (token !== player.token) return;
+  const lines = parseLrc(words.synced || "");
+  if (lines.length) {
+    player.lines = lines.map((line) => {
+      const node = document.createElement("button");
+      node.type = "button";
+      node.className = "lyric-line";
+      node.dataset.time = line.time;
+      node.textContent = line.text || "♪";
+      return { ...line, node };
+    });
+    box.replaceChildren(...player.lines.map((line) => line.node));
+    highlightLyric();
+    scrollToLyric(true);
+  } else if (words.plain) {
+    const text = document.createElement("p");
+    text.className = "lyrics-plain";
+    text.textContent = words.plain;
+    box.replaceChildren(text);
+    box.scrollTop = 0;
+  } else {
+    box.replaceChildren(lyricsNote(t("Текста для этой песни не нашлось")));
+  }
+}
+
+function lyricsNote(text) {
+  const note = document.createElement("p");
+  note.className = "lyrics-none";
+  note.textContent = text;
+  return note;
+}
+
+// "[01:23.45] words", a line may carry several times; "[ar: …]" and the like are skipped
+function parseLrc(text) {
+  const lines = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const times = [...raw.matchAll(/\[(\d+):(\d+(?:[.:]\d+)?)\]/g)];
+    if (!times.length) continue;
+    const words = raw.replace(/\[[^\]]*\]/g, "").trim();
+    for (const [, minutes, seconds] of times) {
+      lines.push({ time: Number(minutes) * 60 + Number(seconds.replace(":", ".")), text: words });
+    }
+  }
+  return lines.sort((a, b) => a.time - b.time);
+}
+
+function highlightLyric() {
+  const { lines, audio } = player;
+  if (!lines.length) return;
+  const now = audio.currentTime + 0.25; // a line lights up as it is sung, not after
+  let index = -1;
+  for (let i = 0; i < lines.length && lines[i].time <= now; i++) index = i;
+  if (index === player.current) return;
+  player.current = index;
+  lines.forEach((line, i) => {
+    line.node.classList.toggle("is-current", i === index);
+    line.node.classList.toggle("is-past", i < index);
+  });
+  scrollToLyric(false);
+}
+
+function scrollToLyric(instant) {
+  const line = player.lines[player.current];
+  if (!line || state.view !== "now") return;
+  line.node.scrollIntoView({ block: "center", behavior: instant || reduceMotion() ? "auto" : "smooth" });
 }
 
 // Tidying up: older files get the genre, year, cover, lyrics and tags they
