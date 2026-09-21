@@ -30,6 +30,7 @@ class TestNormalize:
             "folder_name": "flat",
             "sidebar": 64,
             "replaygain": False,
+            "ask_doubtful": True,
             "profiles": [],
             "library_view": "grid",
         }
@@ -661,3 +662,41 @@ class TestCovers:
         first = api.cover(str(tmp_path))
         os.utime(cover, ns=(cover.stat().st_atime_ns, cover.stat().st_mtime_ns + 10**9))
         assert api.cover(str(tmp_path)) != first
+
+
+class TestChoices:
+    """What a person chose for a held-back track goes back to the downloader."""
+
+    CANDIDATE = {"source": "soundcloud", "url": "https://soundcloud.com/a/b", "page_url": "https://soundcloud.com/a/b",
+                 "title": "Resonance", "artists": "DV-i", "duration": 179.0, "score": 0.8, "source_name": "SoundCloud"}
+
+    def api(self, monkeypatch):
+        api = gui.Api()
+        queued = []
+        monkeypatch.setattr(api, "_enqueue", lambda link, settings, choices=None: queued.append(
+            (link, settings["dry_run"], choices)) or {"job": 1, "link": link})
+        return api, queued
+
+    def test_the_chosen_match_is_queued_for_its_track(self, monkeypatch):
+        api, queued = self.api(monkeypatch)
+        assert api.download_choices("https://x.test/album", {"dry_run": True}, {"7": self.CANDIDATE}) == {
+            "job": 1, "link": "https://x.test/album"}
+        link, dry_run, choices = queued[0]
+        assert (link, dry_run, choices["7"].url, choices["7"].score) == (
+            "https://x.test/album", False, "https://soundcloud.com/a/b", 0.8)
+
+    def test_nothing_usable_queues_nothing(self, monkeypatch):
+        api, queued = self.api(monkeypatch)
+        assert api.download_choices("https://x.test/album", {}, {"7": {"title": "no url"},
+                                                                 "8": {**self.CANDIDATE, "url": "file:///C:/x"}}) is None
+        assert queued == []
+
+    @pytest.mark.parametrize("url, opened", [
+        ("https://music.youtube.com/watch?v=x", True), ("https://soundcloud.com/a/b", True),
+        ("https://evil.test/", False), ("file:///C:/Windows", False),
+    ])
+    def test_only_a_candidates_own_page_is_opened(self, monkeypatch, url, opened):
+        seen = []
+        monkeypatch.setattr(gui.webbrowser, "open", seen.append)
+        assert gui.Api().open_page(url) is opened
+        assert seen == ([url] if opened else [])

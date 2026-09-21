@@ -489,6 +489,19 @@ p { margin: 0; }
 /* The fold itself is animated by the script (foldTracks), which knows how much
    of the list is on screen; overflow clips the rows while the height moves. */
 .tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); overflow: hidden; }
+/* The candidates of a track held back for a choice, under its row */
+.choices { display: grid; gap: 2px; padding: 2px 14px 10px 72px; border-bottom: 1px solid var(--divider); }
+.choice { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 5px 8px; border-radius: var(--radius); cursor: pointer; }
+.choice:hover { background: var(--hover); }
+.choice.is-chosen { background: var(--selected); }
+.choice-pick {
+  display: grid; place-items: center; flex: none; width: 20px; height: 20px;
+  border: 1px solid var(--border-strong); border-radius: 50%; color: transparent;
+}
+.choice.is-chosen .choice-pick { border-color: var(--accent-edge); background: var(--accent); color: var(--on-accent); }
+.choice-main { flex: 1; min-width: 0; }
+.choice .tool-btn, .choice-skip { height: 26px; padding: 0 9px; font-size: 13px; }
+.choice-skip { justify-self: start; margin: 4px 0 0 8px; }
 .track { grid-template-columns: 24px 34px minmax(0, 1fr) 140px 52px 210px 72px; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
 .track::before { content: ""; }
 .track .num { color: var(--text-subtle); font-size: 13px; }

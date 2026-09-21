@@ -492,3 +492,72 @@ class TestFailures:
         loader._process = lambda album, track, folder, single, cover: ("failed", "Y - X: nowhere", failure)
         report = loader._download_tracks(album(), [track], tmp_path, False)
         assert (report.failed, report.failures) == (["Y - X: nowhere"], [failure])
+
+
+class TestDoubts:
+    """A track whose match may be the wrong song waits for a person's choice."""
+
+    def loader(self, tmp_path, events, **options):
+        return downloader.Downloader(Options(tmp_path, **options), log=lambda message: None,
+                                     events=lambda kind, data: events.append(data))
+
+    def match(self, title, score, duration=10):
+        return downloader.Match(source="song", url=f"https://music.test/{title}", page_url=f"https://page.test/{title}",
+                                title=title, artists="Y", duration=duration, score=score)
+
+    def process(self, tmp_path, matches, **options):
+        events, fetched = [], []
+        loader = self.loader(tmp_path, events, **options)
+        loader.matcher = type("Matcher", (), {"find_all": lambda self, track, album, wide: list(matches)})()
+
+        def fetch(match, *args, **kwargs):
+            fetched.append(match.url)
+            raise downloader.DownloadCancelled("enough")  # nothing is downloaded for real
+
+        loader._fetch = fetch
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        return loader._process(album(), track, tmp_path, False, None), events, fetched
+
+    def test_a_doubtful_match_is_held_with_its_candidates(self, tmp_path):
+        matches = [self.match("X", 0.8), self.match("X (Live)", 0.7, 30)]
+        (kind, line, doubt), events, fetched = self.process(tmp_path, matches, ask=True)
+        assert (kind, line, fetched) == ("doubtful", "Y - X", [])
+        assert [c.title for c in doubt.candidates] == ["X", "X (Live)"]
+        event = events[-1]
+        assert event["state"] == "doubtful"
+        assert [(c["title"], c["score"], c["source_name"]) for c in event["candidates"]] == [
+            ("X", 0.8, "YouTube Music"), ("X (Live)", 0.7, "YouTube Music")]
+
+    def test_without_asking_the_best_is_downloaded_as_before(self, tmp_path):
+        result, events, fetched = self.process(tmp_path, [self.match("X", 0.8)])
+        assert result is None and fetched == ["https://music.test/X"]  # cancelled mid-download
+
+    def test_a_clear_match_is_not_held(self, tmp_path):
+        result, events, fetched = self.process(tmp_path, [self.match("X", 1.1)], ask=True)
+        assert fetched == ["https://music.test/X"] and "doubtful" not in [e["state"] for e in events]
+
+    def test_a_chosen_match_is_downloaded_without_a_search(self, tmp_path):
+        chosen = self.match("X (the right one)", 0.7)
+        result, events, fetched = self.process(tmp_path, [self.match("X", 1.1)], ask=True, choices={"1": chosen})
+        assert fetched == ["https://music.test/X (the right one)"]
+        assert "search" not in [e["state"] for e in events]
+
+    def test_the_report_counts_what_waits(self, tmp_path):
+        loader = self.loader(tmp_path, [], dry_run=True)
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        doubt = downloader.Doubt(track, [self.match("X", 0.8)])
+        loader._process = lambda album, track, folder, single, cover: ("doubtful", "Y - X", doubt)
+        report = loader._download_tracks(album(), [track], tmp_path, False)
+        assert (report.doubtful, report.doubts) == (["Y - X"], [doubt])
+        assert "ждут выбора: 1" in report.summary()
+
+    def test_only_the_chosen_tracks_of_a_release_are_downloaded(self, tmp_path, monkeypatch):
+        whole = album()
+        monkeypatch.setattr(downloader.sources, "resolve",
+                            lambda link: downloader.sources.Release(whole, whole.tracks))
+        loader = self.loader(tmp_path, [], dry_run=True, choices={"2": self.match("Track 2", 0.7)})
+        seen = []
+        loader._download_tracks = lambda album, tracks, folder, single, link="": seen.append(
+            [t.id for t in tracks]) or downloader.Report()
+        loader.download_link("https://open.spotify.com/album/x")
+        assert seen == [["2"]]

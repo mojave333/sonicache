@@ -353,6 +353,14 @@ is tried, widening the search to the other sources if needed. With no suitable c
 track is reported as failed, and nothing random is downloaded in its place. A file that
 turns out too short, such as a 30-second SoundCloud Go+ preview, counts as a failure too.
 
+A track whose best match may be the wrong song is not downloaded by itself: its score is
+weak, or a different song, a live take or another length, scores about the same. The card
+lists its candidates with their source, length against the wanted one, and how well they
+match; each can be listened to in the browser, and "Download the chosen" fetches the picked
+ones into the same folder as a card of their own. The rest of the album downloads as usual,
+and a watched playlist, with nobody to ask, takes the best candidate as before. Settings →
+"Ask about doubtful matches" turns this off.
+
 ## Where services are blocked
 
 The program talks to Spotify, YouTube and SoundCloud from your own computer, not from a

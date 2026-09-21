@@ -375,6 +375,17 @@
               </div>
               <div class="setting">
                 <div class="setting-label">
+                  <p id="ask-label">Спрашивать при сомнительных совпадениях</p>
+                  <p class="setting-desc">Если трек похож сразу на несколько записей, он не скачивается сам:
+                    на карточке появятся варианты, их можно послушать и выбрать</p>
+                </div>
+                <div id="ask-doubtful" class="segmented" role="radiogroup" aria-labelledby="ask-label">
+                  <button type="button" role="radio" data-ask="false">Выкл</button>
+                  <button type="button" role="radio" data-ask="true">Вкл</button>
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting-label">
                   <p><label for="rate">Ограничение скорости</label></p>
                   <p class="setting-desc">Чтобы загрузка не занимала весь канал</p>
                 </div>
@@ -561,7 +572,8 @@
         </button>
         <div class="cover"><img alt="" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg></div>
         <div class="cell-main"><p class="title"></p><p class="sub"></p><p class="sub note" hidden></p>
-          <p class="offer" hidden><span class="offer-text"></span><button type="button" class="tool-btn offer-use">Использовать и повторить</button></p></div>
+          <p class="offer" hidden><span class="offer-text"></span><button type="button" class="tool-btn offer-use">Использовать и повторить</button></p>
+          <p class="offer choose-bar" hidden><span class="choose-text"></span><button type="button" class="tool-btn choose-go">Скачать выбранные</button></p></div>
         <span class="tag"></span>
         <div class="cell-status">
           <p class="status-line"><svg class="icon sm status-icon" aria-hidden="true"></svg><span class="status-text"></span></p>

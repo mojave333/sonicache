@@ -154,6 +154,8 @@ ENGLISH = {
     "✗ Не найдено ни на YouTube Music, ни на SoundCloud: {label}":
         "✗ Found on neither YouTube Music nor SoundCloud: {label}",
     "не найдено ни на YouTube Music, ни на SoundCloud": "found on neither YouTube Music nor SoundCloud",
+    "? {label}: похоже на несколько записей, ждёт выбора": "? {label}: looks like more than one recording, waiting for a choice",
+    ", ждут выбора: {count}": ", waiting for a choice: {count}",
     "! {label}: не скачалось с {source} ({error}), пробую другой источник":
         "! {label}: {source} would not hand it over ({error}), trying another source",
     "исходной ссылки": "the original link",

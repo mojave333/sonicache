@@ -38,6 +38,7 @@ from .engine import batch, network, sources, use_relay
 from .engine.models import SourceError
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, use_proxy)
+from .engine.matcher import Match
 
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
@@ -67,6 +68,10 @@ AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
 PROFILE_KEYS = ("folder", "format", "track_name", "folder_name")
 PROFILE_LIMIT = 12
 UPDATE_HOST = "github.com"
+# The pages a candidate can be listened to on before it is chosen
+LISTEN_HOSTS = {"music.youtube.com", "www.youtube.com", "youtube.com", "youtu.be", "soundcloud.com",
+                "m.soundcloud.com"}
+MATCH_FIELDS = ("source", "url", "page_url", "title", "artists", "duration", "score")
 LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thousands of lines
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
@@ -177,11 +182,34 @@ class Api:
         _save_settings(settings)
         return [self._enqueue(link, settings) for link in links]
 
-    def _enqueue(self, link: str, settings: dict) -> dict:
+    def download_choices(self, link: str, settings: dict, choices: dict) -> dict | None:
+        """Downloads the tracks of a release a person chose a match for, each
+        from the match chosen, into the release's folder, as a card of its own."""
+        matches = {}
+        for track_id, candidate in (choices or {}).items():
+            try:
+                match = Match(**{key: candidate[key] for key in MATCH_FIELDS})
+            except (KeyError, TypeError):
+                continue
+            if match.url.startswith("https://"):  # only what a search of ours put forward
+                matches[str(track_id)] = match
+        if not matches:
+            return None
+        return self._enqueue(link, {**_normalize(settings), "dry_run": False}, matches)
+
+    def open_page(self, url: str) -> bool:
+        """A candidate's own page, to listen to it before choosing."""
+        if urllib.parse.urlsplit(str(url)).hostname not in LISTEN_HOSTS:
+            return False
+        webbrowser.open(url)
+        return True
+
+    def _enqueue(self, link: str, settings: dict, choices: dict | None = None) -> dict:
         options = Options(Path(settings["folder"]).expanduser(), settings["format"],
                           settings["threads"], settings["dry_run"], settings["cookies_browser"],
                           settings["track_name"], settings["folder_name"],
-                          settings["rate_limit"], settings["proxy"], settings["replaygain"])
+                          settings["rate_limit"], settings["proxy"], settings["replaygain"],
+                          ask=settings.get("ask_doubtful", True), choices=choices or {})
         with self._lock:
             self._job_counter += 1
             job = self._job_counter
@@ -423,8 +451,9 @@ class Api:
                 return self.watched()
             settings = _load_settings()
             for entry in entries:
+                # A check runs with nobody to ask, so the best match is taken as before
                 queued = self._enqueue(entry["link"], {**settings, **entry["settings"],
-                                                       "dry_run": False})
+                                                       "dry_run": False, "ask_doubtful": False})
                 entry["checked"], entry["job"] = now, queued["job"]
                 # The window did not start this job, so it is told to draw a card
                 self._events.put({"type": "added", **queued, "dry_run": False, "watched": True,
@@ -686,6 +715,9 @@ class Api:
                     known["text"] = event.get("text", "")
                     if event.get("source"):
                         known["source"] = event["source"]
+                    # A held-back track keeps its candidates, to be chosen from after a restart
+                    if event.get("candidates"):
+                        known["candidates"] = event["candidates"]
 
         emit(type="job", state="running")
         self._remember({"job": job, "state": "running"})
@@ -708,7 +740,8 @@ class Api:
                             "tracks": finished_tracks()})
             return
         state = "cancelled" if self._stop.is_set() else "done"
-        counts = {"ok": len(report.ok), "skipped": len(report.skipped), "failed": len(report.failed)}
+        counts = {"ok": len(report.ok), "skipped": len(report.skipped), "failed": len(report.failed),
+                  "doubtful": len(report.doubtful)}
         self._remember({"job": job, "state": state, "dry_run": options.dry_run,
                         "tracks": finished_tracks(), **counts})
         quiet = self._finish_watch_check(job, state, counts)
@@ -1172,6 +1205,8 @@ def _normalize(settings: dict) -> dict:
         # whichever of the two it sits nearer.
         "sidebar": sidebar,
         "replaygain": bool(settings.get("replaygain", False)),
+        # Hold back a track whose match may be the wrong song, for a choice
+        "ask_doubtful": bool(settings.get("ask_doubtful", True)),
         "profiles": _profiles(settings.get("profiles")),
         "library_view": settings.get("library_view") if settings.get("library_view") in LIBRARY_VIEWS else "grid",
     }

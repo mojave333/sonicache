@@ -2,8 +2,8 @@
 
 import pytest
 
-from trackhound.engine.matcher import (GOOD_SCORE, MIN_SCORE, Matcher, SearchError, _artist_score, _norm,
-                                _score, _similarity)
+from trackhound.engine.matcher import (GOOD_SCORE, MIN_SCORE, Match, Matcher, SearchError, _artist_score, _norm,
+                                _score, _similarity, doubtful)
 from trackhound.engine.models import Album, Track
 
 
@@ -193,3 +193,25 @@ class TestFindAll:
             assert "503" in str(error)
         else:
             raise AssertionError("the search error was swallowed")
+
+
+class TestDoubtful:
+    """When the best candidate may well be the wrong song, a person is asked."""
+
+    def match(self, title="One More Time", score=1.1, duration=320.0):
+        return Match("song", f"https://example.test/{title}/{score}", "", title, "Daft Punk", duration, score)
+
+    def test_a_clear_winner_is_no_doubt(self):
+        assert not doubtful([self.match(score=1.15), self.match("Digital Love", 0.8)])
+
+    def test_a_weak_best_is_a_doubt(self):
+        assert doubtful([self.match(score=0.85)])
+
+    def test_another_song_just_as_good_is_a_doubt(self):
+        assert doubtful([self.match(score=1.08), self.match("One More Time (Live)", 1.05, 340)])
+
+    def test_the_same_recording_twice_is_no_doubt(self):
+        assert not doubtful([self.match(score=1.18), self.match("One more time", 1.18, 321)])
+
+    def test_nothing_found_is_no_doubt_either(self):
+        assert not doubtful([])

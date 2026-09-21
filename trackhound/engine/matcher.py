@@ -19,6 +19,8 @@ from .models import Album, Track
 
 MIN_SCORE = 0.62  # below this a candidate is considered a different song
 GOOD_SCORE = 0.9  # a candidate this good ends the search, later sources are skipped
+# Another song this close in score to the best one makes the choice a guess
+DOUBT_MARGIN = 0.05
 
 # Official audio on YouTube Music is preferred, then artist uploads on
 # SoundCloud (small artists often skip YouTube), then any YouTube video.
@@ -209,6 +211,28 @@ def _retry(func, source: str, attempts: int = 3):
                 raise SearchError(t("поиск на {source} не удался: {error}",
                                     source=source, error=message)) from e
             time.sleep(2 * attempt)
+
+
+def doubtful(matches: list[Match]) -> bool:
+    """Whether the best of these candidates, best first, may well be the wrong
+    song: its score is weak, or a different song scores about the same.
+
+    Right matches score 0.97 and up almost always; the same recording uploaded
+    twice, with the same title and length, is no doubt at all.
+    """
+    if not matches:
+        return False
+    best = matches[0]
+    if best.score < GOOD_SCORE:
+        return True
+    for other in matches[1:]:
+        if best.score - other.score > DOUBT_MARGIN:
+            return False
+        same_song = (_similarity(_norm(best.title), _norm(other.title)) >= 0.9
+                     and abs(best.duration - other.duration) <= 3)
+        if not same_song:
+            return True
+    return False
 
 
 def _score(candidate: dict, track: Track, album: Album) -> Match | None:
