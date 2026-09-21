@@ -374,7 +374,18 @@ back to YouTube's own AAC 128, and the other formats are not available.
 
 ## How a track is chosen
 
-The search runs on "artist + title" in this order:
+First the recording itself is looked for by its ISRC, the international code every release
+of a song carries and every catalogue shares. Deezer names it for its own tracks; for a
+Spotify or Apple Music link the same album is found on Deezer by name (two requests for the
+whole album), and a playlist's tracks are looked up one by one, only when title, version and
+length agree, so a live take or a remaster never lends its code to the original. YouTube
+Music then finds the official audio filed under that code: the very recording, not another
+one of the same name, and the queue shows "YouTube Music · ISRC" as its source. The code is
+also written into the file's tags. Where Deezer does not answer, the lookups rest for five
+minutes and tracks are matched by name as before.
+
+Without a code, or when YouTube Music has nothing under it, the search runs on
+"artist + title" in this order:
 
 1. official audio on YouTube Music;
 2. SoundCloud, since smaller artists often skip YouTube Music;

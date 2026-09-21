@@ -21,6 +21,9 @@ MIN_SCORE = 0.62  # below this a candidate is considered a different song
 GOOD_SCORE = 0.9  # a candidate this good ends the search, later sources are skipped
 # Another song this close in score to the best one makes the choice a guess
 DOUBT_MARGIN = 0.05
+# The recording YouTube Music finds by the track's ISRC is the one: above what
+# any search by name can reach (1.18) by more than DOUBT_MARGIN, so it is never doubted
+ISRC_SCORE = 1.25
 
 # Official audio on YouTube Music is preferred, then artist uploads on
 # SoundCloud (small artists often skip YouTube), then any YouTube video.
@@ -116,6 +119,11 @@ class Matcher:
         query = f"{track.artists} {track.title}"
         best: dict[str, Match] = {}  # by url: the same song can appear in two searches
         errors = []
+        exact = self._by_isrc(track, errors) if track.isrc else None
+        if exact:
+            if not exhaustive:
+                return [exact]
+            best[exact.url] = exact
         # Songs and videos both come through the YouTube Music API, so they rest together
         for search, source in ((self._youtube_music_songs, "YouTube Music"), (self._soundcloud, "SoundCloud"),
                                (self._youtube_videos, "YouTube Music")):
@@ -140,6 +148,25 @@ class Matcher:
         if not best and errors:  # "not found" would hide the real reason
             raise errors[0]
         return sorted(best.values(), key=lambda match: match.score, reverse=True)
+
+    def _by_isrc(self, track: Track, errors: list) -> Match | None:
+        """The recording YouTube Music files under the track's ISRC. A code it
+        does not know still brings results, songs that merely look like it, so
+        the first one is taken only with the track's title and length."""
+        if self._resting_error("YouTube Music"):
+            return None
+        try:
+            candidates = self._youtube_music_songs(track.isrc)
+        except SearchError as e:
+            errors.append(e)
+            self._rest("YouTube Music", e)
+            return None
+        first = candidates[0] if candidates else None
+        if (first is None or _similarity(_norm(track.title), _norm(first["title"])) < 0.6
+                or (track.duration and first["duration"] and abs(first["duration"] - track.duration) > 3)):
+            return None
+        return Match(first["source"], first["url"], first["page_url"], first["title"], first["artists"],
+                     first["duration"], ISRC_SCORE)
 
     def _rest(self, source: str, error: SearchError) -> None:
         with self._lock:

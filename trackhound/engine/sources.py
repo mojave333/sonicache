@@ -23,7 +23,7 @@ import yt_dlp
 from . import spotify
 from .i18n import language, t
 from .logs import YtdlpLogger
-from .matcher import _artist_score, _norm, _similarity, ytmusic
+from .matcher import _NOISE_RE, _VERSION_WORDS, _artist_score, _norm, _similarity, ytmusic
 from .models import Album, Release, SourceError, Track
 from .net import BROWSER_UA, fetch_json, fetch_text
 
@@ -325,6 +325,7 @@ def _deezer_item(item: dict, number: int, playlist: bool = False) -> Track:
         track_number=number if playlist else item.get("track_position") or number,
         disc_number=1 if playlist else item.get("disk_number") or 1,
         explicit=bool(item.get("explicit_lyrics")),
+        isrc=item.get("isrc") or "",
     )
 
 
@@ -352,6 +353,103 @@ def _deezer_pages(path: str, missing: str) -> list[dict]:
         if not url.startswith("https://api.deezer.com/"):
             break
     return items
+
+
+# ISRC: the code of one recording, the same in every catalogue. Deezer names it
+# for every track it lists, Spotify's pages and Apple's catalogue do not; with
+# it YouTube Music finds that very recording rather than one of the same name.
+
+# Deezer allows 50 requests in 5 seconds; lookups for many tracks at once stay under
+ISRC_PACE = 0.12  # seconds between two lookups
+# After Deezer failed to answer, tracks are matched by name alone for this long,
+# so that a network where it is blocked does not wait on it for every track
+ISRC_REST = 300  # seconds
+# Words that make a recording another one: "Fuel" and "Fuel - Remastered" have codes of their own
+_VERSION_MARKS = _VERSION_WORDS | {"mix", "mono", "radio", "version"}
+_isrc_lock = threading.Lock()
+_isrc_clock = {"last": 0.0, "rest_until": 0.0}
+
+
+def borrow_isrcs(album: Album) -> int:
+    """Gives the album's tracks the codes Deezer has for the same album, which
+    is two requests for all of them. Answers how many tracks got one."""
+    if not album.artist or not album.name or all(track.isrc for track in album.tracks):
+        return 0
+    found = _deezer_quick("search/album", q=f"{album.artist} {album.name}", limit=10)
+    fits = [item for item in found
+            if _similarity(_norm(album.name), _norm(item.get("title") or "")) >= 0.9
+            and _artist_fits(album.artist, (item.get("artist") or {}).get("name") or "")]
+    if not fits:
+        return 0
+    # The same edition first: a deluxe one lists the same songs among others
+    fits.sort(key=lambda item: item.get("nb_tracks") != len(album.tracks))
+    items = _deezer_quick(f"album/{fits[0].get('id')}/tracks", limit=500)
+    given = 0
+    for track in album.tracks:
+        if not track.isrc:
+            track.isrc = _same_recording(track, items)
+            given += bool(track.isrc)
+    return given
+
+
+def track_isrc(track: Track) -> str:
+    """The code of one recording, looked up on Deezer by its names; "" when no
+    result is surely the same recording."""
+    artist = track.artists.split(",")[0].strip()
+    title = " ".join(_NOISE_RE.sub(" ", track.title).split()) or track.title
+    found = _deezer_quick("search/track", q=f"{artist} {title}", limit=10)
+    return _same_recording(track, [item for item in found
+                                   if _artist_fits(artist, (item.get("artist") or {}).get("name") or "")])
+
+
+def _same_recording(track: Track, items: list[dict]) -> str:
+    """The code of the item that is this track: the same title, the same
+    version words and, when both are known, the same length within 2 seconds."""
+    marks = _version_marks(track.title)
+    for item in items:
+        title = item.get("title") or ""
+        length = item.get("duration") or 0
+        if (item.get("isrc") and _similarity(_norm(track.title), _norm(title)) >= 0.9
+                and _version_marks(title) == marks
+                and (not track.duration or not length or abs(length - track.duration) <= 2)):
+            return str(item["isrc"])
+    return ""
+
+
+def _version_marks(title: str) -> set[str]:
+    words = re.findall(r"\w+", title.casefold())
+    return {"remaster" if word.startswith("remaster") else word
+            for word in words if word.startswith("remaster") or word in _VERSION_MARKS}
+
+
+def _artist_fits(wanted: str, name: str) -> bool:
+    return _artist_score(wanted, name) > 0 or _similarity(_norm(wanted), _norm(name)) >= 0.8
+
+
+def _deezer_quick(path: str, **params) -> list[dict]:
+    """One paced request with a short wait and no retries: a code is a nicety,
+    and a track must not wait twenty seconds for one. Raises SourceError when
+    Deezer does not answer, and then keeps quiet for ISRC_REST seconds."""
+    with _isrc_lock:
+        now = time.monotonic()
+        if now < _isrc_clock["rest_until"]:
+            raise SourceError.of("offline", "Deezer недавно не ответил, ISRC пока не ищем")
+        wait = _isrc_clock["last"] + ISRC_PACE - now
+        _isrc_clock["last"] = now + max(0.0, wait)
+    if wait > 0:
+        time.sleep(wait)
+    request = urllib.request.Request(f"https://api.deezer.com/{path}?{urllib.parse.urlencode(params)}",
+                                     headers={"User-Agent": BROWSER_UA})
+    try:
+        with urllib.request.urlopen(request, timeout=8) as response:
+            data = json.loads(response.read())
+    except (OSError, ValueError) as e:
+        with _isrc_lock:
+            _isrc_clock["rest_until"] = time.monotonic() + ISRC_REST
+        raise SourceError.of("offline", "Deezer не ответил: {error}", error=e) from e
+    if not isinstance(data, dict) or data.get("error"):
+        return []  # a quota answer or "no data": this track goes without a code
+    return [item for item in data.get("data") or [] if isinstance(item, dict)]
 
 
 # YouTube and YouTube Music: metadata and audio in one place

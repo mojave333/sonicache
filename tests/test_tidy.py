@@ -116,13 +116,14 @@ class TestFill:
     @pytest.mark.parametrize("ext", ["mp3", "m4a", "opus"])
     def test_what_a_download_wrote_reads_back(self, tmp_path, ext):
         album = release(kind="playlist", genre="Art Rock").album
+        album.tracks[1].isrc = "GBSTK0700002"
         path = silence(tmp_path / f"song.{ext}")
         downloader._write_tags(path, album, album.tracks[1], JPEG, "Hello")
         tags = downloader.read_tags(path)
         assert tags == {"duration": pytest.approx(1, abs=0.1), "title": "Bodysnatchers", "artist": "Radiohead",
                         "album": "In Rainbows", "albumartist": "Разные исполнители", "compilation": True,
                         "track": 2, "disc": 1, "date": tags["date"], "genre": "Art Rock", "lyrics": True,
-                        "cover": True}
+                        "cover": True, "isrc": "GBSTK0700002"}
         assert tags["date"].startswith("2007")
 
 

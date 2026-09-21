@@ -89,6 +89,8 @@ ENGLISH = {
     "В альбоме Deezer {id} нет треков": "Deezer album {id} has no tracks",
     "Трека {id} нет в альбоме «{album}»": "Track {id} is not part of \"{album}\"",
     "Deezer ответил ошибкой: {error}": "Deezer answered with an error: {error}",
+    "Deezer не ответил: {error}": "Deezer did not answer: {error}",
+    "Deezer недавно не ответил, ISRC пока не ищем": "Deezer did not answer a moment ago, so no ISRCs for now",
     "Из YouTube поддерживаются ссылки на видео, альбомы и плейлисты":
         "From YouTube, links to videos, albums and playlists are supported",
     "В альбоме YouTube Music нет треков": "This YouTube Music album has no tracks",

@@ -21,16 +21,16 @@ from typing import Callable
 import yt_dlp
 from mutagen import File as MutagenFile
 from mutagen.flac import Picture
-from mutagen.id3 import (APIC, ID3, TALB, TCMP, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, USLT,
+from mutagen.id3 import (APIC, ID3, TALB, TCMP, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TSRC, USLT,
                         ID3NoHeaderError)
-from mutagen.mp4 import MP4, MP4Cover
+from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 from mutagen.oggopus import OggOpus
 from yt_dlp.utils import DownloadCancelled
 
 from . import loudness, lyrics, sources
 from .i18n import t
 from .logs import YtdlpLogger, log
-from .matcher import SOURCE_NAMES, Match, Matcher, doubtful
+from .matcher import ISRC_SCORE, SOURCE_NAMES, Match, Matcher, doubtful
 from .models import Album, Track, _CodedError
 from .net import BROWSER_UA
 
@@ -206,6 +206,13 @@ class Downloader:
         album, tracks, single = release.album, release.tracks, release.single
         if self.options.choices:  # only the tracks chosen for, the album still whole for the numbering
             tracks = [track for track in tracks if track.id in self.options.choices]
+        if (album.kind != "playlist" and len(album.tracks) > 1
+                and any(not track.isrc and not track.audio_url for track in tracks)):
+            # Spotify and Apple name no ISRC: the same album on Deezer does, for all its tracks at once
+            try:
+                sources.borrow_isrcs(album)
+            except Exception as e:  # the codes are a nicety: tracks are still found by name
+                log.getChild("download").info("ISRC для «%s» не получены: %s", album.name, e)
         if album.kind != "playlist" and not self.options.dry_run:
             # A playlist mixes genres, so one guessed for its name would be wrong on most tracks
             try:
@@ -310,6 +317,11 @@ class Downloader:
 
         stem = f"_part_{track.id}"
         direct = _direct_match(track)
+        if not (direct or track.isrc or self.options.choices.get(track.id)):
+            try:
+                track.isrc = sources.track_isrc(track)
+            except Exception as e:
+                log.getChild("download").debug("ISRC для «%s» не получен: %s", label, e)
         tried: set[str] = set()
         pool: list[Match] = []
         searches = 0  # 1: the quick search, which stops at the first great hit; 2: every source
@@ -345,6 +357,8 @@ class Downloader:
                 reason = t("не найдено ни на YouTube Music, ни на SoundCloud")
                 return "failed", f"{label}: {reason}", Failure(track, "no_source", reason)
             source = t(SOURCE_NAMES.get(match.source, "")) or album.service
+            if match.score == ISRC_SCORE:
+                source = f"{source} · ISRC"  # the very recording, not one of the same name
             if self.options.dry_run:
                 self.log(t("? {label}  →  {artists} - {title} [{source}, {got} / {wanted}, "
                            "оценка {score}] {url}", label=label, artists=match.artists,
@@ -702,16 +716,16 @@ def _write_lrc(track_path: Path, synced: str) -> None:
 TAG_FRAMES = {
     ".m4a": {"title": "\xa9nam", "artist": "\xa9ART", "album": "\xa9alb", "albumartist": "aART",
              "compilation": "cpil", "track": "trkn", "disc": "disk", "date": "\xa9day",
-             "genre": "\xa9gen", "lyrics": "\xa9lyr", "cover": "covr"},
+             "genre": "\xa9gen", "lyrics": "\xa9lyr", "cover": "covr", "isrc": "----:com.apple.iTunes:ISRC"},
     ".mp3": {"title": "TIT2", "artist": "TPE1", "album": "TALB", "albumartist": "TPE2",
              "compilation": "TCMP", "track": "TRCK", "disc": "TPOS", "date": "TDRC",
-             "genre": "TCON", "lyrics": "USLT", "cover": "APIC"},
+             "genre": "TCON", "lyrics": "USLT", "cover": "APIC", "isrc": "TSRC"},
     ".opus": {"title": "title", "artist": "artist", "album": "album", "albumartist": "albumartist",
               "compilation": "compilation", "track": "tracknumber", "disc": "discnumber", "date": "date",
-              "genre": "genre", "lyrics": "lyrics", "cover": "metadata_block_picture"},
+              "genre": "genre", "lyrics": "lyrics", "cover": "metadata_block_picture", "isrc": "isrc"},
 }
 _ID3_TEXT = {"TIT2": TIT2, "TPE1": TPE1, "TALB": TALB, "TPE2": TPE2, "TRCK": TRCK, "TPOS": TPOS,
-             "TDRC": TDRC, "TCON": TCON}
+             "TDRC": TDRC, "TCON": TCON, "TSRC": TSRC}
 
 
 def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None, words: str = "",
@@ -740,6 +754,7 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None, wor
         "genre": album.genre,
         "lyrics": words,
         "cover": cover,
+        "isrc": track.isrc,
     }
     values = {key: value for key, value in values.items() if value}
     mime = "image/png" if cover and cover.startswith(b"\x89PNG") else "image/jpeg"
@@ -760,6 +775,8 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None, wor
             elif key == "cover":
                 image_format = MP4Cover.FORMAT_PNG if mime == "image/png" else MP4Cover.FORMAT_JPEG
                 value = [MP4Cover(value, imageformat=image_format)]
+            elif key == "isrc":
+                value = [MP4FreeForm(value.encode("ascii", "ignore"))]
             audio.tags[frames[key]] = value
         audio.save()
 
@@ -841,6 +858,8 @@ def read_tags(path: Path) -> dict:
             # A picture is megabytes of bytes, not worth turning into text to look at
             found[key] = bool(value) if isinstance(value, (bytes, bool)) else str(value or "").strip() not in ("", "0")
         else:
+            if isinstance(value, bytes):  # MP4's own atoms for what it has no name for, ISRC among them
+                value = value.decode("utf-8", "replace")
             found[key] = str(value or "").strip()
     return found
 

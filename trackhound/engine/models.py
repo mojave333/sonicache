@@ -79,6 +79,8 @@ class Track:
     # otherwise the audio is matched on YouTube Music and SoundCloud.
     audio_url: str = ""
     audio_source: str = ""  # "song", "video", "soundcloud" or "web"
+    # The recording's international code, the same in every catalogue; "" when unknown
+    isrc: str = ""
 
 
 @dataclass
