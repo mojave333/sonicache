@@ -180,7 +180,6 @@ const TRANSLATIONS = {
   "Ищем везде": "Searching everywhere",
   "Качаем": "Downloading",
   "Пробуем {source}": "Trying {source}",
-  "Конвертируем в {format}": "Converting to {format}",
   "Найден": "Found",
   "Уже есть": "Already here",
   "Не найден": "Not found",

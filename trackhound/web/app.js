@@ -20,7 +20,6 @@ const TRACK_UI = {
   waiting: { label: "В очереди", icon: "dot", tone: "muted" },
   search: { label: "Ищем", icon: "search", tone: "muted" },
   download: { label: "Качаем", icon: "download", tone: "primary" },
-  convert: { label: "Конвертируем в {format}", icon: "spinner", tone: "primary" },
   done: { label: "Готово", icon: "check", tone: "success" },
   found: { label: "Найден", icon: "check", tone: "success" },
   skip: { label: "Уже есть", icon: "check", tone: "muted" },
@@ -28,7 +27,7 @@ const TRACK_UI = {
   error: { label: "Ошибка", icon: "alert", tone: "danger" },
   cancel: { label: "Отменён", icon: "stop", tone: "muted" },
 };
-const TRACK_ACTIVE = new Set(["waiting", "search", "download", "convert"]);
+const TRACK_ACTIVE = new Set(["waiting", "search", "download"]);
 // The signs of a step under way: a tick that follows one of them draws itself in
 const BUSY_ICONS = new Set(["spinner", "search", "download", "level"]);
 const TRACK_FAILED = new Set(["missing", "error"]);
@@ -1034,7 +1033,7 @@ function jobStatus(job) {
 function jobStage(job, ratio) {
   if (job.loudness) return { icon: "level", text: t("Выравниваем громкость") };
   const states = [...job.tracks.values()].map((track) => track.state);
-  if (!job.done && !states.some((name) => name === "download" || name === "convert")) {
+  if (!job.done && !states.includes("download")) {
     return states.includes("search") ? { icon: "search", text: t("Ищем источник") }
                                      : { icon: "dot", text: t("В очереди") };
   }
@@ -1046,7 +1045,6 @@ function jobProgress(job) {
   let downloading = 0;
   for (const track of job.tracks.values()) {
     if (track.state === "download") downloading += track.percent / 100;
-    else if (track.state === "convert") downloading += 1; // the stream is all in
   }
   return Math.min(1, (job.done + downloading) / job.total);
 }
@@ -1301,7 +1299,7 @@ function trackLabel(track, ui) {
   if (track.state === "download" && track.retry && track.source) {
     return t("Пробуем {source}", { source: track.source });
   }
-  return t(ui.label, { format: track.job.format });
+  return t(ui.label);
 }
 
 function trackNote({ state: name, text }) {

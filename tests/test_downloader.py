@@ -391,7 +391,7 @@ class TestSteps:
         return downloader.Match(source="song", url=url, page_url="", title="T", artists="A",
                                 duration=200, score=1.0)
 
-    def download(self, monkeypatch, tmp_path, ffmpeg="ffmpeg", retry=False):
+    def download(self, monkeypatch, tmp_path, retry=False):
         class FakeYoutubeDL:
             def __init__(self, opts):
                 self.hooks = opts["progress_hooks"]
@@ -412,16 +412,13 @@ class TestSteps:
         monkeypatch.setattr(downloader.yt_dlp, "YoutubeDL", FakeYoutubeDL)
         events = []
         loader = self.loader(tmp_path, events)
-        loader.ffmpeg = ffmpeg
         track = Track(id="1", title="T", artists="A", duration=200, track_number=1)
         loader._download_audio(self.match(), tmp_path, "stem", track, "YouTube Music", retry)
         return [(event["state"], event.get("percent"), event.get("retry")) for event in events]
 
-    def test_the_conversion_is_named_once_the_stream_is_in(self, monkeypatch, tmp_path):
-        assert self.download(monkeypatch, tmp_path) == [("download", 50, False), ("convert", None, None)]
-
-    def test_without_ffmpeg_there_is_no_conversion_to_name(self, monkeypatch, tmp_path):
-        assert self.download(monkeypatch, tmp_path, ffmpeg=None) == [("download", 50, False)]
+    def test_a_finished_stream_is_no_step_of_its_own(self, monkeypatch, tmp_path):
+        """After the search there is only the download, ffmpeg's part included."""
+        assert self.download(monkeypatch, tmp_path) == [("download", 50, False)]
 
     def test_a_download_from_a_second_source_says_so(self, monkeypatch, tmp_path):
         assert self.download(monkeypatch, tmp_path, retry=True)[0] == ("download", 50, True)

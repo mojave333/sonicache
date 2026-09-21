@@ -382,9 +382,6 @@ class Downloader:
                 if percent >= reported + 5:  # the window does not need every chunk
                     reported = percent
                     self._track_event(track, "download", source=source, percent=percent, retry=retry)
-            elif status.get("status") == "finished" and self.ffmpeg:
-                # The stream is in; ffmpeg now makes the file, and it gives no percent
-                self._track_event(track, "convert", source=source)
 
         if match.source == "soundcloud":
             format_spec = "bestaudio/best"  # AAC 160k when available; previews rank last
