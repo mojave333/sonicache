@@ -217,17 +217,32 @@ class TestWithheld:
                      ("music:duration", "320")],
         "track/T2": [("og:title", "Digital Love"), ("music:musician_description", "Daft Punk, Romanthony"),
                      ("music:duration", "301")],
+        "track/T3": [("og:title", "Digital Love"), ("music:musician_description", "Daft Punk, Romanthony"),
+                     ("music:duration", "301"), ("music:album", "https://open.spotify.com/album/A1")],
     }
 
     @pytest.fixture(autouse=True)
     def closed(self, monkeypatch):
+        self.asked = []
+
         def fetch_text(url, *, service, user_agent=spotify.BROWSER_UA, retries=3):
+            self.asked.append(url)
             if "/embed/" in url:
                 return self.CLOSED
             tags = self.PREVIEWS.get(url.split("open.spotify.com/", 1)[1], [])
             return "".join(f'<meta property="{key}" content="{value}">' for key, value in tags)
 
         monkeypatch.setattr(spotify, "fetch_text", fetch_text)
+
+    def test_a_track_takes_its_place_from_the_album_without_reading_the_rest(self):
+        # T3 is the second song of A1 under another id: its place is taken by id, so A1 lists T3
+        self.PREVIEWS = {**self.PREVIEWS, "album/A1": [
+            (key, value.replace("track/T2", "track/T3")) for key, value in self.PREVIEWS["album/A1"]]}
+        album, track = spotify.fetch_track("T3")
+        assert (album.name, album.kind, len(album.tracks)) == ("Discovery", "album", 2)
+        assert (track.disc_number, track.track_number, track.title, track.artists, track.duration) == (
+            2, 1, "Digital Love", "Daft Punk, Romanthony", 301)
+        assert not any(url.endswith("/track/T1") for url in self.asked)  # the album's other song is not read
 
     def test_an_album_comes_whole_from_the_preview_pages(self):
         album = spotify.fetch_album("A1")

@@ -56,9 +56,12 @@ def parse_link(link: str) -> tuple[str, str]:
     return m.group(1) or m.group(2), m.group(3)
 
 
-def fetch_album(album_id: str) -> Album:
+def fetch_album(album_id: str, whole: bool = True) -> Album:
+    """An album with its tracks. Without `whole`, an album read off its
+    preview page has only the places of its tracks, not their names: enough
+    for one track of it, which fills in its own."""
     meta = _meta_tags("album", album_id)
-    entity = _entity("album", album_id, meta)
+    entity = _entity("album", album_id, meta, whole)
 
     # music:song is followed by its own music:song:disc / music:song:track tags.
     positions: dict[str, dict[str, int]] = {}
@@ -155,24 +158,26 @@ def fetch_track(track_id: str) -> tuple[Album, Track]:
     album = None
     if album_id:
         try:
-            album = fetch_album(album_id)
+            album = fetch_album(album_id, whole=False)
         except SourceError:
             pass
 
     entity = _entity("track", track_id, meta)
     title = entity.get("name") or entity.get("title", "")
     duration = (entity.get("duration") or 0) / 1000
+    # og:description looks like "Rick Astley · Whenever You Need Somebody · Song · 1987"
+    description = _first(meta, "og:description").split(" · ")
+    artists = ", ".join(a["name"] for a in entity.get("artists") or []) or description[0]
 
     if album:
         for track in album.tracks:
             same_song = (track.title.casefold() == title.casefold()
                          and abs(track.duration - duration) < 2)
             if track.id == track_id or same_song:
+                if not track.title:  # its place in an album read off the preview page
+                    track.title, track.artists, track.duration = title, artists, duration
                 return album, track
 
-    # og:description looks like "Rick Astley · Whenever You Need Somebody · Song · 1987"
-    description = _first(meta, "og:description").split(" · ")
-    artists = ", ".join(a["name"] for a in entity.get("artists") or []) or description[0]
     number = _first(meta, "music:album:track")
     track = Track(
         id=track_id,
@@ -197,19 +202,21 @@ def fetch_track(track_id: str) -> tuple[Album, Track]:
     return album, track
 
 
-def _entity(kind: str, spotify_id: str, meta: list[tuple[str, str]]) -> dict:
+def _entity(kind: str, spotify_id: str, meta: list[tuple[str, str]], whole: bool = True) -> dict:
     """The release as the embed page has it or, when that page withholds it,
     as the preview pages tell it.
 
     Spotify keeps its player out of the countries it does not work in, Russia
     among them, but it still gives out the pages it makes for the link
     previews of messengers: the release's name and its tracks, each track on
-    a page of its own. The audio never comes from Spotify anyway.
+    a page of its own. The audio never comes from Spotify anyway. Without
+    `whole`, the tracks' own pages are not read: the album's list of them is
+    all a single track needs, for its number and the count on its disc.
     """
     try:
         return _embed_entity(kind, spotify_id)
     except SourceError:
-        entity = _preview_entity(kind, meta)
+        entity = _preview_entity(kind, meta, whole)
         if not entity:
             raise
         log.info("Spotify: %s/%s собран со страниц-превью, треков: %d",
@@ -217,7 +224,7 @@ def _entity(kind: str, spotify_id: str, meta: list[tuple[str, str]]) -> dict:
         return entity
 
 
-def _preview_entity(kind: str, meta: list[tuple[str, str]]) -> dict:
+def _preview_entity(kind: str, meta: list[tuple[str, str]], whole: bool = True) -> dict:
     """The embed page's data rebuilt from preview pages; empty if they have none."""
     if kind == "track":
         title = _first(meta, "og:title")
@@ -226,15 +233,19 @@ def _preview_entity(kind: str, meta: list[tuple[str, str]]) -> dict:
         return {"name": title, "duration": int(duration) * 1000 if duration.isdigit() else 0,
                 "artists": [{"name": name} for name in names.split(", ") if name]} if title else {}
     songs = [_id_from_url(value) for key, value in meta if key == "music:song"]
-    with ThreadPoolExecutor(max_workers=_PREVIEW_WORKERS) as pool:
-        pages = list(pool.map(lambda song: _meta_tags("track", song), songs))
-    track_list = []
-    for song, page in zip(songs, pages):
-        track = _preview_entity("track", page)
-        if track:  # a track whose page did not come is left out, and the note counts it
-            track_list.append({"uri": f"spotify:track:{song}", "title": track["name"],
-                               "subtitle": ", ".join(artist["name"] for artist in track["artists"]),
-                               "duration": track["duration"]})
+    if whole:
+        with ThreadPoolExecutor(max_workers=_PREVIEW_WORKERS) as pool:
+            pages = list(pool.map(lambda song: _meta_tags("track", song), songs))
+        track_list = []
+        for song, page in zip(songs, pages):
+            track = _preview_entity("track", page)
+            if track:  # a track whose page did not come is left out, and the note counts it
+                track_list.append({"uri": f"spotify:track:{song}", "title": track["name"],
+                                   "subtitle": ", ".join(artist["name"] for artist in track["artists"]),
+                                   "duration": track["duration"]})
+    else:
+        # Places in the list with nothing in them yet: a single track fills in its own
+        track_list = [{"uri": f"spotify:track:{song}", "title": "", "duration": 0} for song in songs]
     if not track_list:
         return {}
     # "Daft Punk · album · 2001 · 14 songs", "Playlist · 808filth · 175 items · 49.4K saves"
