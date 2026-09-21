@@ -101,6 +101,10 @@
         <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
         <span class="nav-label">Загрузка</span>
       </button>
+      <button type="button" class="nav-item" data-view="search" title="Поиск (Ctrl+K)" aria-label="Поиск">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <span class="nav-label">Поиск</span>
+      </button>
       <button type="button" class="nav-item" data-view="library" title="Библиотека (Ctrl+2)" aria-label="Библиотека">
         <svg class="icon" aria-hidden="true"><use href="#i-library"/></svg>
         <span class="nav-label">Библиотека</span>
@@ -196,6 +200,57 @@
             <p class="empty-text">Вставьте ссылку (Ctrl+V) или перетащите её в окно</p>
           </div>
           <ol id="jobs" class="rows"></ol>
+        </div>
+      </section>
+
+      <section id="view-search" class="view" aria-label="Поиск" hidden>
+        <div class="toolbar">
+          <div class="field search-field">
+            <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="search-input" type="search" autocomplete="off" spellcheck="false"
+                   placeholder="Исполнитель, альбом или трек" aria-label="Что найти">
+          </div>
+          <span id="search-service" class="search-service"></span>
+        </div>
+        <div class="library-body">
+          <div class="list-scroll" id="search-scroll">
+            <div id="search-empty" class="empty">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+              <p class="empty-title"></p>
+              <p class="empty-text"></p>
+            </div>
+            <section class="search-section" id="search-artists-section" hidden>
+              <h3 class="search-head">Исполнители</h3>
+              <div class="cards artists search-artists" id="search-artists"></div>
+            </section>
+            <section class="search-section" id="search-albums-section" hidden>
+              <h3 class="search-head">Альбомы</h3>
+              <div class="cards" id="search-albums"></div>
+            </section>
+            <section class="search-section" id="search-tracks-section" hidden>
+              <h3 class="search-head">Треки</h3>
+              <ol class="rows search-tracks" id="search-tracks"></ol>
+            </section>
+          </div>
+          <div id="search-page" class="library-page search-page" hidden>
+            <button type="button" class="page-back" id="search-back">
+              <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span>Поиск</span>
+            </button>
+            <div class="album-page">
+              <div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
+              <div class="album-info">
+                <h2 class="album-title"></h2>
+                <p class="album-sub"></p>
+                <div class="album-actions">
+                  <button type="button" class="btn primary" data-search-action="download"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Скачать</span></button>
+                </div>
+                <div class="album-tracks" role="table" aria-label="Треки альбома">
+                  <div class="album-track search-album-track album-head" role="row"><span role="columnheader" class="n">#</span><span role="columnheader">Трек</span><span role="columnheader" class="artists">Исполнители</span><span role="columnheader" class="num">Время</span><span></span></div>
+                  <div class="album-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -668,6 +723,28 @@
       <p class="card-title"></p>
       <p class="card-sub"></p>
     </div>
+  </template>
+
+  <template id="search-card-template">
+    <div class="card search-card" tabindex="0" role="button">
+      <div class="card-cover cover">
+        <img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg>
+        <button type="button" class="queue-btn" title="Скачать" aria-label="Скачать"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg></button>
+      </div>
+      <p class="card-title"></p>
+      <p class="card-sub"></p>
+    </div>
+  </template>
+
+  <template id="search-track-template">
+    <li class="row search-track" tabindex="-1">
+      <div class="cover"><img alt="" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg></div>
+      <span class="title"></span>
+      <span class="sub cell-artists"></span>
+      <span class="sub cell-album"></span>
+      <span class="num sub cell-time"></span>
+      <button type="button" class="icon-btn queue-btn" title="Скачать" aria-label="Скачать"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg></button>
+    </li>
   </template>
 
   <template id="library-track-template">

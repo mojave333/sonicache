@@ -9,7 +9,7 @@ const FORMAT_HINTS = {
   opus: "opus — дорожка YouTube как есть, без перекодирования. Понимают его не все плееры",
 };
 
-const VIEWS = ["download", "library", "queue", "settings"];
+const VIEWS = ["download", "library", "queue", "settings"]; // Ctrl+1…4; Search is Ctrl+K
 
 // What the backend accepts as a proxy; anything else is refused there anyway
 const PROXY_RE = /^(?:https?|socks4|socks5h?):\/\/[^\s/]+$/i;
@@ -109,6 +109,8 @@ const state = {
     pages: [], // the album and artist pages open over the grid, the top one last
     pageToken: 0,
   },
+  // The catalogue search: what was asked last and what came back
+  search: { query: "", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null },
   covers: new Map(),
   artistPhotos: new Map(),
   tints: new Map(), // picture address → the hue its band is drawn in
@@ -726,6 +728,7 @@ function bindUi() {
   $("#network-check").addEventListener("click", checkNetwork);
 
   $("#library-filter").addEventListener("input", renderLibrary);
+  bindSearch();
   $("#library-refresh").addEventListener("click", loadLibrary);
   $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
   $("#library-delete").addEventListener("click", deleteSelected);
@@ -806,6 +809,11 @@ function onShortcut(event) {
   } else if (event.key === "F5" || (event.ctrlKey && event.code === "KeyR")) {
     event.preventDefault(); // reloading the page would lose the download list
     if (state.view === "library") loadLibrary();
+  } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyK") {
+    event.preventDefault();
+    showView("search");
+  } else if (event.key === "Escape" && state.view === "search" && !$("#search-page").hidden) {
+    closeSearchPage();
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyB") {
     event.preventDefault();
     toggleSidebar();
@@ -813,6 +821,7 @@ function onShortcut(event) {
     // the library search box is not focused automatically, so give it a shortcut
     event.preventDefault();
     if (state.view === "library") $("#library-filter").focus();
+    if (state.view === "search") $("#search-input").focus();
   } else if (state.view === "library" && !(event.target instanceof Element && event.target.closest("input, textarea"))) {
     onLibraryShortcut(event);
   }
@@ -852,6 +861,10 @@ function showView(name) {
   for (const view of $$(".view")) view.hidden = view.id !== `view-${name}`;
   setMenuOpen(false, false);
   if (name === "download") $("#link").focus();
+  if (name === "search") {
+    renderSearch();
+    $("#search-input").focus();
+  }
   if (name === "library") {
     requestAnimationFrame(() => placeTabInk(false)); // the tabs have no size until the view shows
     if (state.library.stale || state.library.folder !== state.settings.folder) loadLibrary();
@@ -2842,6 +2855,269 @@ async function onPageAction(event) {
     renderWatchButton(item.link);
     announce(t(isWatched(item.link) ? "Следим за «{title}»" : "Больше не следим за «{title}»", { title: item.title }));
   }
+}
+
+/* Search */
+
+// The catalogues are asked as the person types, once the typing pauses; Enter
+// asks at once. Only the answer to the last question is drawn.
+function bindSearch() {
+  const input = $("#search-input");
+  input.addEventListener("input", () => {
+    clearTimeout(state.search.timer);
+    state.search.timer = setTimeout(() => runSearch(input.value), 450);
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    clearTimeout(state.search.timer);
+    runSearch(input.value, true);
+  });
+  $("#search-scroll").addEventListener("click", onSearchClick);
+  $("#search-scroll").addEventListener("keydown", (event) => {
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches(".search-card")) {
+      event.preventDefault();
+      event.target.click();
+    }
+  });
+  $("#search-back").addEventListener("click", closeSearchPage);
+  $("#search-page").addEventListener("click", onSearchPageClick);
+}
+
+async function runSearch(text, again = false) {
+  const search = state.search;
+  const query = text.trim();
+  if (query === search.query && !again && (search.results || search.loading)) return;
+  const token = ++search.token;
+  Object.assign(search, { query, loading: Boolean(query), results: null });
+  closeSearchPage();
+  renderSearch();
+  if (!query) return;
+  let results;
+  try {
+    results = await api().search(query);
+  } catch (error) {
+    console.error(error);
+    results = { error: String(error), albums: [], tracks: [], artists: [] };
+  }
+  if (token !== search.token) return; // a newer question is on its way
+  Object.assign(search, { results, loading: false });
+  renderSearch({ enter: true });
+}
+
+function renderSearch({ enter = false } = {}) {
+  const { query, results, loading } = state.search;
+  const found = results || { albums: [], tracks: [], artists: [] };
+  const any = found.albums.length || found.tracks.length || found.artists.length;
+  const empty = $("#search-empty");
+  empty.hidden = Boolean(any);
+  $(".empty-title", empty).textContent = !query ? t("Найдите, что скачать")
+    : loading ? t("Ищем…")
+    : results?.error ? t("Поиск не удался") : t("Ничего не найдено");
+  $(".empty-text", empty).textContent = !query
+    ? t("Исполнитель, альбом или трек — с обложками из каталога. Щелчок по альбому покажет его треки, стрелка сразу поставит в очередь")
+    : loading ? "" : results?.error || t("По запросу «{query}»", { query });
+  $("#search-service").textContent = results?.service ? t("Каталог: {service}", { service: results.service }) : "";
+  fillSearchSection("artists", found.artists.map(createSearchArtist), enter);
+  fillSearchSection("albums", found.albums.map(createSearchAlbum), enter);
+  fillSearchSection("tracks", found.tracks.map(createSearchTrack), false);
+}
+
+function fillSearchSection(kind, nodes, enter) {
+  $(`#search-${kind}-section`).hidden = !nodes.length;
+  const list = $(`#search-${kind}`);
+  list.replaceChildren(...nodes);
+  if (enter && !reduceMotion() && list.classList.contains("cards")) {
+    list.classList.remove("entering");
+    void list.offsetWidth; // the animation starts over for the new cards
+    list.classList.add("entering");
+  }
+}
+
+const RELEASE_KINDS = { album: "Альбом", single: "Сингл", ep: "EP", compilation: "Сборник" };
+
+function createSearchAlbum(item, index) {
+  const card = $("#search-card-template").content.firstElementChild.cloneNode(true);
+  card.style.setProperty("--i", Math.min(index, 24));
+  card.dataset.link = item.link;
+  $(".card-title", card).textContent = item.title;
+  $(".card-title", card).title = item.title;
+  const tracks = item.tracks
+    ? t("{tracks} {trackWord}", { tracks: item.tracks, trackWord: plural(item.tracks, "трек", "трека", "треков") }) : "";
+  $(".card-sub", card).textContent = [item.artist, t(RELEASE_KINDS[item.type] || "Альбом"), item.year, tracks]
+    .filter(Boolean).join(" · ");
+  showRemotePicture($(".card-cover", card), item.cover);
+  markQueued($(".queue-btn", card), item.link);
+  card._item = item;
+  return card;
+}
+
+function createSearchTrack(item) {
+  const row = $("#search-track-template").content.firstElementChild.cloneNode(true);
+  row.dataset.link = item.link;
+  $(".title", row).textContent = item.title;
+  $(".title", row).title = item.title;
+  $(".cell-artists", row).textContent = item.artist;
+  $(".cell-album", row).textContent = item.album;
+  $(".cell-time", row).textContent = item.duration ? formatDuration(item.duration) : "";
+  showRemotePicture($(".cover", row), item.cover);
+  markQueued($(".queue-btn", row), item.link);
+  return row;
+}
+
+function createSearchArtist(item, index) {
+  const card = $("#artist-template").content.firstElementChild.cloneNode(true);
+  card.classList.add("search-artist");
+  card.style.setProperty("--i", Math.min(index, 24));
+  card.dataset.link = item.link;
+  $(".card-title", card).textContent = item.name;
+  $(".card-sub", card).textContent = item.albums
+    ? t("{albums} {albumWord}", { albums: item.albums, albumWord: plural(item.albums, "альбом", "альбома", "альбомов") }) : "";
+  const photo = $(".artist-photo", card);
+  fillArtistPhoto(photo, item.name || "?", true);
+  artistObserver.unobserve(photo); // the catalogue sent its own picture: no lookup by name
+  if (item.picture) {
+    const image = $("img", photo);
+    image.addEventListener("load", () => { image.hidden = false; }, { once: true });
+    image.src = item.picture;
+  }
+  card._item = item;
+  return card;
+}
+
+// A catalogue's picture, straight from its own address; the note stays where it does not load
+function showRemotePicture(box, url) {
+  const image = $("img", box);
+  if (!url) return;
+  image.addEventListener("load", () => {
+    image.hidden = false;
+    box.classList.add("has-image");
+  }, { once: true });
+  image.src = url; // not lazy: a hidden picture is never in view, so it would never load
+}
+
+function markQueued(button, link) {
+  const queued = state.search.queued.has(link);
+  button.classList.toggle("is-queued", queued);
+  $("use", button).setAttribute("href", queued ? "#i-check" : "#i-download");
+  button.title = queued ? t("В очереди") : t("Скачать");
+  button.setAttribute("aria-label", button.title);
+}
+
+function onSearchClick(event) {
+  const queue = event.target.closest(".queue-btn");
+  const holder = event.target.closest("[data-link]");
+  if (!holder) return;
+  if (queue) {
+    event.stopPropagation();
+    queueFromSearch([holder.dataset.link]);
+    return;
+  }
+  if (holder.classList.contains("search-artist")) {
+    const input = $("#search-input");
+    input.value = holder._item.name;
+    runSearch(input.value, true);
+  } else if (holder.classList.contains("search-card")) {
+    openSearchAlbum(holder._item);
+  }
+}
+
+// What is chosen here goes into the queue the way a pasted link would; the
+// view stays, so more can be picked, and the arrow turns into a tick.
+async function queueFromSearch(links) {
+  const { dry_run: dryRun, format } = state.settings;
+  const jobs = await api().download(links, state.settings);
+  for (const { job, link } of jobs) {
+    addJob(job, link, dryRun, format);
+    state.search.queued.add(link);
+  }
+  for (const button of $$("#view-search [data-link] .queue-btn, #view-search .queue-btn[data-link]")) {
+    markQueued(button, button.dataset.link || button.closest("[data-link]").dataset.link);
+  }
+  renderSearchPageButton();
+  renderChrome();
+  announce(t("Добавлено в очередь: {count}", { count: jobs.length }));
+}
+
+async function openSearchAlbum(item) {
+  const page = $("#search-page");
+  const token = ++state.search.token;
+  state.search.page = { item };
+  $(".album-title", page).textContent = item.title;
+  $(".album-sub", page).textContent = [item.artist, t(RELEASE_KINDS[item.type] || "Альбом"), item.year]
+    .filter(Boolean).join(" · ");
+  const cover = $(".album-cover", page);
+  $("img", cover).hidden = true;
+  $("img", cover).removeAttribute("src");
+  showRemotePicture(cover, item.cover.replace("/250x250-", "/500x500-"));
+  $(".album-list", page).replaceChildren(searchNote(t("Читаем список треков…")));
+  renderSearchPageButton();
+  page.hidden = false;
+  page.scrollTop = 0;
+  $("#search-back").focus({ preventScroll: true });
+  riseIn([...$(".album-info", page).children]);
+  let data;
+  try {
+    data = await api().release(item.link);
+  } catch (error) {
+    data = { error: String(error) };
+  }
+  if (token !== state.search.token || page.hidden) return;
+  if (data.error) {
+    $(".album-list", page).replaceChildren(searchNote(data.error));
+    return;
+  }
+  const count = data.tracks.length;
+  $(".album-sub", page).textContent = [data.artist, t(RELEASE_KINDS[data.kind] || "Альбом"), data.year,
+    t("{tracks} {trackWord}", { tracks: count, trackWord: plural(count, "трек", "трека", "треков") })]
+    .filter(Boolean).join(" · ");
+  $(".album-list", page).replaceChildren(...data.tracks.map((track) => {
+    const row = createAlbumTrack(track, { artist: data.artist });
+    row.classList.add("search-album-track");
+    const button = $("#search-track-template").content.querySelector(".queue-btn").cloneNode(true);
+    if (track.link) {
+      button.dataset.link = track.link;
+      markQueued(button, track.link);
+    } else {
+      button.hidden = true;
+    }
+    row.append(button);
+    return row;
+  }));
+}
+
+function searchNote(text) {
+  const note = document.createElement("div");
+  note.className = "album-note";
+  note.textContent = text;
+  return note;
+}
+
+function renderSearchPageButton() {
+  const open = state.search.page;
+  const button = $("[data-search-action=download]", $("#search-page"));
+  if (!open) return;
+  const queued = state.search.queued.has(open.item.link);
+  button.disabled = queued;
+  $("span", button).textContent = queued ? t("В очереди") : t("Скачать");
+}
+
+function onSearchPageClick(event) {
+  const track = event.target.closest(".queue-btn[data-link]");
+  if (track) {
+    queueFromSearch([track.dataset.link]);
+    return;
+  }
+  if (event.target.closest("[data-search-action=download]") && state.search.page) {
+    queueFromSearch([state.search.page.item.link]);
+  }
+}
+
+function closeSearchPage() {
+  const page = $("#search-page");
+  if (page.hidden) return;
+  page.hidden = true;
+  state.search.page = null;
+  $("#search-input").focus({ preventScroll: true });
 }
 
 // Tidying up: older files get the genre, year, cover, lyrics and tags they

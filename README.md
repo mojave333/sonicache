@@ -123,7 +123,8 @@ found.
 
 ## Using it
 
-The sections are on the left: Download, Library, Queue and Settings (Ctrl+1…4). A button at
+The sections are on the left: Download, Search (Ctrl+K), Library, Queue and Settings
+(Ctrl+1…4 for all but Search). A button at
 the foot of the panel opens it into a labelled column and folds it back to icons alone;
 Ctrl+B does the same. The program remembers which way it was left.
 
@@ -144,6 +145,20 @@ the window loses nothing: unfinished links and the list of what was downloaded c
 the next run. The status bar at the bottom counts the tracks and estimates what is left; the window
 title shows the percentage, and on Windows the taskbar button fills with it, yellow while
 paused and red once something has failed.
+
+### Search
+
+For when there is no link at hand. Type an artist, an album or a track, and the catalogue
+answers as the typing pauses: artists with their photos, albums as a grid of covers, and
+tracks as a list with their album and length. The results come from Deezer, which needs no
+account; where Deezer does not answer, YouTube Music is asked instead, and the corner says
+which one is shown.
+
+The arrow on a cover or a track puts it into the queue at once and turns into a tick; the
+view stays, so more can be picked. A click on an album opens its page with the tracklist,
+where the whole album or any one track can be queued. A click on an artist searches for
+everything of theirs. Whatever is chosen downloads exactly as its link pasted by hand would,
+with the same matching, tags and folders.
 
 ### Library
 
@@ -645,6 +660,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/engine/downloader.py` | downloading (yt-dlp), converting (ffmpeg), tagging (mutagen) |
 | `trackhound/engine/loudness.py` | measuring the loudness and writing ReplayGain tags |
 | `trackhound/engine/lyrics.py` | looking up lyrics in LRCLIB |
+| `trackhound/engine/catalog.py` | the catalogue search behind the Search view |
 | `trackhound/engine/tidy.py` | filling in the tags older files lack, without downloading them again |
 | `trackhound/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
 | `trackhound/engine/i18n.py`, `trackhound/i18n.py`, `trackhound/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |

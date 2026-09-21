@@ -34,7 +34,7 @@ from mutagen.flac import Picture
 
 from . import __version__, logs, relay_for, tray, watch
 from .i18n import LANGUAGES, resolve, set_language, t
-from .engine import batch, network, sources, use_relay
+from .engine import batch, catalog, network, sources, use_relay
 from .engine.models import SourceError
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, use_proxy)
@@ -410,6 +410,28 @@ class Api:
                 except OSError:
                     pass
         return {"deleted": len(paths) - len(failed), "failed": failed}
+
+    def search(self, query: str) -> dict:
+        """Albums, tracks and artists from the catalogues, for the Search view."""
+        try:
+            return catalog.search(query)
+        except SourceError as e:
+            return {"error": str(e), "service": "", "albums": [], "tracks": [], "artists": []}
+
+    def release(self, link: str) -> dict:
+        """A found album's tracklist, for its page in Search, before anything is downloaded."""
+        try:
+            album = sources.resolve(link).album
+        except Exception as e:  # shown on the page instead of the tracks
+            logs.log.warning("поиск: %s не открылся: %s", link, e)
+            return {"error": str(e) or type(e).__name__}
+        return {
+            "title": album.name, "artist": album.artist, "year": album.year, "kind": album.kind,
+            "cover": album.cover_url, "service": album.service,
+            "tracks": [{"number": track.track_number, "disc": track.disc_number, "title": track.title,
+                        "artists": track.artists, "duration": round(track.duration),
+                        "link": _track_link(album, track)} for track in album.tracks],
+        }
 
     def tidy(self, entries: list[dict], settings: dict) -> bool:
         """Starts filling in what these library entries lack, in the background.
@@ -1379,6 +1401,16 @@ def _normalize(settings: dict) -> dict:
         "profiles": _profiles(settings.get("profiles")),
         "library_view": settings.get("library_view") if settings.get("library_view") in LIBRARY_VIEWS else "grid",
     }
+
+
+def _track_link(album, track) -> str:
+    """A link to one track of a found album, to download it alone; "" where the
+    catalogue gives none."""
+    if album.service == "Deezer" and track.id.isdigit():
+        return f"https://www.deezer.com/track/{track.id}"
+    if track.audio_url.startswith("https://www.youtube.com/watch?v="):
+        return track.audio_url.replace("https://www.youtube.com/", "https://music.youtube.com/", 1)
+    return ""
 
 
 def _tray_words() -> dict[str, str]:
