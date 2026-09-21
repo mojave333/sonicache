@@ -115,6 +115,8 @@ const state = {
   update: null, // { version, url } once a newer release is published
   diagnostics: null, // log path and yt-dlp version, read once at startup
   paused: false,
+  // Tidying the library up: which entry of how many, and afterwards what it came to
+  tidy: { running: false, done: 0, total: 0, title: "", paths: new Set(), note: "", timer: 0 },
   reported: "", // the progress last sent to the title and the taskbar button
 };
 const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
@@ -692,6 +694,10 @@ function bindUi() {
   $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
   $("#library-delete").addEventListener("click", deleteSelected);
   $("#library-again").addEventListener("click", () => downloadAgain(selectedItems().filter(hasMissing)));
+  $("#library-tidy").addEventListener("click", () => {
+    const picked = selectedItems();
+    tidyLibrary(picked.length ? picked : state.library.items, { ask: !picked.length });
+  });
   $("#library").addEventListener("click", onLibraryClick);
   $("#library").addEventListener("keydown", onLibraryKey);
   $("#library").addEventListener("contextmenu", onLibraryContextMenu);
@@ -1252,6 +1258,7 @@ function handleEvent(event) {
   // arrive without a card, because the window never asked for them.
   if (event.type === "added") return addJob(event.job, event.link, event.dry_run, event.format);
   if (event.type === "watched") return setWatched(event.list);
+  if (event.type === "tidy") return onTidyEvent(event);
   const job = state.jobs.get(event.job);
   if (!job) {
     state.orphans.push(event);
@@ -1803,7 +1810,12 @@ function currentSort(tab = state.library.tab) {
 // what the folder holds, and what is picked out of it.
 function libraryStatus() {
   const { items, selected, shown, loading } = state.library;
+  if (state.tidy.running) {
+    const { done, total, title } = state.tidy;
+    return t("Дописываем теги: {done} из {total} · {title}", { done: Math.min(done + 1, total), total, title });
+  }
   if (loading && !items.length) return t("Читаем папку…");
+  if (state.tidy.note && !selected.size) return state.tidy.note;
   if (selected.size) {
     const size = items.filter((item) => selected.has(item.path)).reduce((total, item) => total + item.size, 0);
     return t("Выбрано: {count} · {size}", { count: selected.size, size: formatSize(size) });
@@ -2315,6 +2327,7 @@ function fillAlbumPage(item) {
   const watch = $("[data-page-action=watch]", page);
   watch.hidden = !item.link || !item.album;
   renderWatchButton(item.link);
+  renderTidy(); // a page opened while the library is tidied says whether it is among them
   $(".album-list", page).replaceChildren();
 }
 
@@ -2709,6 +2722,7 @@ function openLibraryMenu(x, y) {
   const items = selectedItems();
   $("[data-action=again]", menu).hidden = !items.some(hasMissing);
   $("[data-action=open]", menu).hidden = items.length !== 1;
+  $("[data-action=tidy]", menu).hidden = state.tidy.running;
   menu.hidden = false;
   // Placed after it is measurable, so a menu near the edge turns back inwards
   const box = menu.getBoundingClientRect();
@@ -2731,6 +2745,7 @@ function onLibraryMenuClick(event) {
   const items = selectedItems();
   if (action === "again") downloadAgain(items.filter(hasMissing));
   else if (action === "open" && items.length === 1) api().open_folder(items[0].path);
+  else if (action === "tidy") tidyLibrary(items);
   else if (action === "delete") deleteSelected();
 }
 
@@ -2784,12 +2799,107 @@ async function onPageAction(event) {
   const { item } = top;
   if (action === "open") api().open_folder(item.path);
   else if (action === "again") downloadAgain([item]);
+  else if (action === "tidy") tidyLibrary([item]);
   else if (action === "watch") {
     const list = isWatched(item.link) ? await api().unwatch(item.link) : await api().watch_album(item.path);
     setWatched(list);
     renderWatchButton(item.link);
     announce(t(isWatched(item.link) ? "Следим за «{title}»" : "Больше не следим за «{title}»", { title: item.title }));
   }
+}
+
+// Tidying up: older files get the genre, year, cover, lyrics and tags they
+// lack, looked up again by the link an album keeps or by its names. Nothing is
+// downloaded again, and nothing a file already says is changed.
+async function tidyLibrary(items, { ask = false } = {}) {
+  if (state.tidy.running) {
+    api().stop_tidy(); // the entry in hand is finished, the rest are left
+    return;
+  }
+  const entries = items.map(({ path, artist, title }) => ({ path, artist, title }));
+  if (!entries.length) return;
+  if (ask) {
+    const ok = await askConfirm({
+      title: t("Дописать теги во всю библиотеку?"),
+      text: t("Жанры, годы, обложки и тексты допишутся туда, где их нет: {count} {recordWord}. "
+              + "Уже записанное не меняется, ничего не скачивается заново.",
+              { count: entries.length, recordWord: plural(entries.length, "запись", "записи", "записей") }),
+      action: t("Дописать"),
+      danger: false,
+    });
+    if (!ok) return;
+  }
+  if (!await api().tidy(entries, state.settings)) return;
+  clearTimeout(state.tidy.timer);
+  Object.assign(state.tidy, { running: true, done: 0, total: entries.length, title: entries[0].title,
+                              paths: new Set(entries.map((entry) => entry.path)), note: "" });
+  renderTidy();
+}
+
+function onTidyEvent(event) {
+  const tidy = state.tidy;
+  if (event.state === "running") {
+    Object.assign(tidy, { running: true, done: event.done, total: event.total, title: event.title });
+  } else {
+    tidy.running = false;
+    tidy.note = tidySummary(event);
+    announce(tidy.note);
+    clearTimeout(tidy.timer);
+    tidy.timer = setTimeout(() => { tidy.note = ""; renderStatusBar(); }, 30000);
+    loadLibrary().then(refreshAlbumPage);
+  }
+  renderTidy();
+}
+
+function tidySummary({ files, covers, lyrics, missed, stopped }) {
+  const parts = [];
+  if (files || covers) {
+    parts.push(t("Дописано: файлов {files}, обложек {covers}, текстов {lyrics}", { files, covers, lyrics }));
+  }
+  if (missed.length) {
+    const names = missed.slice(0, 3).map((name) => `«${name}»`).join(", ") + (missed.length > 3 ? "…" : "");
+    parts.push(t("не нашлись в каталогах: {names}", { names }));
+  }
+  const text = parts.join(" · ") || t("Дописывать нечего: всё уже на месте");
+  return stopped ? t("Остановлено. {text}", { text }) : text;
+}
+
+function renderTidy() {
+  const { running, done, total, paths } = state.tidy;
+  const button = $("#library-tidy");
+  $("use", button).setAttribute("href", running ? "#i-stop" : "#i-tag");
+  $("span", button).textContent = running
+    ? t("Остановить · {done} из {total}", { done: Math.min(done + 1, total), total })
+    : t("Дописать теги");
+  button.title = running ? t("Остановить после текущей записи")
+    : t("Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново");
+  const page = $("#album-page");
+  const onPage = $("[data-page-action=tidy]", page);
+  onPage.disabled = running;
+  $("span", onPage).textContent = running && paths.has(page.dataset.path) ? t("Дописываем…") : t("Дописать теги");
+  renderStatusBar();
+}
+
+// The album page shows the tags, so after a tidy-up it is read again
+async function refreshAlbumPage() {
+  const library = state.library;
+  const top = library.pages[library.pages.length - 1];
+  if (!top || top.kind !== "album") return;
+  const token = library.pageToken;
+  let data;
+  try {
+    data = await api().album(top.item.path);
+  } catch (error) {
+    console.error(error);
+    return;
+  }
+  if (token !== library.pageToken) return;
+  const fresh = library.items.find((item) => item.path === top.item.path);
+  if (fresh && fresh.cover && !top.item.cover) {
+    top.item = fresh; // the tidy-up brought a cover.jpg along
+    fillAlbumPage(fresh);
+  }
+  renderAlbumTracks(top.item, data, "");
 }
 
 async function deleteSelected() {
@@ -2823,10 +2933,12 @@ async function deleteSelected() {
 
 // A window-level confirm() would be a bare system box, so the dialog is ours.
 // The buttons answer directly: WebView2 does not always raise the close event.
-function askConfirm({ title, text, action }) {
+function askConfirm({ title, text, action, danger = true }) {
   const dialog = $("#confirm");
   const yes = $("#confirm-ok");
   const no = $("#confirm-cancel");
+  yes.classList.toggle("danger", danger);
+  yes.classList.toggle("primary", !danger);
   $("#confirm-title").textContent = title;
   $("#confirm-text").textContent = text;
   yes.textContent = action;

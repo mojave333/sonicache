@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -701,3 +702,48 @@ class TestChoices:
         monkeypatch.setattr(gui.webbrowser, "open", seen.append)
         assert gui.Api().open_page(url) is opened
         assert seen == ([url] if opened else [])
+
+
+class TestTidy:
+    """The library's tidy-up runs in the background and says how it went."""
+
+    def run(self, monkeypatch, outcomes):
+        api = gui.Api()
+        asked = []
+
+        def tidy_up(path, artist, title, with_lyrics, stop):
+            asked.append((path.name, artist, title, with_lyrics))
+            outcome = outcomes[path.name]
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+        monkeypatch.setattr(gui, "tidy_up", tidy_up)
+        entries = [{"path": f"C:/Music/{name}", "artist": "A", "title": name} for name in outcomes]
+        assert api.tidy(entries, {"lyrics": False})
+        for _ in range(200):
+            events = api.poll()
+            done = [event for event in events if event.get("state") == "done"]
+            if done:
+                return api, asked, done[0]
+            time.sleep(0.02)
+        raise AssertionError("the tidy-up never finished")
+
+    def test_the_counts_add_up_and_a_miss_is_named(self, monkeypatch):
+        from trackhound.engine.tidy import Outcome
+        api, asked, done = self.run(monkeypatch, {
+            "One": Outcome(found=True, files=3, tags=9, cover=True, lyrics=2),
+            "Two": Outcome(found=False),
+            "Three": RuntimeError("odd folder"),
+        })
+        assert [name for name, *_ in asked] == ["One", "Two", "Three"]
+        assert asked[0][1:] == ("A", "One", False)
+        assert (done["files"], done["covers"], done["lyrics"], done["missed"]) == (3, 1, 2, ["Two", "Three"])
+        assert api.tidy([{"path": "C:/Music/One"}], {})  # over, so another may start
+
+    def test_one_at_a_time(self, monkeypatch):
+        api = gui.Api()
+        api._tidying = gui.threading.Event()
+        assert not api.tidy([{"path": "C:/Music/One"}], {})
+        api.stop_tidy()
+        assert api._tidying.is_set()

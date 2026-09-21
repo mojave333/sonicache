@@ -21,7 +21,8 @@ from typing import Callable
 import yt_dlp
 from mutagen import File as MutagenFile
 from mutagen.flac import Picture
-from mutagen.id3 import APIC, ID3, TALB, TCMP, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, USLT
+from mutagen.id3 import (APIC, ID3, TALB, TCMP, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, USLT,
+                        ID3NoHeaderError)
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.oggopus import OggOpus
 from yt_dlp.utils import DownloadCancelled
@@ -496,25 +497,30 @@ class Downloader:
         self.events("track", {"id": track.id, "state": state, "text": text, "source": source, **extra})
 
     def _fetch_cover(self, url: str) -> bytes | None:
-        if not url:
-            return None
-        request = urllib.request.Request(url, headers={"User-Agent": BROWSER_UA})
-        try:
-            with urllib.request.urlopen(request, timeout=20) as resp:
-                # The address comes out of someone else's metadata and these
-                # bytes are copied into every track of the album, so read a
-                # bounded amount and check that it really is an image.
-                data = resp.read(MAX_COVER_BYTES + 1)
-        except (urllib.error.URLError, TimeoutError) as e:
-            self.log(f"! Обложка не скачалась: {e}")
-            return None
-        if len(data) > MAX_COVER_BYTES:
-            self.log(f"! Обложка больше {MAX_COVER_BYTES // (1024 * 1024)} МБ, пропускаю: {url}")
-            return None
-        if not data.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")):
-            self.log(f"! По адресу обложки не JPEG и не PNG, пропускаю: {url}")
-            return None
-        return data
+        return fetch_cover(url, self.log)
+
+
+def fetch_cover(url: str, say: Callable[[str], None]) -> bytes | None:
+    """The picture at a release's cover address, or None, with the reason said."""
+    if not url:
+        return None
+    request = urllib.request.Request(url, headers={"User-Agent": BROWSER_UA})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as resp:
+            # The address comes out of someone else's metadata and these
+            # bytes are copied into every track of the album, so read a
+            # bounded amount and check that it really is an image.
+            data = resp.read(MAX_COVER_BYTES + 1)
+    except (urllib.error.URLError, TimeoutError) as e:
+        say(f"! Обложка не скачалась: {e}")
+        return None
+    if len(data) > MAX_COVER_BYTES:
+        say(f"! Обложка больше {MAX_COVER_BYTES // (1024 * 1024)} МБ, пропускаю: {url}")
+        return None
+    if not data.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")):
+        say(f"! По адресу обложки не JPEG и не PNG, пропускаю: {url}")
+        return None
+    return data
 
 
 def _tee(report: Callable[[str], None]) -> Callable[[str], None]:
@@ -691,83 +697,152 @@ def _write_lrc(track_path: Path, synced: str) -> None:
         log.getChild("lyrics").warning("не записал %s: %s", lrc.name, e)
 
 
-def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None, words: str = "") -> None:
+# Where each format keeps each tag. The tidy-up reads through the same table
+# the download writes through, so the two never disagree about a name.
+TAG_FRAMES = {
+    ".m4a": {"title": "\xa9nam", "artist": "\xa9ART", "album": "\xa9alb", "albumartist": "aART",
+             "compilation": "cpil", "track": "trkn", "disc": "disk", "date": "\xa9day",
+             "genre": "\xa9gen", "lyrics": "\xa9lyr", "cover": "covr"},
+    ".mp3": {"title": "TIT2", "artist": "TPE1", "album": "TALB", "albumartist": "TPE2",
+             "compilation": "TCMP", "track": "TRCK", "disc": "TPOS", "date": "TDRC",
+             "genre": "TCON", "lyrics": "USLT", "cover": "APIC"},
+    ".opus": {"title": "title", "artist": "artist", "album": "album", "albumartist": "albumartist",
+              "compilation": "compilation", "track": "tracknumber", "disc": "discnumber", "date": "date",
+              "genre": "genre", "lyrics": "lyrics", "cover": "metadata_block_picture"},
+}
+_ID3_TEXT = {"TIT2": TIT2, "TPE1": TPE1, "TALB": TALB, "TPE2": TPE2, "TRCK": TRCK, "TPOS": TPOS,
+             "TDRC": TDRC, "TCON": TCON}
+
+
+def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None, words: str = "",
+                fill: bool = False) -> list[str]:
+    """Tags the file as this track of this release; answers with what was written.
+
+    A download starts from clean tags. With fill the file keeps every tag it
+    has and gets only the ones it lacks: tidying up older files must never
+    overwrite what somebody may have corrected by hand.
+    """
     track_total = sum(1 for t in album.tracks if t.disc_number == track.disc_number)
     # A playlist gathers many artists' songs: players group it as a compilation
     # of various artists, the way they do a soundtrack, rather than as an album
     # by whoever put the list together. The folder keeps the curator's name.
     compilation = album.kind == "playlist"
-    album_artist = t("Разные исполнители") if compilation else album.artist
+    values = {
+        "title": track.title,
+        "artist": track.artists,
+        "album": album.name,
+        "albumartist": t("Разные исполнители") if compilation else album.artist,
+        "compilation": compilation,
+        # A file the tidy-up could not find in the tracklist has no number to get
+        "track": track.track_number and (track.track_number, track_total),
+        "disc": track.track_number and (track.disc_number, album.total_discs),
+        "date": album.release_date,
+        "genre": album.genre,
+        "lyrics": words,
+        "cover": cover,
+    }
+    values = {key: value for key, value in values.items() if value}
     mime = "image/png" if cover and cover.startswith(b"\x89PNG") else "image/jpeg"
     ext = path.suffix.lower()
+    frames = TAG_FRAMES.get(ext, {})
+    have = {key for key, value in read_tags(path).items() if value} if fill else set()
+    values = {key: value for key, value in values.items() if key not in have}
+    if fill and not values:
+        return []
 
     if ext == ".m4a":
         audio = MP4(path)
         if audio.tags is None:
             audio.add_tags()
-        tags = audio.tags
-        tags["\xa9nam"] = track.title
-        tags["\xa9ART"] = track.artists
-        tags["\xa9alb"] = album.name
-        tags["aART"] = album_artist
-        if compilation:
-            tags["cpil"] = True
-        tags["trkn"] = [(track.track_number, track_total)]
-        tags["disk"] = [(track.disc_number, album.total_discs)]
-        if album.release_date:
-            tags["\xa9day"] = album.release_date
-        if album.genre:
-            tags["\xa9gen"] = album.genre
-        if words:
-            tags["\xa9lyr"] = words
-        if cover:
-            image_format = MP4Cover.FORMAT_PNG if mime == "image/png" else MP4Cover.FORMAT_JPEG
-            tags["covr"] = [MP4Cover(cover, imageformat=image_format)]
+        for key, value in values.items():
+            if key in ("track", "disc"):
+                value = [value]
+            elif key == "cover":
+                image_format = MP4Cover.FORMAT_PNG if mime == "image/png" else MP4Cover.FORMAT_JPEG
+                value = [MP4Cover(value, imageformat=image_format)]
+            audio.tags[frames[key]] = value
         audio.save()
 
     elif ext == ".mp3":
-        tags = ID3()
-        tags.add(TIT2(encoding=3, text=track.title))
-        tags.add(TPE1(encoding=3, text=track.artists))
-        tags.add(TALB(encoding=3, text=album.name))
-        tags.add(TPE2(encoding=3, text=album_artist))
-        if compilation:
-            tags.add(TCMP(encoding=3, text="1"))
-        tags.add(TRCK(encoding=3, text=f"{track.track_number}/{track_total}"))
-        tags.add(TPOS(encoding=3, text=f"{track.disc_number}/{album.total_discs}"))
-        if album.release_date:
-            tags.add(TDRC(encoding=3, text=album.release_date))
-        if album.genre:
-            tags.add(TCON(encoding=3, text=album.genre))
-        if words:
-            tags.add(USLT(encoding=3, lang="und", desc="", text=words))
-        if cover:
-            tags.add(APIC(encoding=3, mime=mime, type=3, desc="Cover", data=cover))
-        tags.save(path, v2_version=3)  # ID3v2.3 for Windows Explorer and old players
+        tags, version = ID3(), 3  # ID3v2.3 for Windows Explorer and old players
+        if fill:
+            try:
+                tags = ID3(path)
+                # A v2.4 file stays one: saving it as v2.3 would drop the frames v2.3 lacks
+                version = 4 if tags.version >= (2, 4, 0) else 3
+            except ID3NoHeaderError:
+                pass
+        for key, value in values.items():
+            if key == "lyrics":
+                tags.add(USLT(encoding=3, lang="und", desc="", text=value))
+            elif key == "cover":
+                tags.add(APIC(encoding=3, mime=mime, type=3, desc="Cover", data=value))
+            elif key == "compilation":
+                tags.add(TCMP(encoding=3, text="1"))
+            elif key in ("track", "disc"):
+                tags.add(_ID3_TEXT[frames[key]](encoding=3, text="{}/{}".format(*value)))
+            else:
+                tags.add(_ID3_TEXT[frames[key]](encoding=3, text=value))
+        tags.save(path, v2_version=version)
 
     elif ext == ".opus":
         audio = OggOpus(path)
-        audio["title"] = track.title
-        audio["artist"] = track.artists
-        audio["album"] = album.name
-        audio["albumartist"] = album_artist
-        if compilation:
-            audio["compilation"] = "1"
-        audio["tracknumber"] = str(track.track_number)
-        audio["tracktotal"] = str(track_total)
-        audio["discnumber"] = str(track.disc_number)
-        audio["disctotal"] = str(album.total_discs)
-        if album.release_date:
-            audio["date"] = album.release_date
-        if album.genre:
-            audio["genre"] = album.genre
-        if words:
-            audio["lyrics"] = words
-        if cover:
-            picture = Picture()
-            picture.type, picture.mime, picture.desc, picture.data = 3, mime, "Cover", cover
-            audio["metadata_block_picture"] = base64.b64encode(picture.write()).decode("ascii")
+        for key, value in values.items():
+            if key in ("track", "disc"):
+                audio[frames[key]] = str(value[0])
+                audio["tracktotal" if key == "track" else "disctotal"] = str(value[1])
+            elif key == "compilation":
+                audio[frames[key]] = "1"
+            elif key == "cover":
+                picture = Picture()
+                picture.type, picture.mime, picture.desc, picture.data = 3, mime, "Cover", value
+                audio[frames[key]] = base64.b64encode(picture.write()).decode("ascii")
+            else:
+                audio[frames[key]] = value
         audio.save()
+
+    else:
+        return []
+    return list(values)
+
+
+def read_tags(path: Path) -> dict:
+    """What a file already says about itself, by the names of TAG_FRAMES: text
+    as text, the track and disc as numbers, the compilation flag, lyrics and
+    cover as whether they are there; its length as "duration". Empty for a
+    file that cannot be read."""
+    frames = TAG_FRAMES.get(path.suffix.lower())
+    try:
+        audio = MutagenFile(path) if frames else None
+    except Exception:  # a broken or half-written file
+        return {}
+    if audio is None:
+        return {}
+    found: dict = {"duration": getattr(audio.info, "length", 0) or 0}
+    tags = audio.tags
+    for key, name in frames.items():
+        value = None
+        if tags is None:
+            pass
+        elif isinstance(tags, ID3):
+            present = tags.getall(name)
+            # A picture frame has no text: that it is there is all there is to know
+            value = getattr(present[0], "text", True) if present else None
+        else:
+            value = tags.get(name)
+        if isinstance(value, (list, tuple)) and key not in ("track", "disc"):
+            value = value[0] if value else None
+        if key in ("track", "disc"):
+            if isinstance(value, list):
+                value = value[0] if value else None
+            number = value[0] if isinstance(value, tuple) else re.match(r"\s*(\d*)", str(value or "")).group(1)
+            found[key] = int(number or 0)
+        elif key in ("lyrics", "cover", "compilation"):
+            # A picture is megabytes of bytes, not worth turning into text to look at
+            found[key] = bool(value) if isinstance(value, (bytes, bool)) else str(value or "").strip() not in ("", "0")
+        else:
+            found[key] = str(value or "").strip()
+    return found
 
 
 def _safe_name(name: str, limit: int = 120) -> str:

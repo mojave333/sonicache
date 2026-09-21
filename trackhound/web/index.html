@@ -36,6 +36,7 @@
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15"/><path d="M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M6.5 7v11.5A1.5 1.5 0 0 0 8 20h8a1.5 1.5 0 0 0 1.5-1.5V7"/><path d="M10.5 11v5M13.5 11v5"/></symbol>
     <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6.5 4.5h11a1 1 0 0 1 1 1v14l-6.5-4-6.5 4v-14a1 1 0 0 1 1-1z"/></symbol>
     <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.1V5A1.5 1.5 0 0 1 5 3.5h7.1a1.5 1.5 0 0 1 1.06.44l7.4 7.4a1.5 1.5 0 0 1 0 2.12l-7.1 7.1a1.5 1.5 0 0 1-2.12 0l-7.4-7.4a1.5 1.5 0 0 1-.44-1.06z"/><circle cx="8.5" cy="8.5" r="1.5"/></symbol>
     <symbol id="i-retry" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66l.85.85"/><path d="M18.51 1.19v6h-6"/></symbol>
     <symbol id="i-brand" viewBox="440 115 525 430">
       <g transform="translate(0,768) scale(0.1,-0.1)" fill="currentColor" stroke="none">
@@ -215,6 +216,9 @@
           <button type="button" id="library-delete" class="tool-btn danger" hidden>
             <svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg><span>Удалить</span>
           </button>
+          <button type="button" id="library-tidy" class="tool-btn" title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново">
+            <svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span>Дописать теги</span>
+          </button>
           <div class="btn-group">
             <button type="button" id="library-folder" class="tool-btn" title="Открыть папку в проводнике">
               <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Открыть папку</span>
@@ -263,6 +267,7 @@
                 <div class="album-actions">
                   <button type="button" class="tool-btn" data-page-action="open"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Открыть папку</span></button>
                   <button type="button" class="tool-btn" data-page-action="again"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Докачать недостающее</span></button>
+                  <button type="button" class="tool-btn" data-page-action="tidy" title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span>Дописать теги</span></button>
                   <button type="button" class="tool-btn" data-page-action="watch" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg><span>Следить</span></button>
                 </div>
                 <div class="album-tracks" role="table" aria-label="Треки альбома">
@@ -554,6 +559,9 @@
     <div id="library-menu" class="menu context-menu" role="menu" aria-label="Действия с выделенным" hidden>
       <button type="button" role="menuitem" data-action="again">
         <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg>Докачать недостающее
+      </button>
+      <button type="button" role="menuitem" data-action="tidy">
+        <svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg>Дописать теги
       </button>
       <button type="button" role="menuitem" data-action="open">
         <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Показать в проводнике

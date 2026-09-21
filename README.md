@@ -175,6 +175,26 @@ and Shift with a click, Ctrl+A, the arrows, Home and End (a plain click on a cov
 The right button opens a menu of actions, and the selection goes to the trash, from where it
 can be restored.
 
+### Filling in tags
+
+Albums downloaded by an older version, or put in the folder by another program, may lack a
+genre, a year, a cover or lyrics. "Fill in tags" adds what is missing without downloading
+anything again: on the album's page and in the right-click menu it works on that album or the
+selection, and above the list, with nothing selected, on the whole library after a question.
+
+Each album is looked up again: by the link in its `.trackhound.json` when this program
+downloaded it, otherwise by the album and artist in its files' tags or, failing those, in its
+folder's name. Each file is matched to a track of the release by its title and length, or by
+its number and length when the title says nothing ("Track 01"). A release found by name is
+taken only when most of the folder's files are its tracks, so a wrong guess changes nothing.
+
+A file then gets only the tags it does not have: the title, artists, album, album artist,
+number, disc, date, genre, cover and, when Settings → Download has lyrics on, the words from
+LRCLIB with an `.lrc` for synced ones. Whatever it already says stays as it is, including
+anything corrected by hand, ReplayGain tags and the ID3 version of an mp3. The folder gets a
+`cover.jpg` if it has none. The status bar shows which album is in hand, and the button stops
+the run after the current album. Albums that no catalogue knows are named at the end.
+
 ### Queue
 
 Every track of the current downloads in one list, filtered by running, done or problems.
@@ -598,6 +618,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/engine/downloader.py` | downloading (yt-dlp), converting (ffmpeg), tagging (mutagen) |
 | `trackhound/engine/loudness.py` | measuring the loudness and writing ReplayGain tags |
 | `trackhound/engine/lyrics.py` | looking up lyrics in LRCLIB |
+| `trackhound/engine/tidy.py` | filling in the tags older files lack, without downloading them again |
 | `trackhound/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
 | `trackhound/engine/i18n.py`, `trackhound/i18n.py`, `trackhound/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
 | `trackhound/logs.py` | the log file and the report |

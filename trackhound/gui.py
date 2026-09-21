@@ -39,6 +39,7 @@ from .engine.models import SourceError
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, use_proxy)
 from .engine.matcher import Match
+from .engine.tidy import tidy as tidy_up
 
 TITLE = "Trackhound"
 WEB_DIR = Path(__file__).with_name("web")
@@ -105,6 +106,7 @@ class Api:
         self._watched = watch.load()
         self._watcher: threading.Thread | None = None
         self._covers = _CoverServer()
+        self._tidying: threading.Event | None = None  # set to stop the tidy-up that runs
 
     def init(self) -> dict:
         # The page is drawn and its script reached Python: the build check
@@ -324,6 +326,61 @@ class Api:
                 except OSError:
                     pass
         return {"deleted": len(paths) - len(failed), "failed": failed}
+
+    def tidy(self, entries: list[dict], settings: dict) -> bool:
+        """Starts filling in what these library entries lack, in the background.
+
+        Each entry is {"path", "artist", "title"} as the library listed it: the
+        names are what a folder's name says, for files that say nothing
+        themselves. False when a tidy-up is running already; one at a time is
+        what MusicBrainz, at a request a second, can take anyway.
+        """
+        wanted = [(Path(str(entry["path"])).expanduser(), str(entry.get("artist") or ""),
+                   str(entry.get("title") or ""))
+                  for entry in entries if isinstance(entry, dict) and entry.get("path")]
+        with self._lock:
+            if self._tidying is not None or not wanted:
+                return False
+            stop = self._tidying = threading.Event()
+        with_lyrics = bool(settings.get("lyrics", True))
+        threading.Thread(target=self._tidy, args=(wanted, with_lyrics, stop), daemon=True).start()
+        return True
+
+    def stop_tidy(self) -> None:
+        with self._lock:
+            if self._tidying is not None:
+                self._tidying.set()
+
+    def _tidy(self, wanted: list[tuple[Path, str, str]], with_lyrics: bool, stop: threading.Event) -> None:
+        result = {"type": "tidy", "state": "done", "total": len(wanted), "entries": 0, "files": 0,
+                  "covers": 0, "lyrics": 0, "missed": []}
+        logs.log.info("библиотека: привожу в порядок записей: %d", len(wanted))
+        try:
+            for index, (path, artist, title) in enumerate(wanted):
+                if stop.is_set():
+                    break
+                name = title or path.stem
+                self._events.put({"type": "tidy", "state": "running", "done": index, "total": len(wanted),
+                                  "title": name})
+                try:
+                    outcome = tidy_up(path, artist, title, with_lyrics=with_lyrics, stop=stop)
+                except Exception:  # one odd folder must not end the rest
+                    logs.log.exception("библиотека: %s не приведён в порядок", path)
+                    outcome = None
+                if outcome is None or not outcome.found:
+                    result["missed"].append(name)
+                    continue
+                result["entries"] += bool(outcome.files or outcome.cover)
+                result["files"] += outcome.files
+                result["covers"] += outcome.cover
+                result["lyrics"] += outcome.lyrics
+        finally:
+            with self._lock:
+                self._tidying = None
+            result["stopped"] = stop.is_set()
+            logs.log.info("библиотека: дописаны теги в файлов: %d, обложек: %d, текстов: %d, не найдено: %s",
+                          result["files"], result["covers"], result["lyrics"], ", ".join(result["missed"]) or "—")
+            self._events.put(result)
 
     def diagnostics(self) -> dict:
         """Where the log is and what a bug report should say."""

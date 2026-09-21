@@ -286,6 +286,8 @@ p { margin: 0; }
 .tool-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
 .tool-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-btn.icon-only { flex: none; width: 34px; padding: 0; justify-content: center; }
+.tool-btn:disabled { opacity: 0.55; cursor: default; }
+.tool-btn:disabled:hover { border-color: var(--border); color: var(--text-muted); }
 
 .btn-group {
   display: inline-flex; flex: 0 1 auto; min-width: 0; height: 34px; overflow: hidden;

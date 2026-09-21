@@ -347,6 +347,22 @@ const TRANSLATIONS = {
   "Если трек похож сразу на несколько записей, он не скачивается сам: на карточке появятся варианты, их можно послушать и выбрать":
     "When a track looks like more than one recording, it is not downloaded by itself: the card shows the candidates, to listen to and choose from",
   "Нужен выбор": "Choose",
+  "Дописать теги": "Fill in tags",
+  "Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново":
+    "Fill in genres, covers, lyrics and missing tags, downloading nothing again",
+  "Дописываем теги: {done} из {total} · {title}": "Filling in tags: {done} of {total} · {title}",
+  "Дописать теги во всю библиотеку?": "Fill in tags across the whole library?",
+  "Жанры, годы, обложки и тексты допишутся туда, где их нет: {count} {recordWord}. Уже записанное не меняется, ничего не скачивается заново.":
+    "Genres, years, covers and lyrics go where they are missing: {count} {recordWord}. Nothing already written is changed, and nothing is downloaded again.",
+  "Дописать": "Fill in",
+  "Дописано: файлов {files}, обложек {covers}, текстов {lyrics}":
+    "Filled in: {files} files, {covers} covers, {lyrics} lyrics",
+  "не нашлись в каталогах: {names}": "not found in the catalogues: {names}",
+  "Дописывать нечего: всё уже на месте": "Nothing to fill in: everything is there already",
+  "Остановлено. {text}": "Stopped. {text}",
+  "Остановить · {done} из {total}": "Stop · {done} of {total}",
+  "Остановить после текущей записи": "Stop after the current item",
+  "Дописываем…": "Filling in…",
   "Докачивается отдельно": "Downloading separately",
   "Пропущен": "Passed over",
   "Ждут выбора: {count}": "Waiting for a choice: {count}",
