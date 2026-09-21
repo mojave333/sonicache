@@ -36,19 +36,33 @@ _SERVICES = {
 Opener = Callable[..., object]
 
 
-def check(timeout: float = 8) -> dict:
+def check(timeout: float = 8, relay: str = "") -> dict:
     """Each service as it answers through the proxy now in use, and the local
     proxies found. Spotify is "ok" when its player opens, "previews" when only
-    its preview pages come, "down" when neither; the rest are "ok" or "down".
+    its preview pages come, "down" when neither; the relay is "ok", "down", or
+    "none" when there is none; the rest are "ok" or "down".
     """
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         spotify_state = pool.submit(spotify_state_via, urllib.request.urlopen, timeout)
+        relay_state_ = pool.submit(relay_state, relay, timeout)
         services = {name: pool.submit(_opens, urls, urllib.request.urlopen, timeout)
                     for name, urls in _SERVICES.items()}
         proxies = pool.submit(find_proxies, timeout)
-        return {"spotify": spotify_state.result(),
+        return {"spotify": spotify_state.result(), "relay": relay_state_.result(),
                 **{name: "ok" if answer.result() else "down" for name, answer in services.items()},
                 "proxies": proxies.result()}
+
+
+def relay_state(relay: str, timeout: float) -> str:
+    """Whether the Spotify relay hands over the probe album (relay/worker.js)."""
+    if not relay:
+        return "none"
+    joiner = "&" if "?" in relay else "?"
+    try:
+        answer = json.loads(_get(urllib.request.urlopen, f"{relay}{joiner}kind=album&id={PROBE_ALBUM}", timeout))
+    except (OSError, ValueError):
+        return "down"
+    return "ok" if isinstance(answer, dict) and answer.get("entity") else "down"
 
 
 def find_proxies(timeout: float = 8) -> list[dict]:

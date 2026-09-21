@@ -1,6 +1,8 @@
 """Spotify is read off public pages, so its parsing rots the moment they change."""
 
+import gzip
 import json
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -268,3 +270,78 @@ class TestWithheld:
         with pytest.raises(SourceError, match="Page not found") as refused:
             spotify.fetch_album("A1")
         assert refused.value.code == "not_found"
+
+
+class TestRelay:
+    """The relay reads from abroad what Spotify refuses to this network."""
+
+    CLOSED = TestWithheld.CLOSED
+    ANSWER = {
+        "entity": {"name": "ReLoad (Remastered)", "subtitle": "Metallica", "trackList": [
+            {"uri": "spotify:track:R1", "title": "Fuel", "subtitle": "Metallica", "duration": 269000},
+            {"uri": "spotify:track:R2", "title": "The Memory Remains", "subtitle": "Metallica, Marianne Faithfull",
+             "duration": 279000}]},
+        "meta": [["og:description", "Metallica · album · 1997 · 2 songs"], ["music:release_date", "1997-11-18"],
+                 ["music:song", "https://open.spotify.com/track/R1"], ["music:song:track", "1"],
+                 ["music:song", "https://open.spotify.com/track/R2"], ["music:song:track", "2"]],
+    }
+
+    class Reply:
+        def __init__(self, body, encoding=""):
+            self.body, self.headers = body, {"Content-Encoding": encoding}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return self.body
+
+    @pytest.fixture(autouse=True)
+    def closed(self, monkeypatch):
+        self.asked = []
+
+        def fetch_text(url, *, service, user_agent=spotify.BROWSER_UA, retries=3):
+            self.asked.append(url)
+            return self.CLOSED if "/embed/" in url else ""
+
+        monkeypatch.setattr(spotify, "fetch_text", fetch_text)
+        spotify.use_relay("https://relay.test")
+        yield
+        spotify.use_relay("")
+
+    def answer(self, monkeypatch, reply):
+        def urlopen(request, timeout):
+            self.asked.append(request.full_url)
+            if isinstance(reply, Exception):
+                raise reply
+            return reply
+
+        monkeypatch.setattr(spotify.urllib.request, "urlopen", urlopen)
+
+    def test_a_refused_album_comes_whole_through_the_relay(self, monkeypatch):
+        self.answer(monkeypatch, self.Reply(gzip.compress(json.dumps(self.ANSWER).encode()), "gzip"))
+        album = spotify.fetch_album("5oSns9TVw3SactI2fw73o0")
+        assert (album.name, album.artist, album.release_date) == ("ReLoad (Remastered)", "Metallica", "1997-11-18")
+        assert [(t.track_number, t.title, t.artists) for t in album.tracks] == [
+            (1, "Fuel", "Metallica"), (2, "The Memory Remains", "Metallica, Marianne Faithfull")]
+        assert "https://relay.test?kind=album&id=5oSns9TVw3SactI2fw73o0" in self.asked
+
+    @pytest.mark.parametrize("reply", [
+        urllib.error.URLError("unreachable"),
+        Reply(json.dumps({"entity": None, "meta": [], "refused": {"status": 404}}).encode()),
+        Reply(b"<html>not json</html>"),
+    ])
+    def test_a_relay_that_does_not_help_leaves_the_refusal(self, monkeypatch, reply):
+        self.answer(monkeypatch, reply)
+        with pytest.raises(SourceError, match="Page not found"):
+            spotify.fetch_album("5oSns9TVw3SactI2fw73o0")
+
+    def test_without_a_relay_nothing_is_asked_of_one(self, monkeypatch):
+        spotify.use_relay("")
+        self.answer(monkeypatch, self.Reply(b"{}"))
+        with pytest.raises(SourceError):
+            spotify.fetch_album("5oSns9TVw3SactI2fw73o0")
+        assert not any("relay" in url for url in self.asked)

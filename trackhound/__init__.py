@@ -11,3 +11,14 @@ version; see the LICENSE file. It comes with no warranty.
 # The single source of truth for the version: the release workflow refuses to
 # build when the pushed tag says something else.
 __version__ = "1.5.0"
+
+# The relay Spotify's pages are read through where Spotify refuses them to the
+# network, deployed from relay/worker.js by whoever publishes the program;
+# empty until there is one. The settings and --relay can put another in its place.
+SPOTIFY_RELAY = ""
+
+
+def relay_for(setting: str) -> str:
+    """The relay a setting asks for: its own address, none for "off", else the program's."""
+    setting = setting.strip()
+    return "" if setting == "off" else setting or SPOTIFY_RELAY

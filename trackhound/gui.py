@@ -32,9 +32,9 @@ import webview
 from mutagen import File as MutagenFile
 from mutagen.flac import Picture
 
-from . import __version__, logs, watch
+from . import __version__, logs, relay_for, watch
 from .i18n import LANGUAGES, resolve, set_language, t
-from .engine import batch, network, sources
+from .engine import batch, network, sources, use_relay
 from .engine.models import SourceError
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, use_proxy)
@@ -55,6 +55,8 @@ COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera"
 # Speeds offered in the settings, bytes per second; 0 is no limit
 RATE_LIMITS = (0, 512_000, 1_048_576, 2_097_152, 5_242_880, 10_485_760)
 _PROXY_RE = re.compile(r"^(?:https?|socks4|socks5h?)://[^\s/]+$", re.I)
+# A Spotify relay's address, or "off"; empty is the program's own (SPOTIFY_RELAY)
+_RELAY_RE = re.compile(r"^https?://[^\s?#]+(?:\?\S*)?$", re.I)
 # How the taskbar button shows the downloads, as ITaskbarList3 numbers them:
 # nothing, a sweep while no count is known yet, green, red, yellow
 TASKBAR_STATES = {"none": 0, "indeterminate": 1, "normal": 2, "error": 4, "paused": 8}
@@ -115,6 +117,7 @@ class Api:
                 self._watcher.start()
         return {
             "version": __version__,
+            "relay_default": relay_for(""),  # the program's own relay, shown in the empty field
             "language": set_language(settings["language"]),  # "system" resolved to ru or en
             "settings": settings,
             "problems": Downloader(Options(DEFAULT_OUTPUT_DIR)).environment_problems(),
@@ -136,6 +139,7 @@ class Api:
     def save_settings(self, settings: dict) -> None:
         settings = _normalize(settings)
         use_proxy(settings["proxy"])  # metadata requests start using it at once
+        use_relay(relay_for(settings["relay"]))
         set_language(settings["language"])  # errors from now on speak it
         _save_settings(settings)
 
@@ -305,7 +309,7 @@ class Api:
 
     def check_network(self) -> dict:
         """What this network lets through, and the VPN client proxies found here."""
-        result = network.check()
+        result = network.check(relay=relay_for(_load_settings()["relay"]))
         logs.log.info("сеть: %s", json.dumps(result, ensure_ascii=False))
         return result
 
@@ -1138,6 +1142,10 @@ def _normalize(settings: dict) -> dict:
     proxy = str(settings.get("proxy") or "").strip()
     if not _PROXY_RE.match(proxy):
         proxy = ""
+    # Empty is the program's own relay, "off" none at all
+    relay = str(settings.get("relay") or "").strip()
+    if relay != "off" and not _RELAY_RE.match(relay):
+        relay = ""
     return {
         "folder": str(settings.get("folder") or DEFAULT_OUTPUT_DIR),
         "format": settings.get("format") if settings.get("format") in FORMATS else "mp3",
@@ -1148,6 +1156,7 @@ def _normalize(settings: dict) -> dict:
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
         "rate_limit": rate_limit,
         "proxy": proxy,
+        "relay": relay,
         # The window offers Russian and English and nothing else, so the
         # language is settled here: "system" from an older settings file, or a
         # first run with nothing saved, becomes whichever of the two the
@@ -1381,6 +1390,7 @@ def main() -> None:
     settings = _load_settings()
     set_language(settings["language"])
     use_proxy(settings["proxy"])
+    use_relay(relay_for(settings["relay"]))
     if not _webview2_installed() and not _offer_webview2():
         return
     api = Api()

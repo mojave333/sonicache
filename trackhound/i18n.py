@@ -41,6 +41,8 @@ ENGLISH.update({
         "limit the speed: 500K, 2M (default: no limit)",
     "прокси для метаданных и загрузки: http://127.0.0.1:1080, socks5://…":
         "proxy for metadata and downloads: http://127.0.0.1:1080, socks5://…",
+    "зеркало Spotify для стран, где он закрыт (relay/worker.js); off — без него, по умолчанию встроенное":
+        "Spotify relay for the countries it is closed in (relay/worker.js); off for none, the built-in one by default",
     "язык интерфейса и сообщений": "language of the interface and the messages",
     "показать версию, какие ffmpeg и Deno нашлись и что открывается из этой сети, ничего не скачивая":
         "print the version, which ffmpeg and Deno were found and what opens from this network, "
@@ -49,6 +51,10 @@ ENGLISH.update({
     "открывается": "opens",
     "плеер закрыт, релизы — со страниц-превью": "the player is closed, releases come from the preview pages",
     "не открывается": "does not open",
+    "работает": "works",
+    "не отвечает": "does not answer",
+    "не задано": "not set",
+    "зеркало Spotify: {state}": "Spotify relay: {state}",
     "прокси {client}: {url} (Spotify через него: {state}) — --proxy {url}":
         "{client} proxy: {url} (Spotify through it: {state}) — --proxy {url}",
     "АДРЕС": "ADDRESS",

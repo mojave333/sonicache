@@ -362,8 +362,12 @@ YouTube and SoundCloud open, and whether a VPN client runs a proxy on this compu
   A card Spotify refused looks for it too and offers "Use it and try again".
 - **Any other proxy** goes into Settings → Proxy, `http://…` or `socks5://…`. A SOCKS proxy
   is asked to look names up itself, since a blocked service's name may resolve wrongly here.
-- **Without a proxy**, a Spotify album or track still downloads, read off the preview pages,
-  and a playlist gives its first 30 tracks. When YouTube does not answer, the search leaves
+- **A Spotify relay** reads the pages Spotify refuses to this network from abroad, so
+  albums, tracks and playlists of up to 100 tracks come whole with no proxy at all. It is a
+  free Cloudflare Worker, one file; [relay/README.md](relay/README.md) says how to put it
+  up and point the program at it (Settings → Spotify relay, `--relay`).
+- **Without a proxy or a relay**, a Spotify album or track still downloads, read off the
+  preview pages where they come, and a playlist gives its first 30 tracks. When YouTube does not answer, the search leaves
   it out for five minutes at a time and goes to SoundCloud, which has much but not all.
 
 ## When something breaks

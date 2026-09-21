@@ -1,0 +1,8 @@
+name = "trackhound-relay"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# Tend to run near Spotify's servers rather than near the person asking, so the
+# request Spotify sees is unlikely to come from a country it refuses
+[placement]
+mode = "smart"

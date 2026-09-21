@@ -24,6 +24,7 @@ class TestNormalize:
             "cookies_browser": "",
             "rate_limit": 0,
             "proxy": "",
+            "relay": "",  # the program's own
             "language": gui.resolve("system"),  # settled on load, never left as "system"
             "track_name": "auto",
             "folder_name": "flat",
@@ -83,6 +84,22 @@ class TestSpeedAndProxy:
     ])
     def test_a_proxy_has_to_look_like_an_address(self, given, expected):
         assert gui._normalize({"proxy": given})["proxy"] == expected
+
+    @pytest.mark.parametrize("given, expected", [
+        ("https://relay.example.workers.dev", "https://relay.example.workers.dev"),
+        ("https://relay.test/spotify?key=1", "https://relay.test/spotify?key=1"),
+        ("off", "off"),
+        ("relay.test", ""), ("javascript:alert(1)", ""), (None, ""),
+    ])
+    def test_a_relay_is_an_address_or_off(self, given, expected):
+        assert gui._normalize({"relay": given})["relay"] == expected
+
+    def test_an_empty_relay_setting_means_the_programs_own(self, monkeypatch):
+        import trackhound
+
+        monkeypatch.setattr(trackhound, "SPOTIFY_RELAY", "https://own.test")
+        assert [trackhound.relay_for(value) for value in ("", "off", "https://mine.test")] == [
+            "https://own.test", "", "https://mine.test"]
 
 
 class TestLanguageSetting:

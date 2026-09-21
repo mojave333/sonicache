@@ -51,7 +51,9 @@ print(report.summary())
 The names importable from `trackhound.engine` are the public interface and keep working
 across minor versions; the modules behind it may change. Messages come in the system's
 language, Russian or English; `set_language("en")` fixes it. The engine writes to the
-`trackhound` logger and sets up no handlers of its own.
+`trackhound` logger and sets up no handlers of its own. Where Spotify refuses its pages to
+the network, `use_relay(address)` reads them through a relay abroad; the one-file relay is
+[in the repository](https://github.com/mojave333/trackhound/tree/main/relay).
 
 ### Errors
 

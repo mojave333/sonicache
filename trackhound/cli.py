@@ -7,9 +7,9 @@ import re
 import sys
 from pathlib import Path
 
-from . import __version__, logs
+from . import __version__, logs, relay_for
 from .i18n import LANGUAGES, set_language, t
-from .engine import batch, network
+from .engine import batch, network, use_relay
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
                                 Options, use_proxy)
 
@@ -74,6 +74,9 @@ def main(argv: list[str] | None = None) -> int:
                         help=t("ограничить скорость: 500K, 2M (по умолчанию без ограничения)"))
     parser.add_argument("--proxy", default="", metavar=t("АДРЕС"),
                         help=t("прокси для метаданных и загрузки: http://127.0.0.1:1080, socks5://…"))
+    parser.add_argument("--relay", default="", metavar=t("АДРЕС"),
+                        help=t("зеркало Spotify для стран, где он закрыт (relay/worker.js); "
+                               "off — без него, по умолчанию встроенное"))
     parser.add_argument("--lang", choices=LANGUAGES, default="system", metavar=t("ЯЗЫК"),
                         help=t("язык интерфейса и сообщений"))
     parser.add_argument("--from-file", action="append", default=[], type=Path, metavar=t("ФАЙЛ"),
@@ -90,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
                       args.cookies_from_browser, args.names, args.folders,
                       _rate(args.limit_rate, parser), args.proxy, args.replaygain)
     use_proxy(options.proxy)
+    use_relay(relay_for(args.relay))
     downloader = Downloader(options, log=lambda message: print(message, flush=True))
 
     if args.check:
@@ -103,11 +107,14 @@ def main(argv: list[str] | None = None) -> int:
         for problem in downloader.environment_problems():
             print(f"⚠ {problem}")
         print(t("проверяем сеть…"), flush=True)
-        reach = network.check()
+        relay = relay_for(args.relay)
+        reach = network.check(relay=relay)
         words = {"ok": t("открывается"), "previews": t("плеер закрыт, релизы — со страниц-превью"),
                  "down": t("не открывается")}
         for name, key in (("Spotify", "spotify"), ("YouTube", "youtube"), ("SoundCloud", "soundcloud")):
             print(f"{name}: {words[reach[key]]}")
+        relay_words = {"ok": t("работает"), "down": t("не отвечает"), "none": t("не задано")}
+        print(t("зеркало Spotify: {state}", state=relay_words[reach["relay"]]) + (f" ({relay})" if relay else ""))
         for proxy in reach["proxies"]:
             print(t("прокси {client}: {url} (Spotify через него: {state}) — --proxy {url}",
                     client=proxy["client"], url=proxy["url"], state=words[proxy["spotify"]]))

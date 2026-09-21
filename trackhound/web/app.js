@@ -13,6 +13,8 @@ const VIEWS = ["download", "library", "queue", "settings"];
 
 // What the backend accepts as a proxy; anything else is refused there anyway
 const PROXY_RE = /^(?:https?|socks4|socks5h?):\/\/[^\s/]+$/i;
+// A Spotify relay: an address, or "off" for none
+const RELAY_RE = /^(?:off|https?:\/\/[^\s?#]+(?:\?\S*)?)$/i;
 
 // Each step has a sign of its own. The turning arc is left to the waits that
 // have no number to show; where a bar counts, the arrow stands still.
@@ -152,6 +154,7 @@ else window.addEventListener("pywebviewready", boot);
 async function init() {
   const data = await api().init();
   state.settings = data.settings;
+  state.relayDefault = data.relay_default || "";
   state.library.view = data.settings.library_view === "list" ? "list" : "grid";
   state.problems = data.problems;
   state.watched = data.watched || [];
@@ -257,6 +260,9 @@ function renderSettings() {
   $("#track-name").value = settings.track_name;
   $("#folder-layout").value = settings.folder_name;
   if ($("#proxy") !== document.activeElement) $("#proxy").value = settings.proxy;
+  if ($("#relay") !== document.activeElement) $("#relay").value = settings.relay;
+  // An empty field is the program's own relay: its address shows through
+  $("#relay").placeholder = state.relayDefault || t("не задано");
   $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
   renderStatusBar();
@@ -309,6 +315,11 @@ const NETWORK_WORDS = {
   soundcloud: { ok: "SoundCloud — открывается", down: "SoundCloud — не открывается" },
 };
 const PROXY_SPOTIFY = { ok: "плеер открывается", previews: "только страницы-превью", down: "не открывается" };
+const RELAY_WORDS = {
+  ok: "Зеркало Spotify — работает",
+  down: "Зеркало Spotify — не отвечает",
+  none: "Зеркало Spotify — не задано",
+};
 const NETWORK_TONES = { ok: "ok", previews: "warn", down: "bad" };
 const NETWORK_ICONS = { ok: "check", warn: "alert", bad: "x" };
 
@@ -329,6 +340,12 @@ async function checkNetwork() {
 function renderNetwork(result) {
   const rows = ["spotify", "youtube", "soundcloud"].map((service) =>
     networkRow(NETWORK_TONES[result[service]], t(NETWORK_WORDS[service][result[service]])));
+  // Where Spotify is closed, a working relay makes up for it in full
+  if (result.relay === "ok" && result.spotify !== "ok") {
+    rows[0] = networkRow("ok", t("Spotify — плеер закрыт для этой сети, но релизы целиком приходят через зеркало"));
+  }
+  if (result.relay !== "none" || result.spotify !== "ok") rows.splice(1, 0, networkRow(
+    result.relay === "ok" ? "ok" : "bad", t(RELAY_WORDS[result.relay])));
   for (const proxy of result.proxies) {
     const row = networkRow(NETWORK_TONES[proxy.spotify],
       t("Прокси {client}: {url}. Spotify через него — {state}",
@@ -652,6 +669,11 @@ function bindUi() {
   $("#proxy").addEventListener("input", (event) => {
     const value = event.target.value.trim();
     event.target.closest(".field").classList.toggle("invalid", Boolean(value) && !PROXY_RE.test(value));
+  });
+  $("#relay").addEventListener("change", (event) => updateSettings({ relay: event.target.value.trim() }));
+  $("#relay").addEventListener("input", (event) => {
+    const value = event.target.value.trim();
+    event.target.closest(".field").classList.toggle("invalid", Boolean(value) && !RELAY_RE.test(value));
   });
   $("#paste").addEventListener("click", pasteFromClipboard);
   $("#link").addEventListener("input", clearLinkError);

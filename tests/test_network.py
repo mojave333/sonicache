@@ -93,7 +93,21 @@ def test_found_proxies_are_tried_with_spotify(listener, monkeypatch):
 
 
 def test_the_check_names_every_service(monkeypatch):
-    pages = {EMBED: CLOSED, PREVIEW: SONGS, "https://www.youtube.com/": "<html>"}
+    pages = {EMBED: CLOSED, PREVIEW: SONGS, "https://www.youtube.com/": "<html>",
+             f"https://relay.test?kind=album&id={network.PROBE_ALBUM}": '{"entity": {"name": "Discovery"}}'}
     monkeypatch.setattr(urllib.request, "urlopen", opener(pages))
     monkeypatch.setattr(network, "find_proxies", lambda timeout: [])
-    assert network.check(1) == {"spotify": "previews", "youtube": "ok", "soundcloud": "down", "proxies": []}
+    assert network.check(1, relay="https://relay.test") == {
+        "spotify": "previews", "relay": "ok", "youtube": "ok", "soundcloud": "down", "proxies": []}
+
+
+@pytest.mark.parametrize("relay, pages, expected", [
+    ("", {}, "none"),
+    ("https://relay.test", {}, "down"),
+    ("https://relay.test", {f"https://relay.test?kind=album&id={network.PROBE_ALBUM}": '{"entity": null}'}, "down"),
+    ("https://relay.test/?key=1", {f"https://relay.test/?key=1&kind=album&id={network.PROBE_ALBUM}":
+                                   '{"entity": {"name": "Discovery"}}'}, "ok"),
+])
+def test_the_relay_is_tried_with_the_probe_album(monkeypatch, relay, pages, expected):
+    monkeypatch.setattr(urllib.request, "urlopen", opener(pages))
+    assert network.relay_state(relay, 1) == expected

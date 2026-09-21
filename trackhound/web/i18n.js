@@ -340,6 +340,17 @@ const TRANSLATIONS = {
   "включён": "in use",
   "Использовать": "Use it",
   "Использовать и повторить": "Use it and try again",
+  "Зеркало Spotify": "Spotify relay",
+  "Через него читаются релизы, которые Spotify не показывает в этой стране. Пусто — встроенное,":
+    "Releases Spotify does not show in this country are read through it. Empty is the built-in one,",
+  "— без зеркала": "for none",
+  "встроенное": "built-in",
+  "не задано": "not set",
+  "Зеркало Spotify — работает": "Spotify relay — works",
+  "Зеркало Spotify — не отвечает": "Spotify relay — does not answer",
+  "Зеркало Spotify — не задано": "Spotify relay — not set",
+  "Spotify — плеер закрыт для этой сети, но релизы целиком приходят через зеркало":
+    "Spotify — the player is closed to this network, but whole releases come through the relay",
   "На компьютере работает {client}: через его прокси Spotify открывается":
     "{client} is running on this computer, and Spotify opens through its proxy",
   "Прокси VPN-клиента на этом компьютере не найден. VPN в режиме TUN или «системного прокси» программа использует сама; иначе впишите адрес прокси выше":

@@ -30,9 +30,10 @@ from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES,
 from .i18n import set_language
 from .models import ERROR_CODES, Album, Release, SourceError, Track
 from .sources import resolve, search, search_track
+from .spotify import use_relay
 
 __all__ = [
     "DEFAULT_OUTPUT_DIR", "ERROR_CODES", "FOLDER_NAMES", "FORMATS", "TRACK_NAMES",
     "Album", "Downloader", "DownloaderError", "Failure", "Options", "Release", "Report", "SourceError", "Track",
-    "batch", "find_tool", "resolve", "search", "search_track", "set_language", "use_proxy",
+    "batch", "find_tool", "resolve", "search", "search_track", "set_language", "use_proxy", "use_relay",
 ]

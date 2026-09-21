@@ -10,6 +10,7 @@ Two public sources are combined:
 
 from __future__ import annotations
 
+import gzip
 import html
 import json
 import re
@@ -60,8 +61,7 @@ def fetch_album(album_id: str, whole: bool = True) -> Album:
     """An album with its tracks. Without `whole`, an album read off its
     preview page has only the places of its tracks, not their names: enough
     for one track of it, which fills in its own."""
-    meta = _meta_tags("album", album_id)
-    entity = _entity("album", album_id, meta, whole)
+    entity, meta = _release("album", album_id, whole)
 
     # music:song is followed by its own music:song:disc / music:song:track tags.
     positions: dict[str, dict[str, int]] = {}
@@ -117,8 +117,7 @@ def fetch_playlist(playlist_id: str) -> Album:
     public pages lists the rest, so a longer playlist comes back cut short and
     says so in its note.
     """
-    meta = _meta_tags("playlist", playlist_id)
-    entity = _entity("playlist", playlist_id, meta)
+    entity, meta = _release("playlist", playlist_id)
 
     tracks = []
     for number, item in enumerate(entity.get("trackList") or [], 1):
@@ -153,7 +152,7 @@ def fetch_playlist(playlist_id: str) -> Album:
 
 def fetch_track(track_id: str) -> tuple[Album, Track]:
     """A single track plus the album it belongs to (for tags, cover, numbering)."""
-    meta = _meta_tags("track", track_id)
+    entity, meta = _release("track", track_id)
     album_id = _id_from_url(_first(meta, "music:album"))
     album = None
     if album_id:
@@ -162,7 +161,6 @@ def fetch_track(track_id: str) -> tuple[Album, Track]:
         except SourceError:
             pass
 
-    entity = _entity("track", track_id, meta)
     title = entity.get("name") or entity.get("title", "")
     duration = (entity.get("duration") or 0) / 1000
     # og:description looks like "Rick Astley · Whenever You Need Somebody · Song · 1987"
@@ -202,26 +200,66 @@ def fetch_track(track_id: str) -> tuple[Album, Track]:
     return album, track
 
 
-def _entity(kind: str, spotify_id: str, meta: list[tuple[str, str]], whole: bool = True) -> dict:
-    """The release as the embed page has it or, when that page withholds it,
-    as the preview pages tell it.
+def use_relay(url: str) -> None:
+    """Sets the relay Spotify's pages are read through when Spotify refuses
+    them to this network; empty goes without one. See relay/worker.js."""
+    global _relay
+    _relay = url.strip()
 
-    Spotify keeps its player out of the countries it does not work in, Russia
-    among them, but it still gives out the pages it makes for the link
-    previews of messengers: the release's name and its tracks, each track on
-    a page of its own. The audio never comes from Spotify anyway. Without
-    `whole`, the tracks' own pages are not read: the album's list of them is
-    all a single track needs, for its number and the count on its disc.
+
+_relay = ""
+
+
+def _release(kind: str, spotify_id: str, whole: bool = True) -> tuple[dict, list[tuple[str, str]]]:
+    """The release as the embed page has it, and the preview page's meta tags.
+
+    Spotify keeps its pages from the countries it does not work in, Russia
+    among them, going by where the request comes from. So a refusal is taken
+    to the relay, which reads the same pages from abroad; without one, or when
+    it fails too, what the preview pages give is used, if anything: the
+    release's name and each track on a page of its own. The audio never comes
+    from Spotify anyway. Without `whole`, the tracks' own pages are not read:
+    the album's list of them is all a single track needs.
     """
+    meta = _meta_tags(kind, spotify_id)
     try:
-        return _embed_entity(kind, spotify_id)
+        return _embed_entity(kind, spotify_id), meta
     except SourceError:
+        relayed = _relayed(kind, spotify_id)
+        if relayed:
+            return relayed
         entity = _preview_entity(kind, meta, whole)
         if not entity:
             raise
         log.info("Spotify: %s/%s собран со страниц-превью, треков: %d",
                  kind, spotify_id, len(entity.get("trackList") or [entity]))
-        return entity
+        return entity, meta
+
+
+def _relayed(kind: str, spotify_id: str) -> tuple[dict, list[tuple[str, str]]] | None:
+    """The release as the relay reads it abroad; None without a relay or an answer."""
+    if not _relay:
+        return None
+    joiner = "&" if "?" in _relay else "?"
+    request = urllib.request.Request(f"{_relay}{joiner}kind={kind}&id={spotify_id}",
+                                     headers={"User-Agent": BROWSER_UA, "Accept-Encoding": "gzip"})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = response.read()
+            if response.headers.get("Content-Encoding") == "gzip":
+                body = gzip.decompress(body)
+        data = json.loads(body)
+    except (OSError, ValueError) as e:
+        log.warning("Spotify: зеркало %s не ответило на %s/%s: %s", _relay, kind, spotify_id, e)
+        return None
+    entity = data.get("entity") if isinstance(data, dict) else None
+    if not entity:
+        log.warning("Spotify: %s/%s не отдан и зеркалу: %s", kind, spotify_id,
+                    data.get("refused") if isinstance(data, dict) else data)
+        return None
+    meta = [(pair[0], pair[1]) for pair in data.get("meta") or [] if isinstance(pair, list) and len(pair) == 2]
+    log.info("Spotify: %s/%s взят через зеркало", kind, spotify_id)
+    return entity, meta
 
 
 def _preview_entity(kind: str, meta: list[tuple[str, str]], whole: bool = True) -> dict:
