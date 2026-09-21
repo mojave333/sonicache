@@ -3,4 +3,4 @@ yt-dlp-ejs
 ytmusicapi
 mutagen
 pywebview
-requests
+requests[socks]

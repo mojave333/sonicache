@@ -26,7 +26,8 @@ LINUX = sys.platform.startswith("linux")
 datas = [("trackhound/web", "trackhound/web")]
 tools = {"ffmpeg.exe", "deno.exe"} if WINDOWS else {"ffmpeg", "deno"}
 binaries = [(str(tool), "bin") for tool in sorted(Path("vendor").glob("*")) if tool.name in tools]
-hiddenimports = ["trackhound.cli", "trackhound.gui", "tkinter", "tkinter.messagebox"]
+# socks and sockshandler are imported only once a SOCKS proxy is set
+hiddenimports = ["trackhound.cli", "trackhound.gui", "tkinter", "tkinter.messagebox", "socks", "sockshandler"]
 
 # Extractors, JavaScript payloads, locale files and the window's glue are all
 # loaded dynamically, so PyInstaller cannot see them by reading the imports.

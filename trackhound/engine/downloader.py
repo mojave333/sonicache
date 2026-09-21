@@ -11,6 +11,7 @@ import shutil
 import sys
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
@@ -427,7 +428,7 @@ class Downloader:
             # Shared between threads, so the limit is what the program uses in total
             opts["ratelimit"] = self.options.rate_limit / max(1, self.options.threads)
         if self.options.proxy:
-            opts["proxy"] = self.options.proxy
+            opts["proxy"] = _remote_dns(self.options.proxy)
         if self.options.cookies_browser and match.source != "soundcloud":
             opts["cookiesfrombrowser"] = (self.options.cookies_browser,)
         if self.ffmpeg:
@@ -535,14 +536,39 @@ def _direct_match(track: Track) -> Match | None:
 def use_proxy(proxy: str) -> None:
     """Points everything that speaks HTTP at the proxy, or back at the system.
 
-    The metadata comes through urllib and requests, the audio through yt-dlp;
-    all three read these variables, which keeps one setting enough.
+    The metadata comes through urllib and requests, the audio through yt-dlp.
+    requests and yt-dlp read these variables, so one setting is enough for
+    them. urllib reads them too but speaks only to HTTP proxies: sent to a
+    SOCKS port, which is what most VPN clients open, it failed, so a SOCKS
+    proxy gets an opener of its own.
     """
+    proxy = _remote_dns(proxy)
     for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
         if proxy:
             os.environ[name] = proxy
         else:
             os.environ.pop(name, None)
+    parts = urllib.parse.urlsplit(proxy)
+    if parts.scheme.startswith("socks"):
+        import socks
+        from sockshandler import SocksiPyHandler
+
+        kind = socks.SOCKS4 if parts.scheme.startswith("socks4") else socks.SOCKS5
+        handler = SocksiPyHandler(kind, parts.hostname, parts.port or 1080, True,
+                                  parts.username, parts.password)
+        # Without an empty ProxyHandler urllib adds its own, which takes the
+        # socks5h:// above from the variables and knows no such scheme
+        urllib.request.install_opener(urllib.request.build_opener(urllib.request.ProxyHandler({}), handler))
+    else:
+        # Built again from the variables on the next request: an opener made
+        # earlier would keep the proxy it was made with
+        urllib.request.install_opener(None)
+
+
+def _remote_dns(proxy: str) -> str:
+    """A SOCKS proxy is asked to look the names up itself: where a service is
+    blocked, the local DNS may be lying about its address as well."""
+    return re.sub(r"^socks5://", "socks5h://", re.sub(r"^socks4://", "socks4a://", proxy))
 
 
 def _write_marker(folder: Path, album: Album, link: str) -> None:

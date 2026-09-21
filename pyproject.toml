@@ -35,7 +35,7 @@ dependencies = [
     "yt-dlp-ejs",
     "ytmusicapi",
     "mutagen",
-    "requests",
+    "requests[socks]",  # PySocks: a SOCKS proxy for urllib and requests
 ]
 
 [project.optional-dependencies]
