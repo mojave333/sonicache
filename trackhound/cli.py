@@ -114,7 +114,9 @@ def main(argv: list[str] | None = None) -> int:
         for name, key in (("Spotify", "spotify"), ("YouTube", "youtube"), ("SoundCloud", "soundcloud")):
             print(f"{name}: {words[reach[key]]}")
         relay_words = {"ok": t("работает"), "down": t("не отвечает"), "none": t("не задано")}
-        print(t("зеркало Spotify: {state}", state=relay_words[reach["relay"]]) + (f" ({relay})" if relay else ""))
+        # A relay of one's own is named; the built-in one's address is nobody's business
+        own = args.relay.strip() not in ("", "off")
+        print(t("зеркало Spotify: {state}", state=relay_words[reach["relay"]]) + (f" ({relay})" if own else ""))
         for proxy in reach["proxies"]:
             print(t("прокси {client}: {url} (Spotify через него: {state}) — --proxy {url}",
                     client=proxy["client"], url=proxy["url"], state=words[proxy["spotify"]]))

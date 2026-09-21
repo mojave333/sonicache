@@ -13,8 +13,6 @@ const VIEWS = ["download", "library", "queue", "settings"];
 
 // What the backend accepts as a proxy; anything else is refused there anyway
 const PROXY_RE = /^(?:https?|socks4|socks5h?):\/\/[^\s/]+$/i;
-// A Spotify relay: an address, or "off" for none
-const RELAY_RE = /^(?:off|https?:\/\/[^\s?#]+(?:\?\S*)?)$/i;
 
 // Each step has a sign of its own. The turning arc is left to the waits that
 // have no number to show; where a bar counts, the arrow stands still.
@@ -154,7 +152,6 @@ else window.addEventListener("pywebviewready", boot);
 async function init() {
   const data = await api().init();
   state.settings = data.settings;
-  state.relayDefault = data.relay_default || "";
   state.library.view = data.settings.library_view === "list" ? "list" : "grid";
   state.problems = data.problems;
   state.watched = data.watched || [];
@@ -260,9 +257,7 @@ function renderSettings() {
   $("#track-name").value = settings.track_name;
   $("#folder-layout").value = settings.folder_name;
   if ($("#proxy") !== document.activeElement) $("#proxy").value = settings.proxy;
-  if ($("#relay") !== document.activeElement) $("#relay").value = settings.relay;
-  // An empty field is the program's own relay; its address is nobody's business here
-  $("#relay").placeholder = t(state.relayDefault ? "встроенное" : "не задано");
+  syncRadios($("#relay"), "data-relay", settings.relay === "off" ? "off" : "on");
   $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
   renderStatusBar();
@@ -670,11 +665,8 @@ function bindUi() {
     const value = event.target.value.trim();
     event.target.closest(".field").classList.toggle("invalid", Boolean(value) && !PROXY_RE.test(value));
   });
-  $("#relay").addEventListener("change", (event) => updateSettings({ relay: event.target.value.trim() }));
-  $("#relay").addEventListener("input", (event) => {
-    const value = event.target.value.trim();
-    event.target.closest(".field").classList.toggle("invalid", Boolean(value) && !RELAY_RE.test(value));
-  });
+  // On is the program's own relay, which is what an empty setting means
+  radioGroup($("#relay"), "data-relay", (value) => updateSettings({ relay: value === "off" ? "off" : "" }));
   $("#paste").addEventListener("click", pasteFromClipboard);
   $("#link").addEventListener("input", clearLinkError);
   $("#form").addEventListener("submit", submitLinks);

@@ -341,11 +341,8 @@ const TRANSLATIONS = {
   "Использовать": "Use it",
   "Использовать и повторить": "Use it and try again",
   "Зеркало Spotify": "Spotify relay",
-  "Через него читаются релизы, которые Spotify не показывает в этой стране. Пусто — встроенное,":
-    "Releases Spotify does not show in this country are read through it. Empty is the built-in one,",
-  "— без зеркала": "for none",
-  "встроенное": "built-in",
-  "не задано": "not set",
+  "Через него читаются релизы, которые Spotify не показывает в этой стране: запрос уходит на сервер во Франкфурте":
+    "Releases Spotify does not show in this country are read through it: the request goes to a server in Frankfurt",
   "Зеркало Spotify — работает": "Spotify relay — works",
   "Зеркало Spotify — не отвечает": "Spotify relay — does not answer",
   "Зеркало Spotify — не задано": "Spotify relay — not set",

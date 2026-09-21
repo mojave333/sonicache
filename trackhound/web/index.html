@@ -400,13 +400,13 @@
               </div>
               <div class="setting">
                 <div class="setting-label">
-                  <p><label for="relay">Зеркало Spotify</label></p>
+                  <p id="relay-label">Зеркало Spotify</p>
                   <p class="setting-desc">Через него читаются релизы, которые Spotify не показывает в этой
-                    стране. Пусто — встроенное, <code>off</code> — без зеркала</p>
+                    стране: запрос уходит на сервер во Франкфурте</p>
                 </div>
-                <div class="field proxy-field">
-                  <input id="relay" type="text" autocomplete="off" spellcheck="false"
-                         placeholder="встроенное" aria-label="Зеркало Spotify">
+                <div id="relay" class="segmented" role="radiogroup" aria-labelledby="relay-label">
+                  <button type="button" role="radio" data-relay="off">Выкл</button>
+                  <button type="button" role="radio" data-relay="on">Вкл</button>
                 </div>
               </div>
               <div class="setting">

@@ -117,7 +117,6 @@ class Api:
                 self._watcher.start()
         return {
             "version": __version__,
-            "relay_default": relay_for(""),  # the program's own relay, shown in the empty field
             "language": set_language(settings["language"]),  # "system" resolved to ru or en
             "settings": settings,
             "problems": Downloader(Options(DEFAULT_OUTPUT_DIR)).environment_problems(),
