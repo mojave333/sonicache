@@ -10,7 +10,7 @@ version; see the LICENSE file. It comes with no warranty.
 
 # The single source of truth for the version: the release workflow refuses to
 # build when the pushed tag says something else.
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 
 # The relay Spotify's pages are read through where Spotify refuses them to the
 # network, deployed from relay/worker.js and run in Frankfurt (see its README).
