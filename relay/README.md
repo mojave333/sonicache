@@ -19,9 +19,11 @@ No command line is needed.
 2. **Workers & Pages → Create → Create Worker**, name it `trackhound-relay`, and
    **Deploy** the "Hello World" it offers.
 3. **Edit code**, replace everything with the contents of `worker.js`, and **Deploy**.
-4. In the worker's settings, set **Placement** to **Smart**. Cloudflare then tends to run
-   it near Spotify's servers rather than near the person asking, which makes it much less
-   likely that Spotify sees the request coming from the country it refuses.
+4. In the worker's settings, set **Placement** to **Region → Amazon Web Services →
+   eu-central-1** and save. The worker then always runs in Frankfurt, wherever the request
+   comes in, so Spotify sees it coming from Germany and never from the country it refuses.
+   Its answers say so in a `cf-placement: remote-FRA` header. **Smart** placement also
+   moves it, but only once Cloudflare has watched some traffic.
 5. Open `https://trackhound-relay.<your-subdomain>.workers.dev/?kind=album&id=2noRn2Aes5aoNVsU6iWThc`.
    A JSON with `"entity"` and Daft Punk's *Discovery* in it means it works.
 

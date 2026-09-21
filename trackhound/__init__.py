@@ -13,9 +13,9 @@ version; see the LICENSE file. It comes with no warranty.
 __version__ = "1.5.0"
 
 # The relay Spotify's pages are read through where Spotify refuses them to the
-# network, deployed from relay/worker.js by whoever publishes the program;
-# empty until there is one. The settings and --relay can put another in its place.
-SPOTIFY_RELAY = ""
+# network, deployed from relay/worker.js and run in Frankfurt (see its README).
+# The settings and --relay can put another in its place.
+SPOTIFY_RELAY = "https://trackhound-relay.takmakov2006.workers.dev"
 
 
 def relay_for(setting: str) -> str:
