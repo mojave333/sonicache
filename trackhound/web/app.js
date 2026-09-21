@@ -158,6 +158,7 @@ else window.addEventListener("pywebviewready", boot);
 async function init() {
   const data = await api().init();
   state.settings = data.settings;
+  state.traySupported = Boolean(data.tray);
   state.library.view = data.settings.library_view === "list" ? "list" : "grid";
   state.problems = data.problems;
   state.watched = data.watched || [];
@@ -175,6 +176,36 @@ async function init() {
   loadDiagnostics();
   // Only now, so the saved panel width is in place before it can be animated
   setTimeout(() => document.documentElement.classList.add("motion-ready"), 0);
+  // Notices about finished downloads are for when the window is not in use
+  window.addEventListener("focus", () => api().focus(true));
+  window.addEventListener("blur", () => api().focus(false));
+  if (data.first_run) showWelcome();
+}
+
+// The first start: what the program does and where the music goes. Starting
+// saves the settings, and a saved settings file means this is not shown again.
+function showWelcome() {
+  const dialog = $("#welcome");
+  const path = () => { $("#welcome-path").textContent = state.settings.folder; };
+  path();
+  const choose = async () => {
+    const folder = await api().choose_folder(state.settings.folder);
+    if (folder) {
+      updateSettings({ folder });
+      path();
+    }
+  };
+  const start = () => {
+    $("#welcome-folder").removeEventListener("click", choose);
+    if (dialog.open) dialog.close();
+    api().save_settings(state.settings);
+    $("#link")?.focus();
+  };
+  $("#welcome-folder").addEventListener("click", choose);
+  $("#welcome-start").addEventListener("click", start, { once: true });
+  dialog.addEventListener("cancel", start, { once: true }); // Escape starts too: nothing here must be decided
+  dialog.showModal();
+  $("#welcome-start").focus();
 }
 
 // Where the log sits, and how old the yt-dlp inside this build is
@@ -251,6 +282,9 @@ function renderSettings() {
   syncRadios($("#replaygain"), "data-replaygain", String(settings.replaygain));
   syncRadios($("#ask-doubtful"), "data-ask", String(settings.ask_doubtful));
   syncRadios($("#lyrics"), "data-lyrics", String(settings.lyrics));
+  syncRadios($("#tray"), "data-tray", String(settings.tray));
+  syncRadios($("#notify"), "data-notify", String(settings.notify));
+  $("#tray-setting").hidden = !state.traySupported; // the notification area is Windows' own
   syncRadios($("#language"), "data-language", settings.language);
   syncRadios($("#formats"), "data-format", settings.format);
   renderProfiles();
@@ -649,6 +683,8 @@ function bindUi() {
   radioGroup($("#replaygain"), "data-replaygain", (value) => updateSettings({ replaygain: value === "true" }));
   radioGroup($("#ask-doubtful"), "data-ask", (value) => updateSettings({ ask_doubtful: value === "true" }));
   radioGroup($("#lyrics"), "data-lyrics", (value) => updateSettings({ lyrics: value === "true" }));
+  radioGroup($("#tray"), "data-tray", (value) => updateSettings({ tray: value === "true" }));
+  radioGroup($("#notify"), "data-notify", (value) => updateSettings({ notify: value === "true" }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
   radioGroup($("#queue-filter"), "data-filter", setQueueFilter);
   darkMedia.addEventListener("change", applyTheme);

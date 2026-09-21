@@ -33,6 +33,8 @@ class TestNormalize:
             "replaygain": False,
             "ask_doubtful": True,
             "lyrics": True,
+            "tray": True,
+            "notify": True,
             "profiles": [],
             "library_view": "grid",
         }
@@ -747,3 +749,77 @@ class TestTidy:
         assert not api.tidy([{"path": "C:/Music/One"}], {})
         api.stop_tidy()
         assert api._tidying.is_set()
+
+
+class TestBackground:
+    """Closing the window hides it while there is work; notices say how downloads went."""
+
+    class FakeTray:
+        shown = True
+
+        def __init__(self):
+            self.said = []
+
+        def notify(self, title, text):
+            self.said.append((title, text))
+            return True
+
+        def close(self):
+            self.shown = False
+
+    def api(self, monkeypatch, watched=(), tray_on=True):
+        api = gui.Api()
+        api._tray = self.FakeTray()
+        api._watched = list(watched)
+        monkeypatch.setattr(gui.tray, "SUPPORTED", True)
+        monkeypatch.setattr(gui, "_load_settings", lambda: gui._normalize({"tray": tray_on}))
+        return api
+
+    def test_closing_with_watched_playlists_only_hides_the_window(self, monkeypatch):
+        api = self.api(monkeypatch, watched=[{"link": "x"}])
+        hidden = []
+        monkeypatch.setattr(api, "_hide", lambda: hidden.append(True))
+        assert api._on_closing() is False
+        for _ in range(50):
+            if hidden:
+                break
+            time.sleep(0.01)
+        assert hidden
+
+    def test_closing_with_nothing_to_do_ends_the_program(self, monkeypatch):
+        api = self.api(monkeypatch)
+        assert api._on_closing() is None and not api._tray.shown
+
+    def test_the_tray_switched_off_ends_the_program_too(self, monkeypatch):
+        api = self.api(monkeypatch, watched=[{"link": "x"}], tray_on=False)
+        assert api._on_closing() is None
+
+    def test_a_close_for_an_update_is_never_caught(self, monkeypatch):
+        api = self.api(monkeypatch, watched=[{"link": "x"}])
+        api._quitting = True
+        assert api._on_closing() is None
+
+    def test_a_notice_waits_for_the_window_to_be_out_of_use(self, monkeypatch):
+        api = self.api(monkeypatch)
+        api._finished = [{"title": "In Rainbows", "state": "done", "ok": 10, "skipped": 0, "failed": 0, "doubtful": 0}]
+        api._announce()
+        assert api._tray.said == []  # looked at: the card says it already
+        api._finished = [{"title": "In Rainbows", "state": "done", "ok": 10, "skipped": 0, "failed": 0, "doubtful": 0}]
+        api.focus(False)
+        api._announce()
+        assert api._tray.said == [("Скачано: In Rainbows", "скачано: 10")]
+        assert api._finished == []
+
+    def test_many_releases_make_one_notice(self):
+        title, text = gui._notice([
+            {"title": "A", "state": "done", "ok": 3, "skipped": 1, "failed": 1, "doubtful": 0},
+            {"title": "B", "state": "done", "ok": 2, "skipped": 0, "failed": 0, "doubtful": 1},
+            {"title": "C", "state": "error", "message": "Spotify не отдал"},
+        ])
+        assert title == "Загрузки завершены: 3"
+        assert text == "скачано: 5, уже были: 1, не скачалось: 1, ждут выбора: 1, ссылок с ошибкой: 1"
+
+    def test_a_release_not_all_downloaded_says_so(self):
+        assert gui._notice([{"title": "A", "state": "done", "ok": 3, "skipped": 0, "failed": 2,
+                             "doubtful": 0}])[0] == "Скачано не всё: A"
+        assert gui._notice([{"title": "A", "state": "error", "message": "нет сети"}]) == ("Не скачалось: A", "нет сети")

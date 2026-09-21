@@ -113,4 +113,21 @@ ENGLISH.update({
     "сборка": "built",
     "из исходников": "from source",
     "\n--- {path} (последние {lines} строк) ---": "\n--- {path} (last {lines} lines) ---",
+
+    # The notification area and its notices
+    "Открыть Trackhound": "Open Trackhound",
+    "Проверить слежение сейчас": "Check the watched ones now",
+    "Выход": "Quit",
+    "Trackhound работает в фоне": "Trackhound keeps running",
+    "Загрузки и слежение продолжаются. Открыть окно или выйти — через значок у часов":
+        "Downloads and watching go on. The icon by the clock opens the window or quits",
+    "скачано: {count}": "downloaded: {count}",
+    "уже были: {count}": "already there: {count}",
+    "не скачалось: {count}": "failed: {count}",
+    "ждут выбора: {count}": "waiting for a choice: {count}",
+    "Не скачалось: {title}": "Not downloaded: {title}",
+    "Скачано: {title}": "Downloaded: {title}",
+    "Скачано не всё: {title}": "Partly downloaded: {title}",
+    "ссылок с ошибкой: {count}": "links that failed: {count}",
+    "Загрузки завершены: {count}": "Downloads finished: {count}",
 })

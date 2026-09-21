@@ -466,6 +466,28 @@
               </div>
               <p class="setting-empty" id="watch-empty">Пока ни за чем не следим</p>
             </div>
+            <div class="setting-group">
+              <div class="setting" id="tray-setting">
+                <div class="setting-label">
+                  <p id="tray-label">Работать в фоне после закрытия окна</p>
+                  <p class="setting-desc">Пока идут загрузки или есть что-то под наблюдением, закрытое окно уходит в значок у часов: загрузки доходят до конца, проверки идут по расписанию. Выход — из меню значка</p>
+                </div>
+                <div id="tray" class="segmented" role="radiogroup" aria-labelledby="tray-label">
+                  <button type="button" role="radio" data-tray="false">Выкл</button>
+                  <button type="button" role="radio" data-tray="true">Вкл</button>
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting-label">
+                  <p id="notify-label">Уведомления о завершении</p>
+                  <p class="setting-desc">Когда загрузки закончились, а окно свёрнуто, закрыто или за другими</p>
+                </div>
+                <div id="notify" class="segmented" role="radiogroup" aria-labelledby="notify-label">
+                  <button type="button" role="radio" data-notify="false">Выкл</button>
+                  <button type="button" role="radio" data-notify="true">Вкл</button>
+                </div>
+              </div>
+            </div>
 
             <h2>Профили</h2>
             <div class="setting-group" id="profiles-group">
@@ -570,6 +592,24 @@
         <svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg>Удалить
       </button>
     </div>
+    <dialog id="welcome" class="confirm welcome" aria-labelledby="welcome-title">
+      <div class="confirm-body welcome-body">
+        <svg class="welcome-mark" aria-hidden="true"><use href="#i-brand"/></svg>
+        <p id="welcome-title" class="welcome-title">Добро пожаловать в Trackhound</p>
+        <p class="confirm-text">Вставьте ссылку на альбом, плейлист или трек из Spotify, Apple Music, Deezer, YouTube или SoundCloud — или напишите «Исполнитель - Альбом». Программа найдёт ту же запись в открытом доступе, скачает её и подпишет: теги, обложка, жанр, тексты песен.</p>
+        <div class="welcome-folder">
+          <div class="welcome-where">
+            <p class="welcome-label">Музыка будет здесь</p>
+            <p id="welcome-path" class="welcome-path"></p>
+          </div>
+          <button type="button" class="tool-btn" id="welcome-folder"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Изменить…</span></button>
+        </div>
+        <p class="confirm-text">Формат, названия файлов, прокси и остальное — в настройках, их можно поменять когда угодно.</p>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="btn primary" id="welcome-start">Начать</button>
+      </div>
+    </dialog>
     <dialog id="confirm" class="confirm" aria-labelledby="confirm-title">
       <div class="confirm-body">
         <p id="confirm-title" class="confirm-title"></p>

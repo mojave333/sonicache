@@ -348,6 +348,20 @@ const TRANSLATIONS = {
     "When a track looks like more than one recording, it is not downloaded by itself: the card shows the candidates, to listen to and choose from",
   "Нужен выбор": "Choose",
   "Дописать теги": "Fill in tags",
+  "Работать в фоне после закрытия окна": "Keep running when the window is closed",
+  "Пока идут загрузки или есть что-то под наблюдением, закрытое окно уходит в значок у часов: загрузки доходят до конца, проверки идут по расписанию. Выход — из меню значка":
+    "While something downloads or is watched, a closed window goes into the icon by the clock: downloads run to the end and checks keep their schedule. Quit from the icon's menu",
+  "Уведомления о завершении": "Notify when done",
+  "Когда загрузки закончились, а окно свёрнуто, закрыто или за другими":
+    "When downloads finish and the window is minimized, closed or behind others",
+  "Добро пожаловать в Trackhound": "Welcome to Trackhound",
+  "Вставьте ссылку на альбом, плейлист или трек из Spotify, Apple Music, Deezer, YouTube или SoundCloud — или напишите «Исполнитель - Альбом». Программа найдёт ту же запись в открытом доступе, скачает её и подпишет: теги, обложка, жанр, тексты песен.":
+    "Paste a link to an album, playlist or track from Spotify, Apple Music, Deezer, YouTube or SoundCloud, or write \"Artist - Album\". The program finds the same recording where it is openly available, downloads it and labels it: tags, cover, genre, lyrics.",
+  "Музыка будет здесь": "The music goes here",
+  "Изменить…": "Change…",
+  "Формат, названия файлов, прокси и остальное — в настройках, их можно поменять когда угодно.":
+    "The format, file names, proxy and the rest are in Settings, to change at any time.",
+  "Начать": "Start",
   "Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново":
     "Fill in genres, covers, lyrics and missing tags, downloading nothing again",
   "Дописываем теги: {done} из {total} · {title}": "Filling in tags: {done} of {total} · {title}",

@@ -246,6 +246,22 @@ one page read and leaves no card behind. Settings → Watching lists what is wat
 each was last checked and how many tracks it brought, with a button to check everything
 now.
 
+### In the background
+
+On Windows the program keeps an icon by the clock. While something is downloading, being
+filled in or watched, closing the window only hides it there: downloads run to the end and
+watched playlists keep their schedule. A click on the icon brings the window back; its menu
+also checks the watched ones at once and quits. With nothing left to do, closing the window
+ends the program as before. Settings → Watching turns this off.
+
+When downloads finish while the window is minimized, hidden or behind others, a notification
+says what came of them: one for the whole queue, not one per album, and none for a watched
+playlist that had nothing new. It comes from the icon on Windows, from `osascript` on macOS
+and from `notify-send` on Linux, and Settings → Watching turns it off too.
+
+The very first start shows a short welcome with the music folder, which can be changed
+there and then; everything else is in Settings.
+
 ### Profiles
 
 A folder, a format and the two naming rules can be saved under a name in the settings, and
@@ -635,6 +651,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/logs.py` | the log file and the report |
 | `trackhound/watch.py` | the list of watched playlists |
 | `trackhound/gui.py` | the window (pywebview) and the bridge to the downloader |
+| `trackhound/tray.py` | the icon by the clock and the notifications (Win32 through ctypes) |
 | `trackhound/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
 | `trackhound/web/art/`, `trackhound/web/fonts/` | the drawing on the empty screen and the Commissioner font |
 | `trackhound/cli.py`, `main.py` | the command line and the entry point |

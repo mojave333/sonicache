@@ -377,6 +377,20 @@ p { margin: 0; }
 }
 .confirm-actions .btn:not(.danger) { border: 1px solid var(--border); }
 .confirm-actions .btn:not(.danger):hover { border-color: var(--border-strong); }
+.confirm-actions .btn.primary { border-color: var(--accent-edge); }
+
+.welcome { width: min(480px, calc(100vw - 32px)); }
+.welcome-body { gap: 10px; padding: 24px 24px 18px; }
+.welcome-mark { width: 64px; height: 52px; color: var(--text); }
+.welcome-title { font-size: 18px; font-weight: 650; }
+.welcome-folder {
+  display: flex; align-items: center; gap: 12px; margin: 4px 0; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg);
+}
+.welcome-where { flex: 1; min-width: 0; }
+.welcome-label { color: var(--text-subtle); font-size: 12px; }
+.welcome-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+.welcome-folder .tool-btn { flex: none; }
 
 /* Lists */
 .list-head {

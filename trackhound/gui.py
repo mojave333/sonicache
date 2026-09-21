@@ -32,7 +32,7 @@ import webview
 from mutagen import File as MutagenFile
 from mutagen.flac import Picture
 
-from . import __version__, logs, relay_for, watch
+from . import __version__, logs, relay_for, tray, watch
 from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch, network, sources, use_relay
 from .engine.models import SourceError
@@ -107,6 +107,12 @@ class Api:
         self._watcher: threading.Thread | None = None
         self._covers = _CoverServer()
         self._tidying: threading.Event | None = None  # set to stop the tidy-up that runs
+        self._tray: tray.Tray | None = None
+        self._hidden = False  # in the tray, the window closed
+        self._focused = True  # the window is the one being used; said by the page
+        self._quitting = False  # the window closes for good, not into the tray
+        self._told_hidden = False  # the first time in the tray is explained once
+        self._finished: list[dict] = []  # releases done since the queue last ran empty, for the notice
 
     def init(self) -> dict:
         # The page is drawn and its script reached Python: the build check
@@ -124,6 +130,8 @@ class Api:
                 self._watcher.start()
         return {
             "version": __version__,
+            "first_run": not SETTINGS_FILE.exists(),  # the welcome screen, once
+            "tray": tray.SUPPORTED,  # whether the window can go on in the notification area
             "language": set_language(settings["language"]),  # "system" resolved to ru or en
             "settings": settings,
             "problems": Downloader(Options(DEFAULT_OUTPUT_DIR)).environment_problems(),
@@ -148,6 +156,82 @@ class Api:
         use_relay(relay_for(settings["relay"]))
         set_language(settings["language"])  # errors from now on speak it
         _save_settings(settings)
+        self._sync_tray(settings)
+
+    def focus(self, focused: bool) -> None:
+        """The page says whether the window is the one being used."""
+        self._focused = bool(focused)
+
+    # The notification area: the window goes on there when closed, and the
+    # notice about finished downloads comes from there
+
+    def _sync_tray(self, settings: dict) -> None:
+        """The icon is there while going on in the background or notices are wanted."""
+        if not tray.SUPPORTED:
+            return
+        wanted = settings["tray"] or settings["notify"] or self._hidden
+        if wanted and self._tray is None:
+            self._tray = tray.Tray(WEB_DIR / "icon.ico", TITLE, _tray_words, on_open=self.show_window,
+                                   on_check=lambda: self.check_watched(force=True), on_quit=self.quit)
+        if wanted and self._tray is not None and not self._tray.shown:
+            self._tray.show()
+        elif not wanted and self._tray is not None:
+            self._tray.close()
+
+    def _keeps_running(self) -> bool:
+        """Whether closing the window should only hide it: something is still
+        downloading, or watched playlists wait for their next check."""
+        if not (tray.SUPPORTED and _load_settings()["tray"] and self._tray is not None and self._tray.shown):
+            return False
+        with self._lock:
+            return self._worker is not None or bool(self._watched) or self._tidying is not None
+
+    def _on_closing(self):
+        """The window's close button. Returns False to keep the program going
+        in the tray; anything else lets the window close and the program end."""
+        if self._quitting or not self._keeps_running():
+            self._quitting = True
+            if self._tray is not None:
+                self._tray.close()
+            return None
+        threading.Thread(target=self._hide, daemon=True).start()
+        return False
+
+    def _hide(self) -> None:
+        if self._window is None:
+            return
+        self._window.hide()
+        self._hidden = True
+        logs.log.info("окно: спрятано в трей")
+        if not self._told_hidden and self._tray is not None:
+            self._told_hidden = True
+            self._tray.notify(t("Trackhound работает в фоне"),
+                              t("Загрузки и слежение продолжаются. Открыть окно или выйти — через значок у часов"))
+
+    def show_window(self) -> None:
+        if self._window is None:
+            return
+        self._window.show()
+        self._window.restore()  # a minimized window comes back to its size
+        self._hidden = False
+
+    def quit(self) -> None:
+        """Ends the program, from the tray's menu."""
+        self._quitting = True
+        self._close_window()
+
+    def _announce(self) -> None:
+        """Tells how the downloads went, once the queue has run empty, when
+        nobody is looking at the window: it is in the tray, minimized or behind others."""
+        with self._lock:
+            finished, self._finished = self._finished, []
+        if not finished or (self._focused and not self._hidden) or not _load_settings()["notify"]:
+            return
+        title, text = _notice(finished)
+        if self._tray is not None and self._tray.shown:
+            self._tray.notify(title, text)
+        elif not tray.SUPPORTED:
+            tray.notify_elsewhere(title, text)
 
     def choose_folder(self, current: str) -> str | None:
         start = current if current and Path(current).is_dir() else str(Path.home())
@@ -610,6 +694,9 @@ class Api:
         replace it, and the update stopped with the new files beside the old
         program. So the exit is forced a moment later, whatever the window did.
         """
+        self._quitting = True  # the tray must not catch this close
+        if self._tray is not None:
+            self._tray.close()
         threading.Timer(3.0, _exit_now).start()
         try:
             if self._window is not None:
@@ -745,6 +832,7 @@ class Api:
             with self._lock:
                 if self._jobs.empty():
                     self._worker = None
+                    threading.Thread(target=self._announce, daemon=True).start()
                     return
                 job, link, options = self._jobs.get_nowait()
                 self._stop.clear()  # a stop cancels only what was started or queued before it
@@ -756,6 +844,7 @@ class Api:
         # are far too many to write the file on each one, so the states are kept
         # here and saved once, when the job is over.
         tracks: dict[str, dict] = {}
+        names = {"title": link}  # the release's own name once it is known, for the notice
 
         def finished_tracks() -> list[dict]:
             return [dict(item, state="cancel") if item["state"] in UNFINISHED else item
@@ -765,6 +854,7 @@ class Api:
             self._events.put({"job": job, **event})
             kind = event.get("type")
             if kind == "release":  # the card's title and tracklist, kept for next time
+                names["title"] = event["title"]
                 tracks.clear()
                 for item in event["tracks"]:
                     tracks[item["id"]] = {**item, "state": "waiting", "source": "", "text": ""}
@@ -804,6 +894,9 @@ class Api:
             emit(type="job", state="error", message=message, code=getattr(e, "code", ""))
             self._remember({"job": job, "state": "error", "message": message,
                             "tracks": finished_tracks()})
+            if not self._stop.is_set():
+                with self._lock:
+                    self._finished.append({"title": names["title"], "state": "error", "message": message})
             return
         state = "cancelled" if self._stop.is_set() else "done"
         counts = {"ok": len(report.ok), "skipped": len(report.skipped), "failed": len(report.failed),
@@ -812,6 +905,10 @@ class Api:
                         "tracks": finished_tracks(), **counts})
         quiet = self._finish_watch_check(job, state, counts)
         emit(type="job", state=state, dry_run=options.dry_run, quiet=quiet, **counts)
+        # A check that found nothing new, a trial run and a stopped one are not news
+        if state == "done" and not quiet and not options.dry_run:
+            with self._lock:
+                self._finished.append({"title": names["title"], "state": state, **counts})
 
 
     def _remember(self, entry: dict) -> None:
@@ -1275,9 +1372,42 @@ def _normalize(settings: dict) -> dict:
         "ask_doubtful": bool(settings.get("ask_doubtful", True)),
         # Lyrics from LRCLIB into the tags, synced ones into an .lrc beside the track
         "lyrics": bool(settings.get("lyrics", True)),
+        # Closing the window leaves the program in the tray while it has work (Windows)
+        "tray": bool(settings.get("tray", True)),
+        # A notice when downloads finish and the window is not in use
+        "notify": bool(settings.get("notify", True)),
         "profiles": _profiles(settings.get("profiles")),
         "library_view": settings.get("library_view") if settings.get("library_view") in LIBRARY_VIEWS else "grid",
     }
+
+
+def _tray_words() -> dict[str, str]:
+    return {"open": t("Открыть Trackhound"), "check": t("Проверить слежение сейчас"), "quit": t("Выход")}
+
+
+def _notice(finished: list[dict]) -> tuple[str, str]:
+    """The title and text of the notice about these finished releases."""
+    def counts(items: list[dict]) -> str:
+        total = {key: sum(item.get(key) or 0 for item in items) for key in ("ok", "skipped", "failed", "doubtful")}
+        parts = [t("скачано: {count}", count=total["ok"]) if total["ok"] else "",
+                 t("уже были: {count}", count=total["skipped"]) if total["skipped"] else "",
+                 t("не скачалось: {count}", count=total["failed"]) if total["failed"] else "",
+                 t("ждут выбора: {count}", count=total["doubtful"]) if total["doubtful"] else ""]
+        return ", ".join(filter(None, parts))
+
+    if len(finished) == 1:
+        item = finished[0]
+        if item["state"] == "error":
+            return t("Не скачалось: {title}", title=item["title"]), item.get("message", "")
+        whole = not item.get("failed") and not item.get("doubtful")
+        title = t("Скачано: {title}", title=item["title"]) if whole else t("Скачано не всё: {title}",
+                                                                          title=item["title"])
+        return title, counts([item])
+    errors = sum(item["state"] == "error" for item in finished)
+    text = counts(finished)
+    if errors:
+        text = ", ".join(filter(None, [text, t("ссылок с ошибкой: {count}", count=errors)]))
+    return t("Загрузки завершены: {count}", count=len(finished)), text
 
 
 def installer_command(setup: Path, pid: int) -> list[str]:
@@ -1509,4 +1639,6 @@ def main() -> None:
         background_color="#23212C" if dark else "#FDFDF6",  # matches --bg, so no flash before CSS loads
         text_select=True,
     )
+    api._window.events.closing += api._on_closing
+    api._sync_tray(_load_settings())
     webview.start(http_server=True)
