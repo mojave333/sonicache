@@ -177,7 +177,10 @@ const TRANSLATIONS = {
   // Track and job states
   "В очереди": "Queued",
   "Ищем": "Searching",
+  "Ищем везде": "Searching everywhere",
   "Качаем": "Downloading",
+  "Пробуем {source}": "Trying {source}",
+  "Конвертируем в {format}": "Converting to {format}",
   "Найден": "Found",
   "Уже есть": "Already here",
   "Не найден": "Not found",

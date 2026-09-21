@@ -14,10 +14,13 @@ const VIEWS = ["download", "library", "queue", "settings"];
 // What the backend accepts as a proxy; anything else is refused there anyway
 const PROXY_RE = /^(?:https?|socks4|socks5h?):\/\/[^\s/]+$/i;
 
+// Each step has a sign of its own. The turning tail is left to the waits that
+// have no number to show; where a bar counts, the arrow stands still.
 const TRACK_UI = {
   waiting: { label: "В очереди", icon: "dot", tone: "muted" },
-  search: { label: "Ищем", icon: "spinner", tone: "muted" },
-  download: { label: "Качаем", icon: "spinner", tone: "primary" },
+  search: { label: "Ищем", icon: "search", tone: "muted" },
+  download: { label: "Качаем", icon: "download", tone: "primary" },
+  convert: { label: "Конвертируем в {format}", icon: "spinner", tone: "primary" },
   done: { label: "Готово", icon: "check", tone: "success" },
   found: { label: "Найден", icon: "check", tone: "success" },
   skip: { label: "Уже есть", icon: "check", tone: "muted" },
@@ -25,7 +28,9 @@ const TRACK_UI = {
   error: { label: "Ошибка", icon: "alert", tone: "danger" },
   cancel: { label: "Отменён", icon: "stop", tone: "muted" },
 };
-const TRACK_ACTIVE = new Set(["waiting", "search", "download"]);
+const TRACK_ACTIVE = new Set(["waiting", "search", "download", "convert"]);
+// The signs of a step under way: a tick that follows one of them draws itself in
+const BUSY_ICONS = new Set(["spinner", "search", "download", "level"]);
 const TRACK_FAILED = new Set(["missing", "error"]);
 
 const QUEUE_FILTERS = {
@@ -965,7 +970,10 @@ function renderJob(job) {
   const note = $(".note", node);
   note.textContent = job.note || "";
   note.hidden = !job.note || job.state === "error";
-  setStatusCell($(".cell-status", node), status);
+  // The card's arrow drops once for each track that lands in the folder
+  const landed = job.done > (job.shownDone ?? job.done);
+  job.shownDone = job.done;
+  setStatusCell($(".cell-status", node), { ...status, drop: landed });
 
   const finished = !ACTIVE.has(job.state);
   const retry = $(".retry", node);
@@ -989,13 +997,15 @@ function renderJob(job) {
 function jobStatus(job) {
   switch (job.state) {
     case "running": {
+      // Until the page behind the link is read there is nothing to count: the
+      // tail turns, and the bar waits empty for the number
       if (!job.total) {
-        return { icon: "spinner", tone: "muted", progress: "indeterminate",
+        return { icon: "spinner", tone: "muted", progress: 0,
                  text: t(job.stopping ? "Останавливаем…" : "Читаем ссылку…") };
       }
       const ratio = jobProgress(job);
-      const text = job.stopping ? t("Останавливаем…") : jobStage(job, ratio);
-      return { icon: "spinner", tone: "primary", text, progress: ratio };
+      const stage = job.stopping ? { icon: "spinner", text: t("Останавливаем…") } : jobStage(job, ratio);
+      return { ...stage, tone: "primary", progress: ratio };
     }
     case "done": {
       const { ok, skipped } = job.result;
@@ -1021,37 +1031,86 @@ function jobStatus(job) {
 // Measuring the loudness comes last and runs for the album as a whole, so it
 // speaks for the card; before the first track arrives there is only the search.
 function jobStage(job, ratio) {
-  if (job.loudness) return t("Выравниваем громкость");
+  if (job.loudness) return { icon: "level", text: t("Выравниваем громкость") };
   const states = [...job.tracks.values()].map((track) => track.state);
-  if (!job.done && !states.includes("download")) {
-    return states.includes("search") ? t("Ищем источник") : t("В очереди");
+  if (!job.done && !states.some((name) => name === "download" || name === "convert")) {
+    return states.includes("search") ? { icon: "search", text: t("Ищем источник") }
+                                     : { icon: "dot", text: t("В очереди") };
   }
-  return t("{done} из {total} · {percent}%",
-           { done: job.done, total: job.total, percent: Math.floor(ratio * 100) });
+  return { icon: "download", text: t("{done} из {total} · {percent}%",
+           { done: job.done, total: job.total, percent: Math.floor(ratio * 100) }) };
 }
 
 function jobProgress(job) {
   let downloading = 0;
   for (const track of job.tracks.values()) {
     if (track.state === "download") downloading += track.percent / 100;
+    else if (track.state === "convert") downloading += 1; // the stream is all in
   }
   return Math.min(1, (job.done + downloading) / job.total);
 }
 
-function setStatusCell(cell, { icon, text, tip = "", progress }) {
+function setStatusCell(cell, { icon, text, tip = "", progress, drop = false }) {
   const statusIcon = $(".status-icon", cell);
-  $("use", statusIcon).setAttribute("href", `#i-${icon}`);
-  statusIcon.classList.toggle("spin", icon === "spinner");
+  const before = statusIcon.dataset.icon;
+  if (before !== icon) {
+    drawIcon(statusIcon, icon);
+    // A tick after work seen under way draws itself in; one read back from
+    // the history is simply there
+    if (icon === "check" && BUSY_ICONS.has(before)) drawTick(statusIcon);
+  } else if (drop && icon === "download") {
+    dropArrow(statusIcon);
+  }
   $(".status-text", cell).textContent = text;
   cell.title = tip;
   const bar = $(".bar", cell);
   bar.hidden = progress === undefined;
-  bar.classList.toggle("indeterminate", progress === "indeterminate");
   if (typeof progress === "number") {
     bar.style.setProperty("--p", progress);
     bar.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
   }
 }
+
+// The icon is copied out of its symbol rather than shown through <use>, so
+// that its parts can move on their own: the bars level, the arrow drops, the
+// tick draws itself in.
+function drawIcon(svg, name) {
+  const symbol = document.getElementById(`i-${name}`);
+  svg.setAttribute("viewBox", symbol.getAttribute("viewBox"));
+  svg.replaceChildren(...[...symbol.children].map((node) => node.cloneNode(true)));
+  svg.dataset.icon = name;
+}
+
+// Once for a piece that has really arrived, and no oftener than the eye can
+// follow: a download that stalls leaves the arrow standing, which a loop
+// turning on its own could never show.
+function dropArrow(svg) {
+  const now = performance.now();
+  if (reduceMotion() || now - Number(svg.dataset.dropped || 0) < 700) return;
+  svg.dataset.dropped = String(now);
+  $(".drop", svg).animate(
+    [{ transform: "none" }, { transform: "translateY(2.5px)", offset: 0.35 }, { transform: "none" }],
+    { duration: 320, easing: "ease-in-out" });
+}
+
+function drawTick(svg) {
+  if (reduceMotion() || !svg.getClientRects().length) return; // a folded row has nobody to see it
+  const path = $("path", svg);
+  const length = `${path.getTotalLength()}`;
+  path.animate([{ strokeDasharray: length, strokeDashoffset: length },
+                { strokeDasharray: length, strokeDashoffset: "0" }],
+               { duration: 260, easing: EMPHASIZED });
+}
+
+// Signs that start at different moments would each keep a phase of their own;
+// set to one clock, the rows turn and level together, as one machine does.
+const IN_STEP = new Set(["spin", "sniff", "level-a", "level-b", "level-c"]);
+document.addEventListener("animationstart", (event) => {
+  if (!IN_STEP.has(event.animationName)) return;
+  for (const animation of event.target.getAnimations()) {
+    if (animation.animationName === event.animationName) animation.startTime = 0;
+  }
+});
 
 async function pollLoop() {
   try {
@@ -1203,7 +1262,8 @@ function createTrackRow(track, artists, release = "") {
 function onTrack(job, event) {
   const track = job.tracks.get(event.id);
   if (!track) return;
-  Object.assign(track, { state: event.state, text: event.text || "", percent: event.percent || 0 });
+  Object.assign(track, { state: event.state, text: event.text || "", percent: event.percent || 0,
+                         wide: Boolean(event.wide), retry: Boolean(event.retry) });
   if (event.source) track.source = event.source;
   if (event.state !== "skip" && state.run?.jobs.has(job.id) && !state.run.workStart) state.run.workStart = Date.now();
   renderTrack(track);
@@ -1211,9 +1271,11 @@ function onTrack(job, event) {
 
 function renderTrack(track) {
   const ui = TRACK_UI[track.state] || TRACK_UI.waiting;
-  const label = t(ui.label);
+  const label = trackLabel(track, ui);
   const note = trackNote(track);
   const downloading = track.state === "download";
+  const drop = downloading && track.percent > (track.shownPercent || 0);
+  track.shownPercent = downloading ? track.percent : 0;
   for (const row of [track.row, track.queueRow]) {
     row.className = `row track tone-${ui.tone}`;
     const sub = $(".sub", row);
@@ -1225,9 +1287,20 @@ function renderTrack(track) {
       text: downloading ? `${label} ${track.percent}%` : label,
       tip: track.state === "skip" ? t("Файл уже есть в папке") : "",
       progress: downloading ? track.percent / 100 : undefined,
+      drop,
     });
   }
   track.queueRow.hidden = !QUEUE_FILTERS[state.queueFilter](track);
+}
+
+// Which turn the step has taken: the second search, over every source, or a
+// source tried after the first one refused
+function trackLabel(track, ui) {
+  if (track.state === "search" && track.wide) return t("Ищем везде");
+  if (track.state === "download" && track.retry && track.source) {
+    return t("Пробуем {source}", { source: track.source });
+  }
+  return t(ui.label, { format: track.job.format });
 }
 
 function trackNote({ state: name, text }) {

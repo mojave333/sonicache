@@ -135,8 +135,9 @@ the field. The arrow beside "Download" switches to "only check what would be fou
 downloads nothing.
 
 Each link becomes a row with its cover and overall progress. Clicking it opens the tracks
-and their state: searching, downloading (with percentages), done, already in the folder, not
-found or failed, and where the audio came from. Links added while a download runs join the
+and their state: searching (and searching everywhere, when the quick search found nothing),
+downloading with percentages, trying another source when the first one refused, converting,
+done, already in the folder, not found or failed, and where the audio came from. Links added while a download runs join the
 queue. "Pause" holds the queue between tracks, so what is downloading finishes and nothing
 new starts. "Stop" interrupts, and the retry button on a row picks up what is left. Closing
 the window loses nothing: unfinished links and the list of what was downloaded come back on

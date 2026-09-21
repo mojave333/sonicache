@@ -43,7 +43,7 @@ SETTINGS_FILE = Path.home() / ".trackhound.json"
 HISTORY_LIMIT = 100  # releases remembered between runs
 # Track states that mean "not finished": a job that ends while a track is in
 # one of them was interrupted, and the saved card should say so.
-UNFINISHED = {"waiting", "search", "download"}
+UNFINISHED = {"waiting", "search", "download", "convert"}
 REPO = "mojave333/trackhound"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"

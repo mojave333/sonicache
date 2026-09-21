@@ -170,8 +170,6 @@ p { margin: 0; }
   fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round;
 }
 .icon.sm { width: 16px; height: 16px; stroke-width: 2; }
-.spin { animation: spin 0.9s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Frame */
 /* The single row is capped at the window height, so long lists scroll inside
@@ -447,11 +445,28 @@ p { margin: 0; }
   clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 0 100%);
   transition: width 260ms var(--ease);
 }
-.bar.indeterminate .bar-fill { width: 34%; animation: indeterminate 1.3s ease-in-out infinite; }
-@keyframes indeterminate {
-  from { transform: translateX(-110%); }
-  to { transform: translateX(300%); }
+
+/* The sign of each step, copied out of its symbol (drawIcon) so the parts
+   inside can move. The tail turns where no number is known; the glass circles
+   as if on the trail; the bars of the loudness come to one height. */
+.status-icon[data-icon="spinner"] { animation: spin 0.9s linear infinite; }
+.status-icon[data-icon="search"] { animation: sniff 1.6s linear infinite; }
+.status-icon[data-icon="level"] path {
+  transform-box: fill-box; transform-origin: 50% 100%; animation: 1.8s ease-in-out infinite;
 }
+.status-icon[data-icon="level"] path:nth-child(1) { animation-name: level-a; }
+.status-icon[data-icon="level"] path:nth-child(2) { animation-name: level-b; }
+.status-icon[data-icon="level"] path:nth-child(3) { animation-name: level-c; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Matching lists interpolate function by function: the turn and the turn back
+   cancel out, and the offset between them draws a circle */
+@keyframes sniff {
+  from { transform: rotate(0deg) translateX(1.5px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(1.5px) rotate(-360deg); }
+}
+@keyframes level-a { 0%, 100% { transform: scaleY(1.6); } 45%, 80% { transform: none; } }
+@keyframes level-b { 0%, 100% { transform: scaleY(0.5); } 45%, 80% { transform: none; } }
+@keyframes level-c { 0%, 100% { transform: scaleY(1.25); } 45%, 80% { transform: none; } }
 
 /* Downloads */
 .job-row { grid-template-columns: 24px 34px minmax(0, 1fr) auto 210px 72px; }
@@ -721,9 +736,11 @@ p { margin: 0; }
 }
 
 /* Reduced motion is not "no feedback": movement goes, fades and the spinner
-   stay, so it is still clear that something is happening. */
+   stay, so it is still clear that something is happening. The glass and the
+   bars stand still: the bars as they end up, level. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; }
+  .status-icon[data-icon="search"], .status-icon[data-icon="level"] path { animation: none; }
   .job, .view { animation: fade-in var(--quick) ease-out; }
   .btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
   .nav-item:active, .stepper button:active { transform: none; }

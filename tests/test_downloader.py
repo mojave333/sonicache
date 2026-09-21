@@ -378,3 +378,77 @@ class TestFormats:
 
     def test_mp3_comes_first_and_is_the_default(self, tmp_path):
         assert downloader.FORMATS[0] == "mp3" == Options(tmp_path).audio_format
+
+
+class TestSteps:
+    """What the window is told while a track goes through the downloader."""
+
+    def loader(self, tmp_path, events):
+        return downloader.Downloader(Options(tmp_path), log=lambda message: None,
+                                     events=lambda kind, data: events.append(data))
+
+    def match(self, url="https://music.youtube.test/watch?v=x"):
+        return downloader.Match(source="song", url=url, page_url="", title="T", artists="A",
+                                duration=200, score=1.0)
+
+    def download(self, monkeypatch, tmp_path, ffmpeg="ffmpeg", retry=False):
+        class FakeYoutubeDL:
+            def __init__(self, opts):
+                self.hooks = opts["progress_hooks"]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def download(self, urls):
+                for status in ({"status": "downloading", "downloaded_bytes": 50, "total_bytes": 100},
+                               {"status": "finished", "total_bytes": 100}):
+                    for hook in self.hooks:
+                        hook(status)
+                (tmp_path / "stem.mp3").write_bytes(b"audio")
+
+        monkeypatch.setattr(downloader.yt_dlp, "YoutubeDL", FakeYoutubeDL)
+        events = []
+        loader = self.loader(tmp_path, events)
+        loader.ffmpeg = ffmpeg
+        track = Track(id="1", title="T", artists="A", duration=200, track_number=1)
+        loader._download_audio(self.match(), tmp_path, "stem", track, "YouTube Music", retry)
+        return [(event["state"], event.get("percent"), event.get("retry")) for event in events]
+
+    def test_the_conversion_is_named_once_the_stream_is_in(self, monkeypatch, tmp_path):
+        assert self.download(monkeypatch, tmp_path) == [("download", 50, False), ("convert", None, None)]
+
+    def test_without_ffmpeg_there_is_no_conversion_to_name(self, monkeypatch, tmp_path):
+        assert self.download(monkeypatch, tmp_path, ffmpeg=None) == [("download", 50, False)]
+
+    def test_a_download_from_a_second_source_says_so(self, monkeypatch, tmp_path):
+        assert self.download(monkeypatch, tmp_path, retry=True)[0] == ("download", 50, True)
+
+    def test_the_second_search_is_the_wide_one(self, tmp_path):
+        events = []
+        loader = self.loader(tmp_path, events)
+        loader.matcher = type("Matcher", (), {"find_all": lambda self, track, album, wide: []})()
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        loader._process(album(), track, tmp_path, False, None)
+        assert [(event["state"], event.get("wide")) for event in events] == [
+            ("search", False), ("search", True), ("missing", None)]
+
+    def test_the_source_after_a_refusal_is_fetched_as_a_retry(self, tmp_path):
+        events = []
+        loader = self.loader(tmp_path, events)
+        matches = [self.match("https://first.test"), self.match("https://second.test")]
+        loader.matcher = type("Matcher", (), {"find_all": lambda self, track, album, wide: list(matches)})()
+        fetched = []
+
+        def fetch(match, folder, stem, track, source, retry=False):
+            fetched.append((match.url, retry))
+            if len(fetched) == 1:
+                raise DownloaderError("refused")
+            raise downloader.DownloadCancelled("enough")
+
+        loader._fetch = fetch
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        loader._process(album(), track, tmp_path, False, None)
+        assert fetched == [("https://first.test", False), ("https://second.test", True)]

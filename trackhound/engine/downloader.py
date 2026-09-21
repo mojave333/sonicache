@@ -274,7 +274,7 @@ class Downloader:
             nonlocal pool, searches
             while not pool and searches < 2:
                 searches += 1
-                self._track_event(track, "search")
+                self._track_event(track, "search", wide=searches == 2)
                 pool = [found for found in self.matcher.find_all(track, album, searches == 2)
                         if found.url not in tried]
             if not pool:
@@ -299,9 +299,10 @@ class Downloader:
                            wanted=_mmss(track.duration), score=match.score, url=match.page_url))
                 self._track_event(track, "found", f"{match.artists} — {match.title}", source)
                 return "ok", label
+            retry = False  # a source after the first one that refused
             while True:
                 try:
-                    path = self._fetch(match, folder, stem, track, source)
+                    path = self._fetch(match, folder, stem, track, source, retry)
                     break
                 except DownloadCancelled:
                     raise
@@ -316,6 +317,7 @@ class Downloader:
                                source=source or t("исходной ссылки"), error=_error_text(e)))
                     _clear_partials(folder, stem)
                     match, source = following, t(SOURCE_NAMES.get(following.source, "")) or album.service
+                    retry = True
             _write_tags(path, album, track, cover)
             os.replace(path, target)
         except DownloadCancelled:
@@ -358,13 +360,15 @@ class Downloader:
             self.log(t("♫ Громкость измерена: {count}", count=measured))
         self.events("loudness", {"state": "done", "measured": measured})
 
-    def _fetch(self, match: Match, folder: Path, stem: str, track: Track, source: str) -> Path:
-        self._track_event(track, "download", source=source, percent=0)
-        path = self._download_audio(match, folder, stem, track, source)
+    def _fetch(self, match: Match, folder: Path, stem: str, track: Track, source: str,
+               retry: bool = False) -> Path:
+        self._track_event(track, "download", source=source, percent=0, retry=retry)
+        path = self._download_audio(match, folder, stem, track, source, retry)
         _check_duration(path, track)
         return path
 
-    def _download_audio(self, match: Match, folder: Path, stem: str, track: Track, source: str) -> Path:
+    def _download_audio(self, match: Match, folder: Path, stem: str, track: Track, source: str,
+                        retry: bool = False) -> Path:
         audio_format = self.options.audio_format
         reported = -1
 
@@ -377,7 +381,10 @@ class Downloader:
                 percent = min(99, int(status.get("downloaded_bytes", 0) * 100 / total))
                 if percent >= reported + 5:  # the window does not need every chunk
                     reported = percent
-                    self._track_event(track, "download", source=source, percent=percent)
+                    self._track_event(track, "download", source=source, percent=percent, retry=retry)
+            elif status.get("status") == "finished" and self.ffmpeg:
+                # The stream is in; ffmpeg now makes the file, and it gives no percent
+                self._track_event(track, "convert", source=source)
 
         if match.source == "soundcloud":
             format_spec = "bestaudio/best"  # AAC 160k when available; previews rank last
