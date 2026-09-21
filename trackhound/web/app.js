@@ -261,8 +261,8 @@ function renderSettings() {
   $("#folder-layout").value = settings.folder_name;
   if ($("#proxy") !== document.activeElement) $("#proxy").value = settings.proxy;
   if ($("#relay") !== document.activeElement) $("#relay").value = settings.relay;
-  // An empty field is the program's own relay: its address shows through
-  $("#relay").placeholder = state.relayDefault || t("не задано");
+  // An empty field is the program's own relay; its address is nobody's business here
+  $("#relay").placeholder = t(state.relayDefault ? "встроенное" : "не задано");
   $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
   renderStatusBar();
