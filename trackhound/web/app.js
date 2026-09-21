@@ -199,6 +199,7 @@ function showWelcome() {
   };
   const start = () => {
     $("#welcome-folder").removeEventListener("click", choose);
+    document.documentElement.classList.remove("welcoming");
     if (dialog.open) dialog.close();
     api().save_settings(state.settings);
     $("#link")?.focus();
@@ -206,6 +207,7 @@ function showWelcome() {
   $("#welcome-folder").addEventListener("click", choose);
   $("#welcome-start").addEventListener("click", start, { once: true });
   dialog.addEventListener("cancel", start, { once: true }); // Escape starts too: nothing here must be decided
+  document.documentElement.classList.add("welcoming");
   dialog.showModal();
   $("#welcome-start").focus();
 }
