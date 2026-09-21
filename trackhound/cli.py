@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import __version__, logs
 from .i18n import LANGUAGES, set_language, t
-from .engine import batch
+from .engine import batch, network
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
                                 Options, use_proxy)
 
@@ -81,7 +81,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--replaygain", action="store_true",
                         help=t("измерить громкость и записать теги ReplayGain; сам звук не меняется"))
     parser.add_argument("--check", action="store_true",
-                        help=t("показать версию и какие ffmpeg и Deno нашлись, ничего не скачивая"))
+                        help=t("показать версию, какие ffmpeg и Deno нашлись и что открывается из этой "
+                               "сети, ничего не скачивая"))
     args = parser.parse_args(argv)
     logs.setup(console=False)  # warnings already reach the console as text
 
@@ -101,6 +102,15 @@ def main(argv: list[str] | None = None) -> int:
         print(t("журнал: {path}", path=logs.log_file()))
         for problem in downloader.environment_problems():
             print(f"⚠ {problem}")
+        print(t("проверяем сеть…"), flush=True)
+        reach = network.check()
+        words = {"ok": t("открывается"), "previews": t("плеер закрыт, релизы — со страниц-превью"),
+                 "down": t("не открывается")}
+        for name, key in (("Spotify", "spotify"), ("YouTube", "youtube"), ("SoundCloud", "soundcloud")):
+            print(f"{name}: {words[reach[key]]}")
+        for proxy in reach["proxies"]:
+            print(t("прокси {client}: {url} (Spotify через него: {state}) — --proxy {url}",
+                    client=proxy["client"], url=proxy["url"], state=words[proxy["spotify"]]))
         return 0
     for list_file in args.from_file:
         try:

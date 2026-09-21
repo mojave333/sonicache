@@ -34,7 +34,7 @@ from mutagen.flac import Picture
 
 from . import __version__, logs, watch
 from .i18n import LANGUAGES, resolve, set_language, t
-from .engine import batch, sources
+from .engine import batch, network, sources
 from .engine.models import SourceError
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, use_proxy)
@@ -302,6 +302,12 @@ class Api:
     def open_logs(self) -> bool:
         logs.log_dir().mkdir(parents=True, exist_ok=True)
         return self.open_folder(str(logs.log_file() if logs.log_file().exists() else logs.log_dir()))
+
+    def check_network(self) -> dict:
+        """What this network lets through, and the VPN client proxies found here."""
+        result = network.check()
+        logs.log.info("сеть: %s", json.dumps(result, ensure_ascii=False))
+        return result
 
     def copy(self, text: str) -> bool:
         return _copy_to_clipboard(text)

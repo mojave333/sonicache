@@ -42,8 +42,15 @@ ENGLISH.update({
     "прокси для метаданных и загрузки: http://127.0.0.1:1080, socks5://…":
         "proxy for metadata and downloads: http://127.0.0.1:1080, socks5://…",
     "язык интерфейса и сообщений": "language of the interface and the messages",
-    "показать версию и какие ffmpeg и Deno нашлись, ничего не скачивая":
-        "print the version and which ffmpeg and Deno were found, download nothing",
+    "показать версию, какие ffmpeg и Deno нашлись и что открывается из этой сети, ничего не скачивая":
+        "print the version, which ffmpeg and Deno were found and what opens from this network, "
+        "download nothing",
+    "проверяем сеть…": "checking the network…",
+    "открывается": "opens",
+    "плеер закрыт, релизы — со страниц-превью": "the player is closed, releases come from the preview pages",
+    "не открывается": "does not open",
+    "прокси {client}: {url} (Spotify через него: {state}) — --proxy {url}":
+        "{client} proxy: {url} (Spotify through it: {state}) — --proxy {url}",
     "АДРЕС": "ADDRESS",
     "БРАУЗЕР": "BROWSER",
     "СКОРОСТЬ": "SPEED",

@@ -292,6 +292,76 @@ async function copyReport() {
   setTimeout(() => { button.textContent = t("Скопировать отчёт"); }, 2000);
 }
 
+// What this network lets through. Where services are blocked the program
+// still does what it can — Spotify's preview pages instead of its player,
+// SoundCloud instead of YouTube — and a VPN client's proxy, when one is
+// running here, is one click away.
+const NETWORK_WORDS = {
+  spotify: {
+    ok: "Spotify — плеер открывается",
+    previews: "Spotify — плеер закрыт для этой сети. Альбомы и треки соберутся со страниц-превью, из плейлиста — только первые 30 треков",
+    down: "Spotify — не открывается. Вставляйте ссылки из Apple Music, Deezer или YouTube Music или пишите «Исполнитель - Альбом»",
+  },
+  youtube: {
+    ok: "YouTube — открывается",
+    down: "YouTube — не открывается: звук будет только с SoundCloud, а там есть не всё",
+  },
+  soundcloud: { ok: "SoundCloud — открывается", down: "SoundCloud — не открывается" },
+};
+const PROXY_SPOTIFY = { ok: "плеер открывается", previews: "только страницы-превью", down: "не открывается" };
+const NETWORK_TONES = { ok: "ok", previews: "warn", down: "bad" };
+const NETWORK_ICONS = { ok: "check", warn: "alert", bad: "x" };
+
+async function checkNetwork() {
+  const button = $("#network-check");
+  const desc = $("#network-desc");
+  desc.dataset.text ??= desc.textContent;
+  button.disabled = true;
+  desc.textContent = t("Проверяем…");
+  try {
+    renderNetwork(await api().check_network());
+  } finally {
+    button.disabled = false;
+    desc.textContent = desc.dataset.text;
+  }
+}
+
+function renderNetwork(result) {
+  const rows = ["spotify", "youtube", "soundcloud"].map((service) =>
+    networkRow(NETWORK_TONES[result[service]], t(NETWORK_WORDS[service][result[service]])));
+  for (const proxy of result.proxies) {
+    const row = networkRow(NETWORK_TONES[proxy.spotify],
+      t("Прокси {client}: {url}. Spotify через него — {state}",
+        { client: proxy.client, url: proxy.url, state: t(PROXY_SPOTIFY[proxy.spotify]) }));
+    if (proxy.url === state.settings.proxy) {
+      row.append(Object.assign(document.createElement("span"), { className: "net-note", textContent: t("включён") }));
+    } else {
+      const use = Object.assign(document.createElement("button"), {
+        type: "button", className: "tool-btn", textContent: t("Использовать"),
+      });
+      use.addEventListener("click", () => {
+        updateSettings({ proxy: proxy.url });
+        checkNetwork(); // the same check again, now through the proxy
+      });
+      row.append(use);
+    }
+    rows.push(row);
+  }
+  if (!result.proxies.length) {
+    rows.push(networkRow("", t("Прокси VPN-клиента на этом компьютере не найден. VPN в режиме TUN или "
+      + "«системного прокси» программа использует сама; иначе впишите адрес прокси выше")));
+  }
+  $("#network-list").replaceChildren(...rows);
+}
+
+function networkRow(tone, text) {
+  const row = document.createElement("li");
+  row.className = `net-item${tone ? ` ${tone}` : ""}`;
+  row.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#i-${NETWORK_ICONS[tone] || "dot"}"/></svg><span></span>`;
+  $("span", row).textContent = text;
+  return row;
+}
+
 function applyTheme() {
   const choice = state.settings ? state.settings.theme : "system";
   const dark = choice === "dark" || (choice === "system" && darkMedia.matches);
@@ -593,6 +663,7 @@ function bindUi() {
   $("#status-problems").addEventListener("click", () => showView("settings"));
   $("#log-open").addEventListener("click", () => api().open_logs());
   $("#log-copy").addEventListener("click", copyReport);
+  $("#network-check").addEventListener("click", checkNetwork);
 
   $("#library-filter").addEventListener("input", renderLibrary);
   $("#library-refresh").addEventListener("click", loadLibrary);

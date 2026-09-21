@@ -655,6 +655,15 @@ p { margin: 0; }
 .setting-label { flex: 1 1 240px; min-width: 0; }
 .setting-desc { color: var(--text-subtle); font-size: 13px; }
 .env-list { margin: 0; padding: 0; list-style: none; user-select: text; }
+.net-list { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; user-select: text; }
+.net-list:empty { display: none; }
+.net-item { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; }
+.net-item > span:not(.net-note) { flex: 1 1 220px; min-width: 0; }
+.net-item .icon { align-self: flex-start; margin-top: 1px; color: var(--text-subtle); }
+.net-item.ok .icon { color: var(--success); }
+.net-item.warn .icon { color: var(--warning); }
+.net-item.bad .icon { color: var(--danger); }
+.net-note { color: var(--text-subtle); }
 .env-list:empty { display: none; }
 #env-icon { align-self: flex-start; margin-top: 2px; color: var(--success); }
 #env-icon.warn { color: var(--warning); }

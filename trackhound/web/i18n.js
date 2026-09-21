@@ -320,6 +320,27 @@ const TRANSLATIONS = {
   "Сборке {days} {dayWord} — YouTube за это время обычно успевает смениться. Если загрузки перестали работать, обновите Trackhound":
     "This build is {days} {dayWord} old — YouTube usually changes within that. "
     + "If downloads stopped working, update Trackhound",
+  "Доступ к сервисам": "Access to the services",
+  "Что открывается из этой сети — Spotify, YouTube, SoundCloud, — и нет ли на компьютере прокси VPN-клиента":
+    "What opens from this network — Spotify, YouTube, SoundCloud — and whether a VPN client's proxy runs on this computer",
+  "Spotify — плеер открывается": "Spotify — the player opens",
+  "Spotify — плеер закрыт для этой сети. Альбомы и треки соберутся со страниц-превью, из плейлиста — только первые 30 треков":
+    "Spotify — the player is closed to this network. Albums and tracks are put together from the preview pages; of a playlist, only the first 30 tracks",
+  "Spotify — не открывается. Вставляйте ссылки из Apple Music, Deezer или YouTube Music или пишите «Исполнитель - Альбом»":
+    "Spotify — does not open. Paste links from Apple Music, Deezer or YouTube Music, or type “Artist - Album”",
+  "YouTube — открывается": "YouTube — opens",
+  "YouTube — не открывается: звук будет только с SoundCloud, а там есть не всё":
+    "YouTube — does not open: the audio can only come from SoundCloud, which does not have everything",
+  "SoundCloud — открывается": "SoundCloud — opens",
+  "SoundCloud — не открывается": "SoundCloud — does not open",
+  "плеер открывается": "the player opens",
+  "только страницы-превью": "only the preview pages",
+  "не открывается": "does not open",
+  "Прокси {client}: {url}. Spotify через него — {state}": "{client} proxy: {url}. Spotify through it — {state}",
+  "включён": "in use",
+  "Использовать": "Use it",
+  "Прокси VPN-клиента на этом компьютере не найден. VPN в режиме TUN или «системного прокси» программа использует сама; иначе впишите адрес прокси выше":
+    "No VPN client proxy was found on this computer. A VPN in TUN or “system proxy” mode is used by the program by itself; otherwise write the proxy address above",
   "Журнал работы": "Log",
   "Подробности загрузок и ошибок — здесь. Никуда не отправляется":
     "The detail of downloads and errors lives here. It is never sent anywhere",
