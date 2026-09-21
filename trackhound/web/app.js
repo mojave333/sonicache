@@ -1794,11 +1794,18 @@ function renderLibrary({ enter = false } = {}) {
   const query = $("#library-filter").value.trim();
   let [title, text] = [t("Ничего не найдено"), t("По запросу «{query}»", { query })];
   const loading = library.loading || (tab === "tracks" && library.trackList.loading);
+  // The aardvark by an empty crate for an empty folder, among dug-up holes for a
+  // search that turned nothing up, and nowhere while the folder is still being read
+  let scene = "art/nothing-found.webp";
   if (!library.items.length || (tab === "tracks" && !library.trackList.items.length)) {
     [title, text] = loading ? [t("Читаем папку…"), ""] : [t("В папке пока нет музыки"), state.settings.folder];
+    scene = loading ? "" : "art/empty-library.webp";
   }
   $(".empty-title", empty).textContent = title;
   $(".empty-text", empty).textContent = text;
+  const picture = $(".scene", empty);
+  picture.hidden = !scene;
+  if (scene && picture.getAttribute("src") !== scene) picture.setAttribute("src", scene);
 }
 
 function libraryQuery() {
