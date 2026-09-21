@@ -139,8 +139,7 @@ ENGLISH = {
     "= Уже есть: {name}": "= Already here: {name}",
     "✗ Не найдено ни на YouTube Music, ни на SoundCloud: {label}":
         "✗ Found on neither YouTube Music nor SoundCloud: {label}",
-    "{label}: не найдено ни на YouTube Music, ни на SoundCloud":
-        "{label}: found on neither YouTube Music nor SoundCloud",
+    "не найдено ни на YouTube Music, ни на SoundCloud": "found on neither YouTube Music nor SoundCloud",
     "! {label}: не скачалось с {source} ({error}), пробую другой источник":
         "! {label}: {source} would not hand it over ({error}), trying another source",
     "исходной ссылки": "the original link",

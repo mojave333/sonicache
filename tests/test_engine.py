@@ -1,6 +1,7 @@
 """The engine stays a library: usable without the window and the command line."""
 
 import ast
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -45,3 +46,42 @@ def test_the_program_adds_its_lines_to_the_engine_table():
     assert i18n.ENGLISH is engine.i18n.ENGLISH
     assert "Плейлист пуст или закрыт" in i18n.ENGLISH  # the engine's
     assert "не используются" in i18n.ENGLISH  # the program's
+
+
+class TestErrorCodes:
+    """Errors say what happened to a program as well as to a person."""
+
+    def test_every_code_the_engine_uses_is_explained(self):
+        from trackhound.engine import downloader
+
+        source = "\n".join(path.read_text(encoding="utf-8") for path in ENGINE.glob("*.py"))
+        used = set(re.findall(r'\.of\(\s*"(\w+)"', source))
+        used |= set(re.findall(r'Error\(\w+, "(\w+)"\)', source))
+        used |= set(re.findall(r'Failure\(track, "(\w+)"', source))
+        used |= set(re.findall(r'code="(\w+)"', source))
+        used |= {code for _, code, _ in downloader._KNOWN_ERRORS}
+        assert len(used) > 20  # the patterns above still find the calls
+        assert used <= set(engine.ERROR_CODES), used - set(engine.ERROR_CODES)
+
+    def test_no_error_is_raised_without_a_code(self):
+        for path in ENGINE.glob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                        and node.func.id in ("SourceError", "DownloaderError")):
+                    assert len(node.args) >= 2, f"{path.name}:{node.lineno}"
+
+    def test_the_code_and_values_are_kept_beside_the_sentence(self):
+        error = engine.SourceError.of("http_error", "{service} ответил HTTP {code}: {url}",
+                                      service="Deezer", code=503, url="https://api.deezer.com")
+        assert error.code == "http_error"  # a {code} in the sentence does not take its place
+        assert error.details == {"service": "Deezer", "code": 503, "url": "https://api.deezer.com"}
+        assert str(error) == "Deezer ответил HTTP 503: https://api.deezer.com"
+
+    def test_the_code_stays_when_the_language_changes(self):
+        engine.set_language("en")
+        error = engine.SourceError.of("empty", "Плейлист пуст или закрыт")
+        assert (error.code, str(error)) == ("empty", engine.i18n.ENGLISH["Плейлист пуст или закрыт"])
+
+    def test_an_error_made_the_old_way_still_works(self):
+        error = engine.DownloaderError("something broke")
+        assert (str(error), error.code, error.details) == ("something broke", "unknown", {})

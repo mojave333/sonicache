@@ -431,7 +431,10 @@ print(report.summary())
 What `trackhound.engine` exports is the public interface and keeps working across minor
 versions; the modules behind it may change in any release. The engine writes to the
 `trackhound` logger without setting up handlers, and speaks the system's language, Russian
-or English, until `set_language()` says otherwise.
+or English, until `set_language()` says otherwise. Errors carry a code beside the sentence,
+for a program to act on: `SourceError` and `DownloaderError` have `.code` and `.details`, and
+`report.failures` lists each failed track with its code. The codes stay the same in either
+language and across minor versions; `ERROR_CODES` says what each one means.
 
 A new version reaches PyPI together with the Windows release: the same `release.yml` run
 builds the package and publishes it through Trusted Publishing.

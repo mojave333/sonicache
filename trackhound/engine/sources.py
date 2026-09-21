@@ -76,10 +76,10 @@ def resolve(link: str) -> Release:
     if on("last.fm", "lastfm.ru"):
         return _lastfm(url, parts)
     if on("vk.com", "vk.ru", "vkontakte.ru"):
-        raise SourceError(t(
-            "VK показывает музыку только после входа в аккаунт, поэтому альбом по этой ссылке "
-            "не прочитать. Найдите этот релиз в Spotify, Apple Music, Deezer, YouTube или "
-            "SoundCloud и вставьте ссылку оттуда."))
+        raise SourceError.of("login_required",
+                             "VK показывает музыку только после входа в аккаунт, поэтому альбом по этой ссылке "
+                             "не прочитать. Найдите этот релиз в Spotify, Apple Music, Deezer, YouTube или "
+                             "SoundCloud и вставьте ссылку оттуда.")
     return _ytdlp(url)
 
 
@@ -104,7 +104,8 @@ def _apple(parts: urllib.parse.SplitResult) -> Release:
         return _apple_playlist(urllib.parse.urlunsplit(parts))
     m = _APPLE_PATH_RE.match(parts.path)
     if not m or m.group(2) not in ("album", "song"):
-        raise SourceError(t("Из Apple Music поддерживаются ссылки на альбомы, песни и плейлисты"))
+        raise SourceError.of("unsupported_link",
+                             "Из Apple Music поддерживаются ссылки на альбомы, песни и плейлисты")
     country = (m.group(1) or "us").lower()
     song_id = m.group(3) if m.group(2) == "song" else urllib.parse.parse_qs(parts.query).get("i", [""])[0]
     if not song_id:
@@ -112,13 +113,14 @@ def _apple(parts: urllib.parse.SplitResult) -> Release:
 
     songs = _itunes("lookup", id=song_id, country=country)
     if not songs:
-        raise SourceError(t("Apple Music не нашёл песню {id}: возможно, её нет в регионе {country}",
-                            id=song_id, country=country.upper()))
+        raise SourceError.of("not_found",
+                             "Apple Music не нашёл песню {id}: возможно, её нет в регионе {country}",
+                             id=song_id, country=country.upper())
     release = _apple_album(songs[0]["collectionId"], country)
     track = next((t for t in release.album.tracks if t.id == song_id), None)
     if track is None:
-        raise SourceError(t("Песни {id} нет в альбоме «{album}»",
-                            id=song_id, album=release.album.name))
+        raise SourceError.of("not_in_album", "Песни {id} нет в альбоме «{album}»",
+                             id=song_id, album=release.album.name)
     return Release(release.album, [track], single=True)
 
 
@@ -126,8 +128,9 @@ def _apple_album(collection_id: int | str, country: str = "us") -> Release:
     results = _itunes("lookup", id=collection_id, entity="song", country=country, limit=200)
     collection = next((r for r in results if r.get("wrapperType") == "collection"), None)
     if collection is None:
-        raise SourceError(t("Apple Music не нашёл альбом {id}: возможно, его нет в регионе {country}",
-                            id=collection_id, country=country.upper()))
+        raise SourceError.of("not_found",
+                             "Apple Music не нашёл альбом {id}: возможно, его нет в регионе {country}",
+                             id=collection_id, country=country.upper())
     songs = [r for r in results if r.get("wrapperType") == "track" and r.get("kind") == "song"]
     tracks = [Track(
         id=str(song["trackId"]),
@@ -139,7 +142,7 @@ def _apple_album(collection_id: int | str, country: str = "us") -> Release:
         explicit=song.get("trackExplicitness") == "explicit",
     ) for number, song in enumerate(songs, 1)]
     if not tracks:
-        raise SourceError(t("В альбоме Apple Music {id} нет доступных песен", id=collection_id))
+        raise SourceError.of("empty", "В альбоме Apple Music {id} нет доступных песен", id=collection_id)
 
     name, kind = _split_kind(collection.get("collectionName", ""))
     album = Album(
@@ -174,7 +177,7 @@ def _apple_playlist(url: str) -> Release:
         track_number=number,
     ) for number, item in enumerate(items, 1)]
     if not tracks:
-        raise SourceError(t("В плейлисте Apple Music нет доступных песен"))
+        raise SourceError.of("empty", "В плейлисте Apple Music нет доступных песен")
 
     total = header.get("trackCount") or len(tracks)
     note = ""
@@ -200,8 +203,8 @@ def _apple_sections(page: str) -> dict[str, dict]:
     try:
         sections = json.loads(m.group(1))["data"][0]["data"]["sections"]
     except (AttributeError, IndexError, KeyError, TypeError, ValueError) as e:
-        raise SourceError(t("Не удалось прочитать страницу Apple Music: ссылка неверна или "
-                            "страница изменила формат")) from e
+        raise SourceError.of("unreadable", "Не удалось прочитать страницу Apple Music: ссылка неверна или "
+                                           "страница изменила формат") from e
     return {section.get("itemKind"): section for section in sections}
 
 
@@ -230,7 +233,8 @@ def _deezer(url: str, parts: urllib.parse.SplitResult) -> Release:
         parts = urllib.parse.urlsplit(url)
     m = _DEEZER_PATH_RE.match(parts.path)
     if not m:
-        raise SourceError(t("Из Deezer поддерживаются ссылки на альбомы, треки и плейлисты"))
+        raise SourceError.of("unsupported_link",
+                             "Из Deezer поддерживаются ссылки на альбомы, треки и плейлисты")
     kind, deezer_id = m.group(1).lower(), m.group(2)
     if kind == "album":
         return _deezer_album(deezer_id)
@@ -247,11 +251,11 @@ def _deezer_short_link(link: str) -> str:
             final = resp.geturl()
             body = "" if _DEEZER_LINK_RE.search(final) else resp.read().decode("utf-8", "replace")
     except (urllib.error.URLError, TimeoutError) as e:
-        raise SourceError(t("Не удалось открыть короткую ссылку {link}: {error}",
-                            link=link, error=e)) from e
+        raise SourceError.of("short_link_broken", "Не удалось открыть короткую ссылку {link}: {error}",
+                             link=link, error=e) from e
     m = _DEEZER_LINK_RE.search(final) or _DEEZER_LINK_RE.search(body)
     if not m:
-        raise SourceError(t("Короткая ссылка Deezer никуда не ведёт: {link}", link=link))
+        raise SourceError.of("short_link_broken", "Короткая ссылка Deezer никуда не ведёт: {link}", link=link)
     return m.group(0)
 
 
@@ -260,7 +264,7 @@ def _deezer_album(album_id: str) -> Release:
     items = _deezer_pages(f"album/{album_id}/tracks", t("Deezer не нашёл альбом {id}", id=album_id))
     tracks = [_deezer_item(item, number) for number, item in enumerate(items, 1)]
     if not tracks:
-        raise SourceError(t("В альбоме Deezer {id} нет треков", id=album_id))
+        raise SourceError.of("empty", "В альбоме Deezer {id} нет треков", id=album_id)
     kind = data.get("record_type") or "album"
     album = Album(
         id=str(album_id),
@@ -288,7 +292,7 @@ def _deezer_playlist(playlist_id: str) -> Release:
     # A playlist numbers its own rows, and the same song may sit in it twice
     tracks = [_deezer_item(item, number, playlist=True) for number, item in enumerate(items, 1)]
     if not tracks:
-        raise SourceError(t("Плейлист пуст или закрыт"))
+        raise SourceError.of("empty", "Плейлист пуст или закрыт")
     album = Album(
         id=str(playlist_id),
         name=data.get("title") or t("Плейлист"),
@@ -306,7 +310,8 @@ def _deezer_track(track_id: str) -> Release:
     release = _deezer_album((data.get("album") or {}).get("id") or "")
     track = next((t for t in release.album.tracks if t.id == str(track_id)), None)
     if track is None:
-        raise SourceError(t("Трека {id} нет в альбоме «{album}»", id=track_id, album=release.album.name))
+        raise SourceError.of("not_in_album",
+                             "Трека {id} нет в альбоме «{album}»", id=track_id, album=release.album.name)
     return Release(release.album, [track], single=True)
 
 
@@ -330,9 +335,9 @@ def _deezer_get(path: str, missing: str) -> dict:
     error = data.get("error")
     if error:
         if error.get("code") == 800:  # "no data"
-            raise SourceError(missing)
-        raise SourceError(t("Deezer ответил ошибкой: {error}",
-                            error=error.get("message") or error.get("type") or error))
+            raise SourceError(missing, "not_found")
+        raise SourceError.of("service_error", "Deezer ответил ошибкой: {error}",
+                             error=error.get("message") or error.get("type") or error)
     return data
 
 
@@ -367,7 +372,7 @@ def _youtube(parts: urllib.parse.SplitResult) -> Release:
         return _youtube_album(path.split("/")[2])
     if query.get("list"):
         return _youtube_playlist(query["list"][0])
-    raise SourceError(t("Из YouTube поддерживаются ссылки на видео, альбомы и плейлисты"))
+    raise SourceError.of("unsupported_link", "Из YouTube поддерживаются ссылки на видео, альбомы и плейлисты")
 
 
 def _youtube_album(browse_id: str, audio_items: list[dict] | None = None) -> Release:
@@ -384,7 +389,7 @@ def _youtube_album(browse_id: str, audio_items: list[dict] | None = None) -> Rel
         items = [_prefer_audio(item, index, audio_items) for index, item in enumerate(items)]
     tracks = [_youtube_item(item, number, artist) for number, item in enumerate(items, 1)]
     if not tracks:
-        raise SourceError(t("В альбоме YouTube Music нет треков"))
+        raise SourceError.of("empty", "В альбоме YouTube Music нет треков")
     album = Album(
         id=browse_id,
         name=data.get("title", ""),
@@ -407,7 +412,7 @@ def _youtube_playlist(playlist_id: str) -> Release:
 
     tracks = [_youtube_item(item, number, "") for number, item in enumerate(items, 1)]
     if not tracks:
-        raise SourceError(t("Плейлист пуст или закрыт"))
+        raise SourceError.of("empty", "Плейлист пуст или закрыт")
     author = data.get("author")
     album = Album(
         id=playlist_id,
@@ -426,7 +431,7 @@ def _youtube_track(video_id: str) -> Release:
     data = _call_ytmusic(lambda: ytmusic().get_watch_playlist(video_id, limit=1), t("видео"))
     item = next((t for t in data.get("tracks") or [] if t.get("videoId") == video_id), None)
     if item is None:
-        raise SourceError(t("YouTube не нашёл видео {id}", id=video_id))
+        raise SourceError.of("not_found", "YouTube не нашёл видео {id}", id=video_id)
     audio_url = f"https://www.youtube.com/watch?v={video_id}"
     audio_source = "video" if item.get("videoType") in _VIDEO_TYPES else "song"
 
@@ -487,7 +492,8 @@ def _call_ytmusic(func, what: str):
     try:
         return func()
     except Exception as e:  # ytmusicapi raises bare exceptions and KeyErrors on unknown ids
-        raise SourceError(t("YouTube Music не отдал {what}: {error}", what=what, error=e)) from e
+        raise SourceError.of("service_error",
+                             "YouTube Music не отдал {what}: {error}", what=what, error=e) from e
 
 
 # Last.fm: the link already names the artist and the album
@@ -495,8 +501,8 @@ def _call_ytmusic(func, what: str):
 def _lastfm(url: str, parts: urllib.parse.SplitResult) -> Release:
     m = _LASTFM_PATH_RE.search(parts.path)
     if not m or not m.group(2) or m.group(2).startswith("+"):
-        raise SourceError(t("Из Last.fm поддерживаются ссылки на альбомы и треки, "
-                            "а не на исполнителей"))
+        raise SourceError.of("unsupported_link", "Из Last.fm поддерживаются ссылки на альбомы и треки, "
+                                                 "а не на исполнителей")
     artist = urllib.parse.unquote_plus(m.group(1))
     second = urllib.parse.unquote_plus(m.group(2))
     third = urllib.parse.unquote_plus(m.group(3)) if m.group(3) and not m.group(3).startswith("+") else ""
@@ -524,9 +530,9 @@ def _lastfm_tracklist(url: str, artist: str, album_name: str) -> Release:
             track_number=int(position.group(1)) if position else len(tracks) + 1,
         ))
     if not tracks:
-        raise SourceError(t("Не нашёл треки альбома «{album}» ({artist}): его нет на YouTube Music "
-                            "и в Apple Music, а на Last.fm у него нет списка треков",
-                            album=album_name, artist=artist))
+        raise SourceError.of("empty", "Не нашёл треки альбома «{album}» ({artist}): его нет на YouTube Music "
+                                      "и в Apple Music, а на Last.fm у него нет списка треков",
+                             album=album_name, artist=artist)
     released = re.search(r"Release Date</dt>\s*<dd[^>]*>[^<]*?(\d{4})", page)
     cover = re.search(r'<meta property="og:image" content="([^"]+)"', page)
     album = Album(id=url, name=album_name, artist=artist, release_date=released.group(1) if released else "",
@@ -647,7 +653,8 @@ def search(query: str) -> Release:
     """
     query = " ".join(query.split())
     if not query:
-        raise SourceError(t("Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»"))
+        raise SourceError.of("empty_query",
+                             "Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»")
     artist, title = _split_query(query)
     album = find_album(artist, title, t("поиск")) if title else None
     if album:
@@ -663,7 +670,8 @@ def search_track(query: str) -> Release:
     """
     query = " ".join(query.split())
     if not query:
-        raise SourceError(t("Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»"))
+        raise SourceError.of("empty_query",
+                             "Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»")
     artist, title = _split_query(query)
     return find_track(artist, title or query, t("поиск"))
 
@@ -725,7 +733,7 @@ def _find_album(artist: str, title: str, service: str) -> Release | None:
 
 def find_track(artist: str, title: str, service: str, album: str = "") -> Release:
     if not title:
-        raise SourceError(t("В ссылке нет названия трека"))
+        raise SourceError.of("no_title", "В ссылке нет названия трека")
     query = f"{artist} {title}"
     try:
         songs = ytmusic().search(query, filter="songs", limit=10)
@@ -781,9 +789,10 @@ def _ytdlp(url: str) -> Release:
             track = _protected_track(url, 1, "")  # the audio is looked for elsewhere
             return find_track(track.artists, track.title, "SoundCloud")
         if "Unsupported URL" in message or message.startswith("[generic]"):
-            raise SourceError(t("По этой ссылке не нашлось музыки. Подойдут ссылки из {services}",
-                                services=SUPPORTED if language() == "ru" else _SUPPORTED_EN)) from e
-        raise SourceError(t("Не удалось открыть ссылку: {error}", error=message)) from e
+            raise SourceError.of("unsupported_link",
+                                 "По этой ссылке не нашлось музыки. Подойдут ссылки из {services}",
+                                 services=SUPPORTED if language() == "ru" else _SUPPORTED_EN) from e
+        raise SourceError.of("link_failed", "Не удалось открыть ссылку: {error}", error=message) from e
 
     service = _service_name(info, url)
     if info.get("_type") != "playlist":
@@ -802,7 +811,7 @@ def _ytdlp(url: str) -> Release:
     tracks = [_ytdlp_track(detail, number, album_artist) if detail else _protected_track(entry, number, album_artist)
               for number, (entry, detail) in enumerate(zip(urls, details), 1)]
     if not tracks:
-        raise SourceError(t("Плейлист пуст или закрыт"))
+        raise SourceError.of("empty", "Плейлист пуст или закрыт")
     if not all(details):  # some tracks are protected: the same album elsewhere may be fully open
         found = find_album(album_artist, name, service)
         if found:

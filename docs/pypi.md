@@ -53,6 +53,52 @@ across minor versions; the modules behind it may change. Messages come in the sy
 language, Russian or English; `set_language("en")` fixes it. The engine writes to the
 `trackhound` logger and sets up no handlers of its own.
 
+### Errors
+
+A message is for a person and may be reworded in any release. A program should look at the
+code instead, which is the same in either language and across minor versions:
+
+```python
+from trackhound.engine import SourceError
+
+try:
+    release = resolve(link)
+except SourceError as error:
+    print(error.code, error.details)  # http_error {'service': 'Deezer', 'code': 503, 'url': ...}
+
+for failure in report.failures:  # the tracks that did not arrive
+    print(failure.track.title, failure.code, failure.message)
+```
+
+`DownloaderError` has the same `.code` and `.details`. `ERROR_CODES` holds the list:
+
+| Code | Meaning |
+| --- | --- |
+| `unsupported_link` | the link leads to no music, or to a kind of page the service is not read from |
+| `login_required` | the service shows its music only to a signed-in account |
+| `not_found` | the service has nothing under this link or id, or not in this country |
+| `not_in_album` | the link names a track its album does not have |
+| `empty` | the release or playlist has no tracks that can be read, or it is private |
+| `unreadable` | the page or the service's answer is not in the shape it is read in |
+| `short_link_broken` | a short link could not be followed to the page behind it |
+| `empty_query` | neither a link nor a name to search for was given |
+| `no_title` | the link carries no track title to search for |
+| `link_failed` | the link could not be opened |
+| `http_error` | the service answered with an HTTP error |
+| `offline` | the service could not be reached |
+| `service_error` | the service answered with an error of its own |
+| `unknown_format` | the audio format asked for is not one of FORMATS |
+| `ffmpeg_missing` | the format asked for needs ffmpeg, which was not found |
+| `no_source` | the track was found neither on YouTube Music nor on SoundCloud |
+| `age_restricted` | the video is age-restricted: it takes a signed-in YouTube account |
+| `cookies_locked` | the browser's cookies could not be copied while it is open |
+| `cookies_unreadable` | the browser's cookies could not be decrypted |
+| `no_cookies` | the browser holds no YouTube cookies |
+| `preview_only` | only a preview of the track could be downloaded |
+| `wrong_file` | the download did not end in a file of the format asked for |
+| `download_failed` | the download failed for any other reason |
+| `unknown` | an error raised without a code |
+
 ## Licence
 
 GPL-2.0-or-later. Use it for music you have the rights to, and respect copyright law and

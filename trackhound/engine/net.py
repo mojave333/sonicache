@@ -7,7 +7,6 @@ import time
 import urllib.error
 import urllib.request
 
-from .i18n import t
 from .models import SourceError
 
 BROWSER_UA = (
@@ -24,13 +23,15 @@ def fetch_text(url: str, *, service: str, user_agent: str = BROWSER_UA, retries:
                 return resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise SourceError(t("{service} не нашёл страницу: {url}", service=service, url=url)) from e
+                raise SourceError.of("not_found",
+                                     "{service} не нашёл страницу: {url}", service=service, url=url) from e
             if attempt == retries or e.code not in (429, 500, 502, 503, 504):
-                raise SourceError(t("{service} ответил HTTP {code}: {url}",
-                                    service=service, code=e.code, url=url)) from e
+                raise SourceError.of("http_error", "{service} ответил HTTP {code}: {url}",
+                                     service=service, code=e.code, url=url) from e
         except (urllib.error.URLError, TimeoutError) as e:
             if attempt == retries:
-                raise SourceError(t("Нет связи с {service}: {error}", service=service, error=e)) from e
+                raise SourceError.of("offline",
+                                     "Нет связи с {service}: {error}", service=service, error=e) from e
         time.sleep(2 * attempt)
     raise AssertionError("unreachable")
 
@@ -39,5 +40,5 @@ def fetch_json(url: str, *, service: str, user_agent: str = BROWSER_UA) -> dict:
     try:
         return json.loads(fetch_text(url, service=service, user_agent=user_agent))
     except ValueError as e:
-        raise SourceError(t("{service} вернул непонятный ответ: {url}",
-                            service=service, url=url)) from e
+        raise SourceError.of("unreadable", "{service} вернул непонятный ответ: {url}",
+                             service=service, url=url) from e

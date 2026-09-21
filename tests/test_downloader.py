@@ -449,3 +449,46 @@ class TestSteps:
         track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
         loader._process(album(), track, tmp_path, False, None)
         assert fetched == [("https://first.test", False), ("https://second.test", True)]
+
+
+class TestFailures:
+    """A track that does not arrive is reported with a code as well as a sentence."""
+
+    def process(self, tmp_path, error=None, found=True):
+        events = []
+        loader = downloader.Downloader(Options(tmp_path), log=lambda message: None,
+                                       events=lambda kind, data: events.append(data))
+        match = downloader.Match(source="song", url="https://only.test", page_url="", title="T",
+                                 artists="A", duration=200, score=1.0)
+        loader.matcher = type("Matcher", (), {"find_all": lambda self, track, album, wide: [match] if found else []})()
+
+        def fetch(*args, **kwargs):
+            raise error
+
+        loader._fetch = fetch
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        return loader._process(album(), track, tmp_path, False, None), events[-1]
+
+    def test_a_track_found_nowhere_is_no_source(self, tmp_path):
+        (kind, line, failure), event = self.process(tmp_path, found=False)
+        assert (kind, failure.code, event["state"], event["code"]) == ("failed", "no_source", "missing", "no_source")
+        assert line == f"Y - X: {failure.message}"
+
+    @pytest.mark.parametrize("error, code", [
+        (DownloaderError.of("preview_only", "скачался фрагмент {got} вместо {expected}", got="0:30", expected="3:20"),
+         "preview_only"),
+        (Exception("ERROR: Sign in to confirm your age"), "age_restricted"),
+        (Exception("ERROR: HTTP Error 403: Forbidden"), "download_failed"),
+    ])
+    def test_a_refused_download_keeps_its_code(self, tmp_path, error, code):
+        (kind, line, failure), event = self.process(tmp_path, error)
+        assert (kind, failure.code, event["state"], event["code"]) == ("failed", code, "error", code)
+        assert line == f"Y - X: {failure.message}" and failure.message == event["text"]
+
+    def test_the_report_lists_the_failures_beside_the_lines(self, tmp_path):
+        loader = downloader.Downloader(Options(tmp_path, dry_run=True), log=lambda message: None)
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        failure = downloader.Failure(track, "no_source", "nowhere")
+        loader._process = lambda album, track, folder, single, cover: ("failed", "Y - X: nowhere", failure)
+        report = loader._download_tracks(album(), [track], tmp_path, False)
+        assert (report.failed, report.failures) == (["Y - X: nowhere"], [failure])

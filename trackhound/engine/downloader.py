@@ -29,7 +29,7 @@ from . import loudness, sources
 from .i18n import t
 from .logs import YtdlpLogger, log
 from .matcher import SOURCE_NAMES, Match, Matcher
-from .models import Album, Track
+from .models import Album, Track, _CodedError
 from .net import BROWSER_UA
 
 FORMATS = ("mp3", "m4a", "opus")  # in the order the window shows them; mp3 is the default
@@ -51,8 +51,9 @@ _RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)
                    *(f"LPT{i}" for i in range(1, 10))}
 
 
-class DownloaderError(Exception):
-    pass
+class DownloaderError(_CodedError):
+    """A download could not go ahead, or a file came out wrong; `code` and
+    `details` as on SourceError."""
 
 
 def tool_dirs() -> list[Path]:
@@ -103,10 +104,20 @@ class Options:
 
 
 @dataclass
+class Failure:
+    """A track that did not arrive, for a program to act on."""
+
+    track: Track
+    code: str  # one of ERROR_CODES
+    message: str  # the reason as a person reads it, in the language set_language() chose
+
+
+@dataclass
 class Report:
     ok: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
-    failed: list[str] = field(default_factory=list)
+    failed: list[str] = field(default_factory=list)  # "Artist - Title: reason", one line each
+    failures: list[Failure] = field(default_factory=list)  # the same tracks, with their codes
 
     def summary(self, dry_run: bool = False) -> str:
         text = t("{done}: {ok}, уже было: {skipped}, ошибок: {failed}",
@@ -158,10 +169,11 @@ class Downloader:
 
     def download_link(self, link: str) -> Report:
         if self.options.audio_format not in FORMATS:
-            raise DownloaderError(t("Неизвестный формат: {format}",
-                                    format=self.options.audio_format))
+            raise DownloaderError.of("unknown_format", "Неизвестный формат: {format}",
+                                     format=self.options.audio_format)
         if not self.ffmpeg and self.options.audio_format != "m4a" and not self.options.dry_run:
-            raise DownloaderError(t("Для mp3 и opus нужен ffmpeg (winget install Gyan.FFmpeg)"))
+            raise DownloaderError.of("ffmpeg_missing",
+                                     "Для mp3 и opus нужен ffmpeg (winget install Gyan.FFmpeg)")
 
         release = sources.resolve(link)
         album, tracks, single = release.album, release.tracks, release.single
@@ -222,7 +234,9 @@ class Downloader:
             result = self._process(album, track, folder, single, cover)
             with lock:
                 if result:
-                    getattr(report, result[0]).append(result[1])
+                    kind, line, *failure = result
+                    getattr(report, kind).append(line)
+                    report.failures.extend(failure)  # only a failed track carries one
                 done += 1
                 self.progress(done, len(tracks))
 
@@ -244,7 +258,7 @@ class Downloader:
         return report
 
     def _process(self, album: Album, track: Track, folder: Path, single: bool,
-                 cover: bytes | None) -> tuple[str, str] | None:
+                 cover: bytes | None) -> tuple[str, str] | tuple[str, str, Failure] | None:
         while not self.resume_event.wait(timeout=0.5):
             if self.stop_event.is_set():
                 break  # stopping while paused must not wait for a resume
@@ -288,9 +302,9 @@ class Downloader:
             if match is None:
                 self.log(t("✗ Не найдено ни на YouTube Music, ни на SoundCloud: {label}",
                            label=label))
-                self._track_event(track, "missing")
-                return "failed", t("{label}: не найдено ни на YouTube Music, ни на SoundCloud",
-                                   label=label)
+                self._track_event(track, "missing", code="no_source")
+                reason = t("не найдено ни на YouTube Music, ни на SoundCloud")
+                return "failed", f"{label}: {reason}", Failure(track, "no_source", reason)
             source = t(SOURCE_NAMES.get(match.source, "")) or album.service
             if self.options.dry_run:
                 self.log(t("? {label}  →  {artists} - {title} [{source}, {got} / {wanted}, "
@@ -324,10 +338,10 @@ class Downloader:
             self._track_event(track, "cancel")
             return None
         except Exception as e:  # one broken track must not stop the whole album
-            message = _error_text(e)
+            code, message = _describe(e)
             self.log(f"✗ {label}: {message}")
-            self._track_event(track, "error", message)
-            return "failed", f"{label}: {message}"
+            self._track_event(track, "error", message, code=code)
+            return "failed", f"{label}: {message}", Failure(track, code, message)
         finally:
             if not self.options.dry_run:
                 _clear_partials(folder, stem)
@@ -433,8 +447,8 @@ class Downloader:
         path = folder / f"{stem}.{audio_format}"
         if not path.exists():
             got = ", ".join(p.suffix for p in folder.glob(f"{stem}.*")) or t("ничего")
-            raise DownloaderError(t("ожидался файл .{format}, получено: {got}",
-                                    format=audio_format, got=got))
+            raise DownloaderError.of("wrong_file", "ожидался файл .{format}, получено: {got}",
+                                     format=audio_format, got=got)
         return path
 
     def _track_event(self, track: Track, state: str, text: str = "", source: str = "", **extra) -> None:
@@ -567,23 +581,30 @@ def _clear_partials(folder: Path, stem: str) -> None:
 
 # yt-dlp explains itself in English and at length; these cases have a short answer
 _KNOWN_ERRORS = (
-    ("confirm your age", "видео с возрастным ограничением: нужен вход в аккаунт YouTube "
-                         "(cookies браузера в настройках)"),
-    ("age-restricted", "видео с возрастным ограничением: нужен вход в аккаунт YouTube "
-                       "(cookies браузера в настройках)"),
-    ("could not copy", "не удалось прочитать cookies: закройте браузер и повторите"),
-    ("failed to decrypt", "не удалось расшифровать cookies браузера; в Firefox они читаются надёжнее"),
-    ("no cookies found", "в браузере нет cookies YouTube: войдите в аккаунт в этом браузере"),
+    ("confirm your age", "age_restricted", "видео с возрастным ограничением: нужен вход в аккаунт YouTube "
+                                           "(cookies браузера в настройках)"),
+    ("age-restricted", "age_restricted", "видео с возрастным ограничением: нужен вход в аккаунт YouTube "
+                                         "(cookies браузера в настройках)"),
+    ("could not copy", "cookies_locked", "не удалось прочитать cookies: закройте браузер и повторите"),
+    ("failed to decrypt", "cookies_unreadable",
+     "не удалось расшифровать cookies браузера; в Firefox они читаются надёжнее"),
+    ("no cookies found", "no_cookies", "в браузере нет cookies YouTube: войдите в аккаунт в этом браузере"),
 )
 
 
-def _error_text(error: Exception) -> str:
+def _describe(error: Exception) -> tuple[str, str]:
+    """What went wrong with a track: a code for a program, a sentence for a person."""
     text = re.sub(r"^ERROR:\s*", "", str(error)).strip()
     lowered = text.lower()
-    for needle, message in _KNOWN_ERRORS:
+    for needle, code, message in _KNOWN_ERRORS:
         if needle in lowered:
-            return message
-    return text or type(error).__name__
+            return code, t(message)
+    code = error.code if isinstance(error, _CodedError) else "download_failed"
+    return code, text or type(error).__name__
+
+
+def _error_text(error: Exception) -> str:
+    return _describe(error)[1]
 
 
 def _check_duration(path: Path, track: Track) -> None:
@@ -591,8 +612,8 @@ def _check_duration(path: Path, track: Track) -> None:
     audio = MutagenFile(path)
     length = audio.info.length if audio is not None else 0
     if track.duration and 0 < length < track.duration * 0.9 - 2:
-        raise DownloaderError(t("скачался фрагмент {got} вместо {expected}",
-                                got=_mmss(length), expected=_mmss(track.duration)))
+        raise DownloaderError.of("preview_only", "скачался фрагмент {got} вместо {expected}",
+                                 got=_mmss(length), expected=_mmss(track.duration))
 
 
 def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> None:

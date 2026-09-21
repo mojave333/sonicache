@@ -17,19 +17,22 @@ across minor versions. The modules behind it (trackhound.engine.sources,
 The engine knows nothing about the window or the command line, and sets up no
 logging of its own: it writes to the "trackhound" logger and reports progress
 through the callbacks given to Downloader. Its messages speak Russian or
-English, the system's language unless set_language() says otherwise.
+English, the system's language unless set_language() says otherwise. For a
+program the errors carry a code as well: SourceError and DownloaderError have
+.code and .details, a Report lists its failed tracks in .failures, and
+ERROR_CODES says what each code means.
 ffmpeg and a JavaScript runtime (Deno, or Node.js 22+) are looked for on PATH.
 """
 
 from . import batch
 from .downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK_NAMES, Downloader,
-                         DownloaderError, Options, Report, find_tool, use_proxy)
+                         DownloaderError, Failure, Options, Report, find_tool, use_proxy)
 from .i18n import set_language
-from .models import Album, Release, SourceError, Track
+from .models import ERROR_CODES, Album, Release, SourceError, Track
 from .sources import resolve, search, search_track
 
 __all__ = [
-    "DEFAULT_OUTPUT_DIR", "FOLDER_NAMES", "FORMATS", "TRACK_NAMES",
-    "Album", "Downloader", "DownloaderError", "Options", "Release", "Report", "SourceError", "Track",
+    "DEFAULT_OUTPUT_DIR", "ERROR_CODES", "FOLDER_NAMES", "FORMATS", "TRACK_NAMES",
+    "Album", "Downloader", "DownloaderError", "Failure", "Options", "Release", "Report", "SourceError", "Track",
     "batch", "find_tool", "resolve", "search", "search_track", "set_language", "use_proxy",
 ]
