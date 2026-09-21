@@ -309,6 +309,12 @@ class Api:
         logs.log.info("сеть: %s", json.dumps(result, ensure_ascii=False))
         return result
 
+    def find_proxies(self) -> list[dict]:
+        """VPN client proxies on this computer, offered on a card Spotify refused."""
+        found = network.find_proxies()
+        logs.log.info("прокси VPN-клиентов: %s", json.dumps(found, ensure_ascii=False))
+        return found
+
     def copy(self, text: str) -> bool:
         return _copy_to_clipboard(text)
 
@@ -694,7 +700,7 @@ class Api:
         except Exception as e:  # shown on the card, the next link still runs
             logs.log.exception("ссылка не скачалась: %s", link)
             message = str(e) or type(e).__name__
-            emit(type="job", state="error", message=message)
+            emit(type="job", state="error", message=message, code=getattr(e, "code", ""))
             self._remember({"job": job, "state": "error", "message": message,
                             "tracks": finished_tracks()})
             return

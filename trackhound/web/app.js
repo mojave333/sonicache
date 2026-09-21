@@ -973,6 +973,12 @@ function addJob(id, link, dryRun, format) {
   });
   $(".open", node).addEventListener("click", () => api().open_folder(job.folder));
   $(".retry", node).addEventListener("click", () => retryJob(job));
+  $(".offer-use", node).addEventListener("click", (event) => {
+    event.stopPropagation();
+    updateSettings({ proxy: job.offer.url });
+    for (const other of state.jobs.values()) if (other.offer && other !== job) renderJob(other);
+    retryJob(job);
+  });
   $(".watch", node).addEventListener("click", () => toggleWatch(job));
   state.jobs.set(id, job);
   $("#jobs").prepend(node);
@@ -1041,6 +1047,12 @@ function renderJob(job) {
   const note = $(".note", node);
   note.textContent = job.note || "";
   note.hidden = !job.note || job.state === "error";
+  const offer = $(".offer", node);
+  offer.hidden = !(job.offer && job.state === "error" && !state.settings.proxy);
+  if (!offer.hidden) {
+    $(".offer-text", node).textContent =
+      t("На компьютере работает {client}: через его прокси Spotify открывается", { client: job.offer.client });
+  }
   // The card's arrow drops once for each track that lands in the folder
   const landed = job.done > (job.shownDone ?? job.done);
   job.shownDone = job.done;
@@ -1221,6 +1233,24 @@ function flushRender() {
   renderChrome();
 }
 
+// A Spotify refusal a VPN client's proxy may lift: Spotify keeps its player
+// from some countries, and a VPN often runs here without the system knowing.
+// The ports are looked at once a session, or again after nothing was found.
+const PROXY_HELPS = new Set(["unavailable", "not_found"]);
+let proxySearch = null;
+
+function offerProxy(job) {
+  if (state.settings.proxy || !/spotify|spoti\.fi/i.test(job.link)) return;
+  proxySearch ??= api().find_proxies();
+  proxySearch.then((found) => {
+    if (!found.length) proxySearch = null;
+    const proxy = found.find((item) => item.spotify === "ok");
+    if (!proxy || job.state !== "error" || state.settings.proxy) return;
+    job.offer = proxy;
+    renderJob(job);
+  });
+}
+
 function onJobEvent(job, event) {
   if (event.state === "running") {
     job.state = "running";
@@ -1231,6 +1261,7 @@ function onJobEvent(job, event) {
     job.state = "error";
     job.message = event.message;
     announce(t("Ошибка: {message}", { message: event.message }));
+    if (PROXY_HELPS.has(event.code)) offerProxy(job);
   } else if (event.state === "cancelled") {
     job.state = "cancelled";
   } else if (event.state === "done" && event.quiet) {

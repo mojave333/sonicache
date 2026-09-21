@@ -339,6 +339,9 @@ const TRANSLATIONS = {
   "Прокси {client}: {url}. Spotify через него — {state}": "{client} proxy: {url}. Spotify through it — {state}",
   "включён": "in use",
   "Использовать": "Use it",
+  "Использовать и повторить": "Use it and try again",
+  "На компьютере работает {client}: через его прокси Spotify открывается":
+    "{client} is running on this computer, and Spotify opens through its proxy",
   "Прокси VPN-клиента на этом компьютере не найден. VPN в режиме TUN или «системного прокси» программа использует сама; иначе впишите адрес прокси выше":
     "No VPN client proxy was found on this computer. A VPN in TUN or “system proxy” mode is used by the program by itself; otherwise write the proxy address above",
   "Журнал работы": "Log",
