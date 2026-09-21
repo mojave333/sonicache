@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 
 from .i18n import t
+from .logs import log
 from .models import Album, SourceError, Track
 from .net import BROWSER_UA, fetch_text
 
@@ -191,14 +192,31 @@ def fetch_track(track_id: str) -> tuple[Album, Track]:
 
 
 def _embed_entity(kind: str, spotify_id: str) -> dict:
-    page = fetch_text(f"https://open.spotify.com/embed/{kind}/{spotify_id}", service="Spotify")
+    url = f"https://open.spotify.com/embed/{kind}/{spotify_id}"
+    page = fetch_text(url, service="Spotify")
     m = _NEXT_DATA_RE.search(page)
     try:
-        return json.loads(m.group(1))["props"]["pageProps"]["state"]["data"]["entity"]
+        props = json.loads(m.group(1))["props"]["pageProps"]
     except (AttributeError, KeyError, TypeError, ValueError) as e:
+        title = re.search(r"<title[^>]*>(.*?)</title>", page, re.S)
+        log.warning("Spotify: в %s нет данных страницы (%d байт, заголовок %r)",
+                    url, len(page), title.group(1).strip() if title else "")
         raise SourceError.of("unreadable",
                              "Не удалось получить данные Spotify для {kind}/{id}: ссылка неверна или "
                              "Spotify изменил формат страницы", kind=kind, id=spotify_id) from e
+    entity = (((props.get("state") or {}) if isinstance(props, dict) else {}).get("data") or {}).get("entity")
+    if not entity:
+        # The page came and the release did not. Spotify answers like this in
+        # the countries it does not work in, Russia among them; a page changed
+        # for everyone would fail here too, so what came instead goes to the log.
+        log.warning("Spotify: в %s нет релиза; вместо него: %s",
+                    url, json.dumps(props, ensure_ascii=False)[:800])
+        raise SourceError.of("unavailable",
+                             "Spotify не отдал {kind}/{id}. Обычно так бывает, когда Spotify недоступен "
+                             "в стране, откуда идёт запрос: включите прокси в настройках или вставьте "
+                             "ссылку на этот релиз из Deezer, Apple Music или YouTube Music",
+                             kind=kind, id=spotify_id)
+    return entity
 
 
 def _meta_tags(kind: str, spotify_id: str) -> list[tuple[str, str]]:

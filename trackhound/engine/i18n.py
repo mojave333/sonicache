@@ -36,6 +36,12 @@ ENGLISH = {
     "Spotify изменил формат страницы":
         "Could not read Spotify data for {kind}/{id}: the link is wrong, or Spotify "
         "changed the shape of its page",
+    "Spotify не отдал {kind}/{id}. Обычно так бывает, когда Spotify недоступен "
+    "в стране, откуда идёт запрос: включите прокси в настройках или вставьте "
+    "ссылку на этот релиз из Deezer, Apple Music или YouTube Music":
+        "Spotify did not hand over {kind}/{id}. That usually means Spotify does not work in "
+        "the country the request comes from: turn on a proxy in the settings, or paste a "
+        "link to this release from Deezer, Apple Music or YouTube Music",
     "В альбоме {id} не найдено треков": "No tracks in album {id}",
     "В плейлисте {id} не найдено треков или он закрыт":
         "Playlist {id} has no tracks, or it is private",
