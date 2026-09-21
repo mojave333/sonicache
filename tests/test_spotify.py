@@ -83,19 +83,29 @@ class TestFetchAlbum:
         with pytest.raises(SourceError, match="изменил формат страницы"):
             spotify.fetch_album("2noRn2Aes5aoNVsU6iWThc")
 
-    @pytest.mark.parametrize("props", ['{"state":{"data":{}}}', '{"state":null}', '{"status":451}'])
-    def test_a_page_without_the_release_points_to_a_proxy(self, monkeypatch, props):
-        """What Spotify serves in the countries it does not work in."""
+    def refuse(self, monkeypatch, props):
         page = f'<script id="__NEXT_DATA__" type="application/json">{{"props":{{"pageProps":{props}}}}}</script>'
         monkeypatch.setattr(spotify, "fetch_text", lambda url, **kwargs: page)
         logged = []
         monkeypatch.setattr(spotify, "log", type("Log", (), {"warning": lambda self, text, *args: logged.append(text % args)})())
         with pytest.raises(SourceError, match="прокси") as refused:
             spotify.fetch_playlist("0pcHRkLh6EUBsHy6ZJVIdY")
-        assert refused.value.code == "unavailable"
-        assert refused.value.details == {"kind": "playlist", "id": "0pcHRkLh6EUBsHy6ZJVIdY"}
         # What came instead goes to the log, for a report from where it happens
-        assert json.dumps(json.loads(props)) in logged[0]
+        assert json.dumps(json.loads(props), ensure_ascii=False) in logged[0]
+        return refused.value
+
+    @pytest.mark.parametrize("props", ['{"state":{"data":{}}}', '{"state":null}', '{"status":451}'])
+    def test_a_page_without_the_release_points_to_a_proxy(self, monkeypatch, props):
+        error = self.refuse(monkeypatch, props)
+        assert error.code == "unavailable"
+        assert (error.details["kind"], error.details["id"]) == ("playlist", "0pcHRkLh6EUBsHy6ZJVIdY")
+
+    def test_spotifys_own_error_page_is_quoted(self, monkeypatch):
+        """Spotify's error page comes with HTTP 200, a status and a title in its data."""
+        error = self.refuse(monkeypatch, '{"status":404,"title":"Page not found",'
+                                         '"description":"We can’t seem to find the page you are looking for."}')
+        assert error.code == "not_found" and error.details["status"] == 404
+        assert "«Page not found»" in str(error)
 
     def test_an_album_without_tracks_is_an_error(self, monkeypatch):
         empty = ('<script id="__NEXT_DATA__" type="application/json">'

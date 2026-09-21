@@ -14,8 +14,8 @@ ERROR_CODES = {
     "unsupported_link": "the link leads to no music, or to a kind of page the service is not read from",
     "login_required": "the service shows its music only to a signed-in account",
     "not_found": "the service has nothing under this link or id, or not in this country",
-    "unavailable": "the service gave its page without the release, as Spotify does in the countries it does "
-                   "not work in; a proxy or a link from another service helps",
+    "unavailable": "the service gave its page without the release, as Spotify does where it will not show it; "
+                   "a proxy or a link from another service helps",
     "not_in_album": "the link names a track its album does not have",
     "empty": "the release or playlist has no tracks that can be read, or it is private",
     "unreadable": "the page or the service's answer is not in the shape it is read in",

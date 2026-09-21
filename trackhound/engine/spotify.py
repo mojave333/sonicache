@@ -204,19 +204,26 @@ def _embed_entity(kind: str, spotify_id: str) -> dict:
         raise SourceError.of("unreadable",
                              "Не удалось получить данные Spotify для {kind}/{id}: ссылка неверна или "
                              "Spotify изменил формат страницы", kind=kind, id=spotify_id) from e
-    entity = (((props.get("state") or {}) if isinstance(props, dict) else {}).get("data") or {}).get("entity")
-    if not entity:
-        # The page came and the release did not. Spotify answers like this in
-        # the countries it does not work in, Russia among them; a page changed
-        # for everyone would fail here too, so what came instead goes to the log.
-        log.warning("Spotify: в %s нет релиза; вместо него: %s",
-                    url, json.dumps(props, ensure_ascii=False)[:800])
-        raise SourceError.of("unavailable",
-                             "Spotify не отдал {kind}/{id}. Обычно так бывает, когда Spotify недоступен "
-                             "в стране, откуда идёт запрос: включите прокси в настройках или вставьте "
-                             "ссылку на этот релиз из Deezer, Apple Music или YouTube Music",
-                             kind=kind, id=spotify_id)
-    return entity
+    if not isinstance(props, dict):
+        props = {}
+    entity = ((props.get("state") or {}).get("data") or {}).get("entity")
+    if entity:
+        return entity
+    # The page came and the release did not. In its place Spotify puts its own
+    # error page, sent with HTTP 200: a status, a title, a description. It does
+    # so for a wrong id, and for a real release it will not show to the place
+    # the request comes from, while a browser behind a VPN still sees the album.
+    log.warning("Spotify: в %s нет релиза; вместо него: %s", url, json.dumps(props, ensure_ascii=False)[:800])
+    status = props.get("status")
+    code = "not_found" if status == 404 else "unavailable"
+    advice = t("Если ссылка открывается в браузере, Spotify не показывает этот релиз там, откуда идёт "
+               "запрос программы: включите прокси в настройках или вставьте ссылку на этот релиз из "
+               "Deezer, Apple Music или YouTube Music")
+    if props.get("title"):
+        raise SourceError.of(code, "Spotify не отдал {kind}/{id} и ответил «{reason}». {advice}",
+                             kind=kind, id=spotify_id, reason=props["title"], status=status, advice=advice)
+    raise SourceError.of(code, "Spotify не отдал {kind}/{id}. {advice}",
+                         kind=kind, id=spotify_id, status=status, advice=advice)
 
 
 def _meta_tags(kind: str, spotify_id: str) -> list[tuple[str, str]]:
