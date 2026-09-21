@@ -14,7 +14,7 @@ const VIEWS = ["download", "library", "queue", "settings"];
 // What the backend accepts as a proxy; anything else is refused there anyway
 const PROXY_RE = /^(?:https?|socks4|socks5h?):\/\/[^\s/]+$/i;
 
-// Each step has a sign of its own. The turning tail is left to the waits that
+// Each step has a sign of its own. The turning arc is left to the waits that
 // have no number to show; where a bar counts, the arrow stands still.
 const TRACK_UI = {
   waiting: { label: "В очереди", icon: "dot", tone: "muted" },
@@ -999,7 +999,7 @@ function jobStatus(job) {
   switch (job.state) {
     case "running": {
       // Until the page behind the link is read there is nothing to count: the
-      // tail turns, and the bar waits empty for the number
+      // arc turns, and the bar waits empty for the number
       if (!job.total) {
         return { icon: "spinner", tone: "muted", progress: 0,
                  text: t(job.stopping ? "Останавливаем…" : "Читаем ссылку…") };

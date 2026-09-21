@@ -447,7 +447,7 @@ p { margin: 0; }
 }
 
 /* The sign of each step, copied out of its symbol (drawIcon) so the parts
-   inside can move. The tail turns where no number is known; the glass circles
+   inside can move. The arc turns where no number is known; the glass circles
    as if on the trail; the bars of the loudness come to one height. */
 .status-icon[data-icon="spinner"] { animation: spin 0.9s linear infinite; }
 .status-icon[data-icon="search"] { animation: sniff 1.6s linear infinite; }
