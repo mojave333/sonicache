@@ -83,6 +83,8 @@ def main(argv: list[str] | None = None) -> int:
                         help=t("взять ссылки и названия из файла: .txt по одной на строку или CSV-выгрузка плейлиста"))
     parser.add_argument("--replaygain", action="store_true",
                         help=t("измерить громкость и записать теги ReplayGain; сам звук не меняется"))
+    parser.add_argument("--lyrics", action="store_true",
+                        help=t("записать тексты песен из LRCLIB: в теги, синхронные — в файл .lrc рядом"))
     parser.add_argument("--check", action="store_true",
                         help=t("показать версию, какие ffmpeg и Deno нашлись и что открывается из этой "
                                "сети, ничего не скачивая"))
@@ -91,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
 
     options = Options(args.output.expanduser(), args.format, max(1, args.threads), args.dry_run,
                       args.cookies_from_browser, args.names, args.folders,
-                      _rate(args.limit_rate, parser), args.proxy, args.replaygain)
+                      _rate(args.limit_rate, parser), args.proxy, args.replaygain, lyrics=args.lyrics)
     use_proxy(options.proxy)
     use_relay(relay_for(args.relay))
     downloader = Downloader(options, log=lambda message: print(message, flush=True))

@@ -209,7 +209,8 @@ class Api:
                           settings["threads"], settings["dry_run"], settings["cookies_browser"],
                           settings["track_name"], settings["folder_name"],
                           settings["rate_limit"], settings["proxy"], settings["replaygain"],
-                          ask=settings.get("ask_doubtful", True), choices=choices or {})
+                          ask=settings.get("ask_doubtful", True), choices=choices or {},
+                          lyrics=settings.get("lyrics", True))
         with self._lock:
             self._job_counter += 1
             job = self._job_counter
@@ -314,6 +315,14 @@ class Api:
                 _recycle(path)
             except OSError:
                 failed.append(path.name)
+                continue
+            # A track's synced lyrics go with it; an album's are inside its folder already
+            lrc = path.with_suffix(".lrc")
+            if path.suffix.lower() in AUDIO_SUFFIXES and lrc.is_file():
+                try:
+                    _recycle(lrc)
+                except OSError:
+                    pass
         return {"deleted": len(paths) - len(failed), "failed": failed}
 
     def diagnostics(self) -> dict:
@@ -1207,6 +1216,8 @@ def _normalize(settings: dict) -> dict:
         "replaygain": bool(settings.get("replaygain", False)),
         # Hold back a track whose match may be the wrong song, for a choice
         "ask_doubtful": bool(settings.get("ask_doubtful", True)),
+        # Lyrics from LRCLIB into the tags, synced ones into an .lrc beside the track
+        "lyrics": bool(settings.get("lyrics", True)),
         "profiles": _profiles(settings.get("profiles")),
         "library_view": settings.get("library_view") if settings.get("library_view") in LIBRARY_VIEWS else "grid",
     }

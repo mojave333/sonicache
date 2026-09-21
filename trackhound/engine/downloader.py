@@ -21,12 +21,12 @@ from typing import Callable
 import yt_dlp
 from mutagen import File as MutagenFile
 from mutagen.flac import Picture
-from mutagen.id3 import APIC, ID3, TALB, TCMP, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK
+from mutagen.id3 import APIC, ID3, TALB, TCMP, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, USLT
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.oggopus import OggOpus
 from yt_dlp.utils import DownloadCancelled
 
-from . import loudness, sources
+from . import loudness, lyrics, sources
 from .i18n import t
 from .logs import YtdlpLogger, log
 from .matcher import SOURCE_NAMES, Match, Matcher, doubtful
@@ -111,6 +111,9 @@ class Options:
     # The tracks chosen that way, by track id: only they are downloaded, each
     # from its own match, with no search
     choices: dict[str, Match] = field(default_factory=dict)
+    # Lyrics from LRCLIB: the plain ones into the tags, the synced ones into an
+    # .lrc file beside the track
+    lyrics: bool = False
 
 
 @dataclass
@@ -367,8 +370,11 @@ class Downloader:
                     _clear_partials(folder, stem)
                     match, source = following, t(SOURCE_NAMES.get(following.source, "")) or album.service
                     retry = True
-            _write_tags(path, album, track, cover)
+            words = lyrics.find(track, album) if self.options.lyrics else None
+            _write_tags(path, album, track, cover, words.plain if words else "")
             os.replace(path, target)
+            if words and words.synced:
+                _write_lrc(target, words.synced)
         except DownloadCancelled:
             self._track_event(track, "cancel")
             return None
@@ -676,7 +682,16 @@ def _check_duration(path: Path, track: Track) -> None:
                                  got=_mmss(length), expected=_mmss(track.duration))
 
 
-def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> None:
+def _write_lrc(track_path: Path, synced: str) -> None:
+    """Synced lyrics beside the track, under its name: players look for them there."""
+    lrc = track_path.with_suffix(".lrc")
+    try:
+        lrc.write_text(synced + "\n", encoding="utf-8")
+    except OSError as e:
+        log.getChild("lyrics").warning("не записал %s: %s", lrc.name, e)
+
+
+def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None, words: str = "") -> None:
     track_total = sum(1 for t in album.tracks if t.disc_number == track.disc_number)
     # A playlist gathers many artists' songs: players group it as a compilation
     # of various artists, the way they do a soundtrack, rather than as an album
@@ -703,6 +718,8 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
             tags["\xa9day"] = album.release_date
         if album.genre:
             tags["\xa9gen"] = album.genre
+        if words:
+            tags["\xa9lyr"] = words
         if cover:
             image_format = MP4Cover.FORMAT_PNG if mime == "image/png" else MP4Cover.FORMAT_JPEG
             tags["covr"] = [MP4Cover(cover, imageformat=image_format)]
@@ -722,6 +739,8 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
             tags.add(TDRC(encoding=3, text=album.release_date))
         if album.genre:
             tags.add(TCON(encoding=3, text=album.genre))
+        if words:
+            tags.add(USLT(encoding=3, lang="und", desc="", text=words))
         if cover:
             tags.add(APIC(encoding=3, mime=mime, type=3, desc="Cover", data=cover))
         tags.save(path, v2_version=3)  # ID3v2.3 for Windows Explorer and old players
@@ -742,6 +761,8 @@ def _write_tags(path: Path, album: Album, track: Track, cover: bytes | None) -> 
             audio["date"] = album.release_date
         if album.genre:
             audio["genre"] = album.genre
+        if words:
+            audio["lyrics"] = words
         if cover:
             picture = Picture()
             picture.type, picture.mime, picture.desc, picture.data = 3, mime, "Cover", cover

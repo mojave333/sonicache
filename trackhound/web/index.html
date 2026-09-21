@@ -386,6 +386,17 @@
               </div>
               <div class="setting">
                 <div class="setting-label">
+                  <p id="lyrics-label">Тексты песен</p>
+                  <p class="setting-desc">Из LRCLIB: текст — в теги, где его покажут плеер и телефон,
+                    синхронный — в файл .lrc рядом с треком, для плееров с прокруткой текста</p>
+                </div>
+                <div id="lyrics" class="segmented" role="radiogroup" aria-labelledby="lyrics-label">
+                  <button type="button" role="radio" data-lyrics="false">Выкл</button>
+                  <button type="button" role="radio" data-lyrics="true">Вкл</button>
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting-label">
                   <p><label for="rate">Ограничение скорости</label></p>
                   <p class="setting-desc">Чтобы загрузка не занимала весь канал</p>
                 </div>

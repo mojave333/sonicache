@@ -248,6 +248,7 @@ function renderSettings() {
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   syncRadios($("#replaygain"), "data-replaygain", String(settings.replaygain));
   syncRadios($("#ask-doubtful"), "data-ask", String(settings.ask_doubtful));
+  syncRadios($("#lyrics"), "data-lyrics", String(settings.lyrics));
   syncRadios($("#language"), "data-language", settings.language);
   syncRadios($("#formats"), "data-format", settings.format);
   renderProfiles();
@@ -645,6 +646,7 @@ function bindUi() {
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   radioGroup($("#replaygain"), "data-replaygain", (value) => updateSettings({ replaygain: value === "true" }));
   radioGroup($("#ask-doubtful"), "data-ask", (value) => updateSettings({ ask_doubtful: value === "true" }));
+  radioGroup($("#lyrics"), "data-lyrics", (value) => updateSettings({ lyrics: value === "true" }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
   radioGroup($("#queue-filter"), "data-filter", setQueueFilter);
   darkMedia.addEventListener("change", applyTheme);

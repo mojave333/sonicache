@@ -341,6 +341,9 @@ const TRANSLATIONS = {
   "Использовать": "Use it",
   "Использовать и повторить": "Use it and try again",
   "Спрашивать при сомнительных совпадениях": "Ask about doubtful matches",
+  "Тексты песен": "Lyrics",
+  "Из LRCLIB: текст — в теги, где его покажут плеер и телефон, синхронный — в файл .lrc рядом с треком, для плееров с прокруткой текста":
+    "From LRCLIB: the words into the tags, where a player or a phone shows them, synced ones into an .lrc file beside the track, for players that scroll along",
   "Если трек похож сразу на несколько записей, он не скачивается сам: на карточке появятся варианты, их можно послушать и выбрать":
     "When a track looks like more than one recording, it is not downloaded by itself: the card shows the candidates, to listen to and choose from",
   "Нужен выбор": "Choose",

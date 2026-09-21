@@ -48,6 +48,8 @@ ENGLISH.update({
         "print the version, which ffmpeg and Deno were found and what opens from this network, "
         "download nothing",
     "проверяем сеть…": "checking the network…",
+    "записать тексты песен из LRCLIB: в теги, синхронные — в файл .lrc рядом":
+        "write lyrics from LRCLIB: into the tags, synced ones into an .lrc file beside the track",
     "открывается": "opens",
     "плеер закрыт, релизы — со страниц-превью": "the player is closed, releases come from the preview pages",
     "не открывается": "does not open",

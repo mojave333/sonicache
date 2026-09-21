@@ -39,6 +39,7 @@ downloading, after which the files get their tags and cover art.
 - A name works when you have no link: write "Daft Punk - Discovery".
 - Every file gets tags, the genre and cover art, and multi-disc albums are numbered properly.
 - Optional ReplayGain tags make a shuffled library play at one volume.
+- Lyrics from LRCLIB go into the tags, and synced ones into an `.lrc` file beside the track.
 - A text file of links or a playlist exported as CSV can be queued in one go.
 - Watched playlists are checked twice a day, and only the tracks added since are downloaded.
 - A folder, a format and the naming rules can be saved as a profile and switched with one click.
@@ -192,6 +193,19 @@ already has the tags is never measured twice, so a watched playlist does not re-
 itself on every check. Measuring takes a few seconds a track, on as many threads as the
 downloads use.
 
+### Lyrics
+
+On by default; Settings → Download turns it off. Each track's lyrics are looked up in
+[LRCLIB](https://lrclib.net), a free open database, by artist, title, album and length, so a
+live take or a remix of another length does not lend its words. The plain text goes into the
+tags (`USLT` in mp3, `©lyr` in m4a, `LYRICS` in opus), where phones and most players show it.
+When LRCLIB also has the timings, they go into an `.lrc` file under the track's name, which
+players with a lyrics pane, such as foobar2000, MusicBee or AIMP, scroll along with the song.
+
+An instrumental gets nothing, and a song LRCLIB does not know or cannot answer for costs only
+its lyrics: the track itself is downloaded as usual. Deleting a track from the library also
+deletes its `.lrc`.
+
 ### Lists from a file
 
 "Download a list from a file…" under the arrow beside "Download" queues everything in a
@@ -265,6 +279,7 @@ Trackhound-cli.exe --dry-run LINK
 | `--names` | file names: `auto` (default), `artist`, `title` |
 | `--folders` | album folders: `flat` (default), `nested`, `album` |
 | `--replaygain` | measure the loudness and write ReplayGain tags; the audio is not changed |
+| `--lyrics` | write lyrics from LRCLIB into the tags, and synced ones into an `.lrc` beside the track |
 | `--from-file` | take links and names from a `.txt` or a playlist exported as `.csv`; can be repeated |
 | `--lang` | language of the messages: `system` (default), `ru`, `en` |
 | `--check` | version, paths to ffmpeg and Deno, the music folder |
@@ -582,6 +597,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/engine/matcher.py` | searching and picking a match on YouTube Music, SoundCloud and YouTube |
 | `trackhound/engine/downloader.py` | downloading (yt-dlp), converting (ffmpeg), tagging (mutagen) |
 | `trackhound/engine/loudness.py` | measuring the loudness and writing ReplayGain tags |
+| `trackhound/engine/lyrics.py` | looking up lyrics in LRCLIB |
 | `trackhound/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
 | `trackhound/engine/i18n.py`, `trackhound/i18n.py`, `trackhound/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
 | `trackhound/logs.py` | the log file and the report |

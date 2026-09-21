@@ -31,6 +31,7 @@ class TestNormalize:
             "sidebar": 64,
             "replaygain": False,
             "ask_doubtful": True,
+            "lyrics": True,
             "profiles": [],
             "library_view": "grid",
         }
