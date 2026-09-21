@@ -291,6 +291,9 @@ Where Spotify does not work, Russia among those places, it keeps its player page
 still gives out the pages it makes for link previews in messengers. The release is read off
 those instead: an album or a track comes whole, a playlist only with its first 30 tracks,
 and the release line says so. The audio never comes from Spotify, so nothing else changes.
+A longer playlist comes whole through a proxy (up to 100 tracks, as anywhere), or exported
+to CSV with Exportify, TuneMyMusic or Soundiiz and opened with "Download a list from a
+file…". More on blocked networks in [Where services are blocked](#where-services-are-blocked).
 
 ## Where the files go
 
@@ -344,6 +347,25 @@ is tried, widening the search to the other sources if needed. With no suitable c
 track is reported as failed, and nothing random is downloaded in its place. A file that
 turns out too short, such as a 30-second SoundCloud Go+ preview, counts as a failure too.
 
+## Where services are blocked
+
+The program talks to Spotify, YouTube and SoundCloud from your own computer, not from a
+server abroad, so it sees what your network lets through. Settings → Diagnostics →
+"Check" says what that is: whether Spotify's player opens or only its preview pages, whether
+YouTube and SoundCloud open, and whether a VPN client runs a proxy on this computer.
+`trackhound --check` prints the same.
+
+- **A VPN in TUN or "system proxy" mode** is used by the program by itself, with nothing to
+  set.
+- **A VPN client that only opens a local proxy** (v2rayN, NekoBox, Clash, Hiddify, v2rayA,
+  Shadowsocks, on their default ports) is found by the check, and one click puts it to use.
+  A card Spotify refused looks for it too and offers "Use it and try again".
+- **Any other proxy** goes into Settings → Proxy, `http://…` or `socks5://…`. A SOCKS proxy
+  is asked to look names up itself, since a blocked service's name may resolve wrongly here.
+- **Without a proxy**, a Spotify album or track still downloads, read off the preview pages,
+  and a playlist gives its first 30 tracks. When YouTube does not answer, the search leaves
+  it out for five minutes at a time and goes to SoundCloud, which has much but not all.
+
 ## When something breaks
 
 - **Download errors from YouTube.** YouTube changes often, and yt-dlp with it. Update to the
@@ -356,8 +378,9 @@ turns out too short, such as a 30-second SoundCloud Go+ preview, counts as a fai
   a link to the same release from Deezer, Apple Music or YouTube Music.
 - **`music.youtube.com` is unreachable on this network.** The program switches to
   `www.youtube.com` by itself.
-- **A proxy is needed.** Write the address in Settings → Proxy, or start with
-  `--proxy http://127.0.0.1:1080`. `HTTP_PROXY`/`HTTPS_PROXY` work too.
+- **A proxy is needed.** Settings → Diagnostics → "Check" finds a VPN client's proxy on this
+  computer. Otherwise write the address in Settings → Proxy, or start with
+  `--proxy socks5://127.0.0.1:10808`. `HTTP_PROXY`/`HTTPS_PROXY` work too.
 - **Anything else.** Settings → Diagnostics → "Copy the report", and attach that to an
   [issue](https://github.com/mojave333/trackhound/issues).
 
