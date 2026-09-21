@@ -348,6 +348,8 @@ const TRANSLATIONS = {
     "When a track looks like more than one recording, it is not downloaded by itself: the card shows the candidates, to listen to and choose from",
   "Нужен выбор": "Choose",
   "Дописать теги": "Fill in tags",
+  "несколько секунд": "a few seconds",
+  "{progress} · ещё {eta}": "{progress} · {eta} left",
   "Поиск (Ctrl+K)": "Search (Ctrl+K)",
   "Исполнитель, альбом или трек": "Artist, album or track",
   "Что найти": "What to find",

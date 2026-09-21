@@ -1227,8 +1227,58 @@ function jobStage(job, ratio) {
     return states.includes("search") ? { icon: "search", text: t("Ищем источник") }
                                      : { icon: "dot", text: t("В очереди") };
   }
-  return { icon: "download", text: t("{done} из {total} · {percent}%",
-           { done: job.done, total: job.total, percent: Math.floor(ratio * 100) }) };
+  const left = formatEta(smoothEta(job, remainingSeconds([...job.tracks.values()])));
+  const text = t("{done} из {total} · {percent}%", { done: job.done, total: job.total, percent: Math.floor(ratio * 100) });
+  return { icon: "download", text: left ? t("{progress} · ещё {eta}", { progress: text, eta: left }) : text };
+}
+
+// How long the tracks still need, the way the downloader works through them:
+// as many at once as there are threads, each waiting track taking the thread
+// that frees first. A track under way has the downloader's own estimate; one
+// still waiting takes as long as those before it did.
+function remainingSeconds(tracks) {
+  const now = Date.now();
+  const active = tracks.filter((track) => track.state === "search" || track.state === "download");
+  const waiting = tracks.filter((track) => track.state === "waiting").length;
+  if (!active.length && !waiting) return null;
+  const mean = (values) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0);
+  const took = tracks.map((track) => track.took).filter(Boolean);
+  const whole = took.length ? mean(took) : mean(active.filter((track) => track.eta != null && track.startedAt)
+    .map((track) => (now - track.startedAt) / 1000 + trackLeft(track)));
+  if (!whole) return null;
+  const threads = Math.max(1, state.settings?.threads || 1);
+  const lanes = active.map((track) => trackLeft(track) ?? Math.max(1, whole - (now - track.startedAt) / 1000));
+  while (lanes.length < threads) lanes.push(0);
+  for (let i = 0; i < waiting; i++) {
+    lanes.sort((a, b) => a - b);
+    lanes[0] += whole;
+  }
+  return Math.max(...lanes);
+}
+
+// What the downloader last said this track still needs, counted down since
+function trackLeft(track) {
+  if (track.eta == null) return null;
+  return Math.max(0, track.eta - (Date.now() - track.etaAt) / 1000);
+}
+
+// The estimate moves with every tick; shown as it is, it would twitch
+function smoothEta(holder, seconds) {
+  if (seconds == null) {
+    holder.etaShown = null;
+    return null;
+  }
+  holder.etaShown = holder.etaShown == null ? seconds : holder.etaShown + 0.25 * (seconds - holder.etaShown);
+  return holder.etaShown;
+}
+
+function formatEta(seconds) {
+  if (seconds == null) return "";
+  if (seconds < 10) return t("несколько секунд");
+  if (seconds < 55) return t("~{seconds} сек", { seconds: Math.max(10, Math.round(seconds / 5) * 5) });
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return t("~{minutes} мин", { minutes });
+  return t("~{hours} ч {minutes} мин", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
 }
 
 function jobProgress(job) {
@@ -1481,7 +1531,11 @@ function onTrack(job, event) {
   const track = job.tracks.get(event.id);
   if (!track) return;
   Object.assign(track, { state: event.state, text: event.text || "", percent: event.percent || 0,
-                         wide: Boolean(event.wide), retry: Boolean(event.retry) });
+                         wide: Boolean(event.wide), retry: Boolean(event.retry),
+                         // seconds the downloader still gives this track, and when it said so
+                         eta: typeof event.eta === "number" ? event.eta : null, etaAt: Date.now() });
+  if ((event.state === "search" || event.state === "download") && !track.startedAt) track.startedAt = Date.now();
+  if (event.state === "done" && track.startedAt && !track.took) track.took = (Date.now() - track.startedAt) / 1000;
   if (event.source) track.source = event.source;
   if (event.candidates) track.candidates = event.candidates;
   if (event.state !== "skip" && state.run?.jobs.has(job.id) && !state.run.workStart) state.run.workStart = Date.now();
@@ -1503,7 +1557,8 @@ function renderTrack(track) {
     $(".cell-source", row).textContent = track.source;
     setStatusCell($(".cell-status", row), {
       icon: ui.icon,
-      text: downloading ? `${label} ${track.percent}%` : label,
+      text: downloading ? [`${label} ${track.percent}%`, formatEta(trackLeft(track))].filter(Boolean).join(" · ")
+        : label,
       tip: track.state === "skip" ? t("Файл уже есть в папке") : "",
       progress: downloading ? track.percent / 100 : undefined,
       drop,
@@ -1805,7 +1860,7 @@ function statusText() {
       parts.push(t(dryRun ? "Проверено {done} из {total}" : "Загружено {done} из {total}",
         { done: finished.length, total: tracks.length }));
     }
-    const eta = estimate(tracks, finished);
+    const eta = formatEta(smoothEta(state.run, remainingSeconds(tracks)));
     if (eta) parts.push(t("осталось {eta}", { eta }));
     if (failed) parts.push(t(dryRun ? "не найдено: {failed}" : "не удалось: {failed}", { failed }));
     if (jobs.some((job) => job.state === "running" && !job.total)) parts.push(t("читаем ссылку…"));
@@ -1839,19 +1894,6 @@ function statusText() {
 }
 
 // Remaining time from the pace so far; skipped files take no time and would inflate it
-function estimate(tracks, finished) {
-  const remaining = tracks.length - finished.length;
-  const worked = finished.filter((track) => track.state !== "skip" && track.state !== "cancel").length;
-  const elapsed = (Date.now() - state.run.workStart) / 1000;
-  if (!state.run.workStart || !remaining || worked < 2 || elapsed < 5) return "";
-  const seconds = (remaining * elapsed) / worked;
-  if (seconds < 60) return t("~{seconds} сек", { seconds: Math.max(5, Math.round(seconds / 5) * 5) });
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return t("~{minutes} мин", { minutes });
-  return t("~{hours} ч {minutes} мин",
-    { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
-}
-
 /* Library */
 
 // Motion follows Material's emphasized curve: things leave fast and land softly.

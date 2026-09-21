@@ -90,6 +90,7 @@ ENGLISH = {
     "Трека {id} нет в альбоме «{album}»": "Track {id} is not part of \"{album}\"",
     "Deezer ответил ошибкой: {error}": "Deezer answered with an error: {error}",
     "Deezer не ответил: {error}": "Deezer did not answer: {error}",
+    "ffmpeg не перекодировал файл: {error}": "ffmpeg could not convert the file: {error}",
     "Поиск не удался: ни Deezer, ни YouTube Music не ответили ({error})":
         "The search failed: neither Deezer nor YouTube Music answered ({error})",
     "Deezer недавно не ответил, ISRC пока не ищем": "Deezer did not answer a moment ago, so no ISRCs for now",

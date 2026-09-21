@@ -467,7 +467,8 @@ p { margin: 0; }
   position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%);
   background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-edge);
   clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 0 100%);
-  transition: width 260ms var(--ease);
+  /* Updates come twice a second: an even glide between them reads as one motion */
+  transition: width 520ms linear;
 }
 
 /* The sign of each step, copied out of its symbol (drawIcon) so the parts

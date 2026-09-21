@@ -146,6 +146,15 @@ the next run. The status bar at the bottom counts the tracks and estimates what 
 title shows the percentage, and on Windows the taskbar button fills with it, yellow while
 paused and red once something has failed.
 
+The percentages count a track's whole way, not only its bytes. Most of the time goes where
+nothing is downloaded: yt-dlp preparing YouTube's stream takes several seconds, and turning
+it into mp3 takes longer than the download itself. So each step's remaining time is
+estimated, from ffmpeg's own report during the conversion and from how long the step took on
+the tracks before where nothing reports, and the bar moves at an even pace instead of
+standing at 0, leaping to 99 and standing again. Each track and each link say roughly how
+long they still need ("~20 sec", "~3 min"), worked out for the number of tracks downloaded at
+once; the first estimates are rough and settle after a track or two.
+
 ### Search
 
 For when there is no link at hand. Type an artist, an album or a track, and the catalogue

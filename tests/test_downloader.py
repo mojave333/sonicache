@@ -1,8 +1,11 @@
 """File names, error wording and the checks that guard a finished download."""
 
 import json
+import subprocess
+import threading
 
 import pytest
+from mutagen import File as MutagenFile
 
 from trackhound.engine import downloader
 from trackhound.engine.downloader import (DownloaderError, Options, Report, _check_duration, _clear_partials,
@@ -326,8 +329,9 @@ def test_mmss():
 class TestFormats:
     """Which stream is asked for, and what ffmpeg is told to make of it."""
 
-    def fetch(self, monkeypatch, tmp_path, audio_format, ffmpeg="ffmpeg", source="song"):
-        seen = {}
+    def fetch(self, monkeypatch, tmp_path, audio_format, ffmpeg="ffmpeg", source="song", acodec="opus",
+              ext="webm"):
+        seen, converted = {}, {}
 
         class FakeYoutubeDL:
             def __init__(self, opts):
@@ -339,45 +343,99 @@ class TestFormats:
             def __exit__(self, *exc):
                 return False
 
-            def download(self, urls):
-                (tmp_path / f"stem.{audio_format}").write_bytes(b"audio")
+            def extract_info(self, url, download):
+                path = tmp_path / f"stem.{ext}"
+                path.write_bytes(b"audio")
+                return {"acodec": acodec, "duration": 200, "requested_downloads": [{"filepath": str(path)}]}
+
+        def convert(ffmpeg_path, source_path, target, audio_format, copy, duration, on_fraction=None, stop=None):
+            converted.update(source=source_path.name, target=target.name, copy=copy, duration=duration)
+            target.write_bytes(b"converted")
 
         monkeypatch.setattr(downloader.yt_dlp, "YoutubeDL", FakeYoutubeDL)
+        monkeypatch.setattr(downloader, "_convert", convert)
         loader = downloader.Downloader(Options(tmp_path, audio_format), log=lambda message: None)
         loader.ffmpeg = ffmpeg
         match = downloader.Match(source=source, url="https://music.youtube.test/watch?v=x", page_url="",
                                  title="T", artists="A", duration=200, score=1.0)
         track = Track(id="1", title="T", artists="A", duration=200, track_number=1)
         path = loader._download_audio(match, tmp_path, "stem", track, "YouTube Music")
-        return seen, path
+        return seen, converted, path
 
     def test_m4a_is_made_from_the_full_band_opus(self, monkeypatch, tmp_path):
-        opts, path = self.fetch(monkeypatch, tmp_path, "m4a")
+        opts, converted, path = self.fetch(monkeypatch, tmp_path, "m4a")
         assert opts["format"].index("bestaudio[acodec=opus]") < opts["format"].index("bestaudio[ext=m4a]/")
         assert opts["format"].startswith("bestaudio[ext=m4a][abr>=200]")  # Premium's AAC 256 as is
-        assert opts["postprocessors"][0]["preferredcodec"] == "m4a"
-        assert opts["postprocessors"][0]["preferredquality"] == "256"
-        assert path.suffix == ".m4a"
+        assert converted == {"source": "stem.webm", "target": "stem.m4a", "copy": False, "duration": 200}
+        assert path.name == "stem.m4a"
+
+    def test_premium_aac_is_only_rewrapped(self, monkeypatch, tmp_path):
+        _, converted, _ = self.fetch(monkeypatch, tmp_path, "m4a", acodec="mp4a.40.2", ext="m4a")
+        assert converted["copy"] is True
 
     def test_m4a_without_ffmpeg_takes_youtubes_own_aac(self, monkeypatch, tmp_path):
-        opts, _ = self.fetch(monkeypatch, tmp_path, "m4a", ffmpeg=None)
+        opts, converted, path = self.fetch(monkeypatch, tmp_path, "m4a", ffmpeg=None, acodec="mp4a.40.2", ext="m4a")
         assert opts["format"].startswith("bestaudio[ext=m4a]/")
-        assert "postprocessors" not in opts
+        assert converted == {} and path.name == "stem.m4a"
 
-    def test_mp3_is_a_constant_320_at_441_khz(self, monkeypatch, tmp_path):
-        opts, path = self.fetch(monkeypatch, tmp_path, "mp3")
-        assert opts["postprocessors"][0]["preferredcodec"] == "mp3"
-        assert opts["postprocessors"][0]["preferredquality"] == "320"
-        assert opts["postprocessor_args"] == {"extractaudio": ["-ar", "44100"]}
-        assert path.name == "stem.mp3"
+    def test_mp3_is_encoded_and_opus_only_rewrapped(self, monkeypatch, tmp_path):
+        assert self.fetch(monkeypatch, tmp_path, "mp3")[1]["copy"] is False
+        assert self.fetch(monkeypatch, tmp_path, "opus")[1]["copy"] is True
 
-    def test_other_formats_keep_their_sample_rate(self, monkeypatch, tmp_path):
-        for audio_format in ("m4a", "opus"):
-            opts, _ = self.fetch(monkeypatch, tmp_path, audio_format)
-            assert "postprocessor_args" not in opts
+    def test_soundclouds_mp3_stays_as_it_is(self, monkeypatch, tmp_path):
+        _, converted, _ = self.fetch(monkeypatch, tmp_path, "mp3", source="soundcloud", acodec="mp3", ext="mp3")
+        assert converted["copy"] is True
+
+    def test_yt_dlp_converts_nothing_itself(self, monkeypatch, tmp_path):
+        opts, _, _ = self.fetch(monkeypatch, tmp_path, "mp3")
+        assert "postprocessors" not in opts and "postprocessor_args" not in opts
 
     def test_mp3_comes_first_and_is_the_default(self, tmp_path):
         assert downloader.FORMATS[0] == "mp3" == Options(tmp_path).audio_format
+
+
+@pytest.mark.skipif(not downloader.find_tool("ffmpeg"), reason="needs ffmpeg")
+class TestConvert:
+    """ffmpeg makes the format asked for and says how far it has got."""
+
+    FFMPEG = downloader.find_tool("ffmpeg")
+
+    def source(self, tmp_path, seconds=20):
+        path = tmp_path / "_part_1.webm"
+        subprocess.run([self.FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                        "-i", f"sine=frequency=440:duration={seconds}", "-c:a", "libopus", "-b:a", "96k",
+                        str(path)], check=True)
+        return path
+
+    @pytest.mark.parametrize("audio_format, copy, kind", [
+        ("mp3", False, "MP3"), ("m4a", False, "MP4"), ("opus", True, "OggOpus"),
+    ])
+    def test_every_format_comes_out(self, tmp_path, audio_format, copy, kind):
+        source = self.source(tmp_path)
+        target = tmp_path / f"_part_1.{audio_format}"
+        seen = []
+        downloader._convert(self.FFMPEG, source, target, audio_format, copy, 20, on_fraction=seen.append)
+        audio = MutagenFile(target)
+        assert type(audio).__name__ == kind and audio.info.length == pytest.approx(20, abs=0.5)
+        if audio_format == "mp3":
+            assert (audio.info.sample_rate, round(audio.info.bitrate / 1000)) == (44100, 320)
+        assert not source.exists() and not list(tmp_path.glob("*.converting.*"))
+        assert seen and seen == sorted(seen) and seen[-1] == pytest.approx(1, abs=0.1)
+
+    def test_a_stream_ffmpeg_cannot_read_is_a_coded_failure(self, tmp_path):
+        broken = tmp_path / "_part_1.webm"
+        broken.write_bytes(b"not audio at all")
+        with pytest.raises(DownloaderError) as failed:
+            downloader._convert(self.FFMPEG, broken, tmp_path / "_part_1.mp3", "mp3", False, 20)
+        assert failed.value.code == "convert_failed"
+        assert not list(tmp_path.glob("*.mp3"))
+
+    def test_a_stop_ends_the_conversion(self, tmp_path):
+        stop = threading.Event()
+        stop.set()
+        with pytest.raises(downloader.DownloadCancelled):
+            downloader._convert(self.FFMPEG, self.source(tmp_path, 60), tmp_path / "_part_1.mp3", "mp3", False, 60,
+                                stop=stop)
 
 
 class TestSteps:
@@ -402,26 +460,50 @@ class TestSteps:
             def __exit__(self, *exc):
                 return False
 
-            def download(self, urls):
-                for status in ({"status": "downloading", "downloaded_bytes": 50, "total_bytes": 100},
+            def extract_info(self, url, download):
+                for status in ({"status": "downloading", "downloaded_bytes": 50, "total_bytes": 100, "eta": 1},
                                {"status": "finished", "total_bytes": 100}):
                     for hook in self.hooks:
                         hook(status)
-                (tmp_path / "stem.mp3").write_bytes(b"audio")
+                (tmp_path / "stem.webm").write_bytes(b"audio")
+                return {"acodec": "opus", "requested_downloads": [{"filepath": str(tmp_path / "stem.webm")}]}
+
+        def convert(ffmpeg, source, target, audio_format, copy, duration, on_fraction=None, stop=None):
+            on_fraction(0.5)
+            target.write_bytes(b"converted")
 
         monkeypatch.setattr(downloader.yt_dlp, "YoutubeDL", FakeYoutubeDL)
+        monkeypatch.setattr(downloader, "_convert", convert)
+        monkeypatch.setattr(downloader, "_check_duration", lambda path, track: None)  # the file is fake
         events = []
         loader = self.loader(tmp_path, events)
+        loader.ffmpeg = "ffmpeg"
         track = Track(id="1", title="T", artists="A", duration=200, track_number=1)
-        loader._download_audio(self.match(), tmp_path, "stem", track, "YouTube Music", retry)
-        return [(event["state"], event.get("percent"), event.get("retry")) for event in events]
+        loader._clocks["1"] = {"clock": downloader.Clock(200), "track": track, "source": "", "retry": False}
+        loader._fetch(self.match(), tmp_path, "stem", track, "YouTube Music", retry)
+        return loader, events
 
-    def test_a_finished_stream_is_no_step_of_its_own(self, monkeypatch, tmp_path):
-        """After the search there is only the download, ffmpeg's part included."""
-        assert self.download(monkeypatch, tmp_path) == [("download", 50, False)]
+    def test_a_download_says_how_far_and_how_long(self, monkeypatch, tmp_path):
+        loader, events = self.download(monkeypatch, tmp_path)
+        first = events[0]
+        assert (first["state"], first["source"], first["retry"]) == ("download", "YouTube Music", False)
+        assert 0 <= first["percent"] < 100 and first["eta"] > 0
 
     def test_a_download_from_a_second_source_says_so(self, monkeypatch, tmp_path):
-        assert self.download(monkeypatch, tmp_path, retry=True)[0] == ("download", 50, True)
+        loader, events = self.download(monkeypatch, tmp_path, retry=True)
+        assert events[0]["retry"] is True
+
+    def test_ticks_move_on_and_stop_with_the_track(self, monkeypatch, tmp_path):
+        loader, events = self.download(monkeypatch, tmp_path)
+        loader._tick()
+        loader._tick()
+        ticks = events[1:]
+        assert ticks and all(event["state"] == "download" and "eta" in event for event in ticks)
+        assert [event["percent"] for event in ticks] == sorted(event["percent"] for event in ticks)
+        loader._track_event(Track(id="1", title="T", artists="A", duration=200, track_number=1), "done")
+        count = len(events)
+        loader._tick()
+        assert len(events) == count  # nothing after "done" could set the row back to downloading
 
     def test_the_second_search_is_the_wide_one(self, tmp_path):
         events = []

@@ -36,6 +36,7 @@ ERROR_CODES = {
     "no_cookies": "the browser holds no YouTube cookies",
     "preview_only": "only a preview of the track could be downloaded",
     "wrong_file": "the download did not end in a file of the format asked for",
+    "convert_failed": "ffmpeg could not make the downloaded stream into the format asked for",
     "download_failed": "the download failed for any other reason",
     "unknown": "an error raised without a code",
 }

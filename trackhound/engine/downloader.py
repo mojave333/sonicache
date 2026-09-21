@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import threading
 import urllib.error
@@ -32,6 +33,7 @@ from .i18n import t
 from .logs import YtdlpLogger, log
 from .matcher import ISRC_SCORE, SOURCE_NAMES, Match, Matcher, doubtful
 from .models import Album, Track, _CodedError
+from .progress import Clock
 from .net import BROWSER_UA
 
 FORMATS = ("mp3", "m4a", "opus")  # in the order the window shows them; mp3 is the default
@@ -176,6 +178,10 @@ class Downloader:
             self.resume_event.set()
         self.matcher = Matcher()
         self._paths: dict[str, Path] = {}
+        # The tracks under way, each with its clock, the source shown and whether
+        # it is a second try; the lock also keeps their events in order
+        self._clocks: dict[str, dict] = {}
+        self._clock_lock = threading.Lock()
         self.ffmpeg = find_tool("ffmpeg")
         # yt-dlp needs a JavaScript runtime to solve YouTube challenges; only
         # deno is enabled by default, node has to be passed explicitly.
@@ -281,9 +287,10 @@ class Downloader:
         pool = ThreadPoolExecutor(max_workers=max(1, self.options.threads))
         try:
             futures = [pool.submit(job, track) for track in tracks]
-            # Short waits keep the main thread responsive to Ctrl+C on Windows.
+            # Short waits keep the main thread responsive to Ctrl+C on Windows,
+            # and each one tells the window how far the tracks under way are
             while wait(futures, timeout=0.5).not_done:
-                pass
+                self._tick()
             for future in futures:
                 future.result()
             self._tag_loudness(album, tracks, single)
@@ -317,7 +324,14 @@ class Downloader:
 
         stem = f"_part_{track.id}"
         direct = _direct_match(track)
+        if not self.options.dry_run:
+            with self._clock_lock:
+                self._clocks[track.id] = {"clock": Clock(track.duration), "track": track, "source": "",
+                                          "retry": False}
+        announced = False  # the search shown from the ISRC lookup on, not only once it asks YouTube
         if not (direct or track.isrc or self.options.choices.get(track.id)):
+            self._track_event(track, "search", wide=False)
+            announced = True
             try:
                 track.isrc = sources.track_isrc(track)
             except Exception as e:
@@ -330,7 +344,8 @@ class Downloader:
             nonlocal pool, searches
             while not pool and searches < 2:
                 searches += 1
-                self._track_event(track, "search", wide=searches == 2)
+                if not (searches == 1 and announced):
+                    self._track_event(track, "search", wide=searches == 2)
                 pool = [found for found in self.matcher.find_all(track, album, searches == 2)
                         if found.url not in tried]
             if not pool:
@@ -385,6 +400,7 @@ class Downloader:
                     _clear_partials(folder, stem)
                     match, source = following, t(SOURCE_NAMES.get(following.source, "")) or album.service
                     retry = True
+            self._step(track, "finish")
             words = lyrics.find(track, album) if self.options.lyrics else None
             _write_tags(path, album, track, cover, words.plain if words else "")
             os.replace(path, target)
@@ -432,7 +448,10 @@ class Downloader:
 
     def _fetch(self, match: Match, folder: Path, stem: str, track: Track, source: str,
                retry: bool = False) -> Path:
-        self._track_event(track, "download", source=source, percent=0, retry=retry)
+        clock = self._step(track, "prepare", match.source, source, retry)
+        self._track_event(track, "download", source=source, retry=retry,
+                          percent=clock.percent() if clock else 0,
+                          **({"eta": round(clock.remaining(), 1)} if clock else {}))
         path = self._download_audio(match, folder, stem, track, source, retry)
         _check_duration(path, track)
         return path
@@ -440,18 +459,16 @@ class Downloader:
     def _download_audio(self, match: Match, folder: Path, stem: str, track: Track, source: str,
                         retry: bool = False) -> Path:
         audio_format = self.options.audio_format
-        reported = -1
+        clock = self._step(track, "prepare")
 
         def on_progress(status: dict) -> None:
-            nonlocal reported
             if self.stop_event.is_set():
                 raise DownloadCancelled(t("остановлено пользователем"))
             total = status.get("total_bytes") or status.get("total_bytes_estimate")
-            if status.get("status") == "downloading" and total:
-                percent = min(99, int(status.get("downloaded_bytes", 0) * 100 / total))
-                if percent >= reported + 5:  # the window does not need every chunk
-                    reported = percent
-                    self._track_event(track, "download", source=source, percent=percent, retry=retry)
+            if status.get("status") == "downloading" and clock is not None:
+                clock.enter("download")
+                if total:
+                    clock.report(status.get("downloaded_bytes", 0) / total, status.get("eta"))
 
         if match.source == "soundcloud":
             format_spec = "bestaudio/best"  # AAC 160k when available; previews rank last
@@ -477,6 +494,8 @@ class Downloader:
             "logger": YtdlpLogger("download"),
             "progress_hooks": [on_progress],
         }
+        # The conversion is not left to yt-dlp: its ffmpeg says nothing until it
+        # is done, and for mp3 that is most of a track's time
         if self.js_runtimes:
             opts["js_runtimes"] = self.js_runtimes
         if self.options.rate_limit:
@@ -488,27 +507,59 @@ class Downloader:
             opts["cookiesfrombrowser"] = (self.options.cookies_browser,)
         if self.ffmpeg:
             opts["ffmpeg_location"] = self.ffmpeg
-            opts["postprocessors"] = [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": audio_format,
-                # kbit/s, applied only when re-encoding: mp3 is a constant 320
-                "preferredquality": {"mp3": "320", "m4a": "256", "opus": "160"}[audio_format],
-            }]
-            if audio_format == "mp3":
-                # YouTube's Opus is 48 kHz; car stereos and DJ software expect a CD's 44.1
-                opts["postprocessor_args"] = {"extractaudio": ["-ar", "44100"]}
         with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([match.url])
+            info = ydl.extract_info(match.url, download=True)
 
+        fetched = _downloaded_file(info, folder, stem)
         path = folder / f"{stem}.{audio_format}"
-        if not path.exists():
+        if fetched is None or (not self.ffmpeg and fetched != path):
             got = ", ".join(p.suffix for p in folder.glob(f"{stem}.*")) or t("ничего")
             raise DownloaderError.of("wrong_file", "ожидался файл .{format}, получено: {got}",
                                      format=audio_format, got=got)
+        if not self.ffmpeg:
+            return path  # m4a as YouTube gives it, the one format that needs no ffmpeg
+        copy = _same_codec((info or {}).get("acodec"), fetched, audio_format)
+        if clock is not None:
+            clock.encode = not copy
+            clock.enter("convert")
+        _convert(self.ffmpeg, fetched, path, audio_format, copy,
+                 track.duration or (info or {}).get("duration") or 0,
+                 on_fraction=clock.report if clock else None, stop=self.stop_event)
         return path
 
     def _track_event(self, track: Track, state: str, text: str = "", source: str = "", **extra) -> None:
-        self.events("track", {"id": track.id, "state": state, "text": text, "source": source, **extra})
+        with self._clock_lock:
+            if state not in ("search", "download"):  # over, or waiting for a choice: no more ticks
+                entry = self._clocks.pop(track.id, None)
+                if entry is not None and state == "done":
+                    entry["clock"].done()
+            self.events("track", {"id": track.id, "state": state, "text": text, "source": source, **extra})
+
+    def _step(self, track: Track, step: str, match_source: str | None = None, shown: str | None = None,
+              retry: bool | None = None) -> Clock | None:
+        """Moves a track's clock on to the next step; None for a trial run."""
+        with self._clock_lock:
+            entry = self._clocks.get(track.id)
+            if entry is None:
+                return None
+            entry["clock"].enter(step, match_source)
+            if shown is not None:
+                entry["source"] = shown
+            if retry is not None:
+                entry["retry"] = retry
+            return entry["clock"]
+
+    def _tick(self) -> None:
+        """How far each track under way is, and how long it still needs, told
+        twice a second: the steps that report nothing still move the bar."""
+        with self._clock_lock:
+            for entry in self._clocks.values():
+                clock = entry["clock"]
+                if clock.step in ("search", "done"):
+                    continue
+                self.events("track", {"id": entry["track"].id, "state": "download", "text": "",
+                                      "source": entry["source"], "retry": entry["retry"],
+                                      "percent": clock.percent(), "eta": round(clock.remaining(), 1)})
 
     def _fetch_cover(self, url: str) -> bytes | None:
         return fetch_cover(url, self.log)
@@ -535,6 +586,87 @@ def fetch_cover(url: str, say: Callable[[str], None]) -> bytes | None:
         say(f"! По адресу обложки не JPEG и не PNG, пропускаю: {url}")
         return None
     return data
+
+
+_ENCODERS = {"mp3": ("libmp3lame", "320k"), "m4a": ("aac", "256k"), "opus": ("libopus", "160k")}
+_CODECS = {"mp3": "mp3", "m4a": "aac", "opus": "opus"}  # the codec each format holds
+_CODEC_BY_SUFFIX = {".mp3": "mp3", ".m4a": "aac", ".mp4": "aac", ".opus": "opus", ".ogg": "vorbis"}
+
+
+def _downloaded_file(info: dict | None, folder: Path, stem: str) -> Path | None:
+    """The file yt-dlp wrote, from its own account or else found by its name."""
+    for item in (info or {}).get("requested_downloads") or []:
+        path = Path(item.get("filepath") or "")
+        if path.name and path.is_file():
+            return path
+    found = [path for path in folder.glob(f"{stem}.*")
+             if path.suffix not in (".part", ".ytdl") and ".converting" not in path.name]
+    return found[0] if found else None
+
+
+def _same_codec(acodec: str | None, path: Path, audio_format: str) -> bool:
+    """Whether the stream is already in the codec the format holds, so that it
+    is only rewrapped: YouTube's Opus as .opus, SoundCloud's mp3 as .mp3."""
+    codec = (acodec or "").lower()
+    if codec in ("", "none"):
+        codec = _CODEC_BY_SUFFIX.get(path.suffix.lower(), "")
+    family = "aac" if codec.startswith("mp4a") or codec == "aac" else codec.split(".")[0]
+    return family == _CODECS[audio_format]
+
+
+def _convert(ffmpeg: str, source: Path, target: Path, audio_format: str, copy: bool, duration: float,
+             on_fraction: Callable[[float], None] | None = None, stop: threading.Event | None = None) -> None:
+    """Makes the downloaded stream into the format asked for, with ffmpeg
+    telling how far it has got.
+
+    A stream in the format's own codec is only rewrapped. Anything else is
+    encoded: mp3 at a constant 320 kbit/s and 44.1 kHz, which car stereos and
+    DJ software expect of it (YouTube's Opus is 48 kHz); m4a as AAC 256; opus
+    at 160. What the stream carried as tags is dropped: the release's own are
+    written afterwards.
+    """
+    partial = target.with_name(f"{target.stem}.converting{target.suffix}")
+    command = [ffmpeg, "-y", "-hide_banner", "-nostdin", "-loglevel", "error", "-i", str(source),
+               "-map", "0:a:0", "-vn", "-map_metadata", "-1"]
+    if copy:
+        command += ["-c:a", "copy"]
+        if audio_format == "m4a":
+            command += ["-bsf:a", "aac_adtstoasc"]  # AAC from an HLS stream comes framed for broadcast
+    else:
+        encoder, bitrate = _ENCODERS[audio_format]
+        command += ["-c:a", encoder, "-b:a", bitrate]
+        if audio_format == "mp3":
+            command += ["-ar", "44100"]
+    if audio_format == "m4a":
+        command += ["-movflags", "+faststart"]
+    command += ["-progress", "pipe:1", "-nostats", str(partial)]
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0  # no console flashing up
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                               encoding="utf-8", errors="replace", creationflags=flags)
+    complaints: list[str] = []
+    reader = threading.Thread(target=lambda: complaints.extend(process.stderr), daemon=True)
+    reader.start()
+    try:
+        for line in process.stdout:  # "out_time_us=12345678", twice a second
+            if stop is not None and stop.is_set():
+                raise DownloadCancelled(t("остановлено пользователем"))
+            key, _, value = line.strip().partition("=")
+            if key == "out_time_us" and value.isdigit() and duration and on_fraction:
+                on_fraction(int(value) / 1_000_000 / duration)
+        process.wait()
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+        reader.join(timeout=5)
+    if process.returncode != 0:
+        partial.unlink(missing_ok=True)
+        lines = "".join(complaints).strip().splitlines()
+        raise DownloaderError.of("convert_failed", "ffmpeg не перекодировал файл: {error}",
+                                 error=lines[-1] if lines else process.returncode)
+    os.replace(partial, target)
+    if source != target:
+        source.unlink(missing_ok=True)
 
 
 def _tee(report: Callable[[str], None]) -> Callable[[str], None]:
