@@ -194,3 +194,62 @@ class TestHelpers:
     def test_meta_entities_are_unescaped(self, pages):
         description = spotify._first(spotify._meta_tags("album", "x"), "og:description")
         assert "·" in description
+
+
+class TestWithheld:
+    """Where Spotify keeps its player out, the release is read off the preview pages."""
+
+    CLOSED = ('<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":'
+              '{"status":404,"title":"Page not found"}}}</script>')
+    PREVIEWS = {
+        "album/A1": [("og:title", "Discovery - Album by Daft Punk | Spotify"),
+                     ("og:description", "Daft Punk · album · 2001 · 2 songs"),
+                     ("og:image", "https://i.test/cover.jpg"), ("music:release_date", "2001-03-12"),
+                     ("music:song", "https://open.spotify.com/track/T1"), ("music:song:disc", "1"),
+                     ("music:song:track", "1"),
+                     ("music:song", "https://open.spotify.com/track/T2"), ("music:song:disc", "2"),
+                     ("music:song:track", "1")],
+        "playlist/P1": [("og:title", "Night Drive"), ("og:description", "Playlist · someone · 5 items"),
+                        ("music:song_count", "5"),
+                        ("music:song", "https://open.spotify.com/track/T1"),
+                        ("music:song", "https://open.spotify.com/track/T2")],
+        "track/T1": [("og:title", "One More Time"), ("music:musician_description", "Daft Punk"),
+                     ("music:duration", "320")],
+        "track/T2": [("og:title", "Digital Love"), ("music:musician_description", "Daft Punk, Romanthony"),
+                     ("music:duration", "301")],
+    }
+
+    @pytest.fixture(autouse=True)
+    def closed(self, monkeypatch):
+        def fetch_text(url, *, service, user_agent=spotify.BROWSER_UA, retries=3):
+            if "/embed/" in url:
+                return self.CLOSED
+            tags = self.PREVIEWS.get(url.split("open.spotify.com/", 1)[1], [])
+            return "".join(f'<meta property="{key}" content="{value}">' for key, value in tags)
+
+        monkeypatch.setattr(spotify, "fetch_text", fetch_text)
+
+    def test_an_album_comes_whole_from_the_preview_pages(self):
+        album = spotify.fetch_album("A1")
+        assert (album.name, album.artist, album.kind, album.release_date, album.cover_url) == (
+            "Discovery", "Daft Punk", "album", "2001-03-12", "https://i.test/cover.jpg")
+        assert [(t.disc_number, t.track_number, t.title, t.artists, t.duration) for t in album.tracks] == [
+            (1, 1, "One More Time", "Daft Punk", 320), (2, 1, "Digital Love", "Daft Punk, Romanthony", 301)]
+        assert album.note == ""  # both of its two songs came
+
+    def test_a_playlist_says_it_came_short(self):
+        playlist = spotify.fetch_playlist("P1")
+        assert (playlist.name, playlist.artist) == ("Night Drive", "someone")
+        assert [track.title for track in playlist.tracks] == ["One More Time", "Digital Love"]
+        assert "2 из 5" in playlist.note and "прокси" in playlist.note
+
+    def test_a_single_track_comes_from_its_own_preview_page(self):
+        album, track = spotify.fetch_track("T2")
+        assert (track.title, track.artists, track.duration) == ("Digital Love", "Daft Punk, Romanthony", 301)
+        assert album.tracks == [track]
+
+    def test_with_no_preview_pages_the_refusal_stands(self):
+        self.PREVIEWS = {}
+        with pytest.raises(SourceError, match="Page not found") as refused:
+            spotify.fetch_album("A1")
+        assert refused.value.code == "not_found"

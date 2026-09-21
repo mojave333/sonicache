@@ -39,6 +39,11 @@ ENGLISH = {
     "Spotify не отдал {kind}/{id} и ответил «{reason}». {advice}":
         "Spotify did not hand over {kind}/{id} and answered “{reason}”. {advice}",
     "Spotify не отдал {kind}/{id}. {advice}": "Spotify did not hand over {kind}/{id}. {advice}",
+    "Spotify не показывает этот релиз там, откуда идёт запрос программы, и на страницах-превью "
+    "нашлись только {count} из {total} треков. С прокси в настройках скачается всё":
+        "Spotify does not show this release where the program's request comes from, and its "
+        "preview pages gave only {count} of {total} tracks. With a proxy in the settings all of "
+        "it downloads",
     "Если ссылка открывается в браузере, Spotify не показывает этот релиз там, откуда идёт "
     "запрос программы: включите прокси в настройках или вставьте ссылку на этот релиз из "
     "Deezer, Apple Music или YouTube Music":

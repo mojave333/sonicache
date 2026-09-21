@@ -287,6 +287,11 @@ holds more, the program says so on the release line, and the rest have to be add
 separately. Deezer playlists come whole, through Deezer's public API. Artist pages and VK
 are not supported; VK shows music only to a signed-in account.
 
+Where Spotify does not work, Russia among those places, it keeps its player page back but
+still gives out the pages it makes for link previews in messengers. The release is read off
+those instead: an album or a track comes whole, a playlist only with its first 30 tracks,
+and the release line says so. The audio never comes from Spotify, so nothing else changes.
+
 ## Where the files go
 
 ```
@@ -346,6 +351,9 @@ turns out too short, such as a 30-second SoundCloud Go+ preview, counts as a fai
   section shows how old the bundled yt-dlp is.
 - **"Spotify changed the shape of its page".** The parsing in `trackhound/engine/spotify.py` needs
   fixing.
+- **"Spotify did not hand over … and answered “Page not found”".** Spotify will not show the
+  release to this network, and its link-preview pages did not come either. A proxy helps, or
+  a link to the same release from Deezer, Apple Music or YouTube Music.
 - **`music.youtube.com` is unreachable on this network.** The program switches to
   `www.youtube.com` by itself.
 - **A proxy is needed.** Write the address in Settings → Proxy, or start with

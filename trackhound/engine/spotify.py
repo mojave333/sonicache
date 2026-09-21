@@ -15,6 +15,7 @@ import json
 import re
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 from .i18n import t
 from .logs import log
@@ -35,6 +36,10 @@ _NEXT_DATA_RE = re.compile(
     r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.S
 )
 _META_RE = re.compile(r"<meta\s[^>]*>", re.I)
+# The preview page's title of an album: "Discovery - Album by Daft Punk | Spotify"
+_ALBUM_TITLE_RE = re.compile(r"^(?P<name>.+) - (?:Album|Single|EP|Compilation) by .+ \| Spotify$")
+# The preview pages of a release's tracks, read this many at a time
+_PREVIEW_WORKERS = 8
 _ATTR_RE = re.compile(r'([\w:-]+)="([^"]*)"')
 
 
@@ -52,8 +57,8 @@ def parse_link(link: str) -> tuple[str, str]:
 
 
 def fetch_album(album_id: str) -> Album:
-    entity = _embed_entity("album", album_id)
     meta = _meta_tags("album", album_id)
+    entity = _entity("album", album_id, meta)
 
     # music:song is followed by its own music:song:disc / music:song:track tags.
     positions: dict[str, dict[str, int]] = {}
@@ -98,6 +103,7 @@ def fetch_album(album_id: str) -> Album:
         cover_url=_first(meta, "og:image") or _embed_cover(entity),
         tracks=tracks,
         service="Spotify",
+        note=_short_note(entity, len(tracks)),
     )
 
 
@@ -108,8 +114,8 @@ def fetch_playlist(playlist_id: str) -> Album:
     public pages lists the rest, so a longer playlist comes back cut short and
     says so in its note.
     """
-    entity = _embed_entity("playlist", playlist_id)
     meta = _meta_tags("playlist", playlist_id)
+    entity = _entity("playlist", playlist_id, meta)
 
     tracks = []
     for number, item in enumerate(entity.get("trackList") or [], 1):
@@ -126,8 +132,8 @@ def fetch_playlist(playlist_id: str) -> Album:
         raise SourceError.of("empty", "В плейлисте {id} не найдено треков или он закрыт",
                              id=playlist_id)
 
-    note = ""
-    if len(tracks) >= PLAYLIST_LIMIT:
+    note = _short_note(entity, len(tracks))
+    if not note and len(tracks) >= PLAYLIST_LIMIT:
         note = t("Spotify отдаёт по ссылке первые {limit} треков плейлиста. Если их больше, "
                  "остальные придётся добавить отдельно", limit=PLAYLIST_LIMIT)
     return Album(
@@ -153,7 +159,7 @@ def fetch_track(track_id: str) -> tuple[Album, Track]:
         except SourceError:
             pass
 
-    entity = _embed_entity("track", track_id)
+    entity = _entity("track", track_id, meta)
     title = entity.get("name") or entity.get("title", "")
     duration = (entity.get("duration") or 0) / 1000
 
@@ -189,6 +195,71 @@ def fetch_track(track_id: str) -> tuple[Album, Track]:
             service="Spotify",
         )
     return album, track
+
+
+def _entity(kind: str, spotify_id: str, meta: list[tuple[str, str]]) -> dict:
+    """The release as the embed page has it or, when that page withholds it,
+    as the preview pages tell it.
+
+    Spotify keeps its player out of the countries it does not work in, Russia
+    among them, but it still gives out the pages it makes for the link
+    previews of messengers: the release's name and its tracks, each track on
+    a page of its own. The audio never comes from Spotify anyway.
+    """
+    try:
+        return _embed_entity(kind, spotify_id)
+    except SourceError:
+        entity = _preview_entity(kind, meta)
+        if not entity:
+            raise
+        log.info("Spotify: %s/%s собран со страниц-превью, треков: %d",
+                 kind, spotify_id, len(entity.get("trackList") or [entity]))
+        return entity
+
+
+def _preview_entity(kind: str, meta: list[tuple[str, str]]) -> dict:
+    """The embed page's data rebuilt from preview pages; empty if they have none."""
+    if kind == "track":
+        title = _first(meta, "og:title")
+        duration = _first(meta, "music:duration")
+        names = _first(meta, "music:musician_description")
+        return {"name": title, "duration": int(duration) * 1000 if duration.isdigit() else 0,
+                "artists": [{"name": name} for name in names.split(", ") if name]} if title else {}
+    songs = [_id_from_url(value) for key, value in meta if key == "music:song"]
+    with ThreadPoolExecutor(max_workers=_PREVIEW_WORKERS) as pool:
+        pages = list(pool.map(lambda song: _meta_tags("track", song), songs))
+    track_list = []
+    for song, page in zip(songs, pages):
+        track = _preview_entity("track", page)
+        if track:  # a track whose page did not come is left out, and the note counts it
+            track_list.append({"uri": f"spotify:track:{song}", "title": track["name"],
+                               "subtitle": ", ".join(artist["name"] for artist in track["artists"]),
+                               "duration": track["duration"]})
+    if not track_list:
+        return {}
+    # "Daft Punk · album · 2001 · 14 songs", "Playlist · 808filth · 175 items · 49.4K saves"
+    description = _first(meta, "og:description").split(" · ")
+    title = _first(meta, "og:title")
+    if kind == "album":
+        named = _ALBUM_TITLE_RE.match(title)
+        name, subtitle = named["name"] if named else title.removesuffix(" | Spotify"), description[0]
+        total = description[3] if len(description) > 3 else ""
+    else:
+        name, subtitle = title.removesuffix(" | Spotify"), description[1] if len(description) > 1 else ""
+        total = _first(meta, "music:song_count")
+    count = re.match(r"\d+", total.replace(",", ""))
+    return {"name": name, "subtitle": subtitle, "trackList": track_list,
+            "previewTotal": int(count.group()) if count else 0}
+
+
+def _short_note(entity: dict, count: int) -> str:
+    """Said of a release rebuilt from preview pages that list fewer tracks than it has."""
+    total = entity.get("previewTotal") or 0
+    if total <= count:
+        return ""
+    return t("Spotify не показывает этот релиз там, откуда идёт запрос программы, и на страницах-превью "
+             "нашлись только {count} из {total} треков. С прокси в настройках скачается всё",
+             count=count, total=total)
 
 
 def _embed_entity(kind: str, spotify_id: str) -> dict:
