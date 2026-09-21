@@ -141,7 +141,9 @@ done, already in the folder, not found or failed, and where the audio came from.
 queue. "Pause" holds the queue between tracks, so what is downloading finishes and nothing
 new starts. "Stop" interrupts, and the retry button on a row picks up what is left. Closing
 the window loses nothing: unfinished links and the list of what was downloaded come back on
-the next run. The status bar at the bottom counts the tracks and estimates what is left.
+the next run. The status bar at the bottom counts the tracks and estimates what is left; the window
+title shows the percentage, and on Windows the taskbar button fills with it, yellow while
+paused and red once something has failed.
 
 ### Library
 

@@ -554,3 +554,55 @@ class TestInstallerCommand:
     def test_it_runs_without_a_wizard_or_questions(self):
         command = gui.installer_command(Path("setup.exe"), 1)
         assert "/SILENT" in command and "/SUPPRESSMSGBOXES" in command and "/NORESTART" in command
+
+
+class TestProgress:
+    """The count shown outside the window: in its title and on the taskbar button."""
+
+    class Window:
+        def __init__(self):
+            self.titles = []
+            handle = type("Handle", (), {"ToInt64": lambda self: 77})()
+            self.native = type("Form", (), {"Handle": handle})()
+
+        def set_title(self, title):
+            self.titles.append(title)
+
+    def api(self, monkeypatch, platform="linux", taskbar=None):
+        monkeypatch.setattr(gui.sys, "platform", platform)
+        monkeypatch.setattr(gui, "_taskbar_progress", taskbar or (lambda *args: None))
+        api = gui.Api()
+        api._window = self.Window()
+        return api
+
+    def test_the_title_carries_the_percent_while_counting(self, monkeypatch):
+        api = self.api(monkeypatch)
+        for state in ("normal", "paused", "error"):
+            api.progress(state, 0.426)
+        assert api._window.titles == [f"42% · {gui.TITLE}"] * 3
+
+    def test_with_nothing_to_count_the_title_is_the_name(self, monkeypatch):
+        api = self.api(monkeypatch)
+        api.progress("indeterminate")
+        api.progress("none")
+        assert api._window.titles == [gui.TITLE, gui.TITLE]
+
+    def test_an_unknown_state_changes_nothing(self, monkeypatch):
+        api = self.api(monkeypatch)
+        api.progress("spinning", 0.5)
+        assert api._window.titles == []
+
+    def test_on_windows_the_taskbar_button_fills(self, monkeypatch):
+        calls = []
+        api = self.api(monkeypatch, "win32", lambda *args: calls.append(args))
+        api.progress("paused", 0.5)
+        api.progress("normal", 1.7)  # a count that ran over stays at the whole
+        assert calls == [(77, gui.TASKBAR_STATES["paused"], 50), (77, gui.TASKBAR_STATES["normal"], 100)]
+
+    def test_a_taskbar_that_refuses_does_not_fail_the_call(self, monkeypatch):
+        def refuse(*args):
+            raise OSError("no taskbar")
+
+        api = self.api(monkeypatch, "win32", refuse)
+        api.progress("normal", 0.1)
+        assert api._window.titles == [f"10% · {gui.TITLE}"]

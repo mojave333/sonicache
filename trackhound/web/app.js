@@ -112,6 +112,7 @@ const state = {
   update: null, // { version, url } once a newer release is published
   diagnostics: null, // log path and yt-dlp version, read once at startup
   paused: false,
+  reported: "", // the progress last sent to the title and the taskbar button
 };
 const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -1376,6 +1377,7 @@ function setPaused(paused) {
     $("span", button).textContent = paused ? "Продолжить" : "Пауза";
     $("use", button).setAttribute("href", paused ? "#i-play" : "#i-pause");
   }
+  reportProgress();
 }
 
 function stopAll() {
@@ -1453,6 +1455,33 @@ function renderChrome() {
   badge.textContent = counts.active > 99 ? "99+" : counts.active;
   badge.hidden = !counts.active;
   renderStatusBar();
+  reportProgress();
+}
+
+// The run's progress, shown outside the window as well: a download is mostly
+// watched with the window minimised, from its title and its taskbar button.
+// Green while it goes, yellow on pause, red once something has failed.
+function reportProgress() {
+  const jobs = state.run ? [...state.run.jobs].map((id) => state.jobs.get(id)).filter(Boolean) : [];
+  const tracks = jobs.flatMap((job) => [...job.tracks.values()]);
+  let name = "none";
+  let ratio = 0;
+  if (jobs.some((job) => ACTIVE.has(job.state))) {
+    ratio = tracks.reduce((sum, track) => sum + trackShare(track), 0) / (tracks.length || 1);
+    const failed = tracks.some((track) => TRACK_FAILED.has(track.state))
+      || jobs.some((job) => job.state === "error");
+    if (!tracks.length) name = "indeterminate"; // only links being read: no count yet
+    else name = state.paused ? "paused" : failed ? "error" : "normal";
+  }
+  const reported = `${name} ${Math.floor(ratio * 100)}`;
+  if (reported === state.reported) return;
+  state.reported = reported;
+  api().progress(name, ratio);
+}
+
+function trackShare(track) {
+  if (track.state === "download") return track.percent / 100;
+  return track.state === "waiting" || track.state === "search" ? 0 : 1;
 }
 
 function renderStatusBar() {

@@ -53,6 +53,9 @@ COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera"
 # Speeds offered in the settings, bytes per second; 0 is no limit
 RATE_LIMITS = (0, 512_000, 1_048_576, 2_097_152, 5_242_880, 10_485_760)
 _PROXY_RE = re.compile(r"^(?:https?|socks4|socks5h?)://[^\s/]+$", re.I)
+# How the taskbar button shows the downloads, as ITaskbarList3 numbers them:
+# nothing, a sweep while no count is known yet, green, red, yellow
+TASKBAR_STATES = {"none": 0, "indeterminate": 1, "normal": 2, "error": 4, "paused": 8}
 AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
 # What a profile remembers: where the music goes and in what shape. The rest of
 # the settings — theme, language, proxy — are about the program, not the music,
@@ -207,6 +210,22 @@ class Api:
             while not self._jobs.empty():
                 job, _, _ = self._jobs.get_nowait()
                 self._events.put({"type": "job", "job": job, "state": "cancelled"})
+
+    def progress(self, state: str, ratio: float = 0.0) -> None:
+        """How far the downloads have come, where it is seen with the window
+        minimised: in the title, and on Windows on the taskbar button too."""
+        window = self._window
+        if window is None or state not in TASKBAR_STATES:
+            return
+        percent = min(100, max(0, int(ratio * 100)))
+        counted = state in ("normal", "error", "paused")
+        window.set_title(f"{percent}% · {TITLE}" if counted else TITLE)
+        if sys.platform != "win32":
+            return
+        try:
+            _taskbar_progress(window.native.Handle.ToInt64(), TASKBAR_STATES[state], percent)
+        except Exception as e:  # only a picture of the progress: never worth a failed call
+            logs.log.debug("панель задач: %s", e)
 
     def open_folder(self, path: str) -> bool:
         folder = Path(path).expanduser()
@@ -745,6 +764,55 @@ class _FileOperation(ctypes.Structure):
 _FO_DELETE = 3
 # Undoable, and quiet: the window asks for confirmation itself
 _FOF_FLAGS = 0x0040 | 0x0010 | 0x0004 | 0x0400  # ALLOWUNDO | NOCONFIRMATION | SILENT | NOERRORUI
+
+
+class _Guid(ctypes.Structure):
+    _fields_ = [("data1", ctypes.c_uint32), ("data2", ctypes.c_uint16), ("data3", ctypes.c_uint16),
+                ("data4", ctypes.c_ubyte * 8)]
+
+
+_CLSID_TASKBAR_LIST = "{56FDF344-FD6D-11d0-958A-006097C9A090}"
+_IID_TASKBAR_LIST3 = "{EA1AFB91-9E28-4B86-90E9-9E9F8A5EEFAF}"
+
+
+def _taskbar_progress(hwnd: int, flag: int, percent: int) -> None:
+    """Fills the program's taskbar button the way Explorer does while copying.
+
+    ITaskbarList3 is a COM interface with no wrapper in the standard library,
+    so its methods are called by their place in its table: 2 Release, 3 HrInit,
+    9 SetProgressValue, 10 SetProgressState. The window's calls each come on a
+    thread of their own, so each one sets up COM for itself.
+    """
+    ole32 = ctypes.oledll.ole32
+    try:
+        ole32.CoInitializeEx(None, 2)  # COINIT_APARTMENTTHREADED
+        owned = True
+    except OSError:  # the thread already has COM in another mode, which serves as well
+        owned = False
+    try:
+        clsid, iid = _Guid(), _Guid()
+        ole32.CLSIDFromString(_CLSID_TASKBAR_LIST, ctypes.byref(clsid))
+        ole32.CLSIDFromString(_IID_TASKBAR_LIST3, ctypes.byref(iid))
+        taskbar = ctypes.c_void_p()
+        ole32.CoCreateInstance(ctypes.byref(clsid), None, 1, ctypes.byref(iid),  # CLSCTX_INPROC_SERVER
+                               ctypes.byref(taskbar))
+        methods = ctypes.cast(taskbar, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+        release = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)(methods[2])
+        init = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p)(methods[3])
+        set_value = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p,
+                                       ctypes.c_ulonglong, ctypes.c_ulonglong)(methods[9])
+        set_state = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p,
+                                       ctypes.c_int)(methods[10])
+        try:
+            init(taskbar)
+            set_state(taskbar, hwnd, flag)
+            if flag not in (0, 1):  # a value would turn the sweep back into a plain fill
+                set_value(taskbar, hwnd, percent, 100)
+        finally:
+            release(taskbar)
+    finally:
+        if owned:
+            ole32.CoUninitialize()
 
 
 def _reveal(path: Path) -> bool:
