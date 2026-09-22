@@ -710,7 +710,8 @@ class TestChoices:
 class TestTidy:
     """The library's tidy-up runs in the background and says how it went."""
 
-    def run(self, monkeypatch, outcomes):
+    def run(self, monkeypatch, outcomes, tmp_path):
+        monkeypatch.setattr(gui.logs, "data_dir", lambda: tmp_path)  # what was tidied is remembered there
         api = gui.Api()
         asked = []
 
@@ -732,13 +733,13 @@ class TestTidy:
             time.sleep(0.02)
         raise AssertionError("the tidy-up never finished")
 
-    def test_the_counts_add_up_and_a_miss_is_named(self, monkeypatch):
+    def test_the_counts_add_up_and_a_miss_is_named(self, monkeypatch, tmp_path):
         from trackhound.engine.tidy import Outcome
         api, asked, done = self.run(monkeypatch, {
             "One": Outcome(found=True, files=3, tags=9, cover=True, lyrics=2),
             "Two": Outcome(found=False),
             "Three": RuntimeError("odd folder"),
-        })
+        }, tmp_path)
         assert [name for name, *_ in asked] == ["One", "Two", "Three"]
         assert asked[0][1:] == ("A", "One", False)
         assert (done["files"], done["covers"], done["lyrics"], done["missed"]) == (3, 1, 2, ["Two", "Three"])

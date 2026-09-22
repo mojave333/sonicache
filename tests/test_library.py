@@ -391,3 +391,51 @@ class TestOtherFolders:
     def test_the_setting_keeps_other_folders_once_and_never_the_music_folder(self):
         settings = gui._normalize({"folder": "D:/Music", "library_folders": ["E:/Old", "D:/Music", "E:/Old", "", 5]})
         assert settings["library_folders"] == ["E:/Old", "5"]
+
+
+class TestTagGaps:
+    """Fill in tags is offered only where there is something to fill in."""
+
+    def album(self, root: Path, genre="Art Rock", cover=True, words="Hello") -> Path:
+        folder = root / "Radiohead - In Rainbows (2007)"
+        folder.mkdir()
+        path = folder / "01. 15 Step.mp3"
+        subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                        "-i", "sine=duration=1", *CODECS["mp3"], str(path)], check=True)
+        track = Track(id="1", title="15 Step", artists="Radiohead", duration=1, track_number=1)
+        album = Album(id="a", name="In Rainbows", artist="Radiohead", release_date="2007", tracks=[track],
+                      genre=genre)
+        downloader._write_tags(path, album, track, PNG, words)
+        if cover:
+            (folder / "cover.jpg").write_bytes(b"\xff\xd8\xff" + b"cover")
+        return folder
+
+    @pytest.fixture
+    def api(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(gui.logs, "data_dir", lambda: tmp_path / "data")
+        return gui.Api.__new__(gui.Api)
+
+    @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+    def test_a_complete_album_is_not_offered(self, api, tmp_path):
+        folder = self.album(tmp_path)
+        assert api.tag_gaps([str(folder)], {"lyrics": True}) == []
+
+    @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+    @pytest.mark.parametrize("missing", [{"genre": ""}, {"cover": False}, {"words": ""}])
+    def test_a_missing_genre_cover_or_lyrics_is_offered(self, api, tmp_path, missing):
+        folder = self.album(tmp_path, **missing)
+        assert api.tag_gaps([str(folder)], {"lyrics": True}) == [str(folder)]
+
+    @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+    def test_missing_lyrics_count_only_while_lyrics_are_on(self, api, tmp_path):
+        folder = self.album(tmp_path, words="")
+        assert api.tag_gaps([str(folder)], {"lyrics": False}) == []
+
+    @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+    def test_a_tidied_album_is_not_offered_again_until_it_changes(self, api, tmp_path):
+        folder = self.album(tmp_path, genre="")  # a genre nobody knows: the tidy-up could not add it
+        gui._remember_tidied(folder)
+        assert api.tag_gaps([str(folder)], {"lyrics": True}) == []
+        extra = folder / "02. New.mp3"
+        extra.write_bytes((folder / "01. 15 Step.mp3").read_bytes())
+        assert api.tag_gaps([str(folder)], {"lyrics": True}) == [str(folder)]

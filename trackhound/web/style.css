@@ -802,16 +802,29 @@ p { margin: 0; }
 
 /* Now playing: the cover, and the words moving with the song */
 .now-view { position: relative; overflow: hidden; background: var(--bg); }
+/* The cover's own colour washed over the view, as the album page's band is:
+   a pastel in the light theme, a deep shade in the dark. A pale or grey cover
+   blurred on a light page would otherwise leave no colour at all. */
+.now-view::before {
+  --wash: hsl(var(--tint-h, 0) clamp(0%, var(--tint-s, 0%), var(--band-s-max)) var(--band-l) / var(--tint-a, 0));
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(90% 85% at 12% 8%, var(--wash), transparent 72%),
+              radial-gradient(70% 70% at 95% 100%, var(--wash), transparent 70%);
+}
 .now-backdrop {
   position: absolute; inset: -80px; width: calc(100% + 160px); height: calc(100% + 160px); object-fit: cover;
   filter: blur(70px) saturate(1.3); opacity: 0.35; pointer-events: none;
 }
+/* On a light page the blur only darkens the colours it is laid over */
+:root[data-theme="light"] .now-backdrop { mix-blend-mode: multiply; opacity: 0.45; }
 .now-close { position: relative; margin: 14px 0 0 16px; align-self: flex-start; }
+/* The cover and the words start at one height, and only the words scroll */
 .now-body {
-  position: relative; display: grid; grid-template-columns: minmax(220px, 380px) minmax(0, 1fr); gap: 40px;
+  position: relative; display: grid; grid-template-columns: minmax(220px, 380px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr); align-items: start; gap: 40px;
   flex: 1; min-height: 0; padding: 12px 40px 24px;
 }
-.now-side { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.now-side { display: flex; flex-direction: column; min-width: 0; }
 /* As large as the column allows and the height leaves room for, never squashed */
 .now-cover {
   position: relative; flex: none; width: min(100%, 52vh); height: auto; aspect-ratio: 1; overflow: hidden;
@@ -821,9 +834,12 @@ p { margin: 0; }
 .now-title { margin: 22px 0 0; font-size: 24px; font-weight: 700; overflow-wrap: anywhere; }
 .now-sub { margin: 4px 0 0; color: var(--text-subtle); }
 .now-lyrics {
-  overflow-y: auto; padding: 30vh 8px 40vh; scrollbar-width: none;
-  mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  align-self: stretch; overflow-y: auto; padding: 0 8px 55vh; scrollbar-width: none;
+  mask-image: linear-gradient(#000 80%, transparent);
 }
+/* Lines that have scrolled up fade out at the top instead of being cut off */
+.now-lyrics.scrolled { mask-image: linear-gradient(transparent, #000 64px, #000 80%, transparent); }
+.now-lyrics > :first-child { padding-top: 0; }
 .now-lyrics::-webkit-scrollbar { display: none; }
 .lyric-line {
   display: block; width: 100%; margin: 0; padding: 7px 0; text-align: left;

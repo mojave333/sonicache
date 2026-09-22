@@ -105,7 +105,8 @@ const state = {
   diagnostics: null, // log path and yt-dlp version, read once at startup
   paused: false,
   // Tidying the library up: which entry of how many, and afterwards what it came to
-  tidy: { running: false, done: 0, total: 0, title: "", paths: new Set(), note: "", timer: 0 },
+  tidy: { running: false, done: 0, total: 0, title: "", paths: new Set(), note: "", timer: 0,
+          gaps: new Set(), gapsToken: 0 }, // gaps: the entries a tidy-up has something to add to
   reported: "", // the progress last sent to the title and the taskbar button
 };
 const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
@@ -299,9 +300,11 @@ function renderSettings() {
 
 function updateSettings(patch) {
   if ((patch.folder && patch.folder !== state.settings.folder) || patch.library_folders) state.library.stale = true;
+  const lyricsChanged = "lyrics" in patch && patch.lyrics !== state.settings.lyrics;
   Object.assign(state.settings, patch);
   renderSettings();
   api().save_settings(state.settings);
+  if (lyricsChanged && state.library.items.length) refreshGaps(); // missing lyrics count only while they are on
 }
 
 // Switching the language repaints the markup and redraws everything the
@@ -766,8 +769,8 @@ function bindUi() {
   $("#library-delete").addEventListener("click", deleteSelected);
   $("#library-again").addEventListener("click", () => downloadAgain(selectedItems().filter(hasMissing)));
   $("#library-tidy").addEventListener("click", () => {
-    const picked = selectedItems();
-    tidyLibrary(picked.length ? picked : state.library.items, { ask: !picked.length });
+    const picked = selectedItems().filter(hasGaps);
+    tidyLibrary(picked.length ? picked : state.library.items.filter(hasGaps), { ask: !picked.length });
   });
   $("#library").addEventListener("click", onLibraryClick);
   $("#library").addEventListener("keydown", onLibraryKey);
@@ -1972,6 +1975,28 @@ async function loadLibrary() {
   library.artists = null;
   renderLibrary({ enter: true });
   if (library.tab === "tracks") loadTracks();
+  refreshGaps();
+}
+
+// Which entries have tags, a cover or lyrics missing. Every file is read for
+// it, so it comes after the library is drawn, and the buttons that offer to
+// fill them in show up once it is known.
+async function refreshGaps() {
+  const tidy = state.tidy;
+  const token = ++tidy.gapsToken;
+  let found = [];
+  try {
+    found = await api().tag_gaps(state.library.items.map((item) => item.path), state.settings);
+  } catch (error) {
+    console.error(error);
+  }
+  if (token !== tidy.gapsToken) return;
+  tidy.gaps = new Set(found);
+  renderTidy();
+}
+
+function hasGaps(item) {
+  return state.tidy.gaps.has(item.path);
 }
 
 // Every file's tags are read for this tab, so it is asked for only when opened
@@ -2836,7 +2861,7 @@ function openLibraryMenu(x, y) {
   const items = selectedItems();
   $("[data-action=again]", menu).hidden = !items.some(hasMissing);
   $("[data-action=open]", menu).hidden = items.length !== 1;
-  $("[data-action=tidy]", menu).hidden = state.tidy.running;
+  $("[data-action=tidy]", menu).hidden = state.tidy.running || !items.some(hasGaps);
   menu.hidden = false;
   // Placed after it is measurable, so a menu near the edge turns back inwards
   const box = menu.getBoundingClientRect();
@@ -2859,7 +2884,7 @@ function onLibraryMenuClick(event) {
   const items = selectedItems();
   if (action === "again") downloadAgain(items.filter(hasMissing));
   else if (action === "open" && items.length === 1) api().open_folder(items[0].path);
-  else if (action === "tidy") tidyLibrary(items);
+  else if (action === "tidy") tidyLibrary(items.filter(hasGaps));
   else if (action === "delete") deleteSelected();
 }
 
@@ -3373,6 +3398,9 @@ function bindPlayer() {
     audio.muted = !audio.muted;
     renderPlayerVolume();
   });
+  $("#now-lyrics").addEventListener("scroll", (event) => {
+    event.currentTarget.classList.toggle("scrolled", event.currentTarget.scrollTop > 4);
+  });
   $("#now-lyrics").addEventListener("click", (event) => {
     const line = event.target.closest("[data-time]");
     if (line) audio.currentTime = Number(line.dataset.time);
@@ -3571,12 +3599,21 @@ function renderNowPlaying() {
   setPlayerPicture($(".now-cover", view), info.cover);
   const backdrop = $(".now-backdrop", view);
   if (backdrop.dataset.src !== info.cover) {
-    backdrop.dataset.src = info.cover || "";
+    const cover = info.cover || "";
+    backdrop.dataset.src = cover;
     backdrop.hidden = true;
-    if (info.cover) {
+    if (cover) {
       backdrop.addEventListener("load", () => { backdrop.hidden = false; }, { once: true });
-      backdrop.src = info.cover;
+      backdrop.src = cover;
     }
+    // The wash in the cover's own colour, worked out as the album page's band is
+    (cover ? pictureTint(cover).catch(() => null) : Promise.resolve(null)).then((tint) => {
+      if (backdrop.dataset.src !== cover) return; // the next track came meanwhile
+      // A grey or white cover has no colour to give: the wash is a neutral one then
+      view.style.setProperty("--tint-a", "1");
+      view.style.setProperty("--tint-h", tint ? tint.hue : 0);
+      view.style.setProperty("--tint-s", tint ? `${tint.saturation}%` : "0%");
+    });
   }
 }
 
@@ -3652,10 +3689,15 @@ function highlightLyric() {
   scrollToLyric(false);
 }
 
+// The line being sung sits a third of the way down, and only the words move:
+// scrolling the line into view would drag the whole screen, cover and all, with it
 function scrollToLyric(instant) {
+  if (state.view !== "now") return;
+  const box = $("#now-lyrics");
   const line = player.lines[player.current];
-  if (!line || state.view !== "now") return;
-  line.node.scrollIntoView({ block: "center", behavior: instant || reduceMotion() ? "auto" : "smooth" });
+  const top = line ? line.node.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop : 0;
+  box.scrollTo({ top: Math.max(0, top - box.clientHeight / 3),
+                 behavior: instant || reduceMotion() ? "auto" : "smooth" });
 }
 
 // Tidying up: older files get the genre, year, cover, lyrics and tags they
@@ -3715,8 +3757,9 @@ function tidySummary({ files, covers, lyrics, missed, stopped }) {
 }
 
 function renderTidy() {
-  const { running, done, total, paths } = state.tidy;
+  const { running, done, total, paths, gaps } = state.tidy;
   const button = $("#library-tidy");
+  button.hidden = !running && !gaps.size; // nothing to fill in, nothing to offer
   $("use", button).setAttribute("href", running ? "#i-stop" : "#i-tag");
   $("span", button).textContent = running
     ? t("Остановить · {done} из {total}", { done: Math.min(done + 1, total), total })
@@ -3725,6 +3768,7 @@ function renderTidy() {
     : t("Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново");
   const page = $("#album-page");
   const onPage = $("[data-page-action=tidy]", page);
+  onPage.hidden = !gaps.has(page.dataset.path) && !(running && paths.has(page.dataset.path));
   onPage.disabled = running;
   $("span", onPage).textContent = running && paths.has(page.dataset.path) ? t("Дописываем…") : t("Дописать теги");
   renderStatusBar();

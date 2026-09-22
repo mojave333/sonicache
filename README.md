@@ -225,8 +225,11 @@ a position to drag, and the volume. The keyboard's media keys and Windows' own m
 controls work too. The file is streamed from the program itself, so nothing is copied.
 
 The cover or the lines button in the bar opens Now playing: the cover large, on a blur of
-its colours, and the words beside it. Synced lyrics, from the `.lrc` next to the file,
-scroll with the song, the line being sung lit up; a click on a line jumps there. A file with
+its colours washed in its main colour (a pastel in the light theme, a deep shade in the dark,
+a neutral grey for a colourless cover), and the words beside it, starting level with the top
+of the cover. Synced lyrics, from the `.lrc` next to the file,
+scroll with the song, the line being sung lit up a third of the way down while the cover
+stays where it is; a click on a line jumps there. A file with
 only plain lyrics in its tags shows those, and one with none has its lyrics looked up in
 LRCLIB for the screen, without anything being written to it. Space pauses there, and Back
 or the bar returns to where you were.
@@ -236,7 +239,11 @@ or the bar returns to where you were.
 Albums downloaded by an older version, or put in the folder by another program, may lack a
 genre, a year, a cover or lyrics. "Fill in tags" adds what is missing without downloading
 anything again: on the album's page and in the right-click menu it works on that album or the
-selection, and above the list, with nothing selected, on the whole library after a question.
+selection, and above the list, with nothing selected, on every album that needs it after a
+question. It shows only where something is missing: a file without a title, artist, album,
+genre, year, number, cover or, with lyrics on, lyrics, or an album folder without
+`cover.jpg`. An album tidied up once is not offered again until its files change, even when
+no catalogue knew its genre or its lyrics.
 
 Each album is looked up again: by the link in its `.trackhound.json` when this program
 downloaded it, otherwise by the album and artist in its files' tags or, failing those, in its

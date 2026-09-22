@@ -37,7 +37,7 @@ from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch, catalog, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
-                                Downloader, Options, use_proxy)
+                                Downloader, Options, read_tags, use_proxy)
 from .engine.matcher import Match
 from .engine.tidy import tidy as tidy_up
 
@@ -81,6 +81,10 @@ _TRACK_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+)$")
 _ALBUM_UNDER_ARTIST = re.compile(r"^(?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 LIBRARY_VIEWS = ("grid", "list")
 ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the history
+# Library entries tidied up, with their files as they were after it: as long
+# as they stay so, the Fill in tags button does not offer them again, even
+# where a genre or lyrics could not be found
+TIDIED_FILE = "tidied.json"
 ARTIST_RETRY = 7 * 86400  # an artist Deezer did not know is asked about again after a week
 # Tags read from a file, kept while its size and time stay the same: the Tracks
 # tab reads every file in the library, and the second visit should be instant
@@ -482,6 +486,8 @@ class Api:
                 except Exception:  # one odd folder must not end the rest
                     logs.log.exception("библиотека: %s не приведён в порядок", path)
                     outcome = None
+                if not stop.is_set():  # done with, whatever it came to: not offered again as it is
+                    _remember_tidied(path)
                 if outcome is None or not outcome.found:
                     result["missed"].append(name)
                     continue
@@ -496,6 +502,21 @@ class Api:
             logs.log.info("библиотека: дописаны теги в файлов: %d, обложек: %d, текстов: %d, не найдено: %s",
                           result["files"], result["covers"], result["lyrics"], ", ".join(result["missed"]) or "—")
             self._events.put(result)
+
+    def tag_gaps(self, paths: list[str], settings: dict) -> list[str]:
+        """Which of these library entries a tidy-up has something to add to:
+        a file without a title, artist, album, genre, year, number, cover or,
+        when lyrics are on, lyrics, or an album folder without cover.jpg.
+        Entries tidied before and not changed since are left out."""
+        with_lyrics = bool(settings.get("lyrics", True))
+        tidied = _read_json(logs.data_dir() / TIDIED_FILE)
+        found = []
+        for raw in paths or []:
+            entry = Path(str(raw))
+            files = _entry_files(entry)
+            if files and tidied.get(str(entry)) != _files_signature(files) and _has_gaps(entry, files, with_lyrics):
+                found.append(str(raw))
+        return found
 
     def diagnostics(self) -> dict:
         """Where the log is and what a bug report should say."""
@@ -1620,6 +1641,60 @@ def _track_link(album, track) -> str:
     if track.audio_url.startswith("https://www.youtube.com/watch?v="):
         return track.audio_url.replace("https://www.youtube.com/", "https://music.youtube.com/", 1)
     return ""
+
+
+# What a tidy-up fills in, and where a file's tags say so; lyrics only when they are on
+GAP_TAGS = ("title", "artist", "album", "genre", "date", "cover")
+_GAP_CACHE: dict[tuple[str, int, int], frozenset] = {}
+
+
+def _entry_files(entry: Path) -> list[Path]:
+    try:
+        return sorted(file for file in entry.iterdir() if _is_audio(file)) if entry.is_dir() else (
+            [entry] if _is_audio(entry) else [])
+    except OSError:
+        return []
+
+
+def _files_signature(files: list[Path]) -> str:
+    """How many files there are and when the newest changed: a tidy-up or a
+    new file changes it."""
+    try:
+        return f"{len(files)}:{max(file.stat().st_mtime_ns for file in files)}"
+    except (OSError, ValueError):
+        return ""
+
+
+def _has_gaps(entry: Path, files: list[Path], with_lyrics: bool) -> bool:
+    if entry.is_dir() and not (entry / "cover.jpg").is_file():
+        return True
+    wanted = set(GAP_TAGS) | ({"track"} if entry.is_dir() else set()) | ({"lyrics"} if with_lyrics else set())
+    return any(not wanted <= _present_tags(file) for file in files)
+
+
+def _present_tags(path: Path) -> frozenset:
+    """The names of the tags a file has, read once per version of the file."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return frozenset(GAP_TAGS) | {"track", "lyrics"}  # gone: nothing to add to it
+    key = (str(path), stat.st_mtime_ns, stat.st_size)
+    if key not in _GAP_CACHE:
+        if len(_GAP_CACHE) > 50_000:
+            _GAP_CACHE.clear()
+        _GAP_CACHE[key] = frozenset(name for name, value in read_tags(path).items() if value)
+    return _GAP_CACHE[key]
+
+
+def _remember_tidied(entry: Path) -> None:
+    files = _entry_files(entry)
+    if not files:
+        return
+    path = logs.data_dir() / TIDIED_FILE
+    with _ARTIST_LOCK:  # the same small-file lock the artists' photos use
+        known = _read_json(path)
+        known[str(entry)] = _files_signature(files)
+        _write_json(path, known)
 
 
 def _library_folders(raw, folder: str) -> list[str]:
