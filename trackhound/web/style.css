@@ -530,10 +530,6 @@ p { margin: 0; }
 .track .cell-status { grid-column: 6; }
 .track .bar { height: 4px; }
 
-.queue .track { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) 140px 52px 210px; }
-.queue .track::before { display: none; }
-.queue .track .cell-release { display: block; }
-.queue-grid { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) 140px 52px 210px; }
 
 .library-grid { grid-template-columns: 34px minmax(0, 1fr) 54px 64px 90px 104px 38px; }
 .library-row .open { opacity: 0; }
@@ -676,6 +672,9 @@ p { margin: 0; }
 .page-back:hover { background: var(--hover); color: var(--text); }
 .album-page { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; align-items: start; max-width: 1100px; }
 .album-page .album-cover { width: 240px; height: 240px; border-radius: 8px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
+/* The cover stays in sight while a long tracklist scrolls past it */
+.album-page .album-cover { position: sticky; top: 14px; }
+.setting-path { overflow-wrap: anywhere; user-select: text; }
 .album-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
 .album-title { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .album-sub { margin: 4px 0 14px; color: var(--text-subtle); }
@@ -703,7 +702,7 @@ p { margin: 0; }
 @container page (max-width: 640px) {
   .album-page { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .page-band { height: 148px; }
-  .album-page .album-cover { width: 180px; height: 180px; }
+  .album-page .album-cover { position: static; width: 180px; height: 180px; }
   .album-track { grid-template-columns: 28px minmax(0, 1fr) 48px; }
   .album-track .artists { display: none; }
 }
@@ -870,9 +869,6 @@ button.lyric-line:hover { opacity: 0.85; }
   .track .cell-source { display: none; }
   .track .cell-status { grid-column: 5; }
   .job-row { grid-template-columns: 24px 34px minmax(0, 1fr) auto 180px 72px; }
-  .queue .track, .queue-grid { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) 52px 180px; }
-  .queue-grid .col-source { display: none; }
-  .queue .track .cell-status { grid-column: auto; }
   .library-grid { grid-template-columns: 34px minmax(0, 1fr) 54px 64px 104px 38px; }
   .col-size { display: none; }
 }
@@ -885,10 +881,7 @@ button.lyric-line:hover { opacity: 0.85; }
   .track-item .cell-album { display: none; }
   #folder span { display: none; }
   #folder { flex: none; }
-  #queue-filter .count { display: none; } /* the filters themselves must stay reachable */
   .segmented button { padding: 0 10px; }
-  .queue .track, .queue-grid { grid-template-columns: 34px minmax(0, 1fr) 52px 170px; }
-  .queue-grid .col-release, .queue .track .cell-release { display: none; }
   .library-grid { grid-template-columns: 34px minmax(0, 1fr) 54px 64px 38px; }
   .col-date { display: none; }
 }
@@ -900,9 +893,7 @@ button.lyric-line:hover { opacity: 0.85; }
   .track { grid-template-columns: 24px 30px minmax(0, 1fr) 120px 60px; }
   .track .cell-dur { display: none; }
   .track .cell-status { grid-column: 4; }
-  .queue .track, .queue-grid { grid-template-columns: 30px minmax(0, 1fr) 120px; }
-  .col-dur, .queue .track .cell-dur { display: none; }
-  .queue .track .cell-status { grid-column: 3; }
+  .col-dur { display: none; }
   .cover { width: 30px; height: 30px; }
   .cell-actions { gap: 0; }
   .icon-btn { width: 26px; }

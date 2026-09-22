@@ -9,7 +9,7 @@ const FORMAT_HINTS = {
   opus: "opus — дорожка YouTube как есть, без перекодирования. Понимают его не все плееры",
 };
 
-const VIEWS = ["download", "library", "queue", "settings"]; // Ctrl+1…4; Search is Ctrl+K
+const VIEWS = ["download", "search", "library", "settings"]; // Ctrl+1…4, in the order of the panel; Ctrl+K too
 
 // What the backend accepts as a proxy; anything else is refused there anyway
 const PROXY_RE = /^(?:https?|socks4|socks5h?):\/\/[^\s/]+$/i;
@@ -36,18 +36,6 @@ const TRACK_ACTIVE = new Set(["waiting", "search", "download"]);
 const BUSY_ICONS = new Set(["spinner", "search", "download", "level"]);
 const TRACK_FAILED = new Set(["missing", "error"]);
 
-const QUEUE_FILTERS = {
-  all: () => true,
-  active: (track) => TRACK_ACTIVE.has(track.state),
-  done: (track) => ["done", "found", "skip"].includes(track.state),
-  problems: (track) => TRACK_FAILED.has(track.state) || track.state === "doubtful",
-};
-const QUEUE_EMPTY = {
-  all: "Очередь пуста",
-  active: "Сейчас ничего не качается",
-  done: "Готовых треков пока нет",
-  problems: "Проблемных треков нет",
-};
 
 const ACTIVE = new Set(["queued", "running"]);
 
@@ -90,7 +78,6 @@ const state = {
   tracks: [], // every track of every job, in the order the releases arrived
   orphans: [],
   dirty: new Set(),
-  queueFilter: "all",
   run: null, // jobs added since the queue was last idle; the status bar sums them up
   library: {
     items: [], folder: null, stale: true, loading: false, token: 0,
@@ -297,6 +284,8 @@ function renderSettings() {
   folder.title = t("{folder}\nНажмите, чтобы выбрать другую папку", { folder: settings.folder });
   folder.setAttribute("aria-label", t("Папка для музыки: {folder}", { folder: settings.folder }));
   $("#threads").textContent = settings.threads;
+  $("#music-folder").textContent = settings.folder;
+  renderLibraryFolders();
   $("#cookies").value = settings.cookies_browser;
   $("#rate").value = String(settings.rate_limit);
   $("#track-name").value = settings.track_name;
@@ -309,7 +298,7 @@ function renderSettings() {
 }
 
 function updateSettings(patch) {
-  if (patch.folder && patch.folder !== state.settings.folder) state.library.stale = true;
+  if ((patch.folder && patch.folder !== state.settings.folder) || patch.library_folders) state.library.stale = true;
   Object.assign(state.settings, patch);
   renderSettings();
   api().save_settings(state.settings);
@@ -526,6 +515,33 @@ function bindWatch() {
   renderWatched();
 }
 
+// The folders the library shows besides the music folder, each with a way out
+function renderLibraryFolders() {
+  const group = $("#library-folders-group");
+  for (const row of $$(".library-folder-row", group)) row.remove();
+  for (const folder of state.settings.library_folders || []) {
+    const row = document.createElement("div");
+    row.className = "setting library-folder-row";
+    const label = document.createElement("div");
+    label.className = "setting-label";
+    const path = document.createElement("p");
+    path.className = "setting-path";
+    path.textContent = folder;
+    label.append(path);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "icon-btn danger";
+    remove.title = t("Убрать из библиотеки");
+    remove.setAttribute("aria-label", remove.title);
+    remove.innerHTML = '<svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg>';
+    remove.addEventListener("click", () => updateSettings({
+      library_folders: state.settings.library_folders.filter((item) => item !== folder),
+    }));
+    row.append(label, remove);
+    group.append(row);
+  }
+}
+
 /* Profiles: a folder, a format and the two naming rules under a name */
 
 const PROFILE_KEYS = ["folder", "format", "track_name", "folder_name"];
@@ -695,12 +711,20 @@ function bindUi() {
   radioGroup($("#tray"), "data-tray", (value) => updateSettings({ tray: value === "true" }));
   radioGroup($("#notify"), "data-notify", (value) => updateSettings({ notify: value === "true" }));
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
-  radioGroup($("#queue-filter"), "data-filter", setQueueFilter);
   darkMedia.addEventListener("change", applyTheme);
 
-  $("#folder").addEventListener("click", async () => {
+  const chooseMusicFolder = async () => {
     const folder = await api().choose_folder(state.settings.folder);
     if (folder) updateSettings({ folder });
+  };
+  $("#folder").addEventListener("click", chooseMusicFolder);
+  $("#music-folder-change").addEventListener("click", chooseMusicFolder);
+  $("#library-folder-add").addEventListener("click", async () => {
+    const folder = await api().choose_folder("");
+    const known = libraryFolders();
+    if (folder && !known.includes(folder)) {
+      updateSettings({ library_folders: [...(state.settings.library_folders || []), folder] });
+    }
   });
   for (const button of $$("[data-step]")) {
     button.addEventListener("click", () => {
@@ -876,7 +900,7 @@ function showView(name) {
   }
   if (name === "library") {
     requestAnimationFrame(() => placeTabInk(false)); // the tabs have no size until the view shows
-    if (state.library.stale || state.library.folder !== state.settings.folder) loadLibrary();
+    if (state.library.stale || state.library.folder !== libraryFolders().join("\n")) loadLibrary();
   } else {
     clearSelection();
   }
@@ -1481,7 +1505,6 @@ function onRelease(job, event, restored = false) {
 
   const multiDisc = event.tracks.some((track) => track.disc > 1);
   const rows = [];
-  const queueRows = [];
   for (const info of event.tracks) {
     const track = {
       job, id: info.id, number: multiDisc ? `${info.disc}-${info.number}` : info.number,
@@ -1491,23 +1514,13 @@ function onRelease(job, event, restored = false) {
       candidates: restored ? info.candidates || [] : [],
     };
     track.row = createTrackRow(track, info.artists === event.artist ? "" : info.artists);
-    track.queueRow = createTrackRow(track, info.artists, event.title);
-    track.queueRow.addEventListener("dblclick", () => {
-      showView("download");
-      setExpanded(job, true, false); // no fold: the row must already be in place to scroll to
-      track.row.scrollIntoView({ block: "center" });
-    });
     renderTrack(track);
     job.tracks.set(info.id, track);
     rows.push(track.row);
-    if (!restored) {
-      state.tracks.push(track);
-      queueRows.push(track.queueRow);
-    }
+    if (!restored) state.tracks.push(track);
   }
   $(".tracks", job.node).replaceChildren(...rows);
   for (const track of job.tracks.values()) renderChoices(track); // a row has to be in the list first
-  if (!restored) $("#queue").append(...queueRows);
   setExpanded(job, !restored);
 }
 
@@ -1547,7 +1560,7 @@ function renderTrack(track) {
   const downloading = track.state === "download";
   const drop = downloading && track.percent > (track.shownPercent || 0);
   track.shownPercent = downloading ? track.percent : 0;
-  for (const row of [track.row, track.queueRow]) {
+  for (const row of [track.row]) {
     row.className = `row track tone-${ui.tone}`;
     const sub = $(".sub", row);
     sub.textContent = note || sub.dataset.artists;
@@ -1562,7 +1575,6 @@ function renderTrack(track) {
       drop,
     });
   }
-  track.queueRow.hidden = !QUEUE_FILTERS[state.queueFilter](track);
   renderChoices(track);
 }
 
@@ -1744,7 +1756,6 @@ function clearFinished() {
 function removeJob(job, fade = false) {
   // Bookkeeping happens at once; only the row itself lingers to fade out, so a
   // second click can never act on a job that is already gone.
-  for (const track of job.tracks.values()) track.queueRow.remove();
   state.tracks = state.tracks.filter((track) => track.job !== job);
   state.jobs.delete(job.id);
   if (!fade) {
@@ -1761,15 +1772,6 @@ async function retryJob(job) {
   for (const { job: id, link } of jobs) addJob(id, link, job.dryRun, job.format);
 }
 
-/* Queue */
-
-function setQueueFilter(name) {
-  state.queueFilter = name;
-  syncRadios($("#queue-filter"), "data-filter", name);
-  for (const track of state.tracks) track.queueRow.hidden = !QUEUE_FILTERS[name](track);
-  renderChrome();
-}
-
 /* Window chrome: counters, badges, status bar */
 
 function renderChrome() {
@@ -1782,20 +1784,11 @@ function renderChrome() {
   if (!active && state.paused) setPaused(false); // nothing left to hold back
   $("#clear").hidden = !jobs.some((job) => !ACTIVE.has(job.state));
 
-  const counts = Object.fromEntries(Object.keys(QUEUE_FILTERS).map((name) => [name, 0]));
-  for (const track of state.tracks) {
-    for (const [name, test] of Object.entries(QUEUE_FILTERS)) if (test(track)) counts[name] += 1;
-  }
-  syncRadios($("#queue-filter"), "data-filter", state.queueFilter);
-  for (const button of $$("#queue-filter [data-filter]")) {
-    $(".count", button).textContent = counts[button.dataset.filter] || "";
-  }
-  $("#queue-empty").hidden = counts[state.queueFilter] > 0;
-  $("#queue-empty .empty-title").textContent =
-    t(state.tracks.length ? QUEUE_EMPTY[state.queueFilter] : QUEUE_EMPTY.all);
-  const badge = $("#queue-badge");
-  badge.textContent = counts.active > 99 ? "99+" : counts.active;
-  badge.hidden = !counts.active;
+  // How many tracks are under way, on the panel, for when another section is open
+  const underWay = state.tracks.filter((track) => TRACK_ACTIVE.has(track.state)).length;
+  const badge = $("#download-badge");
+  badge.textContent = underWay > 99 ? "99+" : underWay;
+  badge.hidden = !underWay;
   renderStatusBar();
   reportProgress();
 }
@@ -1831,7 +1824,7 @@ function renderStatusBar() {
   const library = state.view === "library";
   const status = $("#status-text");
   status.textContent = library ? libraryStatus() : statusText();
-  status.title = library ? state.settings.folder : "";
+  status.title = library ? libraryFolders().join("\n") : "";
   const { format, threads, dry_run: dryRun } = state.settings;
   $("#status-mode").textContent = t("{mode} · {threads} {threadWord}", {
     mode: dryRun ? t("только проверка") : format,
@@ -1924,7 +1917,10 @@ function libraryStatus() {
   if (state.library.tab === "albums" && shown.length < items.length) {
     return t("Найдено: {shown} из {total}", { shown: shown.length, total: items.length });
   }
-  return librarySummary();
+  // The counts are in the bar above the list; here, where they come from
+  const folders = libraryFolders();
+  return folders.length > 1 ? t("Папки: {folders}", { folders: folders.join(", ") })
+    : t("Папка: {folder}", { folder: folders[0] });
 }
 
 function librarySummary() {
@@ -1950,9 +1946,15 @@ function librarySummary() {
   return parts.join(" · ");
 }
 
+// The music folder and the other folders the library shows
+function libraryFolders() {
+  return [state.settings.folder, ...(state.settings.library_folders || [])];
+}
+
 async function loadLibrary() {
   const library = state.library;
-  const folder = state.settings.folder;
+  const folders = libraryFolders();
+  const folder = folders.join("\n"); // what was read, to tell when it changes
   const token = ++library.token;
   if (library.folder !== folder) library.items = [];
   library.loading = true;
@@ -1960,7 +1962,7 @@ async function loadLibrary() {
   renderLibrary();
   let items;
   try {
-    items = await api().library(folder);
+    items = await api().library(folders);
   } catch (error) {
     console.error(error);
     items = [];
@@ -1975,14 +1977,15 @@ async function loadLibrary() {
 // Every file's tags are read for this tab, so it is asked for only when opened
 async function loadTracks() {
   const list = state.library.trackList;
-  const folder = state.settings.folder;
+  const folders = libraryFolders();
+  const folder = folders.join("\n");
   if (!list.stale && list.folder === folder) return;
   const token = ++list.token;
   list.loading = true;
   renderLibrary();
   let items;
   try {
-    items = await api().tracks(folder);
+    items = await api().tracks(folders);
   } catch (error) {
     console.error(error);
     items = [];
@@ -2018,7 +2021,7 @@ function renderLibrary({ enter = false } = {}) {
   // search that turned nothing up, and nowhere while the folder is still being read
   let scene = "art/nothing-found.webp";
   if (!library.items.length || (tab === "tracks" && !library.trackList.items.length)) {
-    [title, text] = loading ? [t("Читаем папку…"), ""] : [t("В папке пока нет музыки"), state.settings.folder];
+    [title, text] = loading ? [t("Читаем папку…"), ""] : [t("В папке пока нет музыки"), libraryFolders().join(", ")];
     scene = loading ? "" : "art/empty-library.webp";
   }
   $(".empty-title", empty).textContent = title;

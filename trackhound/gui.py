@@ -385,32 +385,19 @@ class Api:
             return False
         return True
 
-    def library(self, folder: str) -> list[dict]:
-        """Album folders and single tracks in the music folder, newest first.
-
-        A folder with no music of its own is an artist's folder: the "nested"
-        naming puts the albums one level down, as Artist/Album (Year). Those
-        albums take their artist from the folder above them.
-        """
-        items = []
-        for path in _folder_contents(Path(folder).expanduser()):
-            try:
-                if not path.is_dir():
-                    if _is_audio(path):
-                        items.append(_library_item(path, [path]))
-                    continue
-                files = [file for file in path.iterdir() if _is_audio(file)]
-                if files:
-                    items.append(_library_item(path, files))
-                    continue
-                for inner in _folder_contents(path):
-                    if not inner.is_dir():
-                        continue
-                    files = [file for file in inner.iterdir() if _is_audio(file)]
-                    if files:
-                        items.append(_library_item(inner, files, artist=path.name))
-            except OSError:
-                continue  # removed or locked while scanning
+    def library(self, folders: str | list[str]) -> list[dict]:
+        """Album folders and single tracks in the music folder and the other
+        folders the library reads, newest first."""
+        roots = [folders] if isinstance(folders, str) else [str(folder) for folder in folders or []]
+        # A folder added on its own is read first, so its albums are named as
+        # its own and not as the insides of a folder that happens to hold it
+        roots.sort(key=lambda root: len(Path(root).expanduser().parts), reverse=True)
+        items, seen = [], set()
+        for root in roots:
+            for item in _library_items(Path(root).expanduser()):
+                if item["path"] not in seen:  # one folder inside another is read once
+                    seen.add(item["path"])
+                    items.append(item)
         items.sort(key=lambda item: item["modified"], reverse=True)
         return items
 
@@ -829,10 +816,10 @@ class Api:
             "service": marker.get("service", ""),
         }
 
-    def tracks(self, folder: str) -> list[dict]:
-        """Every track in the music folder with its tags, for the Tracks tab."""
+    def tracks(self, folders: str | list[str]) -> list[dict]:
+        """Every track in the library's folders with its tags, for the Tracks tab."""
         result = []
-        for item in self.library(folder):
+        for item in self.library(folders):
             entry = Path(item["path"])
             try:
                 files = [file for file in entry.iterdir() if _is_audio(file)] if item["album"] else [entry]
@@ -1239,6 +1226,35 @@ def _folder_contents(path: Path) -> list[Path]:
         return []
 
 
+# How deep the library looks into a folder: Genre / Artist / Album is three
+LIBRARY_DEPTH = 4
+
+
+def _library_items(root: Path, artist: str = "", depth: int = 0) -> list[dict]:
+    """A folder with music in it is an album. Folders are looked into all the
+    same, and the albums inside take the name of the one above for their
+    artist: the "nested" naming puts them there as Artist/Album (Year), and so
+    do most collections made by hand. Loose tracks count as single tracks only
+    at the top, where downloaded singles are put."""
+    items = []
+    for path in _folder_contents(root):
+        if path.name.startswith((".", "$")):
+            continue  # hidden folders and the recycle bin
+        try:
+            if not path.is_dir():
+                if depth == 0 and _is_audio(path):
+                    items.append(_library_item(path, [path]))
+                continue
+            files = [file for file in path.iterdir() if _is_audio(file)]
+            if files:
+                items.append(_library_item(path, files, artist=artist))
+            if depth < LIBRARY_DEPTH:
+                items += _library_items(path, artist=path.name, depth=depth + 1)
+        except OSError:
+            continue  # removed or locked while scanning
+    return items
+
+
 def _library_item(path: Path, files: list[Path], artist: str = "") -> dict:
     album = path.is_dir()
     stats = [file.stat() for file in files]
@@ -1570,6 +1586,9 @@ def _normalize(settings: dict) -> dict:
         # A notice when downloads finish and the window is not in use
         "notify": bool(settings.get("notify", True)),
         "profiles": _profiles(settings.get("profiles")),
+        # Folders besides the music folder that the library shows, left where they are
+        "library_folders": _library_folders(settings.get("library_folders"),
+                                            str(settings.get("folder") or DEFAULT_OUTPUT_DIR)),
         "library_view": settings.get("library_view") if settings.get("library_view") in LIBRARY_VIEWS else "grid",
     }
 
@@ -1601,6 +1620,15 @@ def _track_link(album, track) -> str:
     if track.audio_url.startswith("https://www.youtube.com/watch?v="):
         return track.audio_url.replace("https://www.youtube.com/", "https://music.youtube.com/", 1)
     return ""
+
+
+def _library_folders(raw, folder: str) -> list[str]:
+    result = []
+    for item in raw if isinstance(raw, list) else []:
+        text = str(item or "").strip()
+        if text and text != folder and text not in result:
+            result.append(text)
+    return result[:20]
 
 
 def _tray_words() -> dict[str, str]:

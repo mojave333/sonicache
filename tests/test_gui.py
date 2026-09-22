@@ -36,6 +36,7 @@ class TestNormalize:
             "tray": True,
             "notify": True,
             "profiles": [],
+            "library_folders": [],
             "library_view": "grid",
         }
 

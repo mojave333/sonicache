@@ -123,8 +123,9 @@ found.
 
 ## Using it
 
-The sections are on the left: Download, Search (Ctrl+K), Library, Queue and Settings
-(Ctrl+1…4 for all but Search). A button at
+The sections are on the left: Download, Search, Library and Settings (Ctrl+1…4; Ctrl+K
+opens Search too). The download section's icon counts the tracks under way while another
+section is open. A button at
 the foot of the panel opens it into a labelled column and folds it back to icons alone;
 Ctrl+B does the same. The program remembers which way it was left.
 
@@ -183,13 +184,17 @@ links are followed to the artist of the same name on Deezer.
 
 ### Library
 
-The library shows what is already in the music folder, on three tabs: Albums, Tracks and
-Artists. Albums sitting in a folder per artist, which the "nested" naming makes, are found
-too, and take their artist from the folder above them. Each has a search, a sort order and a direction. Albums come as a grid of covers
+The library shows what is already in the music folder, and in any other folders added under
+Settings → Library, so a collection kept elsewhere shows up too without being moved. A
+folder with music in it counts as an album, and the folder above it names the artist,
+whether that is the "nested" naming's Artist/Album or a collection arranged by hand as
+Genre/Artist/Album. It is shown on three tabs: Albums, Tracks and Artists, each with a
+search, a sort order and a direction. Albums come as a grid of covers
 or, with the switch beside the sorting, as a table with sortable columns.
 
 A click on a cover opens the album's page: the cover grows out of the grid into a large one
-beside the title, the year, the size and the tracks, read from the files' own tags. The top of
+beside the title, the year, the size and the tracks, read from the files' own tags. The cover
+stays in place while a long tracklist scrolls past it. The top of
 the page takes the cover's main colour, a pastel in the light theme and a deep shade in the
 dark one. For an
 album this program downloaded, the tracks that never arrived are listed too, greyed out,
@@ -245,10 +250,6 @@ LRCLIB with an `.lrc` for synced ones. Whatever it already says stays as it is, 
 anything corrected by hand, ReplayGain tags and the ID3 version of an mp3. The folder gets a
 `cover.jpg` if it has none. The status bar shows which album is in hand, and the button stops
 the run after the current album. Albums that no catalogue knows are named at the end.
-
-### Queue
-
-Every track of the current downloads in one list, filtered by running, done or problems.
 
 ### Loudness levelling
 
@@ -322,7 +323,8 @@ still match the profile and goes quiet as soon as one of them is changed by hand
 
 ### Settings
 
-The settings cover the theme (as in the system, light or dark), the language (Russian or
+The settings cover the music folder, which the button with the folder's name on the download
+toolbar changes as well, the theme (as in the system, light or dark), the language (Russian or
 English; the first run takes the system's, and any other system language gets English), how
 many tracks to download at once, a speed limit, a proxy, cookies from a browser, and a check
 that every component is in place. They also show the version of yt-dlp inside the build,

@@ -360,3 +360,34 @@ class TestLibraryScan:
         tracks = gui.Api.tracks(gui.Api.__new__(gui.Api), str(tmp_path))
         assert len(tracks) == 3
         assert str(tmp_path / "Radiohead" / "In Rainbows (2007)") in {track["entry"] for track in tracks}
+
+
+class TestOtherFolders:
+    """A collection of one's own sits beside the music folder, arranged however its owner likes."""
+
+    def test_albums_are_found_deep_in_a_collection_made_by_hand(self, tmp_path):
+        mine = tmp_path / "Collection"
+        album = mine / "Rock" / "Radiohead" / "OK Computer"  # genre, artist, album
+        album.mkdir(parents=True)
+        tagged(album, "mp3", 1, "Airbag")
+        (mine / ".hidden" / "Old").mkdir(parents=True)
+        tagged(mine / ".hidden" / "Old", "mp3", 1, "Hidden")
+        (mine / "Radiohead" / "Kid A").mkdir(parents=True)
+        tagged(mine / "Radiohead", "mp3", 9, "A loose one")  # a folder with tracks and albums in it
+        tagged(mine / "Radiohead" / "Kid A", "mp3", 1, "Everything")
+        items = gui.Api.library(None, [str(tmp_path / "Music"), str(mine)])
+        found = sorted((item["title"], item["artist"]) for item in items)
+        assert found == [("Kid A", "Radiohead"), ("OK Computer", "Radiohead"), ("Radiohead", "")]
+
+    def test_the_music_folder_and_the_others_are_read_together_once(self, tmp_path):
+        music, mine = tmp_path / "Music", tmp_path / "Music" / "Old"
+        (music / "Daft Punk - Discovery (2001)").mkdir(parents=True)
+        tagged(music / "Daft Punk - Discovery (2001)", "mp3", 1, "One More Time")
+        (mine / "Kino - Gruppa krovi").mkdir(parents=True)
+        tagged(mine / "Kino - Gruppa krovi", "mp3", 1, "Gruppa krovi")
+        titles = sorted(item["title"] for item in gui.Api.library(None, [str(music), str(mine)]))
+        assert titles == ["Discovery", "Gruppa krovi"]  # the one inside the other is not counted twice
+
+    def test_the_setting_keeps_other_folders_once_and_never_the_music_folder(self):
+        settings = gui._normalize({"folder": "D:/Music", "library_folders": ["E:/Old", "D:/Music", "E:/Old", "", 5]})
+        assert settings["library_folders"] == ["E:/Old", "5"]

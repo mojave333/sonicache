@@ -105,19 +105,15 @@
       <button type="button" class="nav-item" data-view="download" title="Загрузка (Ctrl+1)" aria-label="Загрузка">
         <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
         <span class="nav-label">Загрузка</span>
+        <span id="download-badge" class="nav-badge" hidden></span>
       </button>
-      <button type="button" class="nav-item" data-view="search" title="Поиск (Ctrl+K)" aria-label="Поиск">
+      <button type="button" class="nav-item" data-view="search" title="Поиск (Ctrl+2)" aria-label="Поиск">
         <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
         <span class="nav-label">Поиск</span>
       </button>
-      <button type="button" class="nav-item" data-view="library" title="Библиотека (Ctrl+2)" aria-label="Библиотека">
+      <button type="button" class="nav-item" data-view="library" title="Библиотека (Ctrl+3)" aria-label="Библиотека">
         <svg class="icon" aria-hidden="true"><use href="#i-library"/></svg>
         <span class="nav-label">Библиотека</span>
-      </button>
-      <button type="button" class="nav-item" data-view="queue" title="Очередь (Ctrl+3)" aria-label="Очередь">
-        <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>
-        <span class="nav-label">Очередь</span>
-        <span id="queue-badge" class="nav-badge" hidden></span>
       </button>
       <span class="spacer"></span>
       <button type="button" class="nav-item" data-view="settings" title="Настройки (Ctrl+4)" aria-label="Настройки">
@@ -362,29 +358,6 @@
         </div>
       </section>
 
-      <section id="view-queue" class="view" aria-label="Очередь" hidden>
-        <div class="toolbar">
-          <div id="queue-filter" class="segmented" role="radiogroup" aria-label="Показать">
-            <button type="button" role="radio" data-filter="all">Все <span class="count"></span></button>
-            <button type="button" role="radio" data-filter="active">В работе <span class="count"></span></button>
-            <button type="button" role="radio" data-filter="done">Готово <span class="count"></span></button>
-            <button type="button" role="radio" data-filter="problems">Проблемы <span class="count"></span></button>
-          </div>
-          <span class="spacer"></span>
-          <button type="button" class="btn ghost pause" hidden aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-pause"/></svg><span>Пауза</span></button>
-          <button type="button" class="btn ghost stop" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-stop"/></svg>Остановить</button>
-        </div>
-        <div class="list-head columns queue-grid" aria-hidden="true">
-          <span class="num">№</span><span>Трек</span><span class="col-release">Релиз</span><span class="col-source">Источник</span><span class="num col-dur">Длит.</span><span>Статус</span>
-        </div>
-        <div class="list-scroll">
-          <div id="queue-empty" class="empty">
-            <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>
-            <p class="empty-title"></p>
-          </div>
-          <ol id="queue" class="rows queue"></ol>
-        </div>
-      </section>
 
       <section id="view-settings" class="view" aria-label="Настройки" hidden>
         <div class="list-scroll">
@@ -410,6 +383,13 @@
 
             <h2>Загрузка</h2>
             <div class="setting-group">
+              <div class="setting">
+                <div class="setting-label">
+                  <p>Папка для музыки</p>
+                  <p class="setting-desc setting-path" id="music-folder"></p>
+                </div>
+                <button type="button" id="music-folder-change" class="tool-btn">Изменить…</button>
+              </div>
               <div class="setting">
                 <div class="setting-label">
                   <p id="threads-label">Треков одновременно</p>
@@ -526,6 +506,16 @@
               </div>
             </div>
 
+            <h2>Библиотека</h2>
+            <div class="setting-group" id="library-folders-group">
+              <div class="setting" id="library-folders-head">
+                <div class="setting-label">
+                  <p>Другие папки с музыкой</p>
+                  <p class="setting-desc">Библиотека покажет музыку и из этих папок. Файлы остаются там, где лежат</p>
+                </div>
+                <button type="button" id="library-folder-add" class="tool-btn">Добавить папку…</button>
+              </div>
+            </div>
             <h2>Слежение</h2>
             <div class="setting-group" id="watch-group">
               <div class="setting" id="watch-head">
