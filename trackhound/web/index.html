@@ -301,6 +301,9 @@
           <button type="button" id="library-tidy" class="tool-btn icon-only" hidden title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново" aria-label="Дописать теги">
             <svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg>
           </button>
+          <button type="button" id="library-shuffle" class="tool-btn icon-only" title="Слушать всю библиотеку вперемешку" aria-label="Слушать всю библиотеку вперемешку" hidden>
+            <svg class="icon sm" aria-hidden="true"><use href="#i-mi-shuffle"/></svg>
+          </button>
           <div class="btn-group">
             <button type="button" id="library-folder" class="tool-btn icon-only" title="Открыть папку в проводнике" aria-label="Открыть папку">
               <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>
@@ -343,7 +346,10 @@
               <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span id="page-back-label">Альбомы</span>
             </button>
             <div id="album-page" class="album-page">
-              <div class="album-side"><div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div></div>
+              <div class="album-side">
+                <img class="album-backdrop" alt="" aria-hidden="true" hidden>
+                <div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
+              </div>
               <div class="album-info">
                 <h2 class="album-title"></h2>
                 <p class="album-sub"></p>
@@ -373,270 +379,356 @@
 
 
       <section id="view-settings" class="view" aria-label="Настройки" hidden>
-        <div class="list-scroll">
+        <div class="list-scroll" id="settings-scroll">
           <div class="settings">
-            <h2>Внешний вид</h2>
-            <div class="setting-group">
-              <div class="setting">
-                <span class="setting-label" id="theme-label">Тема</span>
-                <div id="theme" class="segmented" role="radiogroup" aria-labelledby="theme-label">
-                  <button type="button" role="radio" data-theme-choice="system"><svg class="icon sm" aria-hidden="true"><use href="#i-monitor"/></svg>Как в системе</button>
-                  <button type="button" role="radio" data-theme-choice="light"><svg class="icon sm" aria-hidden="true"><use href="#i-sun"/></svg>Светлая</button>
-                  <button type="button" role="radio" data-theme-choice="dark"><svg class="icon sm" aria-hidden="true"><use href="#i-moon"/></svg>Тёмная</button>
-                </div>
+            <header class="settings-hero">
+              <div>
+                <h1 class="settings-title">Настройки</h1>
+                <p class="settings-lead">Всё сохраняется сразу, отдельная кнопка не нужна</p>
               </div>
-              <div class="setting">
-                <span class="setting-label" id="language-label">Язык</span>
-                <div id="language" class="segmented" role="radiogroup" aria-labelledby="language-label">
-                  <button type="button" role="radio" data-language="ru">Русский</button>
-                  <button type="button" role="radio" data-language="en">English</button>
-                </div>
-              </div>
-            </div>
+              <img class="settings-art" src="art/settings.webp" alt="" aria-hidden="true">
+            </header>
 
-            <h2>Загрузка</h2>
-            <div class="setting-group">
-              <div class="setting">
-                <div class="setting-label">
-                  <p>Папка для музыки</p>
-                  <p class="setting-desc setting-path" id="music-folder"></p>
-                </div>
-                <button type="button" id="music-folder-change" class="tool-btn">Изменить…</button>
+            <!-- A new version comes first: it is the one thing here that asks for a click -->
+            <div class="settings-update" id="update" hidden>
+              <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></span>
+              <div class="setting-label">
+                <p id="update-title"></p>
+                <p class="setting-desc" id="update-desc">Программа скачает установщик с GitHub и сверит его хеш. Потом она закроется, обновится и откроется снова</p>
               </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p id="threads-label">Треков одновременно</p>
-                  <p class="setting-desc">Чем больше, тем быстрее, но YouTube может начать ограничивать скорость</p>
-                </div>
-                <div class="stepper" role="group" aria-labelledby="threads-label">
-                  <button type="button" data-step="-1" aria-label="Меньше">−</button>
-                  <output id="threads" aria-live="polite">3</output>
-                  <button type="button" data-step="1" aria-label="Больше">+</button>
-                </div>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p><label for="folder-layout">Папки альбомов</label></p>
-                  <p class="setting-desc">Как называть папку альбома внутри папки для музыки</p>
-                </div>
-                <select id="folder-layout" class="select">
-                  <option value="flat">Исполнитель - Альбом (Год)</option>
-                  <option value="nested">Исполнитель → Альбом (Год)</option>
-                  <option value="album">Альбом (Год)</option>
-                </select>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p><label for="track-name">Имена файлов</label></p>
-                  <p class="setting-desc">Номер и название есть в имени всегда. Варианты отличаются тем, когда в него попадает исполнитель</p>
-                </div>
-                <select id="track-name" class="select">
-                  <option value="auto">01. Название (исполнитель только у гостей)</option>
-                  <option value="artist">01. Исполнитель - Название</option>
-                  <option value="title">01. Название</option>
-                </select>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p id="replaygain-label">Выравнивание громкости</p>
-                  <p class="setting-desc">Записывает теги ReplayGain, по которым плеер делает треки одинаково громкими. Сам звук не меняется. Такие теги читают foobar2000, MusicBee, AIMP и VLC</p>
-                </div>
-                <div id="replaygain" class="segmented" role="radiogroup" aria-labelledby="replaygain-label">
-                  <button type="button" role="radio" data-replaygain="false">Выкл</button>
-                  <button type="button" role="radio" data-replaygain="true">Вкл</button>
-                </div>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p id="ask-label">Спрашивать при сомнительных совпадениях</p>
-                  <p class="setting-desc">Если трек похож на несколько разных записей, программа покажет варианты на карточке и подождёт, пока вы выберете нужную. Каждый вариант можно послушать</p>
-                </div>
-                <div id="ask-doubtful" class="segmented" role="radiogroup" aria-labelledby="ask-label">
-                  <button type="button" role="radio" data-ask="false">Выкл</button>
-                  <button type="button" role="radio" data-ask="true">Вкл</button>
-                </div>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p id="lyrics-label">Тексты песен</p>
-                  <p class="setting-desc">Тексты берутся из LRCLIB. Обычный записывается в теги, его покажут плеер и телефон. Синхронный сохраняется в файл .lrc рядом с треком, и плееры прокручивают его вместе с песней</p>
-                </div>
-                <div id="lyrics" class="segmented" role="radiogroup" aria-labelledby="lyrics-label">
-                  <button type="button" role="radio" data-lyrics="false">Выкл</button>
-                  <button type="button" role="radio" data-lyrics="true">Вкл</button>
-                </div>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p><label for="rate">Ограничение скорости</label></p>
-                  <p class="setting-desc">Чтобы загрузка не занимала весь канал</p>
-                </div>
-                <select id="rate" class="select">
-                  <option value="0">Без ограничения</option>
-                  <option value="512000">500 КБ/с</option>
-                  <option value="1048576">1 МБ/с</option>
-                  <option value="2097152">2 МБ/с</option>
-                  <option value="5242880">5 МБ/с</option>
-                  <option value="10485760">10 МБ/с</option>
-                </select>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p><label for="proxy">Прокси</label></p>
-                  <p class="setting-desc">Через него идут поиск и загрузка. Например: <code>http://127.0.0.1:1080</code>
-                    или <code>socks5://127.0.0.1:1080</code>. Если поле пустое, работают настройки системы</p>
-                </div>
-                <div class="field proxy-field">
-                  <input id="proxy" type="text" autocomplete="off" spellcheck="false"
-                         placeholder="http://127.0.0.1:1080" aria-label="Прокси">
-                </div>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p id="relay-label">Зеркало Spotify</p>
-                  <p class="setting-desc">Помогает открыть релизы, которые Spotify не показывает в вашей стране. Запрос к Spotify отправляется с сервера во Франкфурте</p>
-                </div>
-                <div id="relay" class="segmented" role="radiogroup" aria-labelledby="relay-label">
-                  <button type="button" role="radio" data-relay="off">Выкл</button>
-                  <button type="button" role="radio" data-relay="on">Вкл</button>
-                </div>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p><label for="cookies">Cookies из браузера</label></p>
-                  <p class="setting-desc">Нужны для треков с возрастным ограничением: YouTube отдаёт их только после входа в аккаунт. Пока идёт загрузка, браузер лучше закрыть</p>
-                </div>
-                <select id="cookies" class="select">
-                  <option value="">Не использовать</option>
-                  <option value="firefox">Firefox</option>
-                  <option value="chrome">Chrome</option>
-                  <option value="edge">Edge</option>
-                  <option value="brave">Brave</option>
-                  <option value="chromium">Chromium</option>
-                  <option value="opera">Opera</option>
-                  <option value="vivaldi">Vivaldi</option>
-                </select>
-              </div>
-            </div>
-
-            <h2>Библиотека</h2>
-            <div class="setting-group" id="library-folders-group">
-              <div class="setting" id="library-folders-head">
-                <div class="setting-label">
-                  <p>Другие папки с музыкой</p>
-                  <p class="setting-desc">Библиотека покажет музыку и из этих папок. Файлы остаются там, где лежат</p>
-                </div>
-                <button type="button" id="library-folder-add" class="tool-btn">Добавить папку…</button>
-              </div>
-            </div>
-            <h2>Слежение</h2>
-            <div class="setting-group" id="watch-group">
-              <div class="setting" id="watch-head">
-                <div class="setting-label">
-                  <p>Плейлисты, альбомы и исполнители под наблюдением</p>
-                  <p class="setting-desc">Раз в 12 часов программа снова открывает ссылку и докачивает в ту же папку только новое. Чтобы следить за релизом, нажмите на глаз на его карточке загрузки. За исполнителем можно следить с его страницы в поиске</p>
-                </div>
-                <button type="button" id="watch-check" class="tool-btn">Проверить сейчас</button>
-              </div>
-              <p class="setting-empty" id="watch-empty">Пока ни за чем не следим</p>
-            </div>
-            <div class="setting-group">
-              <div class="setting" id="tray-setting">
-                <div class="setting-label">
-                  <p id="tray-label">Работать в фоне после закрытия окна</p>
-                  <p class="setting-desc">Если идут загрузки или что-то под наблюдением, закрытое окно сворачивается в значок у часов. Загрузки доходят до конца, проверки идут по расписанию. Чтобы выйти, выберите «Выход» в меню значка</p>
-                </div>
-                <div id="tray" class="segmented" role="radiogroup" aria-labelledby="tray-label">
-                  <button type="button" role="radio" data-tray="false">Выкл</button>
-                  <button type="button" role="radio" data-tray="true">Вкл</button>
-                </div>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p id="notify-label">Уведомления о завершении</p>
-                  <p class="setting-desc">Сообщает, что загрузки закончились, если окно свёрнуто, закрыто или спрятано под другими</p>
-                </div>
-                <div id="notify" class="segmented" role="radiogroup" aria-labelledby="notify-label">
-                  <button type="button" role="radio" data-notify="false">Выкл</button>
-                  <button type="button" role="radio" data-notify="true">Вкл</button>
-                </div>
-              </div>
-            </div>
-
-            <h2>Профили</h2>
-            <div class="setting-group" id="profiles-group">
-              <div class="setting" id="profile-add">
-                <div class="setting-label">
-                  <p><label for="profile-new">Сохранить текущие настройки</label></p>
-                  <p class="setting-desc">Запоминает папку, формат и правила имён под одним названием. Вернуть их можно одним нажатием в панели загрузки</p>
-                </div>
-                <div class="field profile-field">
-                  <input id="profile-new" type="text" autocomplete="off" maxlength="40"
-                         placeholder="Например: на диск D, mp3" aria-label="Название профиля">
-                </div>
-                <button type="button" id="profile-save" class="tool-btn">Сохранить</button>
-              </div>
-            </div>
-
-            <h2>Компоненты</h2>
-            <div class="setting-group">
-              <div class="setting">
-                <svg id="env-icon" class="icon sm" aria-hidden="true"><use href="#i-check"/></svg>
-                <div class="setting-label">
-                  <p id="env-title"></p>
-                  <ul id="env-list" class="setting-desc env-list"></ul>
-                </div>
-              </div>
-            </div>
-
-            <h2>Диагностика</h2>
-            <div class="setting-group">
-              <div class="setting">
-                <div class="setting-label">
-                  <p>Доступ к сервисам</p>
-                  <p class="setting-desc" id="network-desc">Проверяет, открываются ли из этой сети Spotify, YouTube и SoundCloud и есть ли на компьютере прокси VPN-клиента</p>
-                  <ul class="net-list" id="network-list"></ul>
-                </div>
-                <button type="button" id="network-check" class="tool-btn">Проверить</button>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p id="ytdlp-title">yt-dlp</p>
-                  <p class="setting-desc" id="ytdlp-desc">YouTube часто меняется. Если загрузки перестали работать, сначала обновите Trackhound</p>
-                </div>
-              </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p>Журнал работы</p>
-                  <p class="setting-desc" id="log-path">Здесь записаны подробности загрузок и ошибок. Журнал никуда не отправляется</p>
-                </div>
-                <div class="btn-group">
-                  <button type="button" id="log-open" class="tool-btn">Открыть</button>
-                  <button type="button" id="log-copy" class="tool-btn">Скопировать отчёт</button>
-                </div>
-              </div>
-            </div>
-
-            <h2>О программе</h2>
-            <div class="setting-group">
-              <div class="setting" id="update" hidden>
-                <svg class="icon sm" aria-hidden="true" style="color: var(--accent)"><use href="#i-download"/></svg>
-                <div class="setting-label">
-                  <p id="update-title"></p>
-                  <p class="setting-desc" id="update-desc">Программа скачает установщик с GitHub и сверит его хеш. Потом она закроется, обновится и откроется снова</p>
-                </div>
+              <div class="update-actions">
                 <button type="button" id="update-open" class="tool-btn">Страница релиза</button>
                 <button type="button" id="update-install" class="btn primary">
                   <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span
                     id="update-install-label">Обновить программу</span>
                 </button>
               </div>
-              <div class="setting">
-                <div class="setting-label">
-                  <p>Trackhound <span id="version"></span></p>
-                  <p class="setting-desc">Названия, обложки и номера треков программа берёт со страницы по ссылке. Звук берётся оттуда же, если он там в открытом доступе, а иначе с YouTube Music или SoundCloud</p>
+            </div>
+
+            <nav class="settings-nav" id="settings-nav" aria-label="Разделы настроек">
+              <a href="#set-look"><svg class="icon sm" aria-hidden="true"><use href="#i-sun"/></svg>Внешний вид</a>
+              <a href="#set-save"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Куда сохранять</a>
+              <a href="#set-download"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg>Загрузка</a>
+              <a href="#set-sound"><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg>Звук и тексты</a>
+              <a href="#set-library"><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg>Библиотека</a>
+              <a href="#set-watch"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg>Слежение и фон</a>
+              <a href="#set-profiles"><svg class="icon sm" aria-hidden="true"><use href="#i-bookmark"/></svg>Профили</a>
+              <a href="#set-network"><svg class="icon sm" aria-hidden="true"><use href="#i-link"/></svg>Сеть</a>
+              <a href="#set-help"><svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg>Если что-то не работает</a>
+              <a href="#set-about"><svg class="icon sm" aria-hidden="true"><use href="#i-settings"/></svg>О программе</a>
+            </nav>
+
+            <div class="settings-cards">
+              <section class="settings-card" id="set-look" aria-labelledby="set-look-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg></span>
+                  <div><h2 id="set-look-title">Внешний вид</h2><p>Как выглядит окно</p></div>
                 </div>
-              </div>
+                <div class="setting-group">
+                  <div class="setting stacked">
+                    <span class="setting-label" id="theme-label">Тема</span>
+                    <div id="theme" class="theme-choices" role="radiogroup" aria-labelledby="theme-label">
+                      <button type="button" role="radio" class="theme-choice" data-theme-choice="system">
+                        <span class="theme-preview system" aria-hidden="true"><span class="half light"><i></i><b></b><b></b></span><span class="half dark"><i></i><b></b><b></b></span></span>
+                        <span class="theme-name"><svg class="icon sm" aria-hidden="true"><use href="#i-monitor"/></svg>Как в системе</span>
+                      </button>
+                      <button type="button" role="radio" class="theme-choice" data-theme-choice="light">
+                        <span class="theme-preview light" aria-hidden="true"><i></i><b></b><b></b></span>
+                        <span class="theme-name"><svg class="icon sm" aria-hidden="true"><use href="#i-sun"/></svg>Светлая</span>
+                      </button>
+                      <button type="button" role="radio" class="theme-choice" data-theme-choice="dark">
+                        <span class="theme-preview dark" aria-hidden="true"><i></i><b></b><b></b></span>
+                        <span class="theme-name"><svg class="icon sm" aria-hidden="true"><use href="#i-moon"/></svg>Тёмная</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="setting">
+                    <span class="setting-label" id="language-label">Язык</span>
+                    <div id="language" class="segmented" role="radiogroup" aria-labelledby="language-label">
+                      <button type="button" role="radio" data-language="ru">Русский</button>
+                      <button type="button" role="radio" data-language="en">English</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-save" aria-labelledby="set-save-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg></span>
+                  <div><h2 id="set-save-title">Куда сохранять</h2><p>Папка для музыки и то, как в ней называются альбомы и треки</p></div>
+                </div>
+                <div class="setting-group">
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p>Папка для музыки</p>
+                      <p class="setting-desc setting-path" id="music-folder"></p>
+                    </div>
+                    <button type="button" id="music-folder-change" class="tool-btn">
+                      <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Изменить…</span>
+                    </button>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p><label for="folder-layout">Папки альбомов</label></p>
+                      <p class="setting-desc">Как называть папку альбома внутри папки для музыки</p>
+                    </div>
+                    <select id="folder-layout" class="select">
+                      <option value="flat">Исполнитель - Альбом (Год)</option>
+                      <option value="nested">Исполнитель → Альбом (Год)</option>
+                      <option value="album">Альбом (Год)</option>
+                    </select>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p><label for="track-name">Имена файлов</label></p>
+                      <p class="setting-desc">Номер и название есть в имени всегда. Варианты отличаются тем, когда в него попадает исполнитель</p>
+                    </div>
+                    <select id="track-name" class="select">
+                      <option value="auto">01. Название (исполнитель только у гостей)</option>
+                      <option value="artist">01. Исполнитель - Название</option>
+                      <option value="title">01. Название</option>
+                    </select>
+                  </div>
+                  <div class="naming-preview">
+                    <span class="naming-label">Так будет выглядеть альбом:</span>
+                    <code id="naming-preview"></code>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-download" aria-labelledby="set-download-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></span>
+                  <div><h2 id="set-download-title">Загрузка</h2><p>Скорость и то, как программа выбирает запись</p></div>
+                </div>
+                <div class="setting-group">
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p id="threads-label">Треков одновременно</p>
+                      <p class="setting-desc">Чем больше, тем быстрее, но YouTube может начать ограничивать скорость</p>
+                    </div>
+                    <div class="stepper" role="group" aria-labelledby="threads-label">
+                      <button type="button" data-step="-1" aria-label="Меньше">−</button>
+                      <output id="threads" aria-live="polite">3</output>
+                      <button type="button" data-step="1" aria-label="Больше">+</button>
+                    </div>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p><label for="rate">Ограничение скорости</label></p>
+                      <p class="setting-desc">Чтобы загрузка не занимала весь канал</p>
+                    </div>
+                    <select id="rate" class="select">
+                      <option value="0">Без ограничения</option>
+                      <option value="512000">500 КБ/с</option>
+                      <option value="1048576">1 МБ/с</option>
+                      <option value="2097152">2 МБ/с</option>
+                      <option value="5242880">5 МБ/с</option>
+                      <option value="10485760">10 МБ/с</option>
+                    </select>
+                  </div>
+                  <div class="setting toggle">
+                    <div class="setting-label">
+                      <p id="ask-label">Спрашивать при сомнительных совпадениях</p>
+                      <p class="setting-desc">Если трек похож на несколько разных записей, программа покажет варианты на карточке и подождёт, пока вы выберете нужную. Каждый вариант можно послушать</p>
+                    </div>
+                    <button type="button" id="ask-doubtful" class="switch" role="switch" aria-checked="false" aria-labelledby="ask-label"></button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-sound" aria-labelledby="set-sound-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></span>
+                  <div><h2 id="set-sound-title">Звук и тексты</h2><p>Что дописывается к каждому скачанному треку</p></div>
+                </div>
+                <div class="setting-group">
+                  <div class="setting toggle">
+                    <div class="setting-label">
+                      <p id="lyrics-label">Тексты песен</p>
+                      <p class="setting-desc">Тексты берутся из LRCLIB. Обычный записывается в теги, его покажут плеер и телефон. Синхронный сохраняется в файл .lrc рядом с треком, и плееры прокручивают его вместе с песней</p>
+                    </div>
+                    <button type="button" id="lyrics" class="switch" role="switch" aria-checked="false" aria-labelledby="lyrics-label"></button>
+                  </div>
+                  <div class="setting toggle">
+                    <div class="setting-label">
+                      <p id="replaygain-label">Выравнивание громкости</p>
+                      <p class="setting-desc">Записывает теги ReplayGain, по которым плеер делает треки одинаково громкими. Сам звук не меняется. Такие теги читают foobar2000, MusicBee, AIMP и VLC</p>
+                    </div>
+                    <button type="button" id="replaygain" class="switch" role="switch" aria-checked="false" aria-labelledby="replaygain-label"></button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-library" aria-labelledby="set-library-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-library"/></svg></span>
+                  <div><h2 id="set-library-title">Библиотека</h2><p>Где ещё лежит ваша музыка</p></div>
+                </div>
+                <div class="setting-group" id="library-folders-group">
+                  <div class="setting" id="library-folders-head">
+                    <div class="setting-label">
+                      <p>Другие папки с музыкой</p>
+                      <p class="setting-desc">Библиотека покажет музыку и из этих папок. Файлы остаются там, где лежат</p>
+                    </div>
+                    <button type="button" id="library-folder-add" class="tool-btn">
+                      <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Добавить папку…</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-watch" aria-labelledby="set-watch-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></span>
+                  <div><h2 id="set-watch-title">Слежение и фон</h2><p>Новые треки приходят сами, без вашего участия</p></div>
+                </div>
+                <div class="setting-group" id="watch-group">
+                  <div class="setting" id="watch-head">
+                    <div class="setting-label">
+                      <p>Плейлисты, альбомы и исполнители под наблюдением</p>
+                      <p class="setting-desc">Раз в 12 часов программа снова открывает ссылку и докачивает в ту же папку только новое. Чтобы следить за релизом, нажмите на глаз на его карточке загрузки. За исполнителем можно следить с его страницы в поиске</p>
+                    </div>
+                    <button type="button" id="watch-check" class="tool-btn">
+                      <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span>Проверить сейчас</span>
+                    </button>
+                  </div>
+                  <p class="setting-empty" id="watch-empty">Пока ни за чем не следим</p>
+                </div>
+                <div class="setting-group">
+                  <div class="setting toggle" id="tray-setting">
+                    <div class="setting-label">
+                      <p id="tray-label">Работать в фоне после закрытия окна</p>
+                      <p class="setting-desc">Если идут загрузки или что-то под наблюдением, закрытое окно сворачивается в значок у часов. Загрузки доходят до конца, проверки идут по расписанию. Чтобы выйти, выберите «Выход» в меню значка</p>
+                    </div>
+                    <button type="button" id="tray" class="switch" role="switch" aria-checked="false" aria-labelledby="tray-label"></button>
+                  </div>
+                  <div class="setting toggle">
+                    <div class="setting-label">
+                      <p id="notify-label">Уведомления о завершении</p>
+                      <p class="setting-desc">Сообщает, что загрузки закончились, если окно свёрнуто, закрыто или спрятано под другими</p>
+                    </div>
+                    <button type="button" id="notify" class="switch" role="switch" aria-checked="false" aria-labelledby="notify-label"></button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-profiles" aria-labelledby="set-profiles-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg></span>
+                  <div><h2 id="set-profiles-title">Профили</h2><p>Папка, формат и имена под одним названием, на один щелчок</p></div>
+                </div>
+                <div class="setting-group" id="profiles-group">
+                  <div class="setting" id="profile-add">
+                    <div class="setting-label">
+                      <p><label for="profile-new">Сохранить текущие настройки</label></p>
+                      <p class="setting-desc">Запоминает папку, формат и правила имён под одним названием. Вернуть их можно одним нажатием в панели загрузки</p>
+                    </div>
+                    <div class="field profile-field">
+                      <input id="profile-new" type="text" autocomplete="off" maxlength="40"
+                             placeholder="Например: на диск D, mp3" aria-label="Название профиля">
+                    </div>
+                    <button type="button" id="profile-save" class="tool-btn">Сохранить</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-network" aria-labelledby="set-network-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg></span>
+                  <div><h2 id="set-network-title">Сеть</h2><p>Если сервисы открываются плохо или не открываются совсем</p></div>
+                </div>
+                <div class="setting-group">
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p>Доступ к сервисам</p>
+                      <p class="setting-desc" id="network-desc">Проверяет, открываются ли из этой сети Spotify, YouTube и SoundCloud и есть ли на компьютере прокси VPN-клиента</p>
+                      <ul class="net-list" id="network-list"></ul>
+                    </div>
+                    <button type="button" id="network-check" class="tool-btn">Проверить</button>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p><label for="proxy">Прокси</label></p>
+                      <p class="setting-desc">Через него идут поиск и загрузка. Например: <code>http://127.0.0.1:1080</code>
+                        или <code>socks5://127.0.0.1:1080</code>. Если поле пустое, работают настройки системы</p>
+                    </div>
+                    <div class="field proxy-field">
+                      <input id="proxy" type="text" autocomplete="off" spellcheck="false"
+                             placeholder="http://127.0.0.1:1080" aria-label="Прокси">
+                    </div>
+                  </div>
+                  <div class="setting toggle">
+                    <div class="setting-label">
+                      <p id="relay-label">Зеркало Spotify</p>
+                      <p class="setting-desc">Помогает открыть релизы, которые Spotify не показывает в вашей стране. Запрос к Spotify отправляется с сервера во Франкфурте</p>
+                    </div>
+                    <button type="button" id="relay" class="switch" role="switch" aria-checked="false" aria-labelledby="relay-label"></button>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p><label for="cookies">Cookies из браузера</label></p>
+                      <p class="setting-desc">Нужны для треков с возрастным ограничением: YouTube отдаёт их только после входа в аккаунт. Пока идёт загрузка, браузер лучше закрыть</p>
+                    </div>
+                    <select id="cookies" class="select">
+                      <option value="">Не использовать</option>
+                      <option value="firefox">Firefox</option>
+                      <option value="chrome">Chrome</option>
+                      <option value="edge">Edge</option>
+                      <option value="brave">Brave</option>
+                      <option value="chromium">Chromium</option>
+                      <option value="opera">Opera</option>
+                      <option value="vivaldi">Vivaldi</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-help" aria-labelledby="set-help-title">
+                <div class="card-head">
+                  <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></span>
+                  <div><h2 id="set-help-title">Если что-то не работает</h2><p>Что установлено и где искать подробности</p></div>
+                </div>
+                <div class="setting-group">
+                  <div class="setting">
+                    <svg id="env-icon" class="icon sm" aria-hidden="true"><use href="#i-check"/></svg>
+                    <div class="setting-label">
+                      <p id="env-title"></p>
+                      <ul id="env-list" class="setting-desc env-list"></ul>
+                    </div>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p id="ytdlp-title">yt-dlp</p>
+                      <p class="setting-desc" id="ytdlp-desc">YouTube часто меняется. Если загрузки перестали работать, сначала обновите Trackhound</p>
+                    </div>
+                  </div>
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p>Журнал работы</p>
+                      <p class="setting-desc" id="log-path">Здесь записаны подробности загрузок и ошибок. Журнал никуда не отправляется</p>
+                    </div>
+                    <div class="btn-group">
+                      <button type="button" id="log-open" class="tool-btn">Открыть</button>
+                      <button type="button" id="log-copy" class="tool-btn">Скопировать отчёт</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-about" aria-labelledby="set-about-title">
+                <div class="card-head">
+                  <span class="card-icon brand"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
+                  <div><h2 id="set-about-title">О программе</h2><p>Trackhound <span id="version"></span></p></div>
+                </div>
+                <div class="setting-group">
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p class="setting-desc">Названия, обложки и номера треков программа берёт со страницы по ссылке. Звук берётся оттуда же, если он там в открытом доступе, а иначе с YouTube Music или SoundCloud</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         </div>
@@ -644,8 +736,8 @@
 
       <section id="view-now" class="view now-view" aria-label="Сейчас играет" hidden>
         <img class="now-backdrop" alt="" aria-hidden="true" hidden>
-        <button type="button" class="page-back now-close" id="now-close" title="Назад (Esc)">
-          <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span>Назад</span>
+        <button type="button" class="page-back now-close" id="now-close" title="Назад (Esc)" aria-label="Назад">
+          <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg>
         </button>
         <div class="now-side">
           <div class="now-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>

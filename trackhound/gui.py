@@ -82,6 +82,8 @@ _TRACK_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+)$")
 # An album inside an artist's folder is named without the artist: "Discovery (2001)"
 _ALBUM_UNDER_ARTIST = re.compile(r"^(?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 LIBRARY_VIEWS = ("grid", "list")
+# What the player's repeat button steps through: the queue, one track, neither
+REPEAT_MODES = ("off", "all", "one")
 ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the history
 # Library entries tidied up, with their files as they were after it: as long
 # as they stay so, the Fill in tags button does not offer them again, even
@@ -837,6 +839,18 @@ class Api:
             return None
         # The file's time in the address makes a replaced cover a new picture to the browser
         return f"{self._covers.address(str(target))}?v={stat.st_mtime_ns:x}"
+
+    def covers(self, paths: list[str]) -> dict[str, str]:
+        """Where the covers of many entries are, in one call: the window asks
+        for the whole library at once, so a card that scrolls into sight has
+        its address already and only waits for the picture."""
+        found = {}
+        with folders.scanning():
+            for raw in paths or []:
+                address = self.cover(str(raw))
+                if address:
+                    found[str(raw)] = address
+        return found
 
     def album(self, path: str) -> dict:
         """The tracks of one library entry as their tags tell it, for the album page.
@@ -1659,6 +1673,10 @@ def _normalize(settings: dict) -> dict:
         sidebar = min(320, max(64, int(settings.get("sidebar", 64))))
     except (TypeError, ValueError):
         sidebar = 64
+    try:  # the player's volume, from silent to as loud as the file is
+        volume = min(1.0, max(0.0, float(settings.get("volume", 0.8))))
+    except (TypeError, ValueError):
+        volume = 0.8
     try:
         rate_limit = int(settings.get("rate_limit") or 0)
     except (TypeError, ValueError):
@@ -1712,6 +1730,12 @@ def _normalize(settings: dict) -> dict:
         "library_folders": _library_folders(settings.get("library_folders"),
                                             str(settings.get("folder") or DEFAULT_OUTPUT_DIR)),
         "library_view": settings.get("library_view") if settings.get("library_view") in LIBRARY_VIEWS else "grid",
+        # How the player was left. These used to live in the window's own
+        # storage, which belongs to the address the page was opened from — and
+        # that is a new port on every start, so they were lost each time.
+        "volume": round(volume, 3),
+        "shuffle": bool(settings.get("shuffle", False)),
+        "repeat": settings.get("repeat") if settings.get("repeat") in REPEAT_MODES else "off",
     }
 
 

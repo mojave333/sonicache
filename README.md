@@ -176,7 +176,7 @@ A click on an artist opens their page: the photo, and every release newest first
 into albums, singles and EPs, and compilations. "Download the discography" queues their
 albums and EPs, oldest first; singles are left out, since they are mostly songs the albums
 have as well, and each one can still be queued from its cover. "Watch for new releases"
-adds the artist to Settings → Watching: from then on the checks every 12 hours download
+adds the artist to Settings → Watching and background: from then on the checks every 12 hours download
 whatever comes out, singles included, into the music folder. What the artist had when the
 watch began is never downloaded by it, and neither is an old record a catalogue adds late.
 
@@ -208,11 +208,12 @@ shown at once meanwhile. The tags read from the files are kept between runs with
 size and time, so only files changed since are opened again; the rest is a listing of the
 folders.
 
-A click on a cover opens the album's page: the cover grows out of the grid into a large one
-beside the title, the year, the size and the tracks, read from the files' own tags. The page
-fills the window: the side panel and the library's bars step aside, the rounded cover sits on
-a panel in a pastel of its own colour, and only the tracklist scrolls, under the title and
-the buttons, which stay in place. A narrow window stacks the cover over the tracks. The top of
+A click on a cover opens the album's page, where the cover grows into a large one beside the
+title, the year, the size and the tracks, read from the files' own tags. The page
+fills the window: the side panel and the library's bars step aside, the rounded cover stands
+on a panel washed in its own colours — a blur of the picture itself under pools of its main
+colour, as Now playing has them — and only the tracklist scrolls, under the title and the
+buttons, which stay in place. A narrow window stacks the cover over the tracks. The top of
 the page takes the cover's main colour, a pastel in the light theme and a deep shade in the
 dark one. For an
 album this program downloaded, the tracks that never arrived are listed too, greyed out,
@@ -220,8 +221,9 @@ since the `.trackhound.json` file in the album's folder keeps the link and the w
 tracklist. From the page the album can be opened in the file manager, completed ("Fetch what
 is missing" downloads the same link again and skips what is on disk) or watched for new
 tracks. The same button sits on the album's row, in its right-click menu and above the list,
-and everywhere it shows only while tracks are missing. Escape, Backspace or the mouse's back button returns to the grid, and the cover
-flies back to its place.
+and everywhere it shows only while tracks are missing. Escape, Backspace or the mouse's back
+button returns to the grid, the page fading back into it. An artist's page, which leaves the
+rail where it is, has its photo fly from the card it was opened from and back to it.
 
 Tracks lists every file with its artists, album and length; a double click opens its album
 with the track picked out, and a click on its cover plays the list from there. Artists groups the albums and single tracks by the name in their
@@ -240,11 +242,16 @@ The library plays what it holds. "Play" on an album's page starts it from the to
 on a track's number, or a double click on its row, starts from that track, and the album is
 the queue. A bar at the bottom of the window then shows the track, with shuffle, previous,
 pause, next and repeat (the whole queue, or one track), a position to drag, and the volume,
-in the filled icons Harmonoid uses (Material Icons). While a track plays, the next one is
+in the filled icons Harmonoid uses (Material Icons). Shuffled, each artist's tracks are
+spread evenly through the queue, so a band with many albums does not come back every few
+songs; the shuffle button above the library plays all of it, or the genre picked, that way. While a track plays, the next one is
 already loaded, so the next starts at once rather than after a wait for it. The keyboard's
 media keys, Windows' own media controls and the previous, pause and next buttons under the
 window's picture on the taskbar work too. The file is streamed from the program itself, so
 nothing is copied.
+
+The volume, the shuffle and the repeat are kept in the settings file, so a new window
+starts where the last one left off.
 
 Keys: Space pauses in Now playing, ← and → move 5 seconds, ↑ and ↓ set the volume, M
 mutes, L opens the words and F makes Now playing full screen. Outside Now playing the arrows
@@ -286,7 +293,7 @@ its number and length when the title says nothing ("Track 01"). A release found 
 taken only when most of the folder's files are its tracks, so a wrong guess changes nothing.
 
 A file then gets only the tags it does not have: the title, artists, album, album artist,
-number, disc, date, genre, cover and, when Settings → Download has lyrics on, the words from
+number, disc, date, genre, cover and, when Settings → Sound and lyrics has lyrics on, the words from
 LRCLIB with an `.lrc` for synced ones. Whatever it already says stays as it is, including
 anything corrected by hand, ReplayGain tags and the ID3 version of an mp3. The folder gets a
 `cover.jpg` if it has none. The line above the list shows which album is in hand, and the button stops
@@ -294,7 +301,7 @@ the run after the current album. Albums that no catalogue knows are named at the
 
 ### Loudness levelling
 
-Off by default; Settings → Download turns it on. Every file is measured with ffmpeg's EBU
+Off by default; Settings → Sound and lyrics turns it on. Every file is measured with ffmpeg's EBU
 R128 meter and gets ReplayGain 2.0 tags: track gain and peak, plus one album gain shared by
 the tracks of an album, so a quiet interlude stays quiet beside a loud single. Opus gets the
 `R128_*` tags its specification asks for instead. The audio itself is not changed. The
@@ -308,7 +315,7 @@ downloads use.
 
 ### Lyrics
 
-On by default; Settings → Download turns it off. Each track's lyrics are looked up in
+On by default; Settings → Sound and lyrics turns it off. Each track's lyrics are looked up in
 [LRCLIB](https://lrclib.net), a free open database, by artist, title, album and length, so a
 live take or a remix of another length does not lend its words. The plain text goes into the
 tags (`USLT` in mp3, `©lyr` in m4a, `LYRICS` in opus), where phones and most players show it.
@@ -335,7 +342,7 @@ once. The note under the field says how many lines could not be read.
 A finished album or playlist has an eye on its card. Press it, and the program opens that
 link again every 12 hours and downloads whatever was added since into the same folder, in
 the same format. Tracks already on disk are skipped, so a check that finds nothing costs
-one page read and leaves no card behind. Settings → Watching lists what is watched, when
+one page read and leaves no card behind. Settings → Watching and background lists what is watched, when
 each was last checked and how many tracks it brought, with a button to check everything
 now.
 
@@ -345,12 +352,12 @@ On Windows the program keeps an icon by the clock. While something is downloadin
 filled in or watched, closing the window only hides it there: downloads run to the end and
 watched playlists keep their schedule. A click on the icon brings the window back; its menu
 also checks the watched ones at once and quits. With nothing left to do, closing the window
-ends the program as before. Settings → Watching turns this off.
+ends the program as before. Settings → Watching and background turns this off.
 
 When downloads finish while the window is minimized, hidden or behind others, a notification
 says what came of them: one for the whole queue, not one per album, and none for a watched
 playlist that had nothing new. It comes from the icon on Windows, from `osascript` on macOS
-and from `notify-send` on Linux, and Settings → Watching turns it off too.
+and from `notify-send` on Linux, and Settings → Watching and background turns it off too.
 
 The very first start shows a short welcome with the music folder, which can be changed
 there and then; everything else is in Settings.
@@ -363,6 +370,15 @@ for everyday listening, "D drive, mp3" for the car. The button stays lit while t
 still match the profile and goes quiet as soon as one of them is changed by hand.
 
 ### Settings
+
+The settings page is a card per subject, each with its icon: how the window looks, where
+music goes, downloading, sound and lyrics, the library, watching and running in the
+background, profiles, the network, what to do when something does not work, and the program
+itself. The subjects are listed beside the cards to jump to, and across the top on a narrow
+window. The themes are picked from small pictures of the window in each, the options that
+are on or off are switches that a click anywhere on their row turns, and under the naming
+rules an example shows what an album and its first file will be called. Everything is saved
+as it changes.
 
 The settings cover the music folder, which the button with the folder's name on the download
 toolbar changes as well, the theme (as in the system, light or dark), the language (Russian or
@@ -515,13 +531,13 @@ weak, or a different song, a live take or another length, scores about the same.
 lists its candidates with their source, length against the wanted one, and how well they
 match; each can be listened to in the browser, and "Download the chosen" fetches the picked
 ones into the same folder as a card of their own. The rest of the album downloads as usual,
-and a watched playlist, with nobody to ask, takes the best candidate as before. Settings →
+and a watched playlist, with nobody to ask, takes the best candidate as before. Settings → Download →
 "Ask about doubtful matches" turns this off.
 
 ## Where services are blocked
 
 The program talks to Spotify, YouTube and SoundCloud from your own computer, not from a
-server abroad, so it sees what your network lets through. Settings → Diagnostics →
+server abroad, so it sees what your network lets through. Settings → Network →
 "Check" says what that is: whether Spotify's player opens or only its preview pages, whether
 YouTube and SoundCloud open, and whether a VPN client runs a proxy on this computer.
 `trackhound --check` prints the same.
@@ -531,12 +547,12 @@ YouTube and SoundCloud open, and whether a VPN client runs a proxy on this compu
 - **A VPN client that only opens a local proxy** (v2rayN, NekoBox, Clash, Hiddify, v2rayA,
   Shadowsocks, on their default ports) is found by the check, and one click puts it to use.
   A card Spotify refused looks for it too and offers "Use it and try again".
-- **Any other proxy** goes into Settings → Proxy, `http://…` or `socks5://…`. A SOCKS proxy
+- **Any other proxy** goes into Settings → Network → Proxy, `http://…` or `socks5://…`. A SOCKS proxy
   is asked to look names up itself, since a blocked service's name may resolve wrongly here.
 - **A Spotify relay** reads the pages Spotify refuses to this network from abroad, so
   albums, tracks and playlists of up to 100 tracks come whole with no proxy at all. It is a
   free Cloudflare Worker, one file; [relay/README.md](relay/README.md) says how to put it
-  up and point the program at it (Settings → Spotify relay, `--relay`).
+  up and point the program at it (Settings → Network → Spotify relay, `--relay`).
 - **Without a proxy or a relay**, a Spotify album or track still downloads, read off the
   preview pages where they come, and a playlist gives its first 30 tracks. When YouTube does not answer, the search leaves
   it out for five minutes at a time and goes to SoundCloud, which has much but not all.
@@ -544,8 +560,8 @@ YouTube and SoundCloud open, and whether a VPN client runs a proxy on this compu
 ## When something breaks
 
 - **Download errors from YouTube.** YouTube changes often, and yt-dlp with it. Update to the
-  newest Trackhound release; running from source, run `install.bat` again. The Settings
-  section shows how old the bundled yt-dlp is.
+  newest Trackhound release; running from source, run `install.bat` again. Settings → If
+  something does not work shows how old the bundled yt-dlp is.
 - **"Spotify changed the shape of its page".** The parsing in `trackhound/engine/spotify.py` needs
   fixing.
 - **"Spotify did not hand over … and answered “Page not found”".** Spotify will not show the
@@ -553,10 +569,10 @@ YouTube and SoundCloud open, and whether a VPN client runs a proxy on this compu
   a link to the same release from Deezer, Apple Music or YouTube Music.
 - **`music.youtube.com` is unreachable on this network.** The program switches to
   `www.youtube.com` by itself.
-- **A proxy is needed.** Settings → Diagnostics → "Check" finds a VPN client's proxy on this
-  computer. Otherwise write the address in Settings → Proxy, or start with
+- **A proxy is needed.** Settings → Network → "Check" finds a VPN client's proxy on this
+  computer. Otherwise write the address in Settings → Network → Proxy, or start with
   `--proxy socks5://127.0.0.1:10808`. `HTTP_PROXY`/`HTTPS_PROXY` work too.
-- **Anything else.** Settings → Diagnostics → "Copy the report", and attach that to an
+- **Anything else.** Settings → If something does not work → "Copy the report", and attach that to an
   [issue](https://github.com/mojave333/trackhound/issues).
 
 ## macOS and Linux

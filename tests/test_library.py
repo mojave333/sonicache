@@ -138,6 +138,18 @@ class TestDeezerArtist:
         assert sources.artist_picture("Radiohead") == ""
 
 
+def test_the_player_keeps_its_volume_and_modes_between_runs():
+    """The window's own storage belongs to the address it was opened from, and
+    that is a new port on every start; the settings file outlives it."""
+    kept = gui._normalize({"volume": 0.35, "shuffle": True, "repeat": "one"})
+    assert (kept["volume"], kept["shuffle"], kept["repeat"]) == (0.35, True, "one")
+    fresh = gui._normalize({})
+    assert (fresh["volume"], fresh["shuffle"], fresh["repeat"]) == (0.8, False, "off")
+    odd = gui._normalize({"volume": "loud", "repeat": "twice"})
+    assert (odd["volume"], odd["repeat"]) == (0.8, "off")
+    assert gui._normalize({"volume": 4})["volume"] == 1.0
+
+
 @pytest.mark.parametrize("given, expected", [("grid", "grid"), ("list", "list"), ("tiles", "grid"), (None, "grid")])
 def test_the_library_view_setting(given, expected):
     assert gui._normalize({"library_view": given})["library_view"] == expected
@@ -414,6 +426,19 @@ class TestCovers:
         (tmp_path / name).write_bytes(PNG)
         (tmp_path / "scan-back.jpg").write_bytes(b"not the cover")
         assert gui._cover_bytes(tmp_path) == PNG
+
+    @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+    def test_the_whole_library_asks_for_its_covers_in_one_call(self, tmp_path):
+        """One call per card kept the grid waiting on the window's bridge."""
+        (tmp_path / "Kid A").mkdir()
+        tagged(tmp_path / "Kid A", "mp3", 1, "Everything", cover=PNG)
+        (tmp_path / "Amnesiac").mkdir()
+        (tmp_path / "Amnesiac" / "cover.jpg").write_bytes(PNG)
+        api = gui.Api.__new__(gui.Api)
+        gui.Api.__init__(api)
+        found = api.covers([str(tmp_path / "Kid A"), str(tmp_path / "Amnesiac"), str(tmp_path / "Gone")])
+        assert set(found) == {str(tmp_path / "Kid A"), str(tmp_path / "Amnesiac")}
+        assert all(address.startswith("http://") for address in found.values())
 
     @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
     def test_without_a_picture_the_one_inside_the_first_file_is_used(self, tmp_path):

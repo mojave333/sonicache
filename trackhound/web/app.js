@@ -123,7 +123,7 @@ const coverObserver = new IntersectionObserver((entries) => {
     coverObserver.unobserve(entry.target);
     showLibraryCover(entry.target);
   }
-}, { rootMargin: "200px" });
+}, { rootMargin: "700px" });
 const artistObserver = new IntersectionObserver((entries) => {
   for (const entry of entries) {
     if (!entry.isIntersecting) continue;
@@ -271,11 +271,11 @@ function renderSettings() {
   applyTheme();
   applySidebar(settings.sidebar);
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
-  syncRadios($("#replaygain"), "data-replaygain", String(settings.replaygain));
-  syncRadios($("#ask-doubtful"), "data-ask", String(settings.ask_doubtful));
-  syncRadios($("#lyrics"), "data-lyrics", String(settings.lyrics));
-  syncRadios($("#tray"), "data-tray", String(settings.tray));
-  syncRadios($("#notify"), "data-notify", String(settings.notify));
+  syncSwitch($("#replaygain"), settings.replaygain);
+  syncSwitch($("#ask-doubtful"), settings.ask_doubtful);
+  syncSwitch($("#lyrics"), settings.lyrics);
+  syncSwitch($("#tray"), settings.tray);
+  syncSwitch($("#notify"), settings.notify);
   $("#tray-setting").hidden = !state.traySupported; // the notification area is Windows' own
   syncRadios($("#language"), "data-language", settings.language);
   syncRadios($("#formats"), "data-format", settings.format);
@@ -293,7 +293,9 @@ function renderSettings() {
   $("#track-name").value = settings.track_name;
   $("#folder-layout").value = settings.folder_name;
   if ($("#proxy") !== document.activeElement) $("#proxy").value = settings.proxy;
-  syncRadios($("#relay"), "data-relay", settings.relay === "off" ? "off" : "on");
+  syncSwitch($("#relay"), settings.relay !== "off");
+  applyPlayerSettings(settings);
+  $("#naming-preview").textContent = namingExample(settings);
   $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
   renderStatus();
@@ -709,11 +711,12 @@ function bindUi() {
   bindWatch();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
-  radioGroup($("#replaygain"), "data-replaygain", (value) => updateSettings({ replaygain: value === "true" }));
-  radioGroup($("#ask-doubtful"), "data-ask", (value) => updateSettings({ ask_doubtful: value === "true" }));
-  radioGroup($("#lyrics"), "data-lyrics", (value) => updateSettings({ lyrics: value === "true" }));
-  radioGroup($("#tray"), "data-tray", (value) => updateSettings({ tray: value === "true" }));
-  radioGroup($("#notify"), "data-notify", (value) => updateSettings({ notify: value === "true" }));
+  bindSwitch($("#replaygain"), (on) => updateSettings({ replaygain: on }));
+  bindSwitch($("#ask-doubtful"), (on) => updateSettings({ ask_doubtful: on }));
+  bindSwitch($("#lyrics"), (on) => updateSettings({ lyrics: on }));
+  bindSwitch($("#tray"), (on) => updateSettings({ tray: on }));
+  bindSwitch($("#notify"), (on) => updateSettings({ notify: on }));
+  bindSettingsNav();
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
   darkMedia.addEventListener("change", applyTheme);
 
@@ -749,7 +752,7 @@ function bindUi() {
     event.target.closest(".field").classList.toggle("invalid", Boolean(value) && !PROXY_RE.test(value));
   });
   // On is the program's own relay, which is what an empty setting means
-  radioGroup($("#relay"), "data-relay", (value) => updateSettings({ relay: value === "off" ? "off" : "" }));
+  bindSwitch($("#relay"), (on) => updateSettings({ relay: on ? "" : "off" }));
   $("#paste").addEventListener("click", pasteFromClipboard);
   $("#link").addEventListener("input", clearLinkError);
   $("#form").addEventListener("submit", submitLinks);
@@ -766,6 +769,7 @@ function bindUi() {
   bindPlayer();
   $("#library-refresh").addEventListener("click", loadLibrary);
   $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
+  $("#library-shuffle").addEventListener("click", shuffleLibrary);
   $("#library-delete").addEventListener("click", deleteSelected);
   $("#library-again").addEventListener("click", () => downloadAgain(selectedItems().filter(hasMissing)));
   $("#library-tidy").addEventListener("click", () => {
@@ -906,6 +910,7 @@ function showView(name) {
   // Now playing covers the whole window; any way out of it gives the window back
   document.documentElement.classList.toggle("now-mode", name === "now");
   if (name !== "now" && player.fullscreen) toggleFullscreen();
+  if (name === "settings") requestAnimationFrame(spySettings); // the cards have no places until the view shows
   if (name === "search") {
     renderSearch();
     $("#search-input").focus();
@@ -973,6 +978,71 @@ function radioGroup(group, attribute, onSelect) {
     next.focus();
     onSelect(next.getAttribute(attribute));
   });
+}
+
+// A switch, and the row it sits on, which turns it as well: the words of a
+// setting are a bigger target than the switch itself
+function bindSwitch(button, onChange) {
+  button.closest(".setting").addEventListener("click", (event) => {
+    const other = event.target.closest("a, button, input, select, label");
+    if (other && other !== button) return;
+    onChange(button.getAttribute("aria-checked") !== "true");
+  });
+}
+
+function syncSwitch(button, on) {
+  button.setAttribute("aria-checked", String(Boolean(on)));
+}
+
+// What an album comes out as under the naming rules chosen, on an example
+function namingExample(settings) {
+  const slash = settings.folder.includes("\\") ? "\\" : "/";
+  const root = settings.folder.split(/[\\/]+/).filter(Boolean).pop() || settings.folder;
+  const album = {
+    flat: ["Radiohead - In Rainbows (2007)"],
+    nested: ["Radiohead", "In Rainbows (2007)"],
+    album: ["In Rainbows (2007)"],
+  }[settings.folder_name] || ["Radiohead - In Rainbows (2007)"];
+  const track = settings.track_name === "artist" ? "01. Radiohead - 15 Step" : "01. 15 Step";
+  return [root, ...album, `${track}.${settings.format}`].join(slash);
+}
+
+// The subjects beside the cards: a click scrolls to one, and the one in view is lit
+function bindSettingsNav() {
+  const scroller = $("#settings-scroll");
+  $("#settings-nav").addEventListener("click", (event) => {
+    const link = event.target.closest("a[href^='#']");
+    if (!link) return;
+    event.preventDefault();
+    const card = $(link.getAttribute("href"));
+    card.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
+    markSettingsNav(card.id);
+  });
+  let queued = false;
+  scroller.addEventListener("scroll", () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      spySettings();
+    });
+  }, { passive: true });
+  spySettings();
+}
+
+function spySettings() {
+  const scroller = $("#settings-scroll");
+  const cards = $$(".settings-card", scroller);
+  const line = scroller.getBoundingClientRect().top + scroller.clientHeight / 3;
+  let current = cards[0];
+  for (const card of cards) if (card.getBoundingClientRect().top <= line) current = card;
+  // At the bottom the last card counts, however little of it rose past the line
+  if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4) current = cards[cards.length - 1];
+  if (current) markSettingsNav(current.id);
+}
+
+function markSettingsNav(id) {
+  for (const link of $$("#settings-nav a")) link.setAttribute("aria-current", String(link.getAttribute("href") === `#${id}`));
 }
 
 function syncRadios(group, attribute, value) {
@@ -1975,6 +2045,7 @@ async function loadLibrary() {
       Object.assign(library, { items: cached, folder });
       library.artists = null;
       renderLibrary({ enter: true });
+      prefetchCovers(cached);
       early = true;
     }
   }
@@ -1990,6 +2061,7 @@ async function loadLibrary() {
   library.artists = null;
   renderLibrary({ enter: !early });
   markInLibrary();
+  prefetchCovers(items);
   if (library.tab === "tracks") loadTracks();
   refreshGaps();
 }
@@ -2105,6 +2177,7 @@ function libraryGenres() {
 function renderGenrePicker() {
   const library = state.library;
   const pick = $("#library-genre");
+  const shuffle = $("#library-shuffle");
   const genres = libraryGenres();
   // A genre gone from the folders after it was read again lets the library go back to all
   if (library.genre && !genres.some((genre) => genre.key === library.genre)) library.genre = "";
@@ -2115,6 +2188,10 @@ function renderGenrePicker() {
     return option;
   }));
   pick.value = library.genre;
+  const genre = pick.selectedOptions[0]?.dataset.name;
+  shuffle.title = genre ? t("Слушать «{genre}» вперемешку", { genre }) : t("Слушать всю библиотеку вперемешку");
+  shuffle.setAttribute("aria-label", shuffle.title);
+  shuffle.hidden = !library.items.length;
 }
 
 function sortBy(list, sorts, { key, dir }, tieBreak) {
@@ -2453,6 +2530,14 @@ function showPage(kind) {
   }
 }
 
+// The arrow says where it goes back to in its tooltip, since it shows no words
+function renderPageBack() {
+  const back = $("#page-back");
+  $("#page-back-label").textContent = backLabel();
+  back.title = t("Назад: {where}", { where: backLabel() });
+  back.setAttribute("aria-label", back.title);
+}
+
 function backLabel() {
   const stack = state.library.pages;
   const below = stack[stack.length - 2];
@@ -2466,16 +2551,17 @@ async function openAlbum(item, source = null, highlight = "") {
   library.pages.push({ kind: "album", item, source, from });
   const token = ++library.pageToken;
   fillAlbumPage(item);
-  $("#page-back-label").textContent = backLabel();
+  renderPageBack();
   showPage("album");
   const cover = $(".album-cover", $("#album-page"));
-  if (source) $(".cover", source).style.visibility = "hidden";
   const info = $(".album-info", $("#album-page"));
   riseIn([$("#page-back"), ...info.children]);
-  if (!from && !reduceMotion()) {
+  // The cover appears where it stands. It used to fly there from the card it
+  // was opened from, but the page fills the window: the rail and the bars step
+  // aside as it opens, and the cover ended up crossing to the rail's own place.
+  if (!reduceMotion()) {
     cover.animate([{ opacity: 0, transform: "scale(0.92)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: EMPHASIZED });
   }
-  morph(cover, from, rectOf(cover)).then(() => { if (source) $(".cover", source).style.visibility = ""; });
   $("#page-back").focus({ preventScroll: true });
 
   let data;
@@ -2501,10 +2587,14 @@ function fillAlbumPage(item) {
   if (item.cover) {
     if (!state.covers.has(item.path)) state.covers.set(item.path, api().cover(item.path));
     state.covers.get(item.path).then((src) => {
-      if (src && page.dataset.path === item.path) loadCover($(".album-cover", page), src);
+      if (src && page.dataset.path === item.path) {
+        loadCover($(".album-cover", page), src);
+        showBackdrop(page, src);
+      }
       tintPage(src, owner);
     });
   } else {
+    showBackdrop(page, "");
     tintPage(null, owner);
   }
   // The count in the marker says at once whether tracks are missing; the
@@ -2618,7 +2708,7 @@ function openArtist(artist, source = null) {
   const items = sortBy(artist.items, LIBRARY_SORTS, { key: "year", dir: -1 }, (a, b) => COLLATOR.compare(a.title, b.title));
   const cards = $(".artist-albums", page);
   cards.replaceChildren(...items.map((item, index) => createCard(item, index)));
-  $("#page-back-label").textContent = backLabel();
+  renderPageBack();
   showPage("artist");
   const photo = $(".artist-photo", page);
   if (source) $(".artist-photo", source).style.visibility = "hidden";
@@ -2638,15 +2728,18 @@ async function closePage({ instant = false } = {}) {
   const below = library.pages[library.pages.length - 1];
   const fly = top.kind === "album" ? $(".album-cover", $("#album-page")) : $(".artist-photo", $("#artist-page"));
   const sourcePicture = top.source && $(top.kind === "album" ? ".cover" : ".artist-photo", top.source);
-
-  document.documentElement.classList.remove("album-full"); // the rail comes back before anything flies to it
+  // An artist's photo flies back to its card, so the rail has to be back
+  // before it goes. An album's page fades out whole and gives the window back
+  // afterwards (finishClose), so the layout is not rebuilt mid-animation.
+  const flies = top.kind !== "album";
+  if (flies || below) document.documentElement.classList.remove("album-full");
   if (below) {
     // From an album back to the artist whose page it was opened from
     $("#album-page").hidden = true;
     $("#artist-page").hidden = false;
     page.classList.add("artist-open");
     state.artistPhotos.get(below.artist.name)?.then((url) => tintPage(url || null, library.pageToken));
-    $("#page-back-label").textContent = backLabel();
+    renderPageBack();
     page.scrollTop = 0;
     if (!instant && sourcePicture && !reduceMotion()) {
       riseIn([$(".artist-head", $("#artist-page"))], 0);
@@ -2664,20 +2757,27 @@ async function closePage({ instant = false } = {}) {
     top.source?.focus();
     return;
   }
-  const to = rectOf(sourcePicture);
-  if (sourcePicture) sourcePicture.style.visibility = "hidden";
+  const to = flies ? rectOf(sourcePicture) : null;
+  if (flies && sourcePicture) sourcePicture.style.visibility = "hidden";
   const others = [...page.children].filter((child) => !child.hidden);
   fadeBand(page);
   page.style.setProperty("--tint-a", "0");
-  for (const element of [$("#page-back"), ...$$(".album-info > *, .artist-head > div:last-child, .artist-albums", page)]) {
-    element.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" });
+  if (flies) {
+    for (const element of [$("#page-back"), ...$$(".artist-head > div:last-child, .artist-albums", page)]) {
+      element.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" });
+    }
+    const background = page.animate([{ backgroundColor: getComputedStyle(page).backgroundColor }, { backgroundColor: "transparent" }],
+                                    { duration: 320, easing: EMPHASIZED, fill: "forwards" });
+    await Promise.all([morphBack(fly, to), settled(background, 320)]);
+  } else {
+    // The album's page goes as one picture, cover and all: the cover used to
+    // stay behind, lit, while everything else faded from under it
+    await settled(page.animate([{ opacity: 1 }, { opacity: 0 }],
+                               { duration: 200, easing: "ease-in", fill: "forwards" }), 200);
   }
-  const background = page.animate([{ backgroundColor: getComputedStyle(page).backgroundColor }, { backgroundColor: "transparent" }],
-                                  { duration: 320, easing: EMPHASIZED, fill: "forwards" });
-  await Promise.all([morphBack(fly, to), settled(background, 320)]);
   finishClose(page);
   for (const element of others) element.getAnimations({ subtree: true }).forEach((animation) => animation.cancel());
-  if (sourcePicture) sourcePicture.style.visibility = "";
+  if (flies && sourcePicture) sourcePicture.style.visibility = "";
   top.source.focus({ preventScroll: true });
 }
 
@@ -2781,7 +2881,8 @@ function onTrackCoverClick(event) {
   if (!cover) return;
   event.stopPropagation();
   const rows = [...$$("#library-tracks .track-item")];
-  playQueue(rows.map((row) => row.dataset.path), rows.indexOf(cover.closest(".track-item")), "tracks");
+  playQueue(rows.map((row) => row.dataset.path), rows.indexOf(cover.closest(".track-item")), "tracks",
+            trackArtists(state.library.trackList.items));
 }
 
 function openTrack(row) {
@@ -3460,6 +3561,7 @@ const player = {
   aheadToken: 0,
   queue: [],
   unshuffled: null, // the queue in its own order while it plays shuffled
+  artists: new Map(), // path to artist, so a shuffle can keep one band's tracks apart
   source: "album", // "album": an album page in its order; "tracks": the Tracks tab
   index: -1,
   info: null,
@@ -3481,28 +3583,28 @@ const REPEATS = ["off", "all", "one"];
 const SEEK_STEP = 5;
 const VOLUME_STEP = 0.05;
 
-// Kept between runs where the window may keep it, for this run only where it may not
-function remember(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // no storage: this run only
-  }
+// How the player was left last time: the volume, the shuffle and the repeat
+// come from the settings file, which outlives the window's own storage
+function applyPlayerSettings(settings) {
+  const volume = Number(settings.volume);
+  player.volume = Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : player.volume;
+  player.shuffle = Boolean(settings.shuffle);
+  player.repeat = REPEATS.includes(settings.repeat) ? settings.repeat : "off";
+  $("#player-volume").value = Math.round(player.volume * 100);
+  applyVolume();
+  renderPlayerModes();
 }
 
-function recall(key) {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
+// The settings file is written once the slider comes to rest, not on every
+// step of a drag
+let playerSaveTimer = 0;
+function rememberPlayer(patch) {
+  Object.assign(state.settings, patch);
+  clearTimeout(playerSaveTimer);
+  playerSaveTimer = setTimeout(() => api().save_settings(state.settings), 400);
 }
 
 function bindPlayer() {
-  const volume = Number(recall("player-volume") ?? 0.8);
-  player.volume = Math.min(1, Math.max(0, Number.isFinite(volume) ? volume : 0.8));
-  player.shuffle = recall("player-shuffle") === "true";
-  player.repeat = REPEATS.includes(recall("player-repeat")) ? recall("player-repeat") : "off";
   $("#player-volume").value = Math.round(player.volume * 100);
   for (const element of [player.audio, player.spare]) {
     element.preload = "auto";
@@ -3615,15 +3717,33 @@ function playAlbumPage(start) {
   const rows = [...$$(".album-list .album-track[data-path]", $("#album-page"))];
   if (!rows.length) return;
   const index = typeof start === "number" ? start : Math.max(0, rows.indexOf(start));
-  playQueue(rows.map((row) => row.dataset.path), index, "album");
+  const artists = new Map(rows.map((row) => [row.dataset.path, $(".artists", row)?.textContent || ""]));
+  playQueue(rows.map((row) => row.dataset.path), index, "album", artists);
 }
 
-function playQueue(paths, index, source) {
+function playQueue(paths, index, source, artists = new Map()) {
   if (!paths.length) return;
   const start = Math.min(Math.max(0, index), paths.length - 1);
-  Object.assign(player, { source, failures: 0, unshuffled: null, queue: paths, index: start });
+  Object.assign(player, { source, artists, failures: 0, unshuffled: null, queue: paths, index: start });
   if (player.shuffle) shuffleQueue();
   loadTrack();
+}
+
+// The whole library, or the genre it is narrowed to, shuffled from a random track
+async function shuffleLibrary() {
+  await loadTracks();
+  const tracks = state.library.trackList.items.filter((track) => inGenre(track.genre));
+  if (!tracks.length) return;
+  if (!player.shuffle) {
+    player.shuffle = true;
+    rememberPlayer({ shuffle: true });
+    renderPlayerModes();
+  }
+  playQueue(tracks.map((track) => track.path), Math.floor(Math.random() * tracks.length), "tracks", trackArtists(tracks));
+}
+
+function trackArtists(tracks) {
+  return new Map(tracks.map((track) => [track.path, track.album_artist || track.artists || ""]));
 }
 
 async function loadTrack() {
@@ -3704,6 +3824,16 @@ function stepTrack(step, automatic = false) {
     player.audio.currentTime = 0;
     return;
   }
+  // Round the queue again shuffled: a new order, not the last one once more
+  if (step > 0 && player.shuffle && player.repeat === "all" && player.index + step >= player.queue.length
+      && player.queue.length > 2) {
+    const last = player.queue[player.index];
+    player.queue = spreadShuffle(player.queue);
+    if (player.queue[0] === last) player.queue.push(player.queue.shift());
+    player.index = 0;
+    loadTrack();
+    return;
+  }
   const next = stepIndex(step);
   if (next < 0) {
     if (automatic) {
@@ -3748,7 +3878,7 @@ function togglePlay() {
 // order; back in order, the queue is the album or the list as it was
 function toggleShuffle() {
   player.shuffle = !player.shuffle;
-  remember("player-shuffle", String(player.shuffle));
+  rememberPlayer({ shuffle: player.shuffle });
   if (player.queue.length) {
     if (player.shuffle) {
       shuffleQueue();
@@ -3768,19 +3898,47 @@ function toggleShuffle() {
 
 function shuffleQueue() {
   const { queue, index } = player;
-  const rest = queue.filter((_, i) => i !== index);
-  for (let i = rest.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rest[i], rest[j]] = [rest[j], rest[i]];
-  }
+  const order = spreadShuffle(queue);
+  const at = order.indexOf(queue[index]);
   player.unshuffled = queue;
-  player.queue = [queue[index], ...rest];
+  player.queue = [...order.slice(at), ...order.slice(0, at)]; // turned round, the gaps stay as they were
   player.index = 0;
+}
+
+// Shuffled the way listeners hear as random. Plain random order clumps: a
+// band with a tenth of the tracks comes back every few songs and now and then
+// twice in a row. So each artist's tracks are spread evenly through the whole
+// queue, each at a random place in its own stretch, and the artists'
+// stretches start at random, which keeps them from following one another in
+// step (Spotify's way since 2014).
+function spreadShuffle(paths) {
+  const groups = new Map();
+  for (const path of paths) {
+    const artist = artistKey(player.artists.get(path));
+    if (!groups.has(artist)) groups.set(artist, []);
+    groups.get(artist).push(path);
+  }
+  const placed = [];
+  for (const group of groups.values()) {
+    for (let i = group.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [group[i], group[j]] = [group[j], group[i]];
+    }
+    const stretch = 1 / group.length;
+    const start = Math.random() * stretch;
+    group.forEach((path, i) => placed.push({ path, at: start + i * stretch + (Math.random() - 0.5) * stretch * 0.3 }));
+  }
+  return placed.sort((a, b) => a.at - b.at).map((entry) => entry.path);
+}
+
+// "Sonic Youth, Lydia Lunch" and "sonic youth" are one band to keep apart
+function artistKey(text) {
+  return String(text || "").split(/,|;|&|\s+(?:feat|ft)\.?\s/i)[0].trim().toLocaleLowerCase();
 }
 
 function cycleRepeat() {
   player.repeat = REPEATS[(REPEATS.indexOf(player.repeat) + 1) % REPEATS.length];
-  remember("player-repeat", player.repeat);
+  rememberPlayer({ repeat: player.repeat });
   if (player.queue.length) {
     clearSpare();
     loadAhead();
@@ -3805,7 +3963,7 @@ function setVolume(volume) {
   player.volume = Math.min(1, Math.max(0, Math.round(volume * 100) / 100));
   player.muted = false;
   $("#player-volume").value = Math.round(player.volume * 100);
-  remember("player-volume", String(player.volume));
+  rememberPlayer({ volume: player.volume });
   applyVolume();
 }
 
@@ -3863,11 +4021,20 @@ function setPlayerPicture(box, url) {
   const image = $("img", box);
   if (image.dataset.src === url) return;
   image.dataset.src = url || "";
-  image.hidden = true;
-  image.removeAttribute("src");
-  if (!url) return;
-  image.addEventListener("load", () => { image.hidden = false; }, { once: true });
-  image.src = url;
+  if (!url) {
+    image.hidden = true;
+    image.removeAttribute("src");
+    return;
+  }
+  // The picture is fetched beside the one on screen and takes its place when
+  // it is there; hiding it first showed the empty note for a moment
+  const next = new Image();
+  next.addEventListener("load", () => {
+    if (image.dataset.src !== url) return; // another track came meanwhile
+    image.src = url;
+    image.hidden = false;
+  }, { once: true });
+  next.src = url;
 }
 
 function renderPlayerButton() {
@@ -4292,6 +4459,36 @@ async function showLibraryCover(element) {
   if (!state.covers.has(path)) state.covers.set(path, api().cover(path));
   const src = await state.covers.get(path);
   if (src) loadCover($(".cover", element), src);
+}
+
+// Where every cover of the library is, asked for in one call rather than one
+// per card as it scrolls into sight: the answers are what took the longest,
+// and a card whose address is known already only waits for the picture itself.
+async function prefetchCovers(items) {
+  const wanted = items.filter((item) => item.cover && !state.covers.has(item.path)).map((item) => item.path);
+  if (!wanted.length) return;
+  let found = null;
+  try {
+    found = await api().covers(wanted);
+  } catch (error) {
+    return; // each card will ask for its own
+  }
+  if (!found) return;
+  for (const path of wanted) {
+    if (!state.covers.has(path)) state.covers.set(path, Promise.resolve(found[path] || ""));
+  }
+}
+
+// The cover blurred behind the whole page, under the wash of its colours
+function showBackdrop(page, src) {
+  const backdrop = $(".album-backdrop", page);
+  if (backdrop.dataset.src === src) return;
+  backdrop.dataset.src = src;
+  backdrop.hidden = true;
+  backdrop.removeAttribute("src");
+  if (!src) return;
+  backdrop.addEventListener("load", () => { backdrop.hidden = false; }, { once: true });
+  backdrop.src = src;
 }
 
 function loadCover(cover, src) {
