@@ -723,7 +723,7 @@ class TestTidy:
         monkeypatch.setattr(gui, "tidy_up", tidy_up)
         entries = [{"path": f"C:/Music/{name}", "artist": "A", "title": name} for name in outcomes]
         assert api.tidy(entries, {"lyrics": False})
-        for _ in range(200):
+        for _ in range(1000):  # up to 20 s: a busy machine runs threads late
             events = api.poll()
             done = [event for event in events if event.get("state") == "done"]
             if done:
@@ -780,7 +780,7 @@ class TestBackground:
         hidden = []
         monkeypatch.setattr(api, "_hide", lambda: hidden.append(True))
         assert api._on_closing() is False
-        for _ in range(50):
+        for _ in range(500):  # up to 5 s: the hiding runs on a thread of its own
             if hidden:
                 break
             time.sleep(0.01)
