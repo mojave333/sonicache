@@ -34,9 +34,9 @@ from mutagen.id3 import Frames
 from mutagen.mp3 import MP3
 from mutagen.flac import Picture
 
-from . import __version__, logs, relay_for, tray, watch
+from . import __version__, logs, relay_for, thumbbar, tray, watch
 from .i18n import LANGUAGES, resolve, set_language, t
-from .engine import batch, catalog, folders, lyrics, network, sources, use_relay
+from .engine import batch, catalog, folders, loudness, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, read_tags, use_proxy)
@@ -87,6 +87,9 @@ ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the h
 # as they stay so, the Fill in tags button does not offer them again, even
 # where a genre or lyrics could not be found
 TIDIED_FILE = "tidied.json"
+# The tags read from the library's files, kept between runs so that opening
+# the library reads again only the files changed since
+LIBRARY_CACHE_FILE = "library-cache.json"
 ARTIST_RETRY = 7 * 86400  # an artist Deezer did not know is asked about again after a week
 # Tags read from a file, kept while its size and time stay the same: the Tracks
 # tab reads every file in the library, and the second visit should be instant
@@ -114,6 +117,7 @@ class Api:
         self._covers = _CoverServer()
         self._tidying: threading.Event | None = None  # set to stop the tidy-up that runs
         self._tray: tray.Tray | None = None
+        self._thumbbar: thumbbar.ThumbBar | None = None  # the player's buttons under the taskbar picture
         self._hidden = False  # in the tray, the window closed
         self._focused = True  # the window is the one being used; said by the page
         self._quitting = False  # the window closes for good, not into the tray
@@ -199,6 +203,8 @@ class Api:
             self._quitting = True
             if self._tray is not None:
                 self._tray.close()
+            if self._thumbbar is not None:
+                self._thumbbar.close()
             return None
         threading.Thread(target=self._hide, daemon=True).start()
         return False
@@ -398,18 +404,28 @@ class Api:
         # A folder added on its own is read first, so its albums are named as
         # its own and not as the insides of a folder that happens to hold it
         roots.sort(key=lambda root: len(Path(root).expanduser().parts), reverse=True)
+        _load_library_cache()
         items, seen = [], set()
-        for root in roots:
-            for item in _library_items(Path(root).expanduser()):
-                if item["path"] not in seen:  # one folder inside another is read once
-                    seen.add(item["path"])
-                    items.append(item)
+        with folders.scanning():
+            for root in roots:
+                for item in _library_items(Path(root).expanduser()):
+                    if item["path"] not in seen:  # one folder inside another is read once
+                        seen.add(item["path"])
+                        items.append(item)
         items.sort(key=lambda item: item["modified"], reverse=True)
+        _save_library_cache(_roots_key(roots), items)
         return items
+
+    def library_cached(self, roots: str | list[str]) -> list[dict]:
+        """What the library held when it was last read, shown at once while
+        it is read again; nothing for folders not read before."""
+        roots = [roots] if isinstance(roots, str) else [str(root) for root in roots or []]
+        _load_library_cache()
+        return _LIBRARY_CACHE["items"].get(_roots_key(roots), [])
 
     def delete(self, paths: list[str]) -> dict:
         """Send albums and tracks to the recycle bin; a wrong pick stays undoable."""
-        failed = []
+        failed, gone = [], set()
         for raw in paths:
             path = Path(raw).expanduser()
             try:
@@ -417,6 +433,7 @@ class Api:
             except OSError:
                 failed.append(path.name)
                 continue
+            gone.add(str(raw))
             # A track's synced lyrics go with it; an album's are inside its folder already
             lrc = path.with_suffix(".lrc")
             if path.suffix.lower() in AUDIO_SUFFIXES and lrc.is_file():
@@ -424,6 +441,7 @@ class Api:
                     _recycle(lrc)
                 except OSError:
                     pass
+        _forget_in_library_cache(gone)
         return {"deleted": len(paths) - len(failed), "failed": failed}
 
     def search(self, query: str) -> dict:
@@ -512,12 +530,15 @@ class Api:
         Entries tidied before and not changed since are left out."""
         with_lyrics = bool(settings.get("lyrics", True))
         tidied = _read_json(logs.data_dir() / TIDIED_FILE)
+        _load_library_cache()
         found = []
-        for raw in paths or []:
-            entry = Path(str(raw))
-            files = _entry_files(entry)
-            if files and tidied.get(str(entry)) != _files_signature(files) and _has_gaps(entry, files, with_lyrics):
-                found.append(str(raw))
+        with folders.scanning():
+            for raw in paths or []:
+                entry = Path(str(raw))
+                files = _entry_files(entry)
+                if files and tidied.get(str(entry)) != _files_signature(files) and _has_gaps(entry, files, with_lyrics):
+                    found.append(str(raw))
+        _save_library_cache()
         return found
 
     def diagnostics(self) -> dict:
@@ -782,6 +803,8 @@ class Api:
         self._quitting = True  # the tray must not catch this close
         if self._tray is not None:
             self._tray.close()
+        if self._thumbbar is not None:
+            self._thumbbar.close()
         threading.Timer(3.0, _exit_now).start()
         try:
             if self._window is not None:
@@ -841,16 +864,18 @@ class Api:
     def tracks(self, roots: str | list[str]) -> list[dict]:
         """Every track in the library's folders with its tags, for the Tracks tab."""
         result = []
-        for item in self.library(roots):
-            entry = Path(item["path"])
-            files = folders.album_files(entry)[0] if item["album"] else [entry]
-            for file in files:
-                try:
-                    modified = file.stat().st_mtime
-                except OSError:
-                    continue
-                result.append({**_tags(file), "path": str(file), "entry": item["path"],
-                               "cover": item["cover"], "modified": modified})
+        with folders.scanning():
+            for item in self.library(roots):
+                entry = Path(item["path"])
+                files = folders.album_files(entry)[0] if item["album"] else [entry]
+                for file in files:
+                    try:
+                        modified = folders.stat(file).st_mtime
+                    except OSError:
+                        continue
+                    result.append({**_tags(file), "path": str(file), "entry": item["path"],
+                                   "cover": item["cover"], "modified": modified})
+        _save_library_cache()
         return result
 
     # The player: the window streams a file from the local server and reads
@@ -861,10 +886,40 @@ class Api:
         target = Path(path)
         if not _is_audio(target):
             return None
-        folder_cover = target.parent / "cover.jpg"
-        cover = self.cover(str(target.parent if folder_cover.is_file() else target))
+        cover = self.cover(str(target.parent if folders.cover_file(target.parent) else target))
+        try:  # how the sound is made, for the line under the title in Now playing
+            sound = MutagenFile(target).info
+        except Exception:
+            sound = None
         return {**_tags(target), "path": str(target), "url": self._covers.audio_address(str(target)),
-                "cover": cover or ""}
+                "cover": cover or "", "sample_rate": getattr(sound, "sample_rate", 0) or 0,
+                "channels": getattr(sound, "channels", 0) or 0,
+                # ReplayGain the player turns the volume by, from whatever tagged the file
+                "gain": loudness.playback_gains(target)}
+
+    def player_buttons(self, buttons: dict | None) -> None:
+        """Previous, play or pause and next under the window's picture on the
+        taskbar, as the player has them; None while nothing plays hides them."""
+        if not thumbbar.SUPPORTED or self._window is None:
+            return
+        if self._thumbbar is None:
+            if not buttons:
+                return
+            try:
+                self._thumbbar = thumbbar.ThumbBar(self._window.native.Handle.ToInt64(), self._thumbbar_click)
+            except Exception as e:  # a picture on the taskbar is never worth a failed call
+                logs.log.debug("кнопки на панели задач: %s", e)
+                return
+        self._thumbbar.show(buttons)
+
+    def _thumbbar_click(self, name: str) -> None:
+        if self._window is not None and name in thumbbar.BUTTONS:
+            self._window.evaluate_js(f"taskbarAction({json.dumps(name)})")
+
+    def fullscreen(self) -> None:
+        """Now playing asks for the whole screen, and gives it back."""
+        if self._window is not None:
+            self._window.toggle_fullscreen()
 
     def lyrics(self, path: str) -> dict:
         """The words of a track: synced ones from the .lrc beside it, plain ones
@@ -969,7 +1024,7 @@ class Api:
             self._events.put({"job": job, **event})
             kind = event.get("type")
             if kind == "release":  # the card's title and tracklist, kept for next time
-                names["title"] = event["title"]
+                names.update(title=event["title"], folder=event["folder"], single=bool(event.get("single")))
                 tracks.clear()
                 for item in event["tracks"]:
                     tracks[item["id"]] = {**item, "state": "waiting", "source": "", "text": ""}
@@ -1019,6 +1074,8 @@ class Api:
         self._remember({"job": job, "state": state, "dry_run": options.dry_run,
                         "tracks": finished_tracks(), **counts})
         quiet = self._finish_watch_check(job, state, counts)
+        if state == "done" and not options.dry_run and (report.ok or report.skipped):
+            _remember_downloaded(names, getattr(downloader, "_paths", {}).values())
         emit(type="job", state=state, dry_run=options.dry_run, quiet=quiet, **counts)
         # A check that found nothing new, a trial run and a stopped one are not news
         if state == "done" and not quiet and not options.dry_run:
@@ -1234,15 +1291,12 @@ def _trash_by_hand(path: Path) -> None:
 
 
 def _is_audio(path: Path) -> bool:
+    return _is_audio_name(path) and path.is_file()
+
+
+def _is_audio_name(path: Path) -> bool:
     # _part_ files are tracks still being downloaded
-    return path.suffix.lower() in AUDIO_SUFFIXES and not path.name.startswith("_part_") and path.is_file()
-
-
-def _folder_contents(path: Path) -> list[Path]:
-    try:
-        return list(path.iterdir())
-    except OSError:
-        return []
+    return path.suffix.lower() in AUDIO_SUFFIXES and not path.name.startswith("_part_")
 
 
 # How deep the library looks into a folder: iTunes Media / Music / Artist / Album is four
@@ -1253,12 +1307,13 @@ def _library_items(root: Path, artist: str = "", depth: int = 0) -> list[dict]:
     """Every album and single track under a folder. Loose tracks count as
     single tracks at the top, where downloaded singles are put."""
     items = []
-    for path in _folder_contents(root):
-        if path.name.startswith((".", "$")):
+    for entry in folders.listing(root):
+        if entry.name.startswith((".", "$")):
             continue  # hidden folders and the recycle bin
+        path = Path(entry.path)
         try:
-            if not path.is_dir():
-                if depth == 0 and _is_audio(path):
+            if not entry.is_dir():
+                if depth == 0 and entry.is_file() and _is_audio_name(path):
                     items.append(_library_item(path, [path]))
                 continue
             items += _folder_items(path, artist, depth)
@@ -1293,10 +1348,11 @@ def _library_item(path: Path, files: list[Path], artist: str = "") -> dict:
     """What the library says about an album or a track: its own tags first,
     and the names of its folder and the one above where they say nothing."""
     album = path.is_dir()
-    stats = [file.stat() for file in files]
+    stats = [folders.stat(file) for file in files]
     pattern = _ALBUM_UNDER_ARTIST if artist else _ALBUM_NAME if album else _TRACK_NAME
     match = pattern.match(path.name if album else path.stem)
-    marker = _read_marker(path) if album else {}
+    # Only a folder with the marker beside its files is opened to read it
+    marker = _read_marker(path) if album and any(entry.name == MARKER_NAME for entry in folders.listing(path)) else {}
     tags = _tags(files[0])
     named = {
         "title": match["title"] if match else (path.name if album else path.stem),
@@ -1316,6 +1372,8 @@ def _library_item(path: Path, files: list[Path], artist: str = "") -> dict:
         "album": album,
         **named,
         "path": str(path),
+        # Its first file's, as "Alternative Rock; Rock": the library's genre filter splits it
+        "genre": tags["genre"],
         "tracks": len(files),
         "size": sum(stat.st_size for stat in stats),
         "modified": max(stat.st_mtime for stat in stats),
@@ -1333,7 +1391,7 @@ _SHOWN_FRAMES = {name: Frames[name] for name in (*_SHOWN_NAMES.values(), "TYER",
 def _tags(path: Path) -> dict:
     """Title, artists, album, numbers, length and bitrate of one file."""
     try:
-        stat = path.stat()
+        stat = folders.stat(path)
     except OSError:
         return _blank_tags(path)
     key = (str(path), stat.st_mtime_ns, stat.st_size)
@@ -1701,7 +1759,7 @@ def _files_signature(files: list[Path]) -> str:
     """How many files there are and when the newest changed: a tidy-up or a
     new file changes it."""
     try:
-        return f"{len(files)}:{max(file.stat().st_mtime_ns for file in files)}"
+        return f"{len(files)}:{max(folders.stat(file).st_mtime_ns for file in files)}"
     except (OSError, ValueError):
         return ""
 
@@ -1716,7 +1774,7 @@ def _has_gaps(entry: Path, files: list[Path], with_lyrics: bool) -> bool:
 def _present_tags(path: Path) -> frozenset:
     """The names of the tags a file has, read once per version of the file."""
     try:
-        stat = path.stat()
+        stat = folders.stat(path)
     except OSError:
         return frozenset(GAP_TAGS) | {"track", "lyrics"}  # gone: nothing to add to it
     key = (str(path), stat.st_mtime_ns, stat.st_size)
@@ -1725,6 +1783,90 @@ def _present_tags(path: Path) -> frozenset:
             _GAP_CACHE.clear()
         _GAP_CACHE[key] = frozenset(name for name, value in read_tags(path).items() if value)
     return _GAP_CACHE[key]
+
+
+_LIBRARY_CACHE = {"loaded": False, "saved": -1, "items": {}}
+_LIBRARY_CACHE_LOCK = threading.Lock()
+
+
+def _load_library_cache() -> None:
+    """The tags read in an earlier run, once per run. Each is kept with the
+    file's size and time, so a file changed since is simply read again."""
+    with _LIBRARY_CACHE_LOCK:
+        if _LIBRARY_CACHE["loaded"]:
+            return
+        _LIBRARY_CACHE["loaded"] = True
+        data = _read_json(logs.data_dir() / LIBRARY_CACHE_FILE)
+        if data.get("version") != 1:
+            return
+        items = data.get("items")
+        if isinstance(items, dict):
+            _LIBRARY_CACHE["items"] = {key: value for key, value in items.items() if isinstance(value, list)}
+        try:
+            for path, mtime, size, info in data.get("tags", []):
+                _TAG_CACHE.setdefault((path, mtime, size), info)
+            for path, mtime, size, names in data.get("gaps", []):
+                _GAP_CACHE.setdefault((path, mtime, size), frozenset(names))
+            folders.remember_albums({(path, mtime): name for path, mtime, name in data.get("albums", [])})
+        except (TypeError, ValueError):  # a file from elsewhere: what was read of it stays
+            logs.log.warning("кэш библиотеки не прочитался, файлы будут прочитаны заново")
+        _LIBRARY_CACHE["saved"] = _library_cache_size()
+
+
+def _save_library_cache(roots: str = "", items: list[dict] | None = None) -> None:
+    """Writes the tags down when anything new was read, for a file read in
+    two versions the later one, and what the library holds when it changed."""
+    with _LIBRARY_CACHE_LOCK:
+        size = _library_cache_size()
+        kept = _LIBRARY_CACHE["items"]
+        new_items = items is not None and kept.get(roots) != items
+        if size == _LIBRARY_CACHE["saved"] and not new_items:
+            return
+        if new_items:
+            _LIBRARY_CACHE["items"] = kept = {roots: items}  # only the folders read last
+        tags = {key[0]: [*key, info] for key, info in list(_TAG_CACHE.items())}
+        gaps = {key[0]: [*key, sorted(names)] for key, names in list(_GAP_CACHE.items())}
+        albums = {key[0]: [*key, name] for key, name in folders.known_albums().items()}
+        _write_json(logs.data_dir() / LIBRARY_CACHE_FILE, {
+            "version": 1, "items": kept, "tags": list(tags.values()), "gaps": list(gaps.values()),
+            "albums": list(albums.values())})
+        _LIBRARY_CACHE["saved"] = size
+
+
+def _forget_in_library_cache(paths: set[str]) -> None:
+    """What was deleted is not shown again at the next start, while the folders are read."""
+    if not paths:
+        return
+    _load_library_cache()
+    with _LIBRARY_CACHE_LOCK:
+        kept = _LIBRARY_CACHE["items"]
+        _LIBRARY_CACHE["items"] = {key: [item for item in items if item.get("path") not in paths]
+                                   for key, items in kept.items()}
+        _LIBRARY_CACHE["saved"] = -1  # written on the next save, even with no tags read
+    _save_library_cache()
+
+
+def _roots_key(roots: list[str]) -> str:
+    return "|".join(sorted(str(Path(root).expanduser()) for root in roots))
+
+
+def _library_cache_size() -> int:
+    return len(_TAG_CACHE) + len(_GAP_CACHE) + len(folders.known_albums())
+
+
+def _remember_downloaded(names: dict, paths) -> None:
+    """A download looked up all a tag fill-in would: the genre, the cover and
+    the lyrics. What it could not find, a fill-in would not find either, so a
+    release just downloaded is not offered one until its files change: an album
+    by its folder, a single track by its file."""
+    try:
+        if names.get("single"):
+            for path in paths:
+                _remember_tidied(Path(path))
+        elif names.get("folder"):
+            _remember_tidied(Path(names["folder"]))
+    except Exception as e:  # only spares a needless offer later: never worth a failed download
+        logs.log.warning("не запомнил скачанное как готовое: %s", e)
 
 
 def _remember_tidied(entry: Path) -> None:

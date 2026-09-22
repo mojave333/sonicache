@@ -195,6 +195,50 @@ def _stored(path: Path) -> tuple[Loudness | None, str | None]:
         return None, None
 
 
+def playback_gains(path: Path) -> dict:
+    """The gains that bring a file to ReplayGain 2.0's -18 LUFS on playback,
+    in decibels, None where the file keeps none. Whoever tagged it: this
+    program, foobar2000, a ripper; mp3, m4a, FLAC, Ogg. Opus counts its R128
+    tags from -23 LUFS, and is brought to -18 like the rest, so every format
+    plays at one level."""
+    gains = {"track": None, "album": None}
+    ext = path.suffix.lower()
+    try:
+        if ext == ".opus":
+            tags = OggOpus(path).tags or {}
+            for scope in gains:
+                value = (tags.get(f"R128_{scope.upper()}_GAIN") or [None])[0]
+                if value is not None:
+                    gains[scope] = round(int(value) / 256 + REFERENCE - OPUS_REFERENCE, 2)
+            return gains
+        fields = _gain_fields(path, ext)
+        for scope in gains:
+            text = fields.get(f"REPLAYGAIN_{scope.upper()}_GAIN")
+            if text:
+                gains[scope] = round(float(text.replace(",", ".").split()[0]), 2)
+    except Exception:  # a file without tags, or with broken ones, plays as it is
+        return {"track": None, "album": None}
+    return gains
+
+
+def _gain_fields(path: Path, ext: str) -> dict[str, str]:
+    """The ReplayGain fields a file keeps, by upper-case name: taggers differ in case."""
+    if ext == ".mp3":
+        return {frame.desc.upper(): str(frame.text[0]) for frame in ID3(path).getall("TXXX") if frame.text}
+    if ext == ".m4a":
+        items = MP4(path).tags or {}
+        return {key[len(_ITUNES):].upper(): bytes(value[0]).decode("utf-8", "replace")
+                for key, value in items.items() if key.startswith(_ITUNES) and value}
+    audio = MutagenFile(path)
+    tags = getattr(audio, "tags", None) or {}
+    fields = {}
+    for key in ("REPLAYGAIN_TRACK_GAIN", "REPLAYGAIN_ALBUM_GAIN"):
+        values = tags.get(key) or tags.get(key.lower())
+        if values:
+            fields[key] = str(values[0] if isinstance(values, list) else values)
+    return fields
+
+
 def _write(path: Path, track: Loudness | None = None, album: Loudness | None = None) -> None:
     ext = path.suffix.lower()
     fields = {}

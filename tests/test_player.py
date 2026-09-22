@@ -38,6 +38,8 @@ class TestStream:
         api = gui.Api()
         info = api.play(str(song))
         assert (info["title"], info["artists"], info["album"]) == ("Song", "Band", "Record")
+        assert info["sample_rate"] in (44100, 48000) and info["channels"] in (1, 2)  # for the line under the title
+        assert info["gain"] == {"track": None, "album": None}  # no ReplayGain written: played as it is
         whole = song.read_bytes()
         status, headers, body = fetch(info["url"])
         assert (status, headers["Content-Type"], headers["Accept-Ranges"], body) == (200, "audio/mpeg", "bytes", whole)
@@ -88,3 +90,21 @@ class TestLyrics:
         assert gui.Api().lyrics(str(song)) == {"synced": SYNCED, "plain": "Hello", "source": "lrclib"}
         assert asked == [("Song", "Record")]
         assert not song.with_suffix(".lrc").exists()  # shown, not written: the file is left as it was
+
+
+class TestTaskbarIcons:
+    """The buttons under the taskbar picture are drawn in the player's own shapes."""
+
+    def test_a_shape_covers_its_inside_and_leaves_its_outside(self):
+        from trackhound import thumbbar
+        play = thumbbar.coverage(thumbbar.SHAPES["play"], 24)
+        assert play[12 * 24 + 10] == 1  # inside the triangle
+        assert play[2 * 24 + 2] == 0 and play[12 * 24 + 21] == 0  # the margin, and past the tip
+        assert any(0 < share < 1 for share in play)  # the slanted edges are smoothed
+
+    def test_every_button_has_its_shapes_at_any_size(self):
+        from trackhound import thumbbar
+        for name in ("prev", "play", "pause", "next"):
+            for size in (16, 20, 24, 32):
+                shares = thumbbar.coverage(thumbbar.SHAPES[name], size)
+                assert len(shares) == size * size and 0.1 < sum(shares) / len(shares) < 0.5, (name, size)

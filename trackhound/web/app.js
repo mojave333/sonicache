@@ -78,10 +78,11 @@ const state = {
   tracks: [], // every track of every job, in the order the releases arrived
   orphans: [],
   dirty: new Set(),
-  run: null, // jobs added since the queue was last idle; the status bar sums them up
+  run: null, // jobs added since the queue was last idle; the line above the downloads sums them up
   library: {
     items: [], folder: null, stale: true, loading: false, token: 0,
     tab: "albums", view: "grid",
+    genre: "", // the genre the tabs are narrowed to, by its lower-case name; "" for all
     sorts: { // newest first, the way the folder itself is read
       albums: { key: "modified", dir: -1 },
       tracks: { key: "modified", dir: -1 },
@@ -160,7 +161,7 @@ async function init() {
   restoreHistory(data.history || []);
   showView("download");
   renderChrome();
-  setInterval(renderStatusBar, 1000);
+  setInterval(renderStatus, 1000);
   pollLoop();
   checkForUpdate();
   loadDiagnostics();
@@ -295,7 +296,7 @@ function renderSettings() {
   syncRadios($("#relay"), "data-relay", settings.relay === "off" ? "off" : "on");
   $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
   $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
-  renderStatusBar();
+  renderStatus();
 }
 
 function updateSettings(patch) {
@@ -696,7 +697,7 @@ function renderProblems() {
                      { textContent: t("ffmpeg, Deno или Node.js, yt-dlp-ejs") })]));
   $("#env-icon use").setAttribute("href", problems.length ? "#i-alert" : "#i-check");
   $("#env-icon").classList.toggle("warn", problems.length > 0);
-  renderStatusBar();
+  renderStatus();
 }
 
 function bindUi() {
@@ -756,7 +757,6 @@ function bindUi() {
   for (const button of $$(".stop")) button.addEventListener("click", stopAll);
   for (const button of $$(".pause")) button.addEventListener("click", togglePause);
   $("#clear").addEventListener("click", clearFinished);
-  $("#status-problems").addEventListener("click", () => showView("settings"));
   $("#log-open").addEventListener("click", () => api().open_logs());
   $("#log-copy").addEventListener("click", copyReport);
   $("#network-check").addEventListener("click", checkNetwork);
@@ -792,6 +792,10 @@ function bindUi() {
   }
   radioGroup($("#library-view"), "data-library-view", setLibraryView);
   $("#library-sort").addEventListener("change", onSortPick);
+  $("#library-genre").addEventListener("change", (event) => {
+    state.library.genre = event.target.value;
+    renderLibrary();
+  });
   $("#library-order").addEventListener("change", onSortPick);
   $("#page-back").addEventListener("click", () => closePage());
   $("#album-page").addEventListener("click", onPageAction);
@@ -847,6 +851,8 @@ function onShortcut(event) {
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyK") {
     event.preventDefault();
     showView("search");
+  } else if (event.key === "Escape" && state.view === "now") {
+    closeNowPlaying();
   } else if (event.key === "Escape" && state.view === "search" && !$("#search-page").hidden) {
     closeSearchPage();
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyB") {
@@ -897,9 +903,14 @@ function showView(name) {
   setMenuOpen(false, false);
   if (name === "download") $("#link").focus();
   $("#player-lyrics")?.setAttribute("aria-pressed", String(name === "now"));
+  // Now playing covers the whole window; any way out of it gives the window back
+  document.documentElement.classList.toggle("now-mode", name === "now");
+  if (name !== "now" && player.fullscreen) toggleFullscreen();
   if (name === "search") {
     renderSearch();
     $("#search-input").focus();
+    // The search marks what the library holds: it is read, if it was not yet
+    if (state.library.stale && !state.library.loading) loadLibrary();
   }
   if (name === "library") {
     requestAnimationFrame(() => placeTabInk(false)); // the tabs have no size until the view shows
@@ -907,7 +918,7 @@ function showView(name) {
   } else {
     clearSelection();
   }
-  renderStatusBar(); // the library speaks about itself, the other views about downloads
+  renderStatus();
 }
 
 function bindModeMenu() {
@@ -1775,7 +1786,7 @@ async function retryJob(job) {
   for (const { job: id, link } of jobs) addJob(id, link, job.dryRun, job.format);
 }
 
-/* Window chrome: counters, badges, status bar */
+/* Window chrome: counters, badges, the lines above the lists */
 
 function renderChrome() {
   const jobs = [...state.jobs.values()];
@@ -1792,7 +1803,7 @@ function renderChrome() {
   const badge = $("#download-badge");
   badge.textContent = underWay > 99 ? "99+" : underWay;
   badge.hidden = !underWay;
-  renderStatusBar();
+  renderStatus();
   reportProgress();
 }
 
@@ -1822,26 +1833,18 @@ function trackShare(track) {
   return track.state === "waiting" || track.state === "search" ? 0 : 1;
 }
 
-function renderStatusBar() {
+// The window has no status bar: the downloads say how they are going above
+// their list, the library what it holds and what is going on in it above its
+// own; problems have their strip in Download and the dot on Settings
+function renderStatus() {
   if (!state.settings) return;
-  const library = state.view === "library";
-  const status = $("#status-text");
-  status.textContent = library ? libraryStatus() : statusText();
-  status.title = library ? libraryFolders().join("\n") : "";
-  const { format, threads, dry_run: dryRun } = state.settings;
-  $("#status-mode").textContent = t("{mode} · {threads} {threadWord}", {
-    mode: dryRun ? t("только проверка") : format,
-    threads,
-    threadWord: plural(threads, "поток", "потока", "потоков"),
-  });
-  const problems = $("#status-problems");
-  problems.hidden = !state.problems.length;
-  $("span", problems).textContent = t("Проблемы: {count}", { count: state.problems.length });
+  $("#download-status").textContent = statusText();
+  renderLibrarySummary();
 }
 
 function statusText() {
   const jobs = state.run ? [...state.run.jobs].map((id) => state.jobs.get(id)).filter(Boolean) : [];
-  if (!jobs.length) return t("Нет загрузок");
+  if (!jobs.length) return ""; // the empty list says so itself
   const tracks = jobs.flatMap((job) => [...job.tracks.values()]);
   const finished = tracks.filter((track) => !TRACK_ACTIVE.has(track.state));
   const failed = tracks.filter((track) => TRACK_FAILED.has(track.state)).length;
@@ -1883,7 +1886,7 @@ function statusText() {
     parts.push(t("{links} с ошибкой: {errors}",
       { links: plural(errors, "ссылка", "ссылки", "ссылок"), errors }));
   }
-  const text = parts.join(" · ") || t("Нет загрузок");
+  const text = parts.join(" · ");
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
@@ -1902,28 +1905,28 @@ function currentSort(tab = state.library.tab) {
   return state.library.sorts[tab];
 }
 
-// The status bar talks about downloads everywhere else; on this tab it counts
-// what the folder holds, and what is picked out of it.
-function libraryStatus() {
-  const { items, selected, shown, loading } = state.library;
+// The bar above the list: what is going on in the library when something is,
+// else what it holds. A folder being read or holding nothing says so in the
+// middle of the view instead.
+function renderLibrarySummary() {
+  $("#library-summary").textContent = libraryNote() || librarySummary();
+}
+
+function libraryNote() {
+  const { items, selected, shown } = state.library;
   if (state.tidy.running) {
     const { done, total, title } = state.tidy;
     return t("Дописываем теги: {done} из {total} · {title}", { done: Math.min(done + 1, total), total, title });
   }
-  if (loading && !items.length) return t("Читаем папку…");
   if (state.tidy.note && !selected.size) return state.tidy.note;
   if (selected.size) {
     const size = items.filter((item) => selected.has(item.path)).reduce((total, item) => total + item.size, 0);
     return t("Выбрано: {count} · {size}", { count: selected.size, size: formatSize(size) });
   }
-  if (!items.length) return t("В папке пока нет музыки");
-  if (state.library.tab === "albums" && shown.length < items.length) {
+  if (state.library.tab === "albums" && items.length && shown.length < items.length) {
     return t("Найдено: {shown} из {total}", { shown: shown.length, total: items.length });
   }
-  // The counts are in the bar above the list; here, where they come from
-  const folders = libraryFolders();
-  return folders.length > 1 ? t("Папки: {folders}", { folders: folders.join(", ") })
-    : t("Папка: {folder}", { folder: folders[0] });
+  return "";
 }
 
 function librarySummary() {
@@ -1963,6 +1966,18 @@ async function loadLibrary() {
   library.loading = true;
   library.trackList.stale = true;
   renderLibrary();
+  // What the folders held last time shows at once, and is replaced when read again
+  let early = false;
+  if (!library.items.length) {
+    const cached = await Promise.resolve().then(() => api().library_cached(folders)).catch(() => []);
+    if (token !== library.token) return;
+    if (cached?.length) {
+      Object.assign(library, { items: cached, folder });
+      library.artists = null;
+      renderLibrary({ enter: true });
+      early = true;
+    }
+  }
   let items;
   try {
     items = await api().library(folders);
@@ -1973,7 +1988,8 @@ async function loadLibrary() {
   if (token !== library.token) return;
   Object.assign(library, { items, folder, stale: false, loading: false });
   library.artists = null;
-  renderLibrary({ enter: true });
+  renderLibrary({ enter: !early });
+  markInLibrary();
   if (library.tab === "tracks") loadTracks();
   refreshGaps();
 }
@@ -2032,15 +2048,16 @@ function renderLibrary({ enter = false } = {}) {
   $("#library-view").hidden = tab !== "albums";
   syncRadios($("#library-view"), "data-library-view", library.view);
   renderSortPickers();
+  renderGenrePicker();
   const shownCount = tab === "albums" ? renderAlbums(grid, enter)
     : tab === "tracks" ? renderTracks(enter) : renderArtists(enter);
-  $("#library-summary").textContent = librarySummary();
-  renderSelection();
+  renderSelection(); // and with it the bar above the list
 
   const empty = $("#library-empty");
   empty.hidden = shownCount > 0;
   const query = $("#library-filter").value.trim();
-  let [title, text] = [t("Ничего не найдено"), t("По запросу «{query}»", { query })];
+  let [title, text] = [t("Ничего не найдено"), query ? t("По запросу «{query}»", { query })
+    : t("В жанре «{genre}»", { genre: $("#library-genre").selectedOptions[0]?.dataset.name || "" })];
   const loading = library.loading || (tab === "tracks" && library.trackList.loading);
   // The aardvark by an empty crate for an empty folder, among dug-up holes for a
   // search that turned nothing up, and nowhere while the folder is still being read
@@ -2060,6 +2077,46 @@ function libraryQuery() {
   return $("#library-filter").value.trim().toLocaleLowerCase();
 }
 
+// The genres a file names: "Alternative Rock; Rock" is two, the way this
+// program and most taggers join several
+function genresOf(text) {
+  return String(text || "").split(/[;\0]/).map((genre) => genre.trim()).filter(Boolean);
+}
+
+// Whether a tag names the genre the library is narrowed to; any, when it is not
+function inGenre(text) {
+  const wanted = state.library.genre;
+  return !wanted || genresOf(text).some((genre) => genre.toLocaleLowerCase() === wanted);
+}
+
+// Every genre the albums and tracks name, each once, with how many name it
+function libraryGenres() {
+  const found = new Map();
+  for (const item of state.library.items) {
+    for (const genre of genresOf(item.genre)) {
+      const key = genre.toLocaleLowerCase();
+      if (!found.has(key)) found.set(key, { key, name: genre, count: 0 });
+      found.get(key).count += 1;
+    }
+  }
+  return [...found.values()].sort((a, b) => COLLATOR.compare(a.name, b.name));
+}
+
+function renderGenrePicker() {
+  const library = state.library;
+  const pick = $("#library-genre");
+  const genres = libraryGenres();
+  // A genre gone from the folders after it was read again lets the library go back to all
+  if (library.genre && !genres.some((genre) => genre.key === library.genre)) library.genre = "";
+  pick.closest(".pick").hidden = !genres.length;
+  pick.replaceChildren(new Option(t("все"), ""), ...genres.map((genre) => {
+    const option = new Option(`${genre.name} · ${genre.count}`, genre.key);
+    option.dataset.name = genre.name;
+    return option;
+  }));
+  pick.value = library.genre;
+}
+
 function sortBy(list, sorts, { key, dir }, tieBreak) {
   const { value } = sorts[key];
   return [...list].sort((a, b) => dir * compare(value(a), value(b)) || tieBreak(a, b));
@@ -2072,9 +2129,8 @@ function compare(a, b) {
 function renderAlbums(grid, enter) {
   const library = state.library;
   const needle = libraryQuery();
-  const found = needle
-    ? library.items.filter((item) => `${item.artist} ${item.title}`.toLocaleLowerCase().includes(needle))
-    : library.items;
+  const found = library.items.filter((item) => inGenre(item.genre)
+    && (!needle || `${item.artist} ${item.title}`.toLocaleLowerCase().includes(needle)));
   const shown = sortBy(found, LIBRARY_SORTS, library.sorts.albums, (a, b) => COLLATOR.compare(a.title, b.title));
   library.shown = shown.map((item) => item.path);
   // Something the filter hides must not stay selected: a batch delete would
@@ -2099,9 +2155,8 @@ function renderAlbums(grid, enter) {
 function renderTracks(enter) {
   const list = state.library.trackList;
   const needle = libraryQuery();
-  const found = needle
-    ? list.items.filter((track) => `${track.title} ${track.artists} ${track.album}`.toLocaleLowerCase().includes(needle))
-    : list.items;
+  const found = list.items.filter((track) => inGenre(track.genre)
+    && (!needle || `${track.title} ${track.artists} ${track.album}`.toLocaleLowerCase().includes(needle)));
   // Tracks that tie (one album's tracks share a date) keep the album's own order
   const albumOrder = TRACK_SORTS.album.value;
   const shown = sortBy(found, TRACK_SORTS, state.library.sorts.tracks, (a, b) => compare(albumOrder(a), albumOrder(b)));
@@ -2137,7 +2192,8 @@ function libraryArtists() {
 
 function renderArtists(enter) {
   const needle = libraryQuery();
-  const found = libraryArtists().filter((artist) => !needle || artist.key.includes(needle));
+  const found = libraryArtists().filter((artist) => (!needle || artist.key.includes(needle))
+    && artist.items.some((item) => inGenre(item.genre)));
   const shown = sortBy(found, ARTIST_SORTS, state.library.sorts.artists, (a, b) => COLLATOR.compare(a.name, b.name));
   const box = $("#library-artists");
   box.replaceChildren(...shown.map((artist, index) => createArtistCard(artist, index)));
@@ -2249,7 +2305,7 @@ function showLibraryTab(tab) {
     renderLibrary({ enter: true });
     $("#library-scroll").scrollTop = library.scroll[tab] || 0;
     if (tab === "tracks") loadTracks();
-    renderStatusBar();
+    renderStatus();
   });
 }
 
@@ -2384,6 +2440,7 @@ function fadeBand(page) {
 function showPage(kind) {
   const page = $("#library-page");
   $("#view-library").classList.add("page-open");
+  document.documentElement.classList.toggle("album-full", kind === "album");
   page.classList.toggle("artist-open", kind === "artist");
   $("#album-page").hidden = kind !== "album";
   $("#artist-page").hidden = kind !== "artist";
@@ -2582,6 +2639,7 @@ async function closePage({ instant = false } = {}) {
   const fly = top.kind === "album" ? $(".album-cover", $("#album-page")) : $(".artist-photo", $("#artist-page"));
   const sourcePicture = top.source && $(top.kind === "album" ? ".cover" : ".artist-photo", top.source);
 
+  document.documentElement.classList.remove("album-full"); // the rail comes back before anything flies to it
   if (below) {
     // From an album back to the artist whose page it was opened from
     $("#album-page").hidden = true;
@@ -2630,6 +2688,7 @@ function finishClose(page) {
   page.hidden = true;
   $("#library-panel").inert = false;
   $("#view-library").classList.remove("page-open");
+  document.documentElement.classList.remove("album-full");
 }
 
 /* Cards: a click opens, Ctrl and Shift pick, the right button offers the menu */
@@ -2722,7 +2781,7 @@ function onTrackCoverClick(event) {
   if (!cover) return;
   event.stopPropagation();
   const rows = [...$$("#library-tracks .track-item")];
-  playQueue(rows.map((row) => row.dataset.path), rows.indexOf(cover.closest(".track-item")));
+  playQueue(rows.map((row) => row.dataset.path), rows.indexOf(cover.closest(".track-item")), "tracks");
 }
 
 function openTrack(row) {
@@ -2904,7 +2963,7 @@ function renderSelection() {
   }
   $("#library-delete").hidden = !selected.size;
   $("#library-again").hidden = !selectedItems().some(hasMissing);
-  renderStatusBar();
+  renderStatus();
 }
 
 // Only an album this program downloaded knows its tracklist, and only one
@@ -3029,6 +3088,49 @@ function fillSearchSection(kind, nodes, enter) {
 
 const RELEASE_KINDS = { album: "Альбом", single: "Сингл", ep: "EP", compilation: "Сборник" };
 
+// What the library holds, to be marked in the search: an album by the link it
+// was downloaded from, or else by its artist and title as the catalogues spell
+// them, editions and remasters aside; a single track by its artist and title
+function libraryIndex() {
+  const library = state.library;
+  if (library.index?.items === library.items) return library.index;
+  const index = { items: library.items, links: new Map(), albums: new Map(), tracks: new Map() };
+  for (const item of library.items) {
+    if (item.link) index.links.set(item.link, item);
+    (item.album ? index.albums : index.tracks).set(releaseKey(item.artist, item.title), item);
+  }
+  library.index = index;
+  return index;
+}
+
+function releaseKey(artist, title) {
+  const clean = (text) => String(text || "").toLocaleLowerCase()
+    .replace(/[([][^)\]]*(remaster|deluxe|edition|expanded|anniversary|version|bonus|explicit)[^)\]]*[)\]]/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const first = String(artist || "").split(/,|&|\s+(?:feat|ft)\.?\s/i)[0];
+  return `${clean(first)}|${clean(title)}`;
+}
+
+// The library's album or track a search result is, or null
+function inLibrary(item, kind = "album") {
+  if (!state.library.items.length) return null;
+  const index = libraryIndex();
+  const key = releaseKey(item.artist, item.title);
+  return index.links.get(item.link) || (kind === "album" ? index.albums.get(key) || index.tracks.get(key)
+    : index.tracks.get(key)) || null;
+}
+
+// The marks drawn again once the library has been read
+function markInLibrary() {
+  for (const card of $$("#view-search .search-card")) {
+    if (card._item) $(".in-library", card).hidden = !inLibrary(card._item);
+  }
+  for (const row of $$("#view-search .search-track")) {
+    if (row._item) $(".in-library-tag", row).hidden = !inLibrary(row._item, "track");
+  }
+  renderSearchPageButton();
+}
+
 function createSearchAlbum(item, index) {
   const card = $("#search-card-template").content.firstElementChild.cloneNode(true);
   card.style.setProperty("--i", Math.min(index, 24));
@@ -3041,6 +3143,7 @@ function createSearchAlbum(item, index) {
     .filter(Boolean).join(" · ");
   showRemotePicture($(".card-cover", card), item.cover);
   markQueued($(".queue-btn", card), item.link);
+  $(".in-library", card).hidden = !inLibrary(item);
   card._item = item;
   return card;
 }
@@ -3048,8 +3151,10 @@ function createSearchAlbum(item, index) {
 function createSearchTrack(item) {
   const row = $("#search-track-template").content.firstElementChild.cloneNode(true);
   row.dataset.link = item.link;
-  $(".title", row).textContent = item.title;
+  $(".title-text", row).textContent = item.title;
   $(".title", row).title = item.title;
+  $(".in-library-tag", row).hidden = !inLibrary(item, "track");
+  row._item = item;
   $(".cell-artists", row).textContent = item.artist;
   $(".cell-album", row).textContent = item.album;
   $(".cell-time", row).textContent = item.duration ? formatDuration(item.duration) : "";
@@ -3263,6 +3368,13 @@ async function fillSearchArtist(entry) {
   renderArtistButtons();
 }
 
+// The library's own page of an album found in the search
+function openFromSearch(item) {
+  if (!item) return;
+  showView("library");
+  if (item.album) openAlbum(item);
+}
+
 function discographyLinks(data) {
   return data.releases.filter((release) => release.type === "album" || release.type === "ep")
     .map((release) => release.link).reverse(); // oldest first, the order they came out in
@@ -3300,8 +3412,11 @@ function renderSearchPageButton() {
   }
   const button = $("[data-search-action=download]", $("#search-page"));
   const queued = state.search.queued.has(open.item.link);
+  const owned = inLibrary(open.item);
   button.disabled = queued;
-  $("span", button).textContent = queued ? t("В очереди") : t("Скачать");
+  $("span", button).textContent = queued ? t("В очереди") : owned ? t("Скачать ещё раз") : t("Скачать");
+  button.className = owned ? "tool-btn" : "btn primary"; // what is here already asks for no second download
+  $("[data-search-action=open-library]", $("#search-page")).hidden = !owned;
 }
 
 async function onSearchPageClick(event) {
@@ -3321,6 +3436,7 @@ async function onSearchPageClick(event) {
   const action = event.target.closest("[data-search-action]")?.dataset.searchAction;
   if (!action || !open) return;
   if (action === "download") queueFromSearch([open.item.link]);
+  else if (action === "open-library") openFromSearch(inLibrary(open.item));
   else if (action === "discography" && open.data) queueFromSearch(discographyLinks(open.data));
   else if (action === "watch-artist" && open.data) {
     const { link, name } = open.data;
@@ -3333,77 +3449,111 @@ async function onSearchPageClick(event) {
 
 /* Player */
 
-// One audio element for the whole window. The queue is a list of paths: an
-// album page, or the Tracks tab as it was shown when a track was started.
+// Two audio elements take turns: while one plays, the other has the next
+// track of the queue loaded, so an album goes on from track to track without
+// the pause of fetching the next one. The queue is a list of paths: an album
+// page, or the Tracks tab as it was shown when a track was started.
 const player = {
   audio: new Audio(),
+  spare: new Audio(),
+  ahead: null, // { path, info } of the track the spare element holds
+  aheadToken: 0,
   queue: [],
+  unshuffled: null, // the queue in its own order while it plays shuffled
+  source: "album", // "album": an album page in its order; "tracks": the Tracks tab
   index: -1,
   info: null,
   lines: [], // synced lyrics: { time, text, node }
   current: -1,
   token: 0,
+  failures: 0, // files in a row that would not play
   seeking: false,
   previousView: "library",
+  fullscreen: false,
+  volume: 0.8, // the slider's; ReplayGain turns the element down from it
+  muted: false,
+  shuffle: false,
+  repeat: "off", // "all" goes round the queue, "one" plays the track again
+  taskbar: "",
 };
+const REPEATS = ["off", "all", "one"];
+// How far the arrow keys move: seconds through the track, and the volume
+const SEEK_STEP = 5;
+const VOLUME_STEP = 0.05;
+
+// Kept between runs where the window may keep it, for this run only where it may not
+function remember(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // no storage: this run only
+  }
+}
+
+function recall(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
 
 function bindPlayer() {
-  const { audio } = player;
-  audio.preload = "auto";
-  let volume = 0.8;
-  try {
-    volume = Number(localStorage.getItem("player-volume") ?? 0.8);
-  } catch {
-    // no storage: the default is fine
+  const volume = Number(recall("player-volume") ?? 0.8);
+  player.volume = Math.min(1, Math.max(0, Number.isFinite(volume) ? volume : 0.8));
+  player.shuffle = recall("player-shuffle") === "true";
+  player.repeat = REPEATS.includes(recall("player-repeat")) ? recall("player-repeat") : "off";
+  $("#player-volume").value = Math.round(player.volume * 100);
+  for (const element of [player.audio, player.spare]) {
+    element.preload = "auto";
+    // Only the element that plays speaks; the other is loading what comes next
+    const own = (handler) => (event) => { if (event.target === player.audio) handler(event); };
+    element.addEventListener("timeupdate", own(renderPlayerTime));
+    element.addEventListener("durationchange", own(renderPlayerTime));
+    element.addEventListener("play", own(renderPlayerButton));
+    element.addEventListener("pause", own(renderPlayerButton));
+    element.addEventListener("playing", own(() => { player.failures = 0; }));
+    element.addEventListener("ended", own(onTrackEnded));
+    element.addEventListener("error", (event) => {
+      if (event.target !== player.audio) {
+        // The next track is fetched again when its turn comes
+        if (player.ahead && event.target.src === player.ahead.info.url) player.ahead = null;
+        return;
+      }
+      if (!player.info) return;
+      announce(t("Не получилось сыграть «{title}»", { title: player.info.title }));
+      skipBroken();
+    });
   }
-  audio.volume = Math.min(1, Math.max(0, Number.isFinite(volume) ? volume : 0.8));
-  $("#player-volume").value = Math.round(audio.volume * 100);
-  audio.addEventListener("timeupdate", renderPlayerTime);
-  audio.addEventListener("durationchange", renderPlayerTime);
-  audio.addEventListener("play", renderPlayerButton);
-  audio.addEventListener("pause", renderPlayerButton);
-  audio.addEventListener("ended", () => stepTrack(1, true));
-  audio.addEventListener("error", () => {
-    if (!player.info) return;
-    announce(t("Не получилось сыграть «{title}»", { title: player.info.title }));
-    stepTrack(1, true);
-  });
   $("#player-play").addEventListener("click", togglePlay);
   $("#player-prev").addEventListener("click", () => stepTrack(-1));
   $("#player-next").addEventListener("click", () => stepTrack(1));
+  $("#player-shuffle").addEventListener("click", toggleShuffle);
+  $("#player-repeat").addEventListener("click", cycleRepeat);
   $("#player-stop").addEventListener("click", stopPlayer);
-  $("#player-open").addEventListener("click", () => (state.view === "now" ? closeNowPlaying() : openNowPlaying()));
-  $("#player-lyrics").addEventListener("click", () => (state.view === "now" ? closeNowPlaying() : openNowPlaying()));
+  $("#player-open").addEventListener("click", toggleNowPlaying);
+  $("#player-lyrics").addEventListener("click", toggleNowPlaying);
   $("#now-close").addEventListener("click", closeNowPlaying);
+  $("#player-full").addEventListener("click", toggleFullscreen);
   const position = $("#player-position");
   position.addEventListener("input", () => {
     player.seeking = true;
-    if (audio.duration) $("#player-time").textContent = formatDuration(position.value / 1000 * audio.duration);
+    fillRange(position);
+    const length = player.audio.duration;
+    if (length) $("#player-time").textContent = formatDuration(position.value / 1000 * length);
   });
   position.addEventListener("change", () => {
-    if (audio.duration) audio.currentTime = position.value / 1000 * audio.duration;
+    if (player.audio.duration) player.audio.currentTime = position.value / 1000 * player.audio.duration;
     player.seeking = false;
   });
-  $("#player-volume").addEventListener("input", (event) => {
-    audio.volume = event.target.value / 100;
-    audio.muted = false;
-    renderPlayerVolume();
-    try {
-      localStorage.setItem("player-volume", String(audio.volume));
-    } catch {
-      // remembered for this run only
-    }
-  });
-  $("#player-mute").addEventListener("click", () => {
-    audio.muted = !audio.muted;
-    renderPlayerVolume();
-  });
+  $("#player-volume").addEventListener("input", (event) => setVolume(event.target.value / 100));
+  $("#player-mute").addEventListener("click", () => setMuted(!player.muted));
   $("#now-lyrics").addEventListener("scroll", (event) => {
     event.currentTarget.classList.toggle("scrolled", event.currentTarget.scrollTop > 4);
   });
   $("#now-lyrics").addEventListener("click", (event) => {
     const line = event.target.closest("[data-time]");
-    if (line) audio.currentTime = Number(line.dataset.time);
+    if (line) player.audio.currentTime = Number(line.dataset.time);
   });
   $("#library-tracks").addEventListener("click", onTrackCoverClick, true);
   $(".album-list", $("#album-page")).addEventListener("click", (event) => {
@@ -3414,21 +3564,50 @@ function bindPlayer() {
     const row = event.target.closest(".album-track[data-path]");
     if (row) playAlbumPage(row);
   });
-  document.addEventListener("keydown", (event) => {
-    if (event.code !== "Space" || !player.info || event.target.closest?.("input, textarea, button, [contenteditable]")) return;
-    if (state.view !== "now") return; // elsewhere Space picks rows and presses buttons
-    event.preventDefault();
-    togglePlay();
-  });
+  document.addEventListener("keydown", onPlayerKey);
   if ("mediaSession" in navigator) {
     // The keyboard's media keys and the system's own media controls
-    navigator.mediaSession.setActionHandler("play", () => audio.play());
-    navigator.mediaSession.setActionHandler("pause", () => audio.pause());
+    navigator.mediaSession.setActionHandler("play", () => player.audio.play());
+    navigator.mediaSession.setActionHandler("pause", () => player.audio.pause());
     navigator.mediaSession.setActionHandler("previoustrack", () => stepTrack(-1));
     navigator.mediaSession.setActionHandler("nexttrack", () => stepTrack(1));
-    navigator.mediaSession.setActionHandler("seekto", (details) => { audio.currentTime = details.seekTime; });
+    navigator.mediaSession.setActionHandler("seekto", (details) => { player.audio.currentTime = details.seekTime; });
   }
+  renderPlayerModes();
   renderPlayerVolume();
+}
+
+// The player's keys, as media players have them: Space, the arrows for the
+// position and the volume, M for the sound, L for the words, F for the whole
+// screen. Elsewhere than in Now playing the arrows move through lists and
+// cards, so there they are the player's only when nothing else has the focus.
+function onPlayerKey(event) {
+  if (!player.info || event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey) return;
+  const target = event.target instanceof Element ? event.target : null;
+  if (target?.closest("input:not([type=range]), textarea, select, [contenteditable]")) return;
+  const now = state.view === "now";
+  const free = now || !target || target === document.body || Boolean(target.closest("#player"));
+  const slider = Boolean(target?.closest("input[type=range]")); // a slider moves itself with the arrows
+  const arrow = { ArrowLeft: -SEEK_STEP, ArrowRight: SEEK_STEP }[event.key];
+  const volume = { ArrowUp: VOLUME_STEP, ArrowDown: -VOLUME_STEP }[event.key];
+  if (event.code === "Space") {
+    if (!now || target?.closest("button, input")) return; // elsewhere Space picks rows and presses buttons
+    togglePlay();
+  } else if (arrow && free && !slider) {
+    const length = player.audio.duration || 0;
+    player.audio.currentTime = Math.min(Math.max(0, player.audio.currentTime + arrow), length || Infinity);
+  } else if (volume && free && !slider) {
+    setVolume(player.volume + volume);
+  } else if (event.code === "KeyM") {
+    setMuted(!player.muted);
+  } else if (event.code === "KeyL") {
+    toggleNowPlaying();
+  } else if (event.code === "KeyF" && now) {
+    toggleFullscreen();
+  } else {
+    return;
+  }
+  event.preventDefault();
 }
 
 // The album page's own files, in the order shown; starting at a row or a position
@@ -3436,13 +3615,14 @@ function playAlbumPage(start) {
   const rows = [...$$(".album-list .album-track[data-path]", $("#album-page"))];
   if (!rows.length) return;
   const index = typeof start === "number" ? start : Math.max(0, rows.indexOf(start));
-  playQueue(rows.map((row) => row.dataset.path), index);
+  playQueue(rows.map((row) => row.dataset.path), index, "album");
 }
 
-function playQueue(paths, index) {
+function playQueue(paths, index, source) {
   if (!paths.length) return;
-  player.queue = paths;
-  player.index = Math.min(Math.max(0, index), paths.length - 1);
+  const start = Math.min(Math.max(0, index), paths.length - 1);
+  Object.assign(player, { source, failures: 0, unshuffled: null, queue: paths, index: start });
+  if (player.shuffle) shuffleQueue();
   loadTrack();
 }
 
@@ -3450,18 +3630,26 @@ async function loadTrack() {
   const token = ++player.token;
   const path = player.queue[player.index];
   let info = null;
-  try {
-    info = await api().play(path);
-  } catch (error) {
-    console.error(error);
+  if (player.ahead?.path === path) {
+    // Loaded while the last one played: the elements swap and it starts at once
+    info = player.ahead.info;
+    [player.audio, player.spare] = [player.spare, player.audio];
+  } else {
+    try {
+      info = await api().play(path);
+    } catch (error) {
+      console.error(error);
+    }
+    if (token !== player.token) return;
+    if (!info) {
+      skipBroken();
+      return;
+    }
+    player.audio.src = info.url;
   }
-  if (token !== player.token) return;
-  if (!info) {
-    stepTrack(1, true);
-    return;
-  }
+  clearSpare();
   player.info = info;
-  player.audio.src = info.url;
+  applyVolume();
   player.audio.play().catch(() => renderPlayerButton());
   renderPlayer();
   loadLyrics(path, token);
@@ -3471,18 +3659,53 @@ async function loadTrack() {
       artwork: info.cover ? [{ src: info.cover, sizes: "512x512" }] : [],
     });
   }
+  loadAhead();
 }
 
-// Forward or back through the queue. At the end the player stops; "back" in
-// the first seconds of a track goes to the one before, later it starts over.
+// The track after this one is fetched and loaded while this one plays
+async function loadAhead() {
+  const token = ++player.aheadToken;
+  const next = player.repeat === "one" ? -1 : stepIndex(1);
+  const path = next >= 0 && next !== player.index ? player.queue[next] : "";
+  if (!path) return;
+  let info = null;
+  try {
+    info = await api().play(path);
+  } catch {
+    // fetched when its turn comes
+  }
+  if (token !== player.aheadToken || !info) return;
+  player.ahead = { path, info };
+  player.spare.src = info.url;
+  player.spare.load();
+}
+
+function clearSpare() {
+  player.ahead = null;
+  player.aheadToken += 1;
+  player.spare.pause();
+  player.spare.removeAttribute("src");
+  player.spare.load();
+}
+
+// Where a step lands in the queue: round it while it repeats, -1 past its ends
+function stepIndex(step) {
+  const { queue, index } = player;
+  if (player.repeat === "all" && queue.length) return (index + step + queue.length) % queue.length;
+  return index + step >= 0 && index + step < queue.length ? index + step : -1;
+}
+
+// Forward or back through the queue. At the end the player stops unless it
+// repeats; "back" in the first seconds of a track goes to the one before,
+// later it starts over.
 function stepTrack(step, automatic = false) {
   if (!player.queue.length) return;
   if (step < 0 && player.audio.currentTime > 3) {
     player.audio.currentTime = 0;
     return;
   }
-  const next = player.index + step;
-  if (next < 0 || next >= player.queue.length) {
+  const next = stepIndex(step);
+  if (next < 0) {
     if (automatic) {
       player.audio.pause();
       player.audio.currentTime = 0;
@@ -3494,10 +3717,114 @@ function stepTrack(step, automatic = false) {
   loadTrack();
 }
 
+function onTrackEnded() {
+  if (player.repeat === "one") {
+    player.audio.currentTime = 0;
+    player.audio.play();
+    return;
+  }
+  stepTrack(1, true);
+}
+
+// A file that will not play is passed over; a queue of nothing but such files stops
+function skipBroken() {
+  player.failures += 1;
+  if (player.failures >= player.queue.length) {
+    player.failures = 0;
+    player.audio.pause();
+    renderPlayerButton();
+    return;
+  }
+  stepTrack(1, true);
+}
+
 function togglePlay() {
   if (!player.info) return;
   if (player.audio.paused) player.audio.play();
   else player.audio.pause();
+}
+
+// Shuffled, the track that plays stays first and the rest follow in any
+// order; back in order, the queue is the album or the list as it was
+function toggleShuffle() {
+  player.shuffle = !player.shuffle;
+  remember("player-shuffle", String(player.shuffle));
+  if (player.queue.length) {
+    if (player.shuffle) {
+      shuffleQueue();
+    } else if (player.unshuffled) {
+      const current = player.queue[player.index];
+      player.queue = player.unshuffled;
+      player.index = Math.max(0, player.queue.indexOf(current));
+      player.unshuffled = null;
+    }
+    clearSpare();
+    loadAhead();
+    applyVolume(); // shuffled, each track takes its own ReplayGain
+  }
+  renderPlayerModes();
+  if (player.info) renderPlayer();
+}
+
+function shuffleQueue() {
+  const { queue, index } = player;
+  const rest = queue.filter((_, i) => i !== index);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  player.unshuffled = queue;
+  player.queue = [queue[index], ...rest];
+  player.index = 0;
+}
+
+function cycleRepeat() {
+  player.repeat = REPEATS[(REPEATS.indexOf(player.repeat) + 1) % REPEATS.length];
+  remember("player-repeat", player.repeat);
+  if (player.queue.length) {
+    clearSpare();
+    loadAhead();
+  }
+  renderPlayerModes();
+  if (player.info) renderPlayer();
+}
+
+function renderPlayerModes() {
+  const shuffle = $("#player-shuffle");
+  shuffle.setAttribute("aria-pressed", String(player.shuffle));
+  shuffle.title = t(player.shuffle ? "Играть по порядку" : "Играть вперемешку");
+  shuffle.setAttribute("aria-label", shuffle.title);
+  const repeat = $("#player-repeat");
+  repeat.setAttribute("aria-pressed", String(player.repeat !== "off"));
+  $("use", repeat).setAttribute("href", player.repeat === "one" ? "#i-mi-repeat-one" : "#i-mi-repeat");
+  repeat.title = t({ off: "Повторять очередь", all: "Повторять этот трек", one: "Не повторять" }[player.repeat]);
+  repeat.setAttribute("aria-label", repeat.title);
+}
+
+function setVolume(volume) {
+  player.volume = Math.min(1, Math.max(0, Math.round(volume * 100) / 100));
+  player.muted = false;
+  $("#player-volume").value = Math.round(player.volume * 100);
+  remember("player-volume", String(player.volume));
+  applyVolume();
+}
+
+function setMuted(muted) {
+  player.muted = muted;
+  applyVolume();
+}
+
+// ReplayGain: an album page played in its order takes the album's gain, so a
+// quiet interlude stays quiet beside a loud single; shuffled, or from the
+// Tracks tab, each track takes its own. The element cannot play louder than
+// the file, so a track quieter than the reference stays at the slider's volume.
+function applyVolume() {
+  const gain = player.info?.gain || {};
+  const inOrder = player.source === "album" && !player.shuffle;
+  const decibels = (inOrder ? gain.album ?? gain.track : gain.track ?? gain.album) ?? 0;
+  player.audio.volume = player.volume * Math.min(1, 10 ** (decibels / 20));
+  player.audio.muted = player.muted;
+  renderPlayerVolume();
 }
 
 function stopPlayer() {
@@ -3505,7 +3832,8 @@ function stopPlayer() {
   player.audio.pause();
   player.audio.removeAttribute("src");
   player.audio.load();
-  Object.assign(player, { queue: [], index: -1, info: null, lines: [], current: -1 });
+  clearSpare();
+  Object.assign(player, { queue: [], unshuffled: null, index: -1, info: null, lines: [], current: -1 });
   if (state.view === "now") closeNowPlaying();
   renderPlayer();
 }
@@ -3515,13 +3843,17 @@ function renderPlayer() {
   const info = player.info;
   bar.hidden = !info;
   markPlayingRows();
-  if (!info) return;
+  if (!info) {
+    syncTaskbar();
+    return;
+  }
   $(".player-title", bar).textContent = info.title;
   $(".player-title", bar).title = info.title;
   $(".player-artist", bar).textContent = info.artists || info.album_artist;
   setPlayerPicture($(".player-cover", bar), info.cover);
-  $("#player-prev").disabled = player.index <= 0 && player.audio.currentTime <= 3;
-  $("#player-next").disabled = player.index >= player.queue.length - 1;
+  const round = player.repeat === "all";
+  $("#player-prev").disabled = !round && player.index <= 0 && player.audio.currentTime <= 3;
+  $("#player-next").disabled = !round && player.index >= player.queue.length - 1;
   renderPlayerButton();
   renderPlayerTime();
   renderNowPlaying();
@@ -3541,10 +3873,11 @@ function setPlayerPicture(box, url) {
 function renderPlayerButton() {
   const playing = !player.audio.paused;
   const button = $("#player-play");
-  $("use", button).setAttribute("href", playing ? "#i-pause" : "#i-play");
+  $("use", button).setAttribute("href", playing ? "#i-mi-pause" : "#i-mi-play");
   button.title = t(playing ? "Пауза" : "Слушать");
   button.setAttribute("aria-label", button.title);
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+  syncTaskbar();
 }
 
 function renderPlayerTime() {
@@ -3553,16 +3886,43 @@ function renderPlayerTime() {
   if (!player.seeking) {
     $("#player-time").textContent = formatDuration(audio.currentTime || 0);
     $("#player-position").value = length ? Math.round((audio.currentTime / length) * 1000) : 0;
+    fillRange($("#player-position"));
   }
   $("#player-length").textContent = formatDuration(length);
   highlightLyric();
 }
 
 function renderPlayerVolume() {
-  const { audio } = player;
-  const silent = audio.muted || audio.volume === 0;
-  $("use", $("#player-mute")).setAttribute("href", silent ? "#i-mute" : "#i-volume");
+  const silent = player.muted || player.volume === 0;
+  $("use", $("#player-mute")).setAttribute("href", silent ? "#i-mi-mute" : player.volume < 0.5 ? "#i-mi-volume-low" : "#i-mi-volume");
   $("#player-mute").title = t(silent ? "Со звуком" : "Без звука");
+  fillRange($("#player-volume"));
+}
+
+// The buttons under the window's picture on the taskbar follow the player
+function syncTaskbar() {
+  const buttons = player.info
+    ? { playing: !player.audio.paused, prev: !$("#player-prev").disabled, next: !$("#player-next").disabled,
+        words: { prev: t("Предыдущий"), play: t("Слушать"), pause: t("Пауза"), next: t("Следующий") } }
+    : null;
+  const key = JSON.stringify(buttons);
+  if (key === player.taskbar) return;
+  player.taskbar = key;
+  Promise.resolve().then(() => api().player_buttons(buttons)).catch(() => {});
+}
+
+// A click on one of those buttons, passed on by the program
+function taskbarAction(name) {
+  if (name === "prev") stepTrack(-1);
+  else if (name === "next") stepTrack(1);
+  else if (name === "play") togglePlay();
+}
+
+// A slider's line is filled up to its knob, as the share --p that .bar-fill uses too
+function fillRange(input) {
+  const min = Number(input.min) || 0;
+  const max = Number(input.max) || 100;
+  input.style.setProperty("--p", (Number(input.value) - min) / (max - min));
 }
 
 // The row of the track that plays, wherever it is on screen
@@ -3589,13 +3949,39 @@ function closeNowPlaying() {
   showView(player.previousView || "library");
 }
 
+function toggleNowPlaying() {
+  if (state.view === "now") closeNowPlaying();
+  else openNowPlaying();
+}
+
+function toggleFullscreen() {
+  player.fullscreen = !player.fullscreen;
+  api().fullscreen();
+  const button = $("#player-full");
+  $("use", button).setAttribute("href", player.fullscreen ? "#i-mi-full-exit" : "#i-mi-full");
+  button.title = t(player.fullscreen ? "Выйти из полноэкранного режима" : "Во весь экран");
+  button.setAttribute("aria-label", button.title);
+}
+
 function renderNowPlaying() {
   const view = $("#view-now");
   const info = player.info;
   $("#player-lyrics").setAttribute("aria-pressed", String(state.view === "now"));
   if (!info) return;
   $(".now-title", view).textContent = info.title;
-  $(".now-sub", view).textContent = [info.artists || info.album_artist, info.album, info.year].filter(Boolean).join(" · ");
+  $(".now-artist", view).textContent = info.artists || info.album_artist || "";
+  $(".now-sub", view).textContent = [info.album, info.year].filter(Boolean).join(" · ");
+  // The file's make, a label per fact: the format first, then how it sounds
+  $(".now-format", view).replaceChildren(...[
+    (info.format || "").toUpperCase(),
+    info.bitrate ? t("{kbps} кбит/с", { kbps: info.bitrate }) : "",
+    info.sample_rate ? t("{khz} кГц", { khz: (info.sample_rate / 1000).toLocaleString(LANGUAGE, { maximumFractionDigits: 1 }) }) : "",
+    { 1: t("Моно"), 2: t("Стерео") }[info.channels] || "",
+  ].filter(Boolean).map((fact) => {
+    const label = document.createElement("span");
+    label.textContent = fact;
+    return label;
+  }));
   setPlayerPicture($(".now-cover", view), info.cover);
   const backdrop = $(".now-backdrop", view);
   if (backdrop.dataset.src !== info.cover) {
@@ -3737,7 +4123,7 @@ function onTidyEvent(event) {
     tidy.note = tidySummary(event);
     announce(tidy.note);
     clearTimeout(tidy.timer);
-    tidy.timer = setTimeout(() => { tidy.note = ""; renderStatusBar(); }, 30000);
+    tidy.timer = setTimeout(() => { tidy.note = ""; renderStatus(); }, 30000);
     loadLibrary().then(refreshAlbumPage);
   }
   renderTidy();
@@ -3760,18 +4146,19 @@ function renderTidy() {
   const { running, done, total, paths, gaps } = state.tidy;
   const button = $("#library-tidy");
   button.hidden = !running && !gaps.size; // nothing to fill in, nothing to offer
+  // An icon alone: how far it has come is said above the list
   $("use", button).setAttribute("href", running ? "#i-stop" : "#i-tag");
-  $("span", button).textContent = running
-    ? t("Остановить · {done} из {total}", { done: Math.min(done + 1, total), total })
-    : t("Дописать теги");
-  button.title = running ? t("Остановить после текущей записи")
+  button.title = running
+    ? t("Остановить после текущей записи · {done} из {total}", { done: Math.min(done + 1, total), total })
     : t("Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново");
+  button.setAttribute("aria-label", running ? t("Остановить") : t("Дописать теги"));
   const page = $("#album-page");
   const onPage = $("[data-page-action=tidy]", page);
   onPage.hidden = !gaps.has(page.dataset.path) && !(running && paths.has(page.dataset.path));
   onPage.disabled = running;
-  $("span", onPage).textContent = running && paths.has(page.dataset.path) ? t("Дописываем…") : t("Дописать теги");
-  renderStatusBar();
+  onPage.title = running && paths.has(page.dataset.path) ? t("Дописываем…")
+    : t("Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново");
+  renderStatus();
 }
 
 // The album page shows the tags, so after a tidy-up it is read again
@@ -3811,18 +4198,29 @@ async function deleteSelected() {
     action: t("Удалить"),
   });
   if (!ok) return;
+  // The cards go at once, and the files follow into the trash behind them:
+  // a large folder takes the shell a while, and the folders read again longer
+  const library = state.library;
+  const gone = new Set(chosen.map((item) => item.path));
+  const inside = (path) => [...gone].some((root) => path === root || path.startsWith(`${root}\\`) || path.startsWith(`${root}/`));
+  if (player.info && inside(player.info.path)) stopPlayer(); // a file being played could not be moved
+  library.items = library.items.filter((item) => !gone.has(item.path));
+  library.trackList.items = library.trackList.items.filter((track) => !gone.has(track.entry));
+  library.artists = null;
+  clearSelection();
+  renderLibrary();
+  markInLibrary();
   let result;
   try {
-    result = await api().delete(chosen.map((item) => item.path));
+    result = await api().delete([...gone]);
   } catch (error) {
     console.error(error);
     result = { deleted: 0, failed: chosen.map((item) => item.title) };
   }
-  clearSelection();
   announce(result.failed.length
     ? t("Не удалось удалить: {names}", { names: result.failed.join(", ") })
     : t("Удалено: {count}", { count: result.deleted }));
-  loadLibrary();
+  if (result.failed.length) loadLibrary(); // what stayed comes back
 }
 
 // A window-level confirm() would be a bare system box, so the dialog is ours.

@@ -484,6 +484,18 @@ class TestTagGaps:
         assert api.tag_gaps([str(folder)], {"lyrics": False}) == []
 
     @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+    def test_what_was_just_downloaded_is_not_offered(self, api, tmp_path):
+        """The download asked LRCLIB and MusicBrainz already: a song they do not
+        know stays without lyrics or a genre, and a fill-in would change nothing."""
+        folder = self.album(tmp_path, words="", genre="")
+        single = folder.parent / "Radiohead - Nude.mp3"
+        single.write_bytes((folder / "01. 15 Step.mp3").read_bytes())
+        assert set(api.tag_gaps([str(folder), str(single)], {"lyrics": True})) == {str(folder), str(single)}
+        gui._remember_downloaded({"folder": str(folder), "single": False}, [])
+        gui._remember_downloaded({"folder": str(folder.parent), "single": True}, [single])
+        assert api.tag_gaps([str(folder), str(single)], {"lyrics": True}) == []
+
+    @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
     def test_a_tidied_album_is_not_offered_again_until_it_changes(self, api, tmp_path):
         folder = self.album(tmp_path, genre="")  # a genre nobody knows: the tidy-up could not add it
         gui._remember_tidied(folder)
@@ -491,3 +503,65 @@ class TestTagGaps:
         extra = folder / "02. New.mp3"
         extra.write_bytes((folder / "01. 15 Step.mp3").read_bytes())
         assert api.tag_gaps([str(folder)], {"lyrics": True}) == [str(folder)]
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+class TestLibraryCache:
+    """Opening the library reads again only what changed since the last run."""
+
+    @pytest.fixture
+    def fresh_run(self, monkeypatch):
+        """What a new start of the program remembers: only the cache file."""
+        def start():
+            monkeypatch.setattr(gui, "_TAG_CACHE", {})
+            monkeypatch.setattr(gui, "_GAP_CACHE", {})
+            monkeypatch.setattr(gui.folders, "_TAGS", {})
+            monkeypatch.setattr(gui, "_LIBRARY_CACHE", {"loaded": False, "saved": -1, "items": {}})
+        start()
+        return start
+
+    def test_tags_read_once_are_not_read_again_in_the_next_run(self, tmp_path, fresh_run, monkeypatch):
+        song(tmp_path / "Kid A", "01. Everything", album="Kid A", artist="Radiohead")
+        first = gui.Api.library(None, str(tmp_path))
+        fresh_run()
+
+        def unreadable(*args, **kwargs):
+            raise AssertionError("read again")
+        monkeypatch.setattr(gui, "MP3", unreadable)
+        monkeypatch.setattr(gui.folders, "ID3", unreadable)
+        assert gui.Api.library(None, str(tmp_path)) == first
+
+    def test_a_file_changed_since_is_read_again(self, tmp_path, fresh_run):
+        path = song(tmp_path / "Kid A", "01. Everything", album="Kid A", artist="Radiohead")
+        gui.Api.library(None, str(tmp_path))
+        fresh_run()
+        track = Track(id="1", title="Everything", artists="Radiohead", duration=1, track_number=1)
+        downloader._write_tags(path, Album(id="a", name="Kid A (Remastered)", artist="Radiohead", tracks=[track]),
+                               track, None)
+        [item] = gui.Api.library(None, str(tmp_path))
+        assert item["title"] == "Kid A (Remastered)"
+
+    def test_the_last_reading_is_there_at_once(self, tmp_path, fresh_run):
+        song(tmp_path / "Kid A", "01. Everything", album="Kid A", artist="Radiohead")
+        items = gui.Api.library(None, [str(tmp_path)])
+        fresh_run()
+        assert gui.Api.library_cached(None, [str(tmp_path)]) == items
+        assert gui.Api.library_cached(None, [str(tmp_path / "elsewhere")]) == []
+
+    def test_a_folder_is_listed_once_in_a_scan(self, tmp_path, monkeypatch):
+        album = tmp_path / "Hatful of Hollow"
+        song(album, "Girl Afraid", album="Hatful of Hollow", artist="The Smiths")
+        song(album / "Session 25" / "08", "83", album="Hatful of Hollow", artist="The Smiths")
+        listed = []
+        real = gui.folders.os.scandir
+        monkeypatch.setattr(gui.folders.os, "scandir", lambda folder: listed.append(str(folder)) or real(folder))
+        gui.Api.library(None, str(tmp_path))
+        assert listed and len(listed) == len(set(listed))
+
+    def test_the_genre_comes_with_the_album(self, tmp_path):
+        path = song(tmp_path / "Kid A", "01. Everything")
+        track = Track(id="1", title="Everything", artists="Radiohead", duration=1, track_number=1)
+        downloader._write_tags(path, Album(id="a", name="Kid A", artist="Radiohead", tracks=[track],
+                                           genre="Art Rock; Electronic"), track, None)
+        [item] = gui.Api.library(None, str(tmp_path))
+        assert item["genre"] == "Art Rock; Electronic"

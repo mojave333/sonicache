@@ -143,7 +143,7 @@ downloading with percentages, trying another source when the first one refused, 
 queue. "Pause" holds the queue between tracks, so what is downloading finishes and nothing
 new starts. "Stop" interrupts, and the retry button on a row picks up what is left. Closing
 the window loses nothing: unfinished links and the list of what was downloaded come back on
-the next run. The status bar at the bottom counts the tracks and estimates what is left; the window
+the next run. The line above the list counts the tracks and estimates what is left; the window
 title shows the percentage, and on Windows the taskbar button fills with it, yellow while
 paused and red once something has failed.
 
@@ -167,7 +167,10 @@ which one is shown.
 The arrow on a cover or a track puts it into the queue at once and turns into a tick; the
 view stays, so more can be picked. A click on an album opens its page with the tracklist,
 where the whole album or any one track can be queued. Whatever is chosen downloads exactly
-as its link pasted by hand would, with the same matching, tags and folders.
+as its link pasted by hand would, with the same matching, tags and folders. What the
+library holds already carries a lime "In the library" mark, found by the link it was
+downloaded from or by its artist and title, editions and remasters aside; its page offers
+the library's own page of it, and downloading it again only as the second choice.
 
 A click on an artist opens their page: the photo, and every release newest first, split
 into albums, singles and EPs, and compilations. "Download the discography" queues their
@@ -195,11 +198,21 @@ downloaders saved as folders. Loose tracks of different albums side by side are 
 The cover is the picture beside the files, as `cover.jpg`, `Folder.jpg`, `front.png`,
 `AlbumArtSmall.jpg` or the like, or else the one inside the first file. It is shown on three
 tabs: Albums, Tracks and Artists, each with a search, a sort order and a direction. Albums come as a grid of covers
-or, with the switch beside the sorting, as a table with sortable columns.
+or, with the switch beside the sorting, as a table with sortable columns. The genre picker
+beside them narrows all three tabs to one of the genres the files name, "Alternative Rock;
+Rock" counting as two. The line above the list says how much the library holds, and what is
+going on in it: what is picked, what a search leaves, how far a tag fill-in has come.
+
+The folders are read again each time the library opens, and whatever they held last time is
+shown at once meanwhile. The tags read from the files are kept between runs with each file's
+size and time, so only files changed since are opened again; the rest is a listing of the
+folders.
 
 A click on a cover opens the album's page: the cover grows out of the grid into a large one
-beside the title, the year, the size and the tracks, read from the files' own tags. The cover
-stays in place while a long tracklist scrolls past it. The top of
+beside the title, the year, the size and the tracks, read from the files' own tags. The page
+fills the window: the side panel and the library's bars step aside, the rounded cover sits on
+a panel in a pastel of its own colour, and only the tracklist scrolls, under the title and
+the buttons, which stay in place. A narrow window stacks the cover over the tracks. The top of
 the page takes the cover's main colour, a pastel in the light theme and a deep shade in the
 dark one. For an
 album this program downloaded, the tracks that never arrived are listed too, greyed out,
@@ -225,16 +238,32 @@ can be restored.
 
 The library plays what it holds. "Play" on an album's page starts it from the top; a click
 on a track's number, or a double click on its row, starts from that track, and the album is
-the queue. A bar above the status bar then shows the track, with previous, pause and next,
-a position to drag, and the volume. The keyboard's media keys and Windows' own media
-controls work too. The file is streamed from the program itself, so nothing is copied.
+the queue. A bar at the bottom of the window then shows the track, with shuffle, previous,
+pause, next and repeat (the whole queue, or one track), a position to drag, and the volume,
+in the filled icons Harmonoid uses (Material Icons). While a track plays, the next one is
+already loaded, so the next starts at once rather than after a wait for it. The keyboard's
+media keys, Windows' own media controls and the previous, pause and next buttons under the
+window's picture on the taskbar work too. The file is streamed from the program itself, so
+nothing is copied.
 
-The cover or the lines button in the bar opens Now playing: the cover large, on a blur of
-its colours washed in its main colour (a pastel in the light theme, a deep shade in the dark,
-a neutral grey for a colourless cover), and the words beside it, starting level with the top
-of the cover. Synced lyrics, from the `.lrc` next to the file,
-scroll with the song, the line being sung lit up a third of the way down while the cover
-stays where it is; a click on a line jumps there. A file with
+Keys: Space pauses in Now playing, ← and → move 5 seconds, ↑ and ↓ set the volume, M
+mutes, L opens the words and F makes Now playing full screen. Outside Now playing the arrows
+belong to the player while no list or card has the focus.
+
+Files with ReplayGain tags play at one level, whoever wrote them: this program, foobar2000
+or a ripper, in mp3, m4a, FLAC, Ogg or Opus. An album played in its order takes the album's
+gain, so a quiet interlude stays quiet; shuffled, or from the Tracks tab, each track takes
+its own. The player only turns tracks down to the reference level, never up past the file.
+
+The cover or the lines button in the bar opens Now playing, which fills the window: the
+cover large on the left with the title, the artist, the album and year, and small labels for
+the format, bitrate, sample rate and channels; the words on the right, starting level with
+the top of the cover. The view keeps the page's theme, on a blur of the cover's colours washed
+in its main colour (a pastel in the light theme, a deep shade in the dark, a neutral grey for
+a colourless cover). The player's controls float at the bottom as a rounded dock with the
+seek bar, and a button in it makes the window full screen; Escape leaves the view. Synced
+lyrics, from the `.lrc` next to the file, scroll with the song: the line being sung sits a
+third of the way down in full ink and a little larger, and a click on a line jumps there. A file with
 only plain lyrics in its tags shows those, and one with none has its lyrics looked up in
 LRCLIB for the screen, without anything being written to it. Space pauses there, and Back
 or the bar returns to where you were.
@@ -260,7 +289,7 @@ A file then gets only the tags it does not have: the title, artists, album, albu
 number, disc, date, genre, cover and, when Settings → Download has lyrics on, the words from
 LRCLIB with an `.lrc` for synced ones. Whatever it already says stays as it is, including
 anything corrected by hand, ReplayGain tags and the ID3 version of an mp3. The folder gets a
-`cover.jpg` if it has none. The status bar shows which album is in hand, and the button stops
+`cover.jpg` if it has none. The line above the list shows which album is in hand, and the button stops
 the run after the current album. Albums that no catalogue knows are named at the end.
 
 ### Loudness levelling
@@ -270,7 +299,7 @@ R128 meter and gets ReplayGain 2.0 tags: track gain and peak, plus one album gai
 the tracks of an album, so a quiet interlude stays quiet beside a loud single. Opus gets the
 `R128_*` tags its specification asks for instead. The audio itself is not changed. The
 player turns each track up or down, so this helps only in a player that reads the tags,
-such as foobar2000, MusicBee, AIMP, VLC or Poweramp.
+such as this program's own, foobar2000, MusicBee, AIMP, VLC or Poweramp.
 
 A playlist gets no album gain, since its songs come from different records. A file that
 already has the tags is never measured twice, so a watched playlist does not re-measure
@@ -720,6 +749,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/watch.py` | the list of watched playlists |
 | `trackhound/gui.py` | the window (pywebview) and the bridge to the downloader |
 | `trackhound/tray.py` | the icon by the clock and the notifications (Win32 through ctypes) |
+| `trackhound/thumbbar.py` | the player's buttons under the window's picture on the taskbar (Win32 through ctypes) |
 | `trackhound/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
 | `trackhound/web/art/`, `trackhound/web/fonts/` | the drawing on the empty screen and the Commissioner font |
 | `trackhound/cli.py`, `main.py` | the command line and the entry point |

@@ -101,6 +101,39 @@ class TestFiles:
         assert str(tags["TIT2"]) == "Song" and "TXXX:REPLAYGAIN_TRACK_GAIN" in tags
 
 
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+class TestPlaybackGains:
+    """The player turns each file down to one level, whoever wrote its tags."""
+
+    @pytest.mark.parametrize("ext", ["m4a", "mp3", "opus"])
+    def test_this_programs_tags_come_back_at_the_same_level(self, tmp_path, ext):
+        loud = tone(tmp_path, "loud", ext, 0.8, 3)
+        quiet = tone(tmp_path, "quiet", ext, 0.1, 2)
+        loudness.apply([loud, quiet], FFMPEG, whole_album=True)
+        loud_gain, quiet_gain = loudness.playback_gains(loud), loudness.playback_gains(quiet)
+        # Both reach -18 LUFS: the quiet one needs 18 dB more; Opus is counted from -23 as well
+        assert quiet_gain["track"] - loud_gain["track"] == pytest.approx(18.1, abs=0.5)
+        assert loud_gain["album"] == quiet_gain["album"] is not None
+        measured = loudness._stored(loud)[0]
+        assert loud_gain["track"] == pytest.approx(loudness.REFERENCE - measured.lufs, abs=0.05)
+
+    def test_a_foobar_style_flac_is_read_too(self, tmp_path):
+        path = tmp_path / "song.flac"
+        subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                        "-i", "sine=duration=1", str(path)], check=True)
+        from mutagen.flac import FLAC
+        audio = FLAC(path)
+        audio["replaygain_track_gain"] = "-7.25 dB"
+        audio["replaygain_album_gain"] = "-6.50 dB"
+        audio.save()
+        assert loudness.playback_gains(path) == {"track": -7.25, "album": -6.5}
+
+    def test_a_file_without_them_plays_as_it_is(self, tmp_path):
+        path = tone(tmp_path, "plain", "mp3", 0.5, 1)
+        assert loudness.playback_gains(path) == {"track": None, "album": None}
+        assert loudness.playback_gains(tmp_path / "missing.mp3") == {"track": None, "album": None}
+
+
 class TestDownloaderWiring:
     def loader(self, tmp_path, monkeypatch, **options):
         calls = []
