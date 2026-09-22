@@ -186,10 +186,15 @@ links are followed to the artist of the same name on Deezer.
 
 The library shows what is already in the music folder, and in any other folders added under
 Settings → Library, so a collection kept elsewhere shows up too without being moved. A
-folder with music in it counts as an album, and the folder above it names the artist,
-whether that is the "nested" naming's Artist/Album or a collection arranged by hand as
-Genre/Artist/Album. It is shown on three tabs: Albums, Tracks and Artists, each with a
-search, a sort order and a direction. Albums come as a grid of covers
+folder with music in it counts as an album, named after its files' own tags; where they say
+nothing, the folder's name says it, and the folder above it names the artist, whether that is
+the "nested" naming's Artist/Album or a collection arranged by hand as Genre/Artist/Album.
+Folders inside an album belong to it when their tracks carry the same album tag: a disc per
+folder, or a title with a slash in it ("Weird Fishes/Arpeggi", "Session 25/08/83") that some
+downloaders saved as folders. Loose tracks of different albums side by side are single tracks.
+The cover is the picture beside the files, as `cover.jpg`, `Folder.jpg`, `front.png`,
+`AlbumArtSmall.jpg` or the like, or else the one inside the first file. It is shown on three
+tabs: Albums, Tracks and Artists, each with a search, a sort order and a direction. Albums come as a grid of covers
 or, with the switch beside the sorting, as a table with sortable columns.
 
 A click on a cover opens the album's page: the cover grows out of the grid into a large one
@@ -707,6 +712,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/engine/loudness.py` | measuring the loudness and writing ReplayGain tags |
 | `trackhound/engine/lyrics.py` | looking up lyrics in LRCLIB |
 | `trackhound/engine/catalog.py` | the catalogue search behind the Search view |
+| `trackhound/engine/folders.py` | which files and which picture belong to an album folder |
 | `trackhound/engine/tidy.py` | filling in the tags older files lack, without downloading them again |
 | `trackhound/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
 | `trackhound/engine/i18n.py`, `trackhound/i18n.py`, `trackhound/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |

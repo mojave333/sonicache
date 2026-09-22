@@ -321,24 +321,31 @@ class TestMusicBrainz:
 
 
 @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+def song(folder: Path, name: str, album: str = "", artist: str = "", title: str = "", year: str = "") -> Path:
+    """A one-second file, with only the tags given: none, as many collections have, or some."""
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{name}.mp3"
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                    "-i", "sine=frequency=440:duration=1", *CODECS["mp3"], str(path)], check=True)
+    if album or artist or title:
+        track = Track(id="1", title=title or name, artists=artist, duration=1, track_number=1)
+        downloader._write_tags(path, Album(id="a", name=album, artist=artist, release_date=year, tracks=[track]),
+                               track, None)
+    return path
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
 class TestLibraryScan:
     """The music folder holds albums, single tracks and, in the nested naming,
     a folder per artist with the albums inside it."""
 
     def music(self, root: Path) -> None:
-        flat = root / "Daft Punk - Discovery (2001)"
-        flat.mkdir()
-        tagged(flat, "mp3", 1, "One More Time")
-        artist = root / "Radiohead"
-        artist.mkdir()
-        nested = artist / "In Rainbows (2007)"
-        nested.mkdir()
-        tagged(nested, "mp3", 1, "15 Step")
-        single = tagged(root, "mp3", 1, "Never Gonna Give You Up")
-        single.rename(root / "Rick Astley - Never Gonna Give You Up.mp3")  # as a single track is named
+        song(root / "Daft Punk - Discovery (2001)", "01. One More Time")
+        song(root / "Radiohead" / "In Rainbows (2007)", "01. 15 Step")
+        song(root, "Rick Astley - Never Gonna Give You Up")  # a single track, named as one is
         (root / "Pictures").mkdir()  # a folder with no music anywhere in it
 
-    def test_flat_and_nested_albums_and_single_tracks_are_all_found(self, tmp_path):
+    def test_folder_names_speak_for_files_without_tags(self, tmp_path):
         self.music(tmp_path)
         items = {item["title"]: item for item in gui.Api.library(None, str(tmp_path))}
         assert set(items) == {"Discovery", "In Rainbows", "Never Gonna Give You Up"}
@@ -348,6 +355,13 @@ class TestLibraryScan:
         assert items["Discovery"]["artist"] == "Daft Punk"
         assert items["Discovery"]["album"] and not items["Never Gonna Give You Up"]["album"]
         assert items["Never Gonna Give You Up"]["artist"] == "Rick Astley"
+
+    def test_the_tags_speak_before_the_folder_names(self, tmp_path):
+        """Downloads kept in a folder of their own inside the collection keep their own artist."""
+        song(tmp_path / "Trackhound" / "Charli xcx - BRAT (2024)", "01. 360", album="BRAT", artist="Charli xcx",
+             year="2024")
+        [item] = gui.Api.library(None, str(tmp_path))
+        assert (item["title"], item["artist"], item["year"]) == ("BRAT", "Charli xcx", "2024")
 
     def test_an_artist_folder_is_not_an_album_itself(self, tmp_path):
         self.music(tmp_path)
@@ -362,29 +376,67 @@ class TestLibraryScan:
         assert str(tmp_path / "Radiohead" / "In Rainbows (2007)") in {track["entry"] for track in tracks}
 
 
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+class TestAlbumFolders:
+    """Folders inside an album are its own when their tags say so."""
+
+    def test_a_title_split_by_a_slash_stays_in_its_album(self, tmp_path):
+        album = tmp_path / "Hatful of Hollow"
+        song(album, "Girl Afraid", album="Hatful of Hollow", artist="The Smiths")
+        song(album, "Hand in Glove", album="Hatful of Hollow", artist="The Smiths")
+        # "Accept Yourself - David Jensen Session 25/08/83", saved by a downloader as folders
+        song(album / "Accept Yourself - David Jensen Session 25" / "08", "83", album="Hatful of Hollow",
+             artist="The Smiths")
+        [item] = gui.Api.library(None, str(tmp_path))
+        assert (item["title"], item["tracks"]) == ("Hatful of Hollow", 3)
+        assert len(gui.Api.album(gui.Api.__new__(gui.Api), str(album))["tracks"]) == 3
+
+    def test_another_album_inside_one_is_an_album_of_its_own(self, tmp_path):
+        artist = tmp_path / "Radiohead"
+        song(artist, "A loose one", album="Singles", artist="Radiohead")
+        song(artist / "Kid A", "01. Everything", album="Kid A", artist="Radiohead")
+        titles = sorted(item["title"] for item in gui.Api.library(None, str(tmp_path)))
+        assert titles == ["Kid A", "Singles"]
+
+    def test_loose_tracks_of_different_albums_are_single_tracks(self, tmp_path):
+        folder = tmp_path / "Downloads"
+        song(folder, "Fever - Buckshot", album="Fever", artist="Buckshot", title="Fever")
+        song(folder, "Easter Pink - fakemink", album="Easter Pink", artist="fakemink", title="Easter Pink")
+        items = gui.Api.library(None, str(tmp_path))
+        assert sorted((item["title"], item["album"]) for item in items) == [("Easter Pink", False), ("Fever", False)]
+
+
+class TestCovers:
+    """A cover goes by many names, and some live only inside the files."""
+
+    @pytest.mark.parametrize("name", ["cover.jpg", "Folder.jpg", "front.png", "AlbumArtSmall.jpg"])
+    def test_a_picture_under_any_usual_name_is_the_cover(self, tmp_path, name):
+        (tmp_path / name).write_bytes(PNG)
+        (tmp_path / "scan-back.jpg").write_bytes(b"not the cover")
+        assert gui._cover_bytes(tmp_path) == PNG
+
+    @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+    def test_without_a_picture_the_one_inside_the_first_file_is_used(self, tmp_path):
+        tagged(tmp_path, "mp3", 1, "Airbag", cover=PNG)
+        assert gui._cover_bytes(tmp_path) == PNG
+        assert gui.Api.library(None, str(tmp_path.parent))[0]["cover"]
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
 class TestOtherFolders:
     """A collection of one's own sits beside the music folder, arranged however its owner likes."""
 
     def test_albums_are_found_deep_in_a_collection_made_by_hand(self, tmp_path):
         mine = tmp_path / "Collection"
-        album = mine / "Rock" / "Radiohead" / "OK Computer"  # genre, artist, album
-        album.mkdir(parents=True)
-        tagged(album, "mp3", 1, "Airbag")
-        (mine / ".hidden" / "Old").mkdir(parents=True)
-        tagged(mine / ".hidden" / "Old", "mp3", 1, "Hidden")
-        (mine / "Radiohead" / "Kid A").mkdir(parents=True)
-        tagged(mine / "Radiohead", "mp3", 9, "A loose one")  # a folder with tracks and albums in it
-        tagged(mine / "Radiohead" / "Kid A", "mp3", 1, "Everything")
+        song(mine / "Rock" / "Radiohead" / "OK Computer", "01. Airbag")  # genre, artist, album; no tags
+        song(mine / ".hidden" / "Old", "Hidden")
         items = gui.Api.library(None, [str(tmp_path / "Music"), str(mine)])
-        found = sorted((item["title"], item["artist"]) for item in items)
-        assert found == [("Kid A", "Radiohead"), ("OK Computer", "Radiohead"), ("Radiohead", "")]
+        assert [(item["title"], item["artist"]) for item in items] == [("OK Computer", "Radiohead")]
 
     def test_the_music_folder_and_the_others_are_read_together_once(self, tmp_path):
         music, mine = tmp_path / "Music", tmp_path / "Music" / "Old"
-        (music / "Daft Punk - Discovery (2001)").mkdir(parents=True)
-        tagged(music / "Daft Punk - Discovery (2001)", "mp3", 1, "One More Time")
-        (mine / "Kino - Gruppa krovi").mkdir(parents=True)
-        tagged(mine / "Kino - Gruppa krovi", "mp3", 1, "Gruppa krovi")
+        song(music / "Daft Punk - Discovery (2001)", "01. One More Time")
+        song(mine / "Kino - Gruppa krovi", "01. Gruppa krovi")
         titles = sorted(item["title"] for item in gui.Api.library(None, [str(music), str(mine)]))
         assert titles == ["Discovery", "Gruppa krovi"]  # the one inside the other is not counted twice
 

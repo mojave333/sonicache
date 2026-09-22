@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import lyrics, sources
+from . import folders, lyrics, sources
 from .downloader import FORMATS, MARKER_NAME, _write_lrc, _write_tags, fetch_cover, read_tags
 from .i18n import t
 from .logs import log
@@ -48,10 +48,7 @@ def tidy(entry: Path, artist: str = "", title: str = "", with_lyrics: bool = Tru
     """Fills in what the files of one library entry lack. The entry is an
     album folder or a single track; artist and title are what its name says,
     for files that do not say it themselves."""
-    try:
-        files = sorted(file for file in entry.iterdir() if _is_audio(file)) if entry.is_dir() else [entry]
-    except OSError:
-        return Outcome()
+    files = folders.album_files(entry)[0] if entry.is_dir() else [entry]
     known = {file: read_tags(file) for file in files}
     known = {file: tags for file, tags in known.items() if tags}  # unreadable files are left alone
     outcome = Outcome()
@@ -76,11 +73,12 @@ def tidy(entry: Path, artist: str = "", title: str = "", with_lyrics: bool = Tru
             album.genre = sources.find_genre(album.artist, album.name, album.genre)
         except Exception as e:  # the genre is a nicety, as in a download
             _log.warning("жанр для «%s» не нашёлся: %s", album.name, e)
-    folder_cover = entry / "cover.jpg" if entry.is_dir() else None
+    # A folder with a picture of its own under any usual name keeps it and gets no cover.jpg beside it
+    folder_cover = entry / "cover.jpg" if entry.is_dir() and folders.cover_file(entry) is None else None
     cover = None
-    if any(not tags.get("cover") for tags in known.values()) or (folder_cover and not folder_cover.exists()):
+    if any(not tags.get("cover") for tags in known.values()) or folder_cover:
         cover = fetch_cover(album.cover_url, _log.warning)
-    if cover and folder_cover and not folder_cover.exists():
+    if cover and folder_cover:
         try:
             folder_cover.write_bytes(cover)
             outcome.cover = True

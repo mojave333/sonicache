@@ -30,11 +30,13 @@ from pathlib import Path
 
 import webview
 from mutagen import File as MutagenFile
+from mutagen.id3 import Frames
+from mutagen.mp3 import MP3
 from mutagen.flac import Picture
 
 from . import __version__, logs, relay_for, tray, watch
 from .i18n import LANGUAGES, resolve, set_language, t
-from .engine import batch, catalog, lyrics, network, sources, use_relay
+from .engine import batch, catalog, folders, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
                                 Downloader, Options, read_tags, use_proxy)
@@ -389,10 +391,10 @@ class Api:
             return False
         return True
 
-    def library(self, folders: str | list[str]) -> list[dict]:
+    def library(self, roots: str | list[str]) -> list[dict]:
         """Album folders and single tracks in the music folder and the other
         folders the library reads, newest first."""
-        roots = [folders] if isinstance(folders, str) else [str(folder) for folder in folders or []]
+        roots = [roots] if isinstance(roots, str) else [str(root) for root in roots or []]
         # A folder added on its own is read first, so its albums are named as
         # its own and not as the insides of a folder that happens to hold it
         roots.sort(key=lambda root: len(Path(root).expanduser().parts), reverse=True)
@@ -804,9 +806,11 @@ class Api:
         which lets go of what is out of sight.
         """
         target = Path(path)
+        source = (folders.cover_file(target) or next(iter(folders.album_files(target)[0]), None)
+                  if target.is_dir() else target)
         try:
-            stat = (target / "cover.jpg").stat() if target.is_dir() else target.stat()
-        except OSError:
+            stat = source.stat()
+        except (OSError, AttributeError):
             return None
         # The file's time in the address makes a replaced cover a new picture to the browser
         return f"{self._covers.address(str(target))}?v={stat.st_mtime_ns:x}"
@@ -818,10 +822,7 @@ class Api:
         tracks that never arrived are listed too.
         """
         target = Path(path)
-        try:
-            files = sorted(file for file in target.iterdir() if _is_audio(file)) if target.is_dir() else [target]
-        except OSError:
-            files = []
+        files = folders.album_files(target)[0] if target.is_dir() else [target]
         tracks = [{**_tags(file), "path": str(file)} for file in files]
         tracks.sort(key=lambda track: (track["disc"], track["number"] or 999, track["title"].casefold()))
         marker = _read_marker(target) if target.is_dir() else {}
@@ -837,15 +838,12 @@ class Api:
             "service": marker.get("service", ""),
         }
 
-    def tracks(self, folders: str | list[str]) -> list[dict]:
+    def tracks(self, roots: str | list[str]) -> list[dict]:
         """Every track in the library's folders with its tags, for the Tracks tab."""
         result = []
-        for item in self.library(folders):
+        for item in self.library(roots):
             entry = Path(item["path"])
-            try:
-                files = [file for file in entry.iterdir() if _is_audio(file)] if item["album"] else [entry]
-            except OSError:
-                continue
+            files = folders.album_files(entry)[0] if item["album"] else [entry]
             for file in files:
                 try:
                     modified = file.stat().st_mtime
@@ -1247,16 +1245,13 @@ def _folder_contents(path: Path) -> list[Path]:
         return []
 
 
-# How deep the library looks into a folder: Genre / Artist / Album is three
-LIBRARY_DEPTH = 4
+# How deep the library looks into a folder: iTunes Media / Music / Artist / Album is four
+LIBRARY_DEPTH = 6
 
 
 def _library_items(root: Path, artist: str = "", depth: int = 0) -> list[dict]:
-    """A folder with music in it is an album. Folders are looked into all the
-    same, and the albums inside take the name of the one above for their
-    artist: the "nested" naming puts them there as Artist/Album (Year), and so
-    do most collections made by hand. Loose tracks count as single tracks only
-    at the top, where downloaded singles are put."""
+    """Every album and single track under a folder. Loose tracks count as
+    single tracks at the top, where downloaded singles are put."""
     items = []
     for path in _folder_contents(root):
         if path.name.startswith((".", "$")):
@@ -1266,36 +1261,73 @@ def _library_items(root: Path, artist: str = "", depth: int = 0) -> list[dict]:
                 if depth == 0 and _is_audio(path):
                     items.append(_library_item(path, [path]))
                 continue
-            files = [file for file in path.iterdir() if _is_audio(file)]
-            if files:
-                items.append(_library_item(path, files, artist=artist))
-            if depth < LIBRARY_DEPTH:
-                items += _library_items(path, artist=path.name, depth=depth + 1)
+            items += _folder_items(path, artist, depth)
         except OSError:
             continue  # removed or locked while scanning
     return items
 
 
+def _folder_items(path: Path, artist: str, depth: int) -> list[dict]:
+    """A folder with music in it is an album, its folders below with the same
+    album in their tags included (discs, titles split by a slash). One without
+    is looked into, and what is inside takes its name for the artist when the
+    tags do not say, as the "nested" naming and most collections have it.
+    Loose tracks of different albums side by side are single tracks."""
+    files, apart = folders.album_files(path)
+    if not files:
+        return _library_items(path, artist=path.name, depth=depth + 1) if depth < LIBRARY_DEPTH else []
+    loose = [file for file in files if file.parent == path]
+    # The first, middle and last are enough to tell an album from a heap of singles,
+    # and reading every file's tags would make a large collection slow to open
+    sample = {loose[0], loose[len(loose) // 2], loose[-1]}
+    if len({folders.album_tag(file) for file in sample} - {""}) > 1:
+        items = [_library_item(file, [file]) for file in loose]
+        return items + (_library_items(path, artist=path.name, depth=depth + 1) if depth < LIBRARY_DEPTH else [])
+    items = [_library_item(path, files, artist=artist)]
+    for other in apart:
+        items += _folder_items(other, path.name, depth + 1)
+    return items
+
+
 def _library_item(path: Path, files: list[Path], artist: str = "") -> dict:
+    """What the library says about an album or a track: its own tags first,
+    and the names of its folder and the one above where they say nothing."""
     album = path.is_dir()
     stats = [file.stat() for file in files]
     pattern = _ALBUM_UNDER_ARTIST if artist else _ALBUM_NAME if album else _TRACK_NAME
     match = pattern.match(path.name if album else path.stem)
     marker = _read_marker(path) if album else {}
+    tags = _tags(files[0])
+    named = {
+        "title": match["title"] if match else (path.name if album else path.stem),
+        "artist": artist or (match["artist"] if match else ""),
+        "year": (match["year"] or "") if match and album else "",
+    }
+    if album and tags["album"]:
+        named = {"title": tags["album"],
+                 "artist": tags["album_artist"] or tags["artists"].split(",")[0].strip() or named["artist"],
+                 "year": tags["year"] or named["year"]}
+    elif not album and tags["artists"]:
+        named = {"title": tags["title"], "artist": tags["artists"], "year": ""}
     return {
         # The link the album came from, when it was downloaded by this program
         "link": marker.get("link", ""),
         "expected": marker.get("tracks") or 0,
         "album": album,
-        "title": match["title"] if match else (path.name if album else path.stem),
-        "artist": artist or (match["artist"] if match and not artist else ""),
-        "year": (match["year"] or "") if match and album else "",
+        **named,
         "path": str(path),
         "tracks": len(files),
         "size": sum(stat.st_size for stat in stats),
         "modified": max(stat.st_mtime for stat in stats),
-        "cover": album and (path / "cover.jpg").is_file(),
+        # A picture beside the files or inside them: the cover server finds which, or neither
+        "cover": True,
     }
+
+
+# The ID3 frames behind what the library shows, by the names the other formats use
+_SHOWN_NAMES = {"title": "TIT2", "artist": "TPE1", "album": "TALB", "albumartist": "TPE2", "tracknumber": "TRCK",
+                "discnumber": "TPOS", "date": "TDRC", "genre": "TCON"}
+_SHOWN_FRAMES = {name: Frames[name] for name in (*_SHOWN_NAMES.values(), "TYER", "TDAT")}
 
 
 def _tags(path: Path) -> dict:
@@ -1308,8 +1340,11 @@ def _tags(path: Path) -> dict:
     if key in _TAG_CACHE:
         return _TAG_CACHE[key]
     info = _blank_tags(path)
+    mp3 = path.suffix.lower() == ".mp3"
     try:
-        audio = MutagenFile(path, easy=True)
+        # An mp3's lyrics and pictures are most of its tags and none of what is
+        # shown here: only the frames that are shown are read, twice as fast
+        audio = MP3(path, known_frames=_SHOWN_FRAMES) if mp3 else MutagenFile(path, easy=True)
     except Exception:  # a broken or half-written file still gets its row
         audio = None
     if audio is not None:
@@ -1317,8 +1352,9 @@ def _tags(path: Path) -> dict:
 
         def first(name: str) -> str:
             try:
-                values = tags.get(name) or []
-            except (KeyError, ValueError):
+                values = (tags.get(_SHOWN_NAMES[name]) or []) if mp3 else (tags.get(name) or [])
+                values = list(values) if mp3 else values
+            except (KeyError, ValueError, TypeError):
                 values = []
             return str(values[0]).strip() if values else ""
 
@@ -1496,9 +1532,16 @@ def _embedded_lyrics(path: Path) -> str:
 
 
 def _cover_bytes(path: Path) -> bytes | None:
-    """An album's cover.jpg, or the picture inside a single track's file."""
+    """An album's cover beside its files, or else the picture inside its
+    first file; the picture inside a single track's file."""
     try:
-        return (path / "cover.jpg").read_bytes() if path.is_dir() else _embedded_cover(path)
+        if not path.is_dir():
+            return _embedded_cover(path)
+        picture = folders.cover_file(path)
+        if picture is not None:
+            return picture.read_bytes()
+        first = next(iter(folders.album_files(path)[0]), None)
+        return _embedded_cover(first) if first else None
     except OSError:
         return None
 
@@ -1649,11 +1692,9 @@ _GAP_CACHE: dict[tuple[str, int, int], frozenset] = {}
 
 
 def _entry_files(entry: Path) -> list[Path]:
-    try:
-        return sorted(file for file in entry.iterdir() if _is_audio(file)) if entry.is_dir() else (
-            [entry] if _is_audio(entry) else [])
-    except OSError:
-        return []
+    if entry.is_dir():
+        return folders.album_files(entry)[0]
+    return [entry] if _is_audio(entry) else []
 
 
 def _files_signature(files: list[Path]) -> str:
@@ -1666,7 +1707,7 @@ def _files_signature(files: list[Path]) -> str:
 
 
 def _has_gaps(entry: Path, files: list[Path], with_lyrics: bool) -> bool:
-    if entry.is_dir() and not (entry / "cover.jpg").is_file():
+    if entry.is_dir() and folders.cover_file(entry) is None:
         return True
     wanted = set(GAP_TAGS) | ({"track"} if entry.is_dir() else set()) | ({"lyrics"} if with_lyrics else set())
     return any(not wanted <= _present_tags(file) for file in files)
