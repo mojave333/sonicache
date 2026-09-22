@@ -219,10 +219,9 @@ async function loadDiagnostics() {
   const stale = info.ytdlp_age >= 60;
   $("#ytdlp-title").textContent = `yt-dlp ${info.ytdlp}`;
   $("#ytdlp-desc").textContent = stale
-    ? t("Сборке {days} {dayWord} — YouTube за это время обычно успевает смениться. "
-        + "Если загрузки перестали работать, обновите Trackhound",
+    ? t("Этой сборке {days} {dayWord}, а YouTube за такое время обычно что-то меняет. Если загрузки перестали работать, обновите Trackhound",
         { days: info.ytdlp_age, dayWord: plural(info.ytdlp_age, "день", "дня", "дней") })
-    : t("Скачиванием занимается yt-dlp; он обновляется вместе с Trackhound");
+    : t("Звук скачивает yt-dlp. Он обновляется вместе с Trackhound");
   $("#ytdlp-desc").classList.toggle("warn", stale);
   $("#log-path").textContent = info.log;
   $("#log-path").title = info.log;
@@ -345,21 +344,21 @@ async function copyReport() {
 // running here, is one click away.
 const NETWORK_WORDS = {
   spotify: {
-    ok: "Spotify — плеер открывается",
-    previews: "Spotify — плеер закрыт для этой сети. Альбомы и треки соберутся со страниц-превью, из плейлиста — только первые 30 треков",
-    down: "Spotify — не открывается. Вставляйте ссылки из Apple Music, Deezer или YouTube Music или пишите «Исполнитель - Альбом»",
+    ok: "Spotify: плеер открывается",
+    previews: "Spotify: плеер закрыт для этой сети. Альбомы и треки соберутся со страниц-превью, а из плейлиста только первые 30 треков",
+    down: "Spotify: не открывается. Вставляйте ссылки из Apple Music, Deezer или YouTube Music либо пишите «Исполнитель - Альбом»",
   },
   youtube: {
-    ok: "YouTube — открывается",
-    down: "YouTube — не открывается: звук будет только с SoundCloud, а там есть не всё",
+    ok: "YouTube: открывается",
+    down: "YouTube: не открывается. Звук будет только с SoundCloud, а там есть не всё",
   },
-  soundcloud: { ok: "SoundCloud — открывается", down: "SoundCloud — не открывается" },
+  soundcloud: { ok: "SoundCloud: открывается", down: "SoundCloud: не открывается" },
 };
 const PROXY_SPOTIFY = { ok: "плеер открывается", previews: "только страницы-превью", down: "не открывается" };
 const RELAY_WORDS = {
-  ok: "Зеркало Spotify — работает",
-  down: "Зеркало Spotify — не отвечает",
-  none: "Зеркало Spotify — не задано",
+  ok: "Зеркало Spotify: работает",
+  down: "Зеркало Spotify: не отвечает",
+  none: "Зеркало Spotify: не задано",
 };
 const NETWORK_TONES = { ok: "ok", previews: "warn", down: "bad" };
 const NETWORK_ICONS = { ok: "check", warn: "alert", bad: "x" };
@@ -383,13 +382,13 @@ function renderNetwork(result) {
     networkRow(NETWORK_TONES[result[service]], t(NETWORK_WORDS[service][result[service]])));
   // Where Spotify is closed, a working relay makes up for it in full
   if (result.relay === "ok" && result.spotify !== "ok") {
-    rows[0] = networkRow("ok", t("Spotify — плеер закрыт для этой сети, но релизы целиком приходят через зеркало"));
+    rows[0] = networkRow("ok", t("Spotify: плеер закрыт для этой сети, но релизы целиком приходят через зеркало"));
   }
   if (result.relay !== "none" || result.spotify !== "ok") rows.splice(1, 0, networkRow(
     result.relay === "ok" ? "ok" : "bad", t(RELAY_WORDS[result.relay])));
   for (const proxy of result.proxies) {
     const row = networkRow(NETWORK_TONES[proxy.spotify],
-      t("Прокси {client}: {url}. Spotify через него — {state}",
+      t("Прокси {client}: {url}. Spotify через него: {state}",
         { client: proxy.client, url: proxy.url, state: t(PROXY_SPOTIFY[proxy.spotify]) }));
     if (proxy.url === state.settings.proxy) {
       row.append(Object.assign(document.createElement("span"), { className: "net-note", textContent: t("включён") }));
@@ -406,8 +405,7 @@ function renderNetwork(result) {
     rows.push(row);
   }
   if (!result.proxies.length) {
-    rows.push(networkRow("", t("Прокси VPN-клиента на этом компьютере не найден. VPN в режиме TUN или "
-      + "«системного прокси» программа использует сама; иначе впишите адрес прокси выше")));
+    rows.push(networkRow("", t("На этом компьютере не нашлось прокси VPN-клиента. VPN в режиме TUN или «системного прокси» программа использует сама. В других режимах впишите адрес прокси выше")));
   }
   $("#network-list").replaceChildren(...rows);
 }

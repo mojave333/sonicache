@@ -23,13 +23,13 @@ const TRANSLATIONS = {
   "Развернуть панель (Ctrl+B)": "Expand the panel (Ctrl+B)",
   "Свернуть": "Collapse",
 
-  "Нужны для треков с возрастным ограничением: YouTube отдаёт их только тем, кто вошёл в аккаунт. Браузер при загрузке лучше закрыть":
-    "For age-restricted tracks: YouTube serves them only to a signed-in account. Close the browser while downloading",
+  "Нужны для треков с возрастным ограничением: YouTube отдаёт их только после входа в аккаунт. Пока идёт загрузка, браузер лучше закрыть":
+    "Needed for age-restricted tracks: YouTube only serves them to a signed-in account. Close the browser while downloading",
 
   // Loudness
   "Выравнивание громкости": "Loudness levelling",
-  "Теги ReplayGain: плеер сам сделает треки одинаково громкими. Звук не меняется; нужен плеер, который их читает — foobar2000, MusicBee, AIMP, VLC":
-    "ReplayGain tags: the player makes the tracks equally loud. The audio is not changed; it takes a player that reads them — foobar2000, MusicBee, AIMP, VLC",
+  "Записывает теги ReplayGain, по которым плеер делает треки одинаково громкими. Сам звук не меняется. Такие теги читают foobar2000, MusicBee, AIMP и VLC":
+    "Writes ReplayGain tags, which a player uses to play every track at the same volume. The audio itself is not changed. foobar2000, MusicBee, AIMP and VLC read these tags",
   "Выкл": "Off",
   "Вкл": "On",
   "Ищем источник": "Looking for a source",
@@ -44,9 +44,10 @@ const TRANSLATIONS = {
 
   // Watching
   "Слежение": "Watching",
-  "Плейлисты и альбомы под наблюдением": "Playlists and albums being watched",
-  "Раз в 12 часов программа заново открывает ссылку и докачивает в ту же папку только появившиеся треки. Включается глазом на карточке загрузки":
-    "Every 12 hours the link is opened again and only the tracks added since are downloaded, into the same folder. Turned on with the eye on a download card",
+  "Плейлисты, альбомы и исполнители под наблюдением":
+    "Watched playlists, albums and artists",
+  "Раз в 12 часов программа снова открывает ссылку и докачивает в ту же папку только новое. Чтобы следить за релизом, нажмите на глаз на его карточке загрузки. За исполнителем можно следить с его страницы в поиске":
+    "Every 12 hours the program opens the link again and downloads only what is new, into the same folder. To watch a release, press the eye on its download card. An artist can be watched from their page in Search",
   "Проверить сейчас": "Check now",
   "Пока ни за чем не следим": "Nothing is being watched yet",
   "Следить за новыми треками": "Watch for new tracks",
@@ -64,8 +65,8 @@ const TRANSLATIONS = {
   "Профили: папка, формат и имена одним нажатием": "Profiles: folder, format and naming in one click",
   "Профили": "Profiles",
   "Сохранить текущие настройки": "Save the current settings",
-  "Папка, формат и правила имён под одним названием: потом возвращаться к ним одним нажатием в панели загрузки":
-    "The folder, the format and the naming rules under one name, to come back to from the download toolbar in one click",
+  "Запоминает папку, формат и правила имён под одним названием. Вернуть их можно одним нажатием в панели загрузки":
+    "Keeps the folder, the format and the naming rules under one name, to bring back with one click in the download toolbar",
   "Например: на диск D, mp3": "For example: D drive, mp3",
   "Название профиля": "Profile name",
   "Сохранить": "Save",
@@ -82,8 +83,8 @@ const TRANSLATIONS = {
   // Updating
   "Страница релиза": "Release page",
   "Обновить программу": "Update the program",
-  "Скачается установщик с GitHub, программа сверит его хеш, закроется, обновится и откроется снова":
-    "The installer is fetched from GitHub and checked against its hash; the program closes, updates and opens again",
+  "Программа скачает установщик с GitHub и сверит его хеш. Потом она закроется, обновится и откроется снова":
+    "The program downloads the installer from GitHub and checks its hash. Then it closes, updates and opens again",
   "Скачается установщик с GitHub, программа сверит его хеш и запустит; окно закроется, чтобы файлы можно было заменить":
     "The installer is fetched from GitHub, checked against its hash and started; the window closes so the files can be replaced",
   "Скачиваем…": "Downloading…",
@@ -276,8 +277,8 @@ const TRANSLATIONS = {
   "Русский": "Русский",
   "English": "English",
   "Треков одновременно": "Tracks at once",
-  "Больше — быстрее, но YouTube может начать ограничивать скорость":
-    "More is faster, but YouTube may start throttling",
+  "Чем больше, тем быстрее, но YouTube может начать ограничивать скорость":
+    "More is faster, but YouTube may start to slow the downloads",
   "Больше": "More",
   "Меньше": "Fewer",
   "Папки альбомов": "Album folders",
@@ -287,9 +288,10 @@ const TRANSLATIONS = {
   "Исполнитель → Альбом (Год)": "Artist → Album (Year)",
   "Альбом (Год)": "Album (Year)",
   "Имена файлов": "File names",
-  "Номер и название всегда на месте; различается только исполнитель":
-    "The number and the title are always there; only the performer differs",
-  "01. Название (гости — отдельно)": "01. Title (guests named separately)",
+  "Номер и название есть в имени всегда. Варианты отличаются тем, когда в него попадает исполнитель":
+    "The number and title are always in the name. The choices differ in when the artist is added",
+  "01. Название (исполнитель только у гостей)":
+    "01. Title (artist only for guests)",
   "01. Исполнитель - Название": "01. Artist - Title",
   "01. Название": "01. Title",
   "Ограничение скорости": "Speed limit",
@@ -301,9 +303,11 @@ const TRANSLATIONS = {
   "5 МБ/с": "5 MB/s",
   "10 МБ/с": "10 MB/s",
   "Прокси": "Proxy",
-  "Для метаданных и загрузки:": "For metadata and downloads:",
+  "Через него идут поиск и загрузка. Например:":
+    "Searches and downloads go through it. For example:",
   "или": "or",
-  ". Пусто — как настроено в системе": ". Empty means the system's own setting",
+  ". Если поле пустое, работают настройки системы":
+    ". When it is empty, the system's settings apply",
   "Cookies из браузера": "Cookies from a browser",
   "Не использовать": "Do not use any",
   "Компоненты": "Components",
@@ -313,39 +317,43 @@ const TRANSLATIONS = {
   "Не хватает компонентов": "Components are missing",
   "ffmpeg, Deno или Node.js, yt-dlp-ejs": "ffmpeg, Deno or Node.js, yt-dlp-ejs",
   "Диагностика": "Diagnostics",
-  "YouTube меняется часто: если загрузки перестали работать, сначала обновите Trackhound":
-    "YouTube changes often: if downloads stop working, update Trackhound first",
-  "Скачиванием занимается yt-dlp; он обновляется вместе с Trackhound":
-    "The downloading is done by yt-dlp, which is updated together with Trackhound",
-  "Сборке {days} {dayWord} — YouTube за это время обычно успевает смениться. Если загрузки перестали работать, обновите Trackhound":
-    "This build is {days} {dayWord} old — YouTube usually changes within that. "
-    + "If downloads stopped working, update Trackhound",
+  "YouTube часто меняется. Если загрузки перестали работать, сначала обновите Trackhound":
+    "YouTube changes often. If downloads stop working, update Trackhound first",
+  "Звук скачивает yt-dlp. Он обновляется вместе с Trackhound":
+    "yt-dlp downloads the audio. It is updated together with Trackhound",
+  "Этой сборке {days} {dayWord}, а YouTube за такое время обычно что-то меняет. Если загрузки перестали работать, обновите Trackhound":
+    "This build is {days} {dayWord} old, and YouTube usually changes something in that time. If downloads stop working, update Trackhound",
   "Доступ к сервисам": "Access to the services",
-  "Что открывается из этой сети — Spotify, YouTube, SoundCloud, — и нет ли на компьютере прокси VPN-клиента":
-    "What opens from this network — Spotify, YouTube, SoundCloud — and whether a VPN client's proxy runs on this computer",
-  "Spotify — плеер открывается": "Spotify — the player opens",
-  "Spotify — плеер закрыт для этой сети. Альбомы и треки соберутся со страниц-превью, из плейлиста — только первые 30 треков":
-    "Spotify — the player is closed to this network. Albums and tracks are put together from the preview pages; of a playlist, only the first 30 tracks",
-  "Spotify — не открывается. Вставляйте ссылки из Apple Music, Deezer или YouTube Music или пишите «Исполнитель - Альбом»":
-    "Spotify — does not open. Paste links from Apple Music, Deezer or YouTube Music, or type “Artist - Album”",
-  "YouTube — открывается": "YouTube — opens",
-  "YouTube — не открывается: звук будет только с SoundCloud, а там есть не всё":
-    "YouTube — does not open: the audio can only come from SoundCloud, which does not have everything",
-  "SoundCloud — открывается": "SoundCloud — opens",
-  "SoundCloud — не открывается": "SoundCloud — does not open",
+  "Проверяет, открываются ли из этой сети Spotify, YouTube и SoundCloud и есть ли на компьютере прокси VPN-клиента":
+    "Checks whether Spotify, YouTube and SoundCloud open from this network, and whether a VPN client runs a proxy on this computer",
+  "Spotify: плеер открывается":
+    "Spotify: the player opens",
+  "Spotify: плеер закрыт для этой сети. Альбомы и треки соберутся со страниц-превью, а из плейлиста только первые 30 треков":
+    "Spotify: the player is closed to this network. Albums and tracks are read from the preview pages, but only the first 30 tracks of a playlist",
+  "Spotify: не открывается. Вставляйте ссылки из Apple Music, Deezer или YouTube Music либо пишите «Исполнитель - Альбом»":
+    "Spotify: does not open. Paste links from Apple Music, Deezer or YouTube Music, or write \"Artist - Album\"",
+  "YouTube: открывается":
+    "YouTube: opens",
+  "YouTube: не открывается. Звук будет только с SoundCloud, а там есть не всё":
+    "YouTube: does not open. The audio can only come from SoundCloud, which does not have everything",
+  "SoundCloud: открывается":
+    "SoundCloud: opens",
+  "SoundCloud: не открывается":
+    "SoundCloud: does not open",
   "плеер открывается": "the player opens",
   "только страницы-превью": "only the preview pages",
   "не открывается": "does not open",
-  "Прокси {client}: {url}. Spotify через него — {state}": "{client} proxy: {url}. Spotify through it — {state}",
+  "Прокси {client}: {url}. Spotify через него: {state}":
+    "{client} proxy: {url}. Spotify through it: {state}",
   "включён": "in use",
   "Использовать": "Use it",
   "Использовать и повторить": "Use it and try again",
   "Спрашивать при сомнительных совпадениях": "Ask about doubtful matches",
   "Тексты песен": "Lyrics",
-  "Из LRCLIB: текст — в теги, где его покажут плеер и телефон, синхронный — в файл .lrc рядом с треком, для плееров с прокруткой текста":
-    "From LRCLIB: the words into the tags, where a player or a phone shows them, synced ones into an .lrc file beside the track, for players that scroll along",
-  "Если трек похож сразу на несколько записей, он не скачивается сам: на карточке появятся варианты, их можно послушать и выбрать":
-    "When a track looks like more than one recording, it is not downloaded by itself: the card shows the candidates, to listen to and choose from",
+  "Тексты берутся из LRCLIB. Обычный записывается в теги, его покажут плеер и телефон. Синхронный сохраняется в файл .lrc рядом с треком, и плееры прокручивают его вместе с песней":
+    "Lyrics come from LRCLIB. Plain lyrics go into the tags, where a player or a phone shows them. Synced lyrics are saved to an .lrc file beside the track, and players scroll them along with the song",
+  "Если трек похож на несколько разных записей, программа покажет варианты на карточке и подождёт, пока вы выберете нужную. Каждый вариант можно послушать":
+    "When a track looks like more than one recording, the card shows the candidates and waits for you to pick one. Each of them can be played first",
   "Нужен выбор": "Choose",
   "Дописать теги": "Fill in tags",
   "несколько секунд": "a few seconds",
@@ -393,18 +401,18 @@ const TRANSLATIONS = {
   "Проверено {when}, новых релизов нет": "Checked {when}, no new releases",
   "исполнитель": "artist",
   "Работать в фоне после закрытия окна": "Keep running when the window is closed",
-  "Пока идут загрузки или есть что-то под наблюдением, закрытое окно уходит в значок у часов: загрузки доходят до конца, проверки идут по расписанию. Выход — из меню значка":
-    "While something downloads or is watched, a closed window goes into the icon by the clock: downloads run to the end and checks keep their schedule. Quit from the icon's menu",
+  "Если идут загрузки или что-то под наблюдением, закрытое окно сворачивается в значок у часов. Загрузки доходят до конца, проверки идут по расписанию. Чтобы выйти, выберите «Выход» в меню значка":
+    "While something downloads or is watched, closing the window leaves an icon by the clock. Downloads run to the end and checks keep their schedule. To quit, choose Quit in the icon's menu",
   "Уведомления о завершении": "Notify when done",
-  "Когда загрузки закончились, а окно свёрнуто, закрыто или за другими":
-    "When downloads finish and the window is minimized, closed or behind others",
+  "Сообщает, что загрузки закончились, если окно свёрнуто, закрыто или спрятано под другими":
+    "Says the downloads have finished when the window is minimized, closed or behind other windows",
   "Добро пожаловать в Trackhound": "Welcome to Trackhound",
-  "Вставьте ссылку на альбом, плейлист или трек из Spotify, Apple Music, Deezer, YouTube или SoundCloud — или напишите «Исполнитель - Альбом». Программа найдёт ту же запись в открытом доступе, скачает её и подпишет: теги, обложка, жанр, тексты песен.":
-    "Paste a link to an album, playlist or track from Spotify, Apple Music, Deezer, YouTube or SoundCloud, or write \"Artist - Album\". The program finds the same recording where it is openly available, downloads it and labels it: tags, cover, genre, lyrics.",
+  "Вставьте ссылку на альбом, плейлист или трек из Spotify, Apple Music, Deezer, YouTube или SoundCloud. Можно и просто написать «Исполнитель - Альбом». Программа найдёт эту запись в открытом доступе, скачает её и заполнит теги: название, обложку, жанр и текст песни.":
+    "Paste a link to an album, playlist or track from Spotify, Apple Music, Deezer, YouTube or SoundCloud, or just write \"Artist - Album\". The program finds the same recording where it is openly available, downloads it and fills in the tags: title, cover, genre and lyrics.",
   "Музыка будет здесь": "The music goes here",
   "Изменить…": "Change…",
-  "Формат, названия файлов, прокси и остальное — в настройках, их можно поменять когда угодно.":
-    "The format, file names, proxy and the rest are in Settings, to change at any time.",
+  "Формат, названия файлов, прокси и остальное можно поменять в настройках в любой момент.":
+    "The format, file names, proxy and the rest can be changed in Settings at any time.",
   "Начать": "Start",
   "Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново":
     "Fill in genres, covers, lyrics and missing tags, downloading nothing again",
@@ -435,20 +443,23 @@ const TRANSLATIONS = {
   "Выбранные треки поставлены в очередь: {count}": "Chosen tracks queued: {count}",
   "Похоже сразу на несколько записей — выберите нужную": "Looks like more than one recording — choose the right one",
   "Зеркало Spotify": "Spotify relay",
-  "Через него читаются релизы, которые Spotify не показывает в этой стране: запрос уходит на сервер во Франкфурте":
-    "Releases Spotify does not show in this country are read through it: the request goes to a server in Frankfurt",
-  "Зеркало Spotify — работает": "Spotify relay — works",
-  "Зеркало Spotify — не отвечает": "Spotify relay — does not answer",
-  "Зеркало Spotify — не задано": "Spotify relay — not set",
-  "Spotify — плеер закрыт для этой сети, но релизы целиком приходят через зеркало":
-    "Spotify — the player is closed to this network, but whole releases come through the relay",
+  "Помогает открыть релизы, которые Spotify не показывает в вашей стране. Запрос к Spotify отправляется с сервера во Франкфурте":
+    "Opens releases that Spotify does not show in your country. The request to Spotify is sent from a server in Frankfurt",
+  "Зеркало Spotify: работает":
+    "Spotify relay: works",
+  "Зеркало Spotify: не отвечает":
+    "Spotify relay: does not answer",
+  "Зеркало Spotify: не задано":
+    "Spotify relay: not set",
+  "Spotify: плеер закрыт для этой сети, но релизы целиком приходят через зеркало":
+    "Spotify: the player is closed to this network, but whole releases come through the relay",
   "На компьютере работает {client}: через его прокси Spotify открывается":
     "{client} is running on this computer, and Spotify opens through its proxy",
-  "Прокси VPN-клиента на этом компьютере не найден. VPN в режиме TUN или «системного прокси» программа использует сама; иначе впишите адрес прокси выше":
-    "No VPN client proxy was found on this computer. A VPN in TUN or “system proxy” mode is used by the program by itself; otherwise write the proxy address above",
+  "На этом компьютере не нашлось прокси VPN-клиента. VPN в режиме TUN или «системного прокси» программа использует сама. В других режимах впишите адрес прокси выше":
+    "No VPN client's proxy was found on this computer. The program uses a VPN in TUN or system-proxy mode by itself. In other modes, enter the proxy address above",
   "Журнал работы": "Log",
-  "Подробности загрузок и ошибок — здесь. Никуда не отправляется":
-    "The detail of downloads and errors lives here. It is never sent anywhere",
+  "Здесь записаны подробности загрузок и ошибок. Журнал никуда не отправляется":
+    "Details of downloads and errors are written here. The log is not sent anywhere",
   "Открыть": "Open",
   "Скопировать отчёт": "Copy the report",
   "Скопировано": "Copied",
@@ -460,9 +471,8 @@ const TRANSLATIONS = {
   "Скачайте новую версию со страницы релизов и распакуйте поверх старой":
     "Download the new version from the releases page and unpack it over the old one",
   "Открыть страницу": "Open the page",
-  "Названия, обложки и номера треков берутся со страницы по ссылке; звук — оттуда же, если он открыт, или с YouTube Music и SoundCloud":
-    "Titles, covers and track numbers come from the page behind the link; the audio comes "
-    + "from there too when it is open, or from YouTube Music and SoundCloud",
+  "Названия, обложки и номера треков программа берёт со страницы по ссылке. Звук берётся оттуда же, если он там в открытом доступе, а иначе с YouTube Music или SoundCloud":
+    "Titles, covers and track numbers come from the page behind the link. The audio comes from there too when it is openly available, and otherwise from YouTube Music or SoundCloud",
   "Папка для музыки: {folder}": "Music folder: {folder}",
   "{folder}\nНажмите, чтобы выбрать другую папку": "{folder}\nClick to choose another folder",
   "Проблемы: {count}": "Problems: {count}",
