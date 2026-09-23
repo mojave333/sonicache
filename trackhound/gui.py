@@ -612,10 +612,15 @@ class Api:
         # The installer is offered for download in the window; the hash GitHub
         # publishes beside it is what makes that safe to do unattended. Only
         # Windows has an installer: elsewhere the window offers the page.
+        # Installed by a package manager, the program is that manager's to
+        # update: the installer would put a second copy beside it
+        manager = _package_manager()
         setup = next((asset for asset in data.get("assets") or []
-                      if str(asset.get("name", "")).endswith("-setup.exe")), {}) if sys.platform == "win32" else {}
+                      if str(asset.get("name", "")).endswith("-setup.exe")), {}) \
+            if sys.platform == "win32" and not manager else {}
         return {
             "version": version,
+            "manager": manager,
             "url": data.get("html_url") or RELEASES_PAGE,
             "installer": setup.get("browser_download_url") or "",
             "size": setup.get("size") or 0,
@@ -1366,6 +1371,19 @@ def _save_history(history: list[dict]) -> None:
         _history_file().write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass  # a read-only profile costs the history, not the download
+
+
+def _package_manager(executable: str | None = None) -> str:
+    """"scoop" or "aur" when the program was installed by one of them, "" else."""
+    if not getattr(sys, "frozen", False) and executable is None:
+        return ""
+    path = Path(executable or sys.executable)
+    parts = [part.casefold() for part in path.parts]
+    if "scoop" in parts and "apps" in parts[parts.index("scoop"):]:
+        return "scoop"
+    if path.as_posix().startswith("/opt/trackhound/"):
+        return "aur"
+    return ""
 
 
 def _release_age(version: str) -> int:

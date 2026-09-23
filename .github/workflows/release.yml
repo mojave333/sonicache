@@ -324,3 +324,48 @@ jobs:
           ls "dist/trackhound-${tag#v}-py3-none-any.whl"
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  # Once every file is up, Scoop's bucket, Homebrew's cask and the AUR and
+  # winget files in this repository are pointed at the new release, with the
+  # hashes GitHub computed for the files (scripts/package-managers.py). Scoop
+  # and Homebrew read them from here; the AUR is updated by hand.
+  packages:
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}  # read by a step's if, which sees the job's env only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Point the package managers at the release
+        run: |
+          python scripts/package-managers.py "${{ needs.windows.outputs.tag }}"
+          git add bucket Casks packaging
+          if git diff --cached --quiet; then
+            echo "nothing changed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Point Scoop, Homebrew, the AUR and winget at ${{ needs.windows.outputs.tag }}"
+          git pull --rebase
+          git push
+
+      # winget's catalogue is a pull request to microsoft/winget-pkgs. The first
+      # version went in by hand; later ones go from here once a token with the
+      # public_repo scope is stored as the WINGET_TOKEN secret, and not at all
+      # without one.
+      - name: Send the new version to winget
+        if: env.WINGET_TOKEN != ''
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: mojave333.Trackhound
+          release-tag: ${{ needs.windows.outputs.tag }}
+          installers-regex: '-windows-x64-setup\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}

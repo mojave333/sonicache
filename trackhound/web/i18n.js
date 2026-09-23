@@ -621,6 +621,9 @@ const TRANSLATIONS = {
   "По числу прослушиваний": "Most played first",
   "Недавно играло": "Recently played",
   "Часто слушаю": "Most played",
+  "Установлено через Scoop. Обновите командой scoop update trackhound": "Installed with Scoop. Update it with scoop update trackhound",
+  "Установлено из AUR. Обновите пакет trackhound-bin, например командой yay -Syu trackhound-bin":
+    "Installed from the AUR. Update the trackhound-bin package, for example with yay -Syu trackhound-bin",
   "Исполнитель · альбом": "Artist · album",
   "{count} {timesWord}": "{count} {timesWord}",
   "{count} {playlistWord}": "{count} {playlistWord}",

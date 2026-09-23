@@ -86,6 +86,16 @@ way.
 If you would rather not use an installer, the `Trackhound-vX.Y.Z-windows-x64.zip` archive
 sits next to it: unpack it anywhere and run `Trackhound.exe`.
 
+With [Scoop](https://scoop.sh), the same archive installs and updates with it, and
+`trackhound` becomes the command line:
+
+```powershell
+scoop bucket add trackhound https://github.com/mojave333/trackhound
+scoop install trackhound/trackhound
+```
+
+Installed this way the program does not update itself; `scoop update trackhound` does.
+
 Nothing else has to be installed: Python, ffmpeg and Deno are already inside. Windows 10 or
 11, 64-bit; the installed folder takes about 320 MB because of the bundled ffmpeg and Deno.
 For macOS and Linux there are builds of their own (see [macOS and Linux](#macos-and-linux)).
@@ -635,6 +645,14 @@ xattr -dr com.apple.quarantine /Applications/Trackhound.app
 ```
 
 The command line is `/Applications/Trackhound.app/Contents/MacOS/Trackhound-cli`.
+
+With [Homebrew](https://brew.sh) the right build for the Mac is chosen by itself, and
+`trackhound` becomes the command line (the first launch still needs the step above):
+
+```sh
+brew tap mojave333/trackhound https://github.com/mojave333/trackhound
+brew install --cask mojave333/trackhound/trackhound
+```
 
 **Linux.** Unpack `Trackhound-vX.Y.Z-linux-x64.tar.xz` anywhere and start `Trackhound` in the
 folder; `Trackhound-cli` is the command line. It needs glibc 2.35 or newer (Ubuntu 22.04,

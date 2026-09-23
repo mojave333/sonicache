@@ -240,6 +240,10 @@ async function checkForUpdate() {
   // Without an installer to fetch — an unusual release, or one still uploading
   // — the page is all that can be offered.
   $("#update-install").hidden = !release.installer || !release.digest;
+  // Installed by a package manager, it is that manager's to update
+  const managers = { scoop: "Установлено через Scoop. Обновите командой scoop update trackhound",
+                     aur: "Установлено из AUR. Обновите пакет trackhound-bin, например командой yay -Syu trackhound-bin" };
+  if (managers[release.manager]) $("#update-desc").textContent = t(managers[release.manager]);
   $("#update-install").addEventListener("click", startUpdate);
   renderSettingsDot();
 }

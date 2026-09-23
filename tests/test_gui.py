@@ -832,3 +832,13 @@ class TestBackground:
         assert gui._notice([{"title": "A", "state": "done", "ok": 3, "skipped": 0, "failed": 2,
                              "doubtful": 0}])[0] == "Скачано не всё: A"
         assert gui._notice([{"title": "A", "state": "error", "message": "нет сети"}]) == ("Не скачалось: A", "нет сети")
+
+
+@pytest.mark.parametrize("executable, manager", [
+    (r"C:\Users\me\scoop\apps\trackhound\current\Trackhound.exe", "scoop"),
+    ("/opt/trackhound/Trackhound", "aur"),
+    (r"C:\Users\me\AppData\Local\Programs\Trackhound\Trackhound.exe", ""),
+    ("/Applications/Trackhound.app/Contents/MacOS/Trackhound", ""),
+])
+def test_a_package_managers_install_is_left_to_it_to_update(executable, manager):
+    assert gui._package_manager(executable) == manager

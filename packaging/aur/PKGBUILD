@@ -1,0 +1,35 @@
+# Maintainer: mojave333 <https://github.com/mojave333>
+pkgname=trackhound-bin
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="Music downloader, library and player: albums, playlists and tracks by link or by name, with tags, covers and lyrics"
+arch=('x86_64')
+url="https://github.com/mojave333/trackhound"
+license=('GPL-2.0-or-later')
+provides=('trackhound')
+conflicts=('trackhound')
+depends=('alsa-lib' 'libglvnd' 'libxcomposite' 'libxdamage' 'libxkbcommon-x11' 'libxkbfile' 'libxrandr' 'libxtst' 'nss' 'xcb-util-cursor' 'xcb-util-image' 'xcb-util-keysyms' 'xcb-util-renderutil' 'xcb-util-wm')
+options=('!strip' '!debug')
+source=("Trackhound-v${pkgver}-linux-x64.tar.xz::${url}/releases/download/v${pkgver}/Trackhound-v${pkgver}-linux-x64.tar.xz"
+        "trackhound.png::https://raw.githubusercontent.com/mojave333/trackhound/v${pkgver}/docs/logo.png")
+sha256sums=('51cc48434efa4c69ac3d49d24830aa513b7d7b613b5779f9b7071f05f9216948'
+            '2bebe0ae274a0841e879f234699cbdc86f2f44edef51c163c7b44dfe19c8060d')
+
+package() {
+  install -d "$pkgdir/opt"
+  cp -a Trackhound "$pkgdir/opt/trackhound"
+  install -d "$pkgdir/usr/bin"
+  ln -s /opt/trackhound/Trackhound-cli "$pkgdir/usr/bin/trackhound"
+  ln -s /opt/trackhound/Trackhound "$pkgdir/usr/bin/trackhound-window"
+  install -Dm644 trackhound.png "$pkgdir/usr/share/pixmaps/trackhound.png"
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/trackhound.desktop" <<END
+[Desktop Entry]
+Type=Application
+Name=Trackhound
+Comment=Music downloader, library and player
+Exec=/opt/trackhound/Trackhound
+Icon=trackhound
+Categories=AudioVideo;Audio;Player;Network;
+Terminal=false
+END
+}

@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "description": "Downloads albums, playlists and tracks from Spotify, Apple Music, Deezer, YouTube, SoundCloud and Bandcamp links, or by name, with tags, covers and lyrics; also a library and player for the whole collection",
+    "homepage": "https://github.com/mojave333/trackhound",
+    "license": "GPL-2.0-or-later",
+    "notes": "The program updates itself only when installed from its own installer; here, run: scoop update trackhound",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/mojave333/trackhound/releases/download/v2.0.0/Trackhound-v2.0.0-windows-x64.zip",
+            "hash": "9281f81fb3e2ac200dda8003031d35a58ab28abb68ec27dea9ef813bf5155d20"
+        }
+    },
+    "bin": [
+        [
+            "Trackhound-cli.exe",
+            "trackhound"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "Trackhound.exe",
+            "Trackhound"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/mojave333/trackhound"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/mojave333/trackhound/releases/download/v$version/Trackhound-v$version-windows-x64.zip"
+            }
+        }
+    }
+}
