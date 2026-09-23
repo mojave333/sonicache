@@ -909,6 +909,10 @@ function showView(name) {
   $("#player-lyrics")?.setAttribute("aria-pressed", String(name === "now"));
   // Now playing covers the whole window; any way out of it gives the window back
   document.documentElement.classList.toggle("now-mode", name === "now");
+  // An open album takes the whole window only while the library is on screen:
+  // "Fetch what is missing" on its page, a shortcut or the rail itself lead
+  // elsewhere with the page still open behind, and the rail has to come back
+  document.documentElement.classList.toggle("album-full", albumFillsWindow());
   if (name !== "now" && player.fullscreen) toggleFullscreen();
   if (name === "settings") requestAnimationFrame(spySettings); // the cards have no places until the view shows
   if (name === "search") {
@@ -2512,6 +2516,11 @@ function fadeBand(page) {
   page.classList.add("tinting");
   clearTimeout(page.tintTimer);
   page.tintTimer = setTimeout(() => page.classList.remove("tinting"), 600);
+}
+
+function albumFillsWindow() {
+  const pages = state.library.pages;
+  return state.view === "library" && pages[pages.length - 1]?.kind === "album" && !$("#library-page").hidden;
 }
 
 function showPage(kind) {
@@ -4515,7 +4524,7 @@ function formatSize(bytes) {
   if (megabytes < 1) return t("{value} КБ", { value: Math.max(1, Math.round(bytes / 1024)) });
   if (megabytes < 1024) return t("{value} МБ", { value: Math.round(megabytes) });
   return t("{value} ГБ",
-    { value: (megabytes / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 }) });
+    { value: (megabytes / 1024).toLocaleString(LANGUAGE, { maximumFractionDigits: 1 }) }); // 13.2 in English, 13,2 in Russian
 }
 
 function prettyLink(link) {

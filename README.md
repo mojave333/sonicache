@@ -16,9 +16,9 @@ SoundCloud, Last.fm and sites such as Bandcamp.
 
 ### [⬇ Download for Windows, macOS or Linux](https://github.com/mojave333/trackhound/releases/latest)
 
-<img src="docs/demo.gif" width="880" alt="An album name is typed in, the tracks download, and the finished album appears in the library">
+<img src="docs/demo.gif" width="880" alt="The name ear - Rumspringa is typed into the download field, and the album's ten tracks download one after another">
 
-<sub>A real run: a name typed instead of a link, ten tracks downloaded, the album on disk in the library, and the settings. Only the waiting is sped up.</sub>
+<sub>An album typed in by name instead of a link, its ten tracks downloaded one at a time. The waiting is sped up.</sub>
 
 </div>
 
@@ -45,6 +45,10 @@ downloading, after which the files get their tags and cover art.
 - A folder, a format and the naming rules can be saved as a profile and switched with one click.
 - The program updates itself: it fetches the next installer, checks its hash against GitHub
   and runs it.
+- The library shows the whole music collection, not only what the program downloaded, and
+  plays it: an album, the Tracks tab, or everything shuffled, with synced lyrics on screen.
+- Search looks through Deezer's catalogue and marks the albums you already have.
+- "Fill in tags" gives albums from elsewhere the genre, cover and lyrics they lack.
 - The window and the terminal version are the same program.
 - The interface is in Russian and English.
 
@@ -158,6 +162,8 @@ once; the first estimates are rough and settle after a track or two.
 
 ### Search
 
+<img src="docs/search.webp" width="880" alt="A search for Sonic Youth: their artist cards, and albums with a lime In the library mark on the ones already in the collection">
+
 For when there is no link at hand. Type an artist, an album or a track, and the catalogue
 answers as the typing pauses: artists with their photos, albums as a grid of covers, and
 tracks as a list with their album and length. The results come from Deezer, which needs no
@@ -187,6 +193,8 @@ links are followed to the artist of the same name on Deezer.
 
 ### Library
 
+<img src="docs/library.webp" width="880" alt="The library: a grid of album covers with the genre, sort and order pickers above it">
+
 The library shows what is already in the music folder, and in any other folders added under
 Settings → Library, so a collection kept elsewhere shows up too without being moved. A
 folder with music in it counts as an album, named after its files' own tags; where they say
@@ -210,10 +218,9 @@ folders.
 
 A click on a cover opens the album's page, where the cover grows into a large one beside the
 title, the year, the size and the tracks, read from the files' own tags. The page
-fills the window: the side panel and the library's bars step aside, the rounded cover stands
-on a panel washed in its own colours — a blur of the picture itself under pools of its main
-colour, as Now playing has them — and only the tracklist scrolls, under the title and the
-buttons, which stay in place. A narrow window stacks the cover over the tracks. The top of
+fills the window: the side panel and the library's bars step aside, and the rounded cover
+stands on a panel washed in its own colours, a blur of the picture under pools of its main
+colour, as in Now playing. Only the tracklist scrolls; the title and the buttons stay in place. A narrow window stacks the cover over the tracks. The top of
 the page takes the cover's main colour, a pastel in the light theme and a deep shade in the
 dark one. For an
 album this program downloaded, the tracks that never arrived are listed too, greyed out,
@@ -244,8 +251,8 @@ the queue. A bar at the bottom of the window then shows the track, with shuffle,
 pause, next and repeat (the whole queue, or one track), a position to drag, and the volume,
 in the filled icons Harmonoid uses (Material Icons). Shuffled, each artist's tracks are
 spread evenly through the queue, so a band with many albums does not come back every few
-songs; the shuffle button above the library plays all of it, or the genre picked, that way. While a track plays, the next one is
-already loaded, so the next starts at once rather than after a wait for it. The keyboard's
+songs. The shuffle button above the library plays all of it, or the genre picked, that way.
+While a track plays, the next one is already loaded, so it starts without a pause. The keyboard's
 media keys, Windows' own media controls and the previous, pause and next buttons under the
 window's picture on the taskbar work too. The file is streamed from the program itself, so
 nothing is copied.
@@ -261,6 +268,10 @@ Files with ReplayGain tags play at one level, whoever wrote them: this program, 
 or a ripper, in mp3, m4a, FLAC, Ogg or Opus. An album played in its order takes the album's
 gain, so a quiet interlude stays quiet; shuffled, or from the Tracks tab, each track takes
 its own. The player only turns tracks down to the reference level, never up past the file.
+
+<img src="docs/now-playing.webp" width="880" alt="Now playing: the cover of Sweet Trip's Milk on the left, the words of the song blurred on the right, and the player's controls in a dock at the bottom">
+
+<sub>The words are blurred in this picture only: they belong to the song.</sub>
 
 The cover or the lines button in the bar opens Now playing, which fills the window: the
 cover large on the left with the title, the artist, the album and year, and small labels for
@@ -388,8 +399,8 @@ that every component is in place. They also show the version of yt-dlp inside th
 the path to the log and a "Copy the report" button. The report holds the version, the
 component paths, the settings and the end of the log, which is what a bug report needs.
 
-The program asks GitHub about new versions once per run, and a line appears in the settings
-when one is published. "Update the program" fetches that release's installer, checks it
+The program asks GitHub about new versions once per run, and when one is published it is
+announced at the top of the settings, above everything else. "Update the program" fetches that release's installer, checks it
 against the SHA-256 GitHub publishes beside it, closes, and lets the installer replace the
 files and open the new version. Nothing is downloaded until the button is pressed, and
 nothing is run if the hash disagrees. The installer waits for the program to exit before it
