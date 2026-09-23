@@ -69,6 +69,17 @@ def _deezer_search(query: str) -> dict:
     }
 
 
+def album_cover(artist: str, album: str) -> str:
+    """The address of an album's cover on Deezer, found by its artist and
+    title: the one named exactly so, else the first found; empty for none."""
+    query = f'artist:"{artist}" album:"{album}"' if artist else album
+    items = _deezer("search/album", q=query, limit=5)
+    wanted = album.casefold().strip()
+    item = next((item for item in items if str(item.get("title") or "").casefold().strip() == wanted),
+                items[0] if items else {})
+    return item.get("cover_big") or item.get("cover_medium") or ""
+
+
 def _deezer(path: str, **params) -> list[dict]:
     """The items of one answer."""
     return [item for item in _deezer_object(path, **params).get("data") or [] if isinstance(item, dict)]

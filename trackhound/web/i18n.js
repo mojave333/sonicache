@@ -235,7 +235,10 @@ const TRANSLATIONS = {
   "Папка для музыки и то, как в ней называются альбомы и треки": "The music folder, and how albums and tracks are named in it",
   "Скорость и то, как программа выбирает запись": "Speed, and how the program picks a recording",
   "Что дописывается к каждому скачанному треку": "What every downloaded track gets besides its sound",
-  "Где ещё лежит ваша музыка": "Where else your music is",
+  "Где ещё лежит ваша музыка и кому видно, что играет": "Where else your music is, and who sees what plays",
+  "Показывать в Discord, что играет": "Show on Discord what plays",
+  "В профиле появится «Слушает» с названием трека, исполнителем и обложкой альбома. На паузе статус пропадает. Нужен запущенный Discord на этом компьютере":
+    "Your profile shows \"Listening to\" with the track, the artist and the album's cover. It goes away while paused. Discord must be running on this computer",
   "Новые треки приходят сами, без вашего участия": "New tracks arrive by themselves",
   "Папка, формат и имена под одним названием, на один щелчок": "A folder, a format and names under one name, a click away",
   "Если сервисы открываются плохо или не открываются совсем": "When the services open slowly or not at all",

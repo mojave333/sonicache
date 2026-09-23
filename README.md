@@ -260,6 +260,12 @@ nothing is copied.
 The volume, the shuffle and the repeat are kept in the settings file, so a new window
 starts where the last one left off.
 
+With "Show on Discord what plays" turned on (Settings → Library), your Discord profile says
+"Listening to" the track, with its artist, the album's cover and a bar that moves with it,
+and says nothing while the player is paused. The program talks to the Discord app running on
+the same computer, as games do, so no account or token is involved. Discord shows only
+pictures from the web, so the cover is the album's on Deezer, found by its artist and title.
+
 Keys: Space pauses in Now playing, ← and → move 5 seconds, ↑ and ↓ set the volume, M
 mutes, L opens the words and F makes Now playing full screen. Outside Now playing the arrows
 belong to the player while no list or card has the focus.
@@ -777,6 +783,7 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/gui.py` | the window (pywebview) and the bridge to the downloader |
 | `trackhound/tray.py` | the icon by the clock and the notifications (Win32 through ctypes) |
 | `trackhound/thumbbar.py` | the player's buttons under the window's picture on the taskbar (Win32 through ctypes) |
+| `trackhound/presence.py` | what plays, on the Discord profile (Discord's local Rich Presence pipe) |
 | `trackhound/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
 | `trackhound/web/art/`, `trackhound/web/fonts/` | the drawing on the empty screen and the Commissioner font |
 | `trackhound/cli.py`, `main.py` | the command line and the entry point |

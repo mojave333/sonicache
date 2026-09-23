@@ -276,6 +276,7 @@ function renderSettings() {
   syncSwitch($("#lyrics"), settings.lyrics);
   syncSwitch($("#tray"), settings.tray);
   syncSwitch($("#notify"), settings.notify);
+  syncSwitch($("#discord"), settings.discord);
   $("#tray-setting").hidden = !state.traySupported; // the notification area is Windows' own
   syncRadios($("#language"), "data-language", settings.language);
   syncRadios($("#formats"), "data-format", settings.format);
@@ -716,6 +717,7 @@ function bindUi() {
   bindSwitch($("#lyrics"), (on) => updateSettings({ lyrics: on }));
   bindSwitch($("#tray"), (on) => updateSettings({ tray: on }));
   bindSwitch($("#notify"), (on) => updateSettings({ notify: on }));
+  bindSwitch($("#discord"), (on) => updateSettings({ discord: on }));
   bindSettingsNav();
   radioGroup($("#formats"), "data-format", (format) => updateSettings({ format }));
   darkMedia.addEventListener("change", applyTheme);
@@ -3586,6 +3588,7 @@ const player = {
   shuffle: false,
   repeat: "off", // "all" goes round the queue, "one" plays the track again
   taskbar: "",
+  presence: "", // what Discord was last told
 };
 const REPEATS = ["off", "all", "one"];
 // How far the arrow keys move: seconds through the track, and the volume
@@ -3621,6 +3624,8 @@ function bindPlayer() {
     const own = (handler) => (event) => { if (event.target === player.audio) handler(event); };
     element.addEventListener("timeupdate", own(renderPlayerTime));
     element.addEventListener("durationchange", own(renderPlayerTime));
+    element.addEventListener("durationchange", own(() => syncPresence()));
+    element.addEventListener("seeked", own(() => syncPresence(true)));
     element.addEventListener("play", own(renderPlayerButton));
     element.addEventListener("pause", own(renderPlayerButton));
     element.addEventListener("playing", own(() => { player.failures = 0; }));
@@ -4054,6 +4059,7 @@ function renderPlayerButton() {
   button.setAttribute("aria-label", button.title);
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
   syncTaskbar();
+  syncPresence();
 }
 
 function renderPlayerTime() {
@@ -4085,6 +4091,21 @@ function syncTaskbar() {
   if (key === player.taskbar) return;
   player.taskbar = key;
   Promise.resolve().then(() => api().player_buttons(buttons)).catch(() => {});
+}
+
+// The Discord profile shows the track while it plays, with a bar Discord moves
+// by itself: it is told again when the track, the pause or the place changes
+function syncPresence(moved = false) {
+  const { info, audio } = player;
+  const length = audio.duration || info?.duration || 0;
+  const track = info && !audio.paused
+    ? { title: info.title, artists: info.artists || info.album_artist || "", album: info.album || "",
+        album_artist: info.album_artist || "", duration: length, position: audio.currentTime || 0 }
+    : null;
+  const key = track ? `${info.path}|${Math.round(length)}` : "";
+  if (key === player.presence && !(moved && track)) return;
+  player.presence = key;
+  Promise.resolve().then(() => api().now_playing(track)).catch(() => {});
 }
 
 // A click on one of those buttons, passed on by the program

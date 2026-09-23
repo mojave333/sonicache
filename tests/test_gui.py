@@ -41,6 +41,7 @@ class TestNormalize:
             "volume": 0.8,
             "shuffle": False,
             "repeat": "off",
+            "discord": False,
         }
 
     @pytest.mark.parametrize("given, expected", [(0, 1), (1, 1), (4, 4), (8, 8), (99, 8), ("5", 5)])

@@ -65,6 +65,18 @@ def test_deezer_answers_every_kind_with_pictures_and_links(deezer):
     assert {params["q"] for _, params in deezer[1]} == {"radiohead"}
 
 
+def test_an_albums_cover_is_the_one_named_exactly_so(deezer):
+    answers, asked = deezer
+    answers["search/album"] = {"data": [
+        {"title": "OK Computer OKNOTOK 1997 2017", "cover_big": "https://cdn.test/500-reissue.jpg"},
+        {"title": "OK Computer", "cover_big": "https://cdn.test/500-a.jpg"}]}
+    assert catalog.album_cover("Radiohead", "OK Computer") == "https://cdn.test/500-a.jpg"
+    assert asked[-1] == ("search/album", {"q": 'artist:"Radiohead" album:"OK Computer"', "limit": "5"})
+    assert catalog.album_cover("Radiohead", "Kid A") == "https://cdn.test/500-reissue.jpg"  # else the first found
+    answers["search/album"] = {"data": []}
+    assert catalog.album_cover("Radiohead", "Unknown") == ""
+
+
 def test_youtube_music_answers_where_deezer_does_not(deezer, monkeypatch):
     deezer[0]["search/track"] = urllib.error.URLError("blocked")
     monkeypatch.setattr(catalog, "ytmusic", FakeYouTube)

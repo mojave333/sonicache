@@ -563,7 +563,7 @@
               <section class="settings-card" id="set-library" aria-labelledby="set-library-title">
                 <div class="card-head">
                   <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-library"/></svg></span>
-                  <div><h2 id="set-library-title">Библиотека</h2><p>Где ещё лежит ваша музыка</p></div>
+                  <div><h2 id="set-library-title">Библиотека</h2><p>Где ещё лежит ваша музыка и кому видно, что играет</p></div>
                 </div>
                 <div class="setting-group" id="library-folders-group">
                   <div class="setting" id="library-folders-head">
@@ -574,6 +574,15 @@
                     <button type="button" id="library-folder-add" class="tool-btn">
                       <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Добавить папку…</span>
                     </button>
+                  </div>
+                </div>
+                <div class="setting-group">
+                  <div class="setting toggle">
+                    <div class="setting-label">
+                      <p id="discord-label">Показывать в Discord, что играет</p>
+                      <p class="setting-desc">В профиле появится «Слушает» с названием трека, исполнителем и обложкой альбома. На паузе статус пропадает. Нужен запущенный Discord на этом компьютере</p>
+                    </div>
+                    <button type="button" id="discord" class="switch" role="switch" aria-checked="false" aria-labelledby="discord-label"></button>
                   </div>
                 </div>
               </section>

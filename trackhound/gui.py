@@ -34,7 +34,7 @@ from mutagen.id3 import Frames
 from mutagen.mp3 import MP3
 from mutagen.flac import Picture
 
-from . import __version__, logs, relay_for, thumbbar, tray, watch
+from . import __version__, logs, presence, relay_for, thumbbar, tray, watch
 from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch, catalog, folders, loudness, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
@@ -120,6 +120,9 @@ class Api:
         self._tidying: threading.Event | None = None  # set to stop the tidy-up that runs
         self._tray: tray.Tray | None = None
         self._thumbbar: thumbbar.ThumbBar | None = None  # the player's buttons under the taskbar picture
+        self._presence = presence.Presence(catalog.album_cover)  # what plays, on the Discord profile
+        self._discord = False  # whether the person wants it shown there
+        self._now: dict | None = None  # what plays, as the player last said
         self._hidden = False  # in the tray, the window closed
         self._focused = True  # the window is the one being used; said by the page
         self._quitting = False  # the window closes for good, not into the tray
@@ -136,6 +139,7 @@ class Api:
             if entry.get("state") in ("queued", "running"):
                 entry["state"] = "cancelled"
         settings = _load_settings()
+        self._discord = settings["discord"]
         with self._lock:
             if self._watcher is None:
                 self._watcher = threading.Thread(target=self._watch_loop, daemon=True)
@@ -169,6 +173,9 @@ class Api:
         set_language(settings["language"])  # errors from now on speak it
         _save_settings(settings)
         self._sync_tray(settings)
+        if settings["discord"] != self._discord:
+            self._discord = settings["discord"]
+            self._presence.show(self._now if self._discord else None)
 
     def focus(self, focused: bool) -> None:
         """The page says whether the window is the one being used."""
@@ -807,6 +814,7 @@ class Api:
             self._tray.close()
         if self._thumbbar is not None:
             self._thumbbar.close()
+        self._presence.close()
         threading.Timer(3.0, _exit_now).start()
         try:
             if self._window is not None:
@@ -925,6 +933,21 @@ class Api:
                 logs.log.debug("кнопки на панели задач: %s", e)
                 return
         self._thumbbar.show(buttons)
+
+    def now_playing(self, track: dict | None) -> None:
+        """What plays, for the Discord profile: the track with how far into it
+        the player is, or None while nothing plays or it is paused."""
+        if track:
+            try:
+                position = max(0.0, float(track.get("position") or 0))
+            except (TypeError, ValueError):
+                position = 0.0
+            # The moment the track started, so the bar is right however late it is shown
+            track = {**track, "start": time.time() - position}
+            track.pop("position", None)
+        self._now = track or None
+        if self._discord:
+            self._presence.show(self._now)
 
     def _thumbbar_click(self, name: str) -> None:
         if self._window is not None and name in thumbbar.BUTTONS:
@@ -1736,6 +1759,8 @@ def _normalize(settings: dict) -> dict:
         "volume": round(volume, 3),
         "shuffle": bool(settings.get("shuffle", False)),
         "repeat": settings.get("repeat") if settings.get("repeat") in REPEAT_MODES else "off",
+        # What plays, shown on the person's Discord profile
+        "discord": bool(settings.get("discord", False)),
     }
 
 
