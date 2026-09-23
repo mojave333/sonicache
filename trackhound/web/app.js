@@ -172,6 +172,7 @@ async function init() {
   bindUi();
   restoreHistory(data.history || []);
   showView("download");
+  restorePlayer();
   renderChrome();
   setInterval(renderStatus, 1000);
   pollLoop();
@@ -3697,7 +3698,10 @@ function bindPlayer() {
     element.addEventListener("timeupdate", own(() => {
       countListen();
       watchHandover();
+      if (Date.now() - session.saved > 5000) rememberSession(); // the place, every few seconds
     }));
+    element.addEventListener("pause", own(() => rememberSession()));
+    element.addEventListener("seeked", own(() => rememberSession()));
     element.addEventListener("seeking", own(cancelHandover));
     element.addEventListener("pause", own(cancelHandover));
     element.addEventListener("play", own(renderPlayerButton));
@@ -3841,7 +3845,50 @@ function playQueue(paths, index, source, artists = new Map()) {
   const start = Math.min(Math.max(0, index), paths.length - 1);
   Object.assign(player, { source, artists, failures: 0, unshuffled: null, queue: paths, index: start });
   if (player.shuffle) shuffleQueue();
+  session.queueChanged = true;
   loadTrack();
+}
+
+// The player as it was left: the queue, the track and the place in it are
+// kept between runs, and the next start opens with that track, paused
+const session = { timer: 0, queueChanged: false, saved: 0 };
+
+function rememberSession(queueChanged = false) {
+  if (queueChanged) session.queueChanged = true;
+  clearTimeout(session.timer);
+  session.timer = setTimeout(saveSession, 800);
+}
+
+function saveSession() {
+  session.saved = Date.now();
+  if (!player.info || !player.queue.length) {
+    Promise.resolve().then(() => api().save_player(null)).catch(() => {});
+    return;
+  }
+  const data = { index: player.index, path: player.queue[player.index], position: player.audio.currentTime || 0 };
+  if (session.queueChanged) {
+    session.queueChanged = false;
+    Object.assign(data, { queue: player.queue.map(trackMeta), unshuffled: player.unshuffled, source: player.source });
+  }
+  Promise.resolve().then(() => api().save_player(data)).catch(() => {});
+}
+
+async function restorePlayer() {
+  let saved = null;
+  try {
+    saved = await api().player_session();
+  } catch (error) {
+    console.error(error);
+  }
+  if (!saved || player.info) return; // something started meanwhile
+  rememberTracks(saved.queue);
+  const paths = saved.queue.map((track) => track.path);
+  Object.assign(player, {
+    queue: paths, index: saved.index, source: saved.source, failures: 0,
+    unshuffled: saved.unshuffled?.length ? saved.unshuffled : null,
+    artists: new Map(saved.queue.map((track) => [track.path, track.album_artist || track.artists || ""])),
+  });
+  loadTrack({ paused: true, at: saved.position });
 }
 
 // The whole library, or the genre it is narrowed to, shuffled from a random track
@@ -3861,7 +3908,7 @@ function trackArtists(tracks) {
   return new Map(tracks.map((track) => [track.path, track.album_artist || track.artists || ""]));
 }
 
-async function loadTrack({ fade = 0, outgoing = null } = {}) {
+async function loadTrack({ fade = 0, outgoing = null, paused = false, at = 0 } = {}) {
   cancelHandover();
   const token = ++player.token;
   const path = player.queue[player.index];
@@ -3882,6 +3929,11 @@ async function loadTrack({ fade = 0, outgoing = null } = {}) {
       return;
     }
     player.audio.src = info.url;
+    if (at > 0) {
+      const element = player.audio;
+      element.addEventListener("loadedmetadata", () => { element.currentTime = Math.min(at, (element.duration || at) - 1); },
+                               { once: true });
+    }
   }
   if (outgoing && outgoing === player.spare) releaseOutgoing(outgoing, fade);
   else clearSpare();
@@ -3889,8 +3941,14 @@ async function loadTrack({ fade = 0, outgoing = null } = {}) {
   player.info = info;
   resetListen();
   applyVolume(fade);
-  wakeSound();
-  player.audio.play().catch(() => renderPlayerButton());
+  if (paused) {
+    player.listen.at = at;
+    renderPlayerButton();
+  } else {
+    wakeSound();
+    player.audio.play().catch(() => renderPlayerButton());
+  }
+  rememberSession();
   renderPlayer();
   loadLyrics(path, token);
   if ("mediaSession" in navigator) {
@@ -3951,6 +4009,7 @@ function stepTrack(step, automatic = false) {
       && player.queue.length > 2) {
     const last = player.queue[player.index];
     player.queue = spreadShuffle(player.queue);
+    session.queueChanged = true;
     if (player.queue[0] === last) player.queue.push(player.queue.shift());
     player.index = 0;
     loadTrack();
@@ -4001,6 +4060,7 @@ function togglePlay() {
 // Shuffled, the track that plays stays first and the rest follow in any
 // order; back in order, the queue is the album or the list as it was
 function toggleShuffle() {
+  session.queueChanged = true;
   player.shuffle = !player.shuffle;
   rememberPlayer({ shuffle: player.shuffle });
   if (player.queue.length) {
@@ -4127,6 +4187,8 @@ function applyVolume(fadeIn = 0) {
 
 function stopPlayer() {
   cancelHandover();
+  clearTimeout(session.timer);
+  Promise.resolve().then(() => api().save_player(null)).catch(() => {}); // closed on purpose: nothing to come back to
   player.token += 1;
   player.audio.pause();
   player.audio.removeAttribute("src");
@@ -4653,6 +4715,7 @@ function enqueue(tracks, next = false) {
 // After any change to the queue the next track is loaded again, unless the
 // last one is still fading out of the spare element (it loads when it is done)
 function queueChanged() {
+  session.queueChanged = true;
   cancelHandover();
   if (!player.fading) {
     clearSpare();

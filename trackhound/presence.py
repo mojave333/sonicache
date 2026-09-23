@@ -39,7 +39,7 @@ LOGO = "https://raw.githubusercontent.com/mojave333/trackhound/main/docs/logo.pn
 
 _HANDSHAKE, _FRAME, _CLOSE, _PING, _PONG = 0, 1, 2, 3, 4
 _LISTENING = 2  # the activity's type: "Listening to", as music players have it
-_SHOW_DETAILS = 2  # the status line in the member list names the track, not the program
+_SHOW_STATE = 1  # the status line in the member list names the artist, not the program or the track
 _GAP = 2.0  # seconds between two updates
 _RETRY = 15.0  # seconds before looking for Discord again
 _LIMIT = 128  # Discord's longest text
@@ -128,7 +128,7 @@ def activity(track: dict, cover: str = "") -> dict:
     title = _text(track.get("title")) or "Trackhound"
     shown = {
         "type": _LISTENING,
-        "status_display_type": _SHOW_DETAILS,
+        "status_display_type": _SHOW_STATE,
         "details": title,
         "assets": {"large_image": cover or LOGO},
         "buttons": [{"label": "Trackhound", "url": HOMEPAGE}],

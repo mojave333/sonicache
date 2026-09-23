@@ -85,6 +85,7 @@ _ALBUM_UNDER_ARTIST = re.compile(r"^(?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 LIBRARY_VIEWS = ("grid", "list")
 # What the player's repeat button steps through: the queue, one track, neither
 REPEAT_MODES = ("off", "all", "one")
+PLAYER_QUEUE_FILE, PLAYER_PLACE_FILE = "player-queue.json", "player-place.json"
 CROSSFADE_MAX = 12
 EQ_BANDS, EQ_LIMIT = 10, 12  # 31 Hz to 16 kHz an octave apart, each up or down 12 dB
 ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the history
@@ -984,6 +985,48 @@ class Api:
         listen = playlists.record(track)
         if listen is not None:
             self._scrobbler.scrobble(listen)
+
+    # The player as it was left, for the next run: the queue in one file,
+    # rewritten when the queue changes, and the track and the place in it in
+    # another, small one, written every few seconds while it plays
+
+    def save_player(self, session: dict | None) -> None:
+        folder = logs.data_dir()
+        if not session:
+            for name in (PLAYER_QUEUE_FILE, PLAYER_PLACE_FILE):
+                try:
+                    (folder / name).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            return
+        if isinstance(session.get("queue"), list):
+            queue = [entry for entry in map(playlists.track, session["queue"][:playlists.TRACKS_LIMIT]) if entry]
+            unshuffled = session.get("unshuffled")
+            _write_json(folder / PLAYER_QUEUE_FILE, {
+                "queue": queue, "source": str(session.get("source") or "queue"),
+                "unshuffled": [str(path) for path in unshuffled] if isinstance(unshuffled, list) else None})
+        try:
+            position = max(0.0, float(session.get("position") or 0))
+        except (TypeError, ValueError):
+            position = 0.0
+        _write_json(folder / PLAYER_PLACE_FILE, {"index": int(session.get("index") or 0),
+                                                 "path": str(session.get("path") or ""), "position": round(position, 1)})
+
+    def player_session(self) -> dict | None:
+        """What the player held when the program was last closed, or None:
+        the queue must still hold the track it was on, and its file be there."""
+        folder = logs.data_dir()
+        saved, place = _read_json(folder / PLAYER_QUEUE_FILE), _read_json(folder / PLAYER_PLACE_FILE)
+        queue = [entry for entry in map(playlists.track, saved.get("queue") or []) if entry]
+        index = place.get("index") if isinstance(place.get("index"), int) else -1
+        if not (0 <= index < len(queue)) or queue[index]["path"] != place.get("path"):
+            return None
+        if not Path(queue[index]["path"]).is_file():
+            return None
+        unshuffled = saved.get("unshuffled")
+        return {"queue": queue, "index": index, "position": float(place.get("position") or 0),
+                "source": str(saved.get("source") or "queue"),
+                "unshuffled": unshuffled if isinstance(unshuffled, list) else None}
 
     def play_counts(self) -> dict[str, int]:
         return playlists.counts()

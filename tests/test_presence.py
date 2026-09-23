@@ -18,6 +18,7 @@ class TestActivity:
     def test_a_track_is_listened_to_with_its_cover_and_bar(self):
         shown = presence.activity(TRACK, "https://covers.test/daydream.jpg")
         assert (shown["type"], shown["details"], shown["state"]) == (2, "Teen Age Riot", "Sonic Youth")
+        assert shown["status_display_type"] == 1  # "Listening to Sonic Youth" under the name
         assert shown["assets"] == {"large_image": "https://covers.test/daydream.jpg", "large_text": "Daydream Nation"}
         assert shown["timestamps"] == {"start": 1_000_000, "end": 1_417_000}
         assert shown["buttons"] == [{"label": "Trackhound", "url": presence.HOMEPAGE}]

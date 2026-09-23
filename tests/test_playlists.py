@@ -115,3 +115,36 @@ class TestPlayerSettings:
         assert gui._normalize({})["gapless"] is True
         assert gui._normalize({"gapless": False})["gapless"] is False
 
+
+
+class TestPlayerSession:
+    def test_the_queue_and_the_place_come_back(self, tmp_path):
+        files = [tmp_path / f"{name}.mp3" for name in "abc"]
+        for file in files:
+            file.write_bytes(b"")
+        api = gui.Api()
+        queue = [song(file, file.stem) for file in files]
+        api.save_player({"queue": queue, "unshuffled": None, "source": "album", "index": 1,
+                         "path": str(files[1]), "position": 83.46})
+        # A later save of the place alone keeps the queue
+        api.save_player({"index": 2, "path": str(files[2]), "position": 12})
+        saved = gui.Api().player_session()
+        assert [track["title"] for track in saved["queue"]] == ["a", "b", "c"]
+        assert (saved["index"], saved["position"], saved["source"]) == (2, 12.0, "album")
+
+    def test_a_track_gone_or_a_queue_that_changed_is_not_brought_back(self, tmp_path):
+        there = tmp_path / "there.mp3"
+        there.write_bytes(b"")
+        api = gui.Api()
+        api.save_player({"queue": [song(there, "There")], "index": 0, "path": str(tmp_path / "other.mp3")})
+        assert api.player_session() is None  # the place names another track
+        api.save_player({"queue": [song(tmp_path / "gone.mp3")], "index": 0, "path": str(tmp_path / "gone.mp3")})
+        assert api.player_session() is None  # the file is gone
+
+    def test_a_player_closed_on_purpose_leaves_nothing(self, tmp_path):
+        there = tmp_path / "there.mp3"
+        there.write_bytes(b"")
+        api = gui.Api()
+        api.save_player({"queue": [song(there)], "index": 0, "path": str(there)})
+        api.save_player(None)
+        assert api.player_session() is None

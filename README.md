@@ -283,9 +283,10 @@ where you allow it) or to ListenBrainz (paste the token from your profile's sett
 listen that could not be sent, with the network down, waits and goes with the next one.
 
 With "Show on Discord what plays" turned on (Settings → Player), your Discord profile says
-"Listening to" the track, with its artist, the album's cover and a bar that moves with it,
-and says nothing while the player is paused. The program talks to the Discord app running on
-the same computer, as games do, so no account or token is involved. Discord shows only
+"Listening to" the artist (under your name in the member list), with the track, the album's
+cover and a bar that moves with it, and says nothing while the player is paused. The program
+talks to the Discord app running on the same computer, as games do, so no account or token
+is involved. Discord shows only
 pictures from the web, so the cover is the album's on Deezer, found by its artist and title.
 
 Keys: Space pauses in Now playing, ← and → move 5 seconds, ↑ and ↓ set the volume, M
