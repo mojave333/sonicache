@@ -186,7 +186,7 @@ def srcinfo(version: str, sums: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-WINGET_SCHEMA = "1.10.0"
+WINGET_SCHEMA = "1.12.0"
 
 
 def winget(version: str, sums: dict[str, str]) -> dict[str, str]:
