@@ -14,6 +14,7 @@ link is also what a discography download and a watch for new releases start from
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 import urllib.parse
@@ -69,15 +70,81 @@ def _deezer_search(query: str) -> dict:
     }
 
 
+# What an album's title says of its edition, not of the album: "(Remastered)",
+# "[Deluxe Edition]", "- 2011 Remaster", "(Compilation)"
+_EDITION_RE = re.compile(
+    r"\s*[(\[][^)\]]*\b(?:remaster\w*|deluxe|edition|expanded|anniversary|bonus|compilation|reissue|mono|stereo|version)\b[^)\]]*[)\]]"
+    r"|\s[-–—]\s[^-–—]*\b(?:remaster\w*|deluxe|edition)\b[^-–—]*$", re.I)
+
+
 def album_cover(artist: str, album: str) -> str:
-    """The address of an album's cover on Deezer, found by its artist and
-    title: the one named exactly so, else the first found; empty for none."""
-    query = f'artist:"{artist}" album:"{album}"' if artist else album
-    items = _deezer("search/album", q=query, limit=5)
-    wanted = album.casefold().strip()
-    item = next((item for item in items if str(item.get("title") or "").casefold().strip() == wanted),
-                items[0] if items else {})
-    return item.get("cover_big") or item.get("cover_medium") or ""
+    """The address of an album's cover, found by its artist and title: on
+    Deezer, else in Apple's catalogue; empty when neither has the album.
+
+    The title must be the album's own, its edition aside, and the artist the
+    same, a slip of the pen aside ("Madvillian"): a cover of another album
+    would be worse than the program's logo. Deezer's search by fields is
+    asked first, then its plain search, which finds what the fields miss.
+    """
+    first = re.split(r",|;|&|\s+(?:feat|ft)\.?\s", artist or "")[0].strip()
+    bare = _EDITION_RE.sub("", album or "").strip() or (album or "").strip()
+    title = _plain(album)
+    if not title:
+        return ""
+    queries = [f'artist:"{first}" album:"{album}"' if first else "", f"{first} {bare}".strip(), bare]
+    for query in dict.fromkeys(filter(None, queries)):
+        try:
+            items = _deezer("search/album", q=query, limit=10)
+        except (OSError, ValueError):
+            continue
+        for item in items:
+            if _plain(item.get("title")) == title and _same_artist(first, (item.get("artist") or {}).get("name")):
+                return item.get("cover_big") or item.get("cover_medium") or ""
+    return _apple_cover(first, bare, title)
+
+
+def track_cover(artist: str, title: str) -> str:
+    """The cover of a release on Deezer that has this track by this artist:
+    for an EP or a demo no catalogue has, the album its songs came out on."""
+    first = re.split(r",|;|&|\s+(?:feat|ft)\.?\s", artist or "")[0].strip()
+    wanted = _plain(title)
+    if not wanted or not first:
+        return ""
+    try:
+        items = _deezer("search/track", q=f"{first} {_EDITION_RE.sub('', title).strip() or title}", limit=10)
+    except (OSError, ValueError):
+        return ""
+    for item in items:
+        album = item.get("album") or {}
+        if _plain(item.get("title")) == wanted and _same_artist(first, (item.get("artist") or {}).get("name")):
+            return album.get("cover_big") or album.get("cover_medium") or ""
+    return ""
+
+
+def _apple_cover(artist: str, bare: str, title: str) -> str:
+    query = urllib.parse.urlencode({"term": f"{artist} {bare}".strip(), "entity": "album", "limit": 10})
+    try:
+        results = fetch_json(f"https://itunes.apple.com/search?{query}", service="Apple Music").get("results") or []
+    except (OSError, ValueError, SourceError):
+        return ""
+    for result in results:
+        if _plain(result.get("collectionName")) == title and _same_artist(artist, result.get("artistName")):
+            return re.sub(r"/\d+x\d+bb(\.\w+)$", r"/600x600bb\1", result.get("artworkUrl100") or "")
+    return ""
+
+
+def _plain(text) -> str:
+    """A title as compared: its edition, case and punctuation aside."""
+    text = _EDITION_RE.sub("", str(text or ""))
+    return " ".join(re.sub(r"[^\w]+", " ", text.casefold()).split())
+
+
+def _same_artist(wanted: str, found) -> bool:
+    wanted, found = _plain(wanted), _plain(found)
+    if not wanted:
+        return True
+    return wanted == found or (bool(found) and (wanted in found or found in wanted)) \
+        or difflib.SequenceMatcher(None, wanted, found).ratio() >= 0.8
 
 
 def _deezer(path: str, **params) -> list[dict]:

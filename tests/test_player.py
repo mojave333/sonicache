@@ -43,11 +43,20 @@ class TestStream:
         whole = song.read_bytes()
         status, headers, body = fetch(info["url"])
         assert (status, headers["Content-Type"], headers["Accept-Ranges"], body) == (200, "audio/mpeg", "bytes", whole)
+        # The player hears it through Web Audio, which needs the server's leave
+        assert headers["Access-Control-Allow-Origin"] == "*"
         status, headers, body = fetch(info["url"], "bytes=100-199")
         assert (status, headers["Content-Range"], body) == (206, f"bytes 100-199/{len(whole)}", whole[100:200])
         status, headers, body = fetch(info["url"], "bytes=500-")
         assert body == whole[500:]
         assert fetch(info["url"], "bytes=-50")[2] == whole[-50:]
+
+    def test_a_request_with_a_range_is_let_through_when_asked_first(self, song):
+        url = gui.Api().play(str(song))["url"]
+        with urllib.request.urlopen(urllib.request.Request(url, method="OPTIONS"), timeout=10) as response:
+            assert response.status == 204
+            assert response.headers["Access-Control-Allow-Origin"] == "*"
+            assert "Range" in response.headers["Access-Control-Allow-Headers"]
 
     def test_a_range_past_the_end_is_refused(self, song):
         url = gui.Api().play(str(song))["url"]

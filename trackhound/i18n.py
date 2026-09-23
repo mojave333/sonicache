@@ -131,4 +131,12 @@ ENGLISH.update({
     "Скачано не всё: {title}": "Partly downloaded: {title}",
     "ссылок с ошибкой: {count}": "links that failed: {count}",
     "Загрузки завершены: {count}": "Downloads finished: {count}",
+    # The player's playlists and the listens sent to Last.fm and ListenBrainz
+    "ListenBrainz не принял этот токен": "ListenBrainz did not accept this token",
+    "ListenBrainz не ответил: {error}": "ListenBrainz did not answer: {error}",
+    "Last.fm не ответил: {error}": "Last.fm did not answer: {error}",
+    "Недавно играло": "Recently played",
+    "Часто слушаю": "Most played",
+    "Плейлисты (*.m3u8)": "Playlists (*.m3u8)",
+    "Плейлисты (*.m3u8;*.m3u)": "Playlists (*.m3u8;*.m3u)",
 })

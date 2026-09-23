@@ -57,11 +57,17 @@ const TRACK_SORTS = {
   album: { dir: 1, kind: "text", label: "по альбому", value: (track) => `${track.album} ${trackPlace(track)}` },
   modified: { dir: -1, kind: "date", label: "по добавлению", value: (track) => track.modified },
   duration: { dir: -1, kind: "number", label: "по длительности", value: (track) => track.duration },
+  plays: { dir: -1, kind: "number", label: "по прослушиваниям", value: (track) => state.plays.get(track.path) || 0 },
 };
 const ARTIST_SORTS = {
   name: { dir: 1, kind: "text", label: "по имени", value: (artist) => artist.name },
   count: { dir: -1, kind: "number", label: "по числу альбомов", value: (artist) => artist.albums * 1000 + artist.singles },
   modified: { dir: -1, kind: "date", label: "по добавлению", value: (artist) => artist.modified },
+};
+const PLAYLIST_SORTS = {
+  modified: { dir: -1, kind: "date", label: "по изменению", value: (entry) => entry.modified },
+  name: { dir: 1, kind: "text", label: "по названию", value: (entry) => entry.name },
+  count: { dir: -1, kind: "number", label: "по числу треков", value: (entry) => entry.count },
 };
 // What "which way" means depends on what is sorted
 const ORDER_LABELS = {
@@ -87,6 +93,7 @@ const state = {
       albums: { key: "modified", dir: -1 },
       tracks: { key: "modified", dir: -1 },
       artists: { key: "name", dir: 1 },
+      playlists: { key: "modified", dir: -1 },
     },
     scroll: {}, // where each tab was left
     shown: [], // paths in the order drawn, so Shift-click knows what a range covers
@@ -101,6 +108,11 @@ const state = {
   search: { query: "", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null, pages: [] },
   covers: new Map(),
   artistPhotos: new Map(),
+  plays: new Map(), // path → how many times it was listened to
+  playlists: { items: [], stale: true, loading: false, token: 0 }, // the cards of the Playlists tab
+  scrobble: null, // the Last.fm and ListenBrainz accounts, as the settings show them
+  trackMenu: null, // the tracks the track menu was opened for
+  lastfmWaiting: false,
   tints: new Map(), // picture address → the hue its band is drawn in
   update: null, // { version, url } once a newer release is published
   diagnostics: null, // log path and yt-dlp version, read once at startup
@@ -277,6 +289,7 @@ function renderSettings() {
   syncSwitch($("#tray"), settings.tray);
   syncSwitch($("#notify"), settings.notify);
   syncSwitch($("#discord"), settings.discord);
+  renderPlayerSettings();
   $("#tray-setting").hidden = !state.traySupported; // the notification area is Windows' own
   syncRadios($("#language"), "data-language", settings.language);
   syncRadios($("#formats"), "data-format", settings.format);
@@ -846,6 +859,14 @@ function bindUi() {
 }
 
 function onShortcut(event) {
+  const floating = ["#track-menu", "#playlist-menu", "#eq-panel", "#queue-panel"].map((id) => $(id)).find((element) => !element.hidden);
+  if (event.key === "Escape" && floating) {
+    event.preventDefault();
+    if (floating.id === "eq-panel") toggleEqualizer(false);
+    else if (floating.id === "queue-panel") toggleQueue(false);
+    else closeMenu(floating);
+    return;
+  }
   if (event.key === "Escape" && !$("#mode-menu").hidden) {
     setMenuOpen(false);
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && /^[1-4]$/.test(event.key)) {
@@ -916,7 +937,10 @@ function showView(name) {
   // elsewhere with the page still open behind, and the rail has to come back
   document.documentElement.classList.toggle("album-full", albumFillsWindow());
   if (name !== "now" && player.fullscreen) toggleFullscreen();
-  if (name === "settings") requestAnimationFrame(spySettings); // the cards have no places until the view shows
+  if (name === "settings") {
+    requestAnimationFrame(spySettings); // the cards have no places until the view shows
+    loadScrobbleAccounts();
+  }
   if (name === "search") {
     renderSearch();
     $("#search-input").focus();
@@ -1974,7 +1998,7 @@ const EMPHASIZED = "cubic-bezier(0.2, 0, 0, 1)";
 const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function librarySorts(tab = state.library.tab) {
-  return { albums: LIBRARY_SORTS, tracks: TRACK_SORTS, artists: ARTIST_SORTS }[tab];
+  return { albums: LIBRARY_SORTS, tracks: TRACK_SORTS, artists: ARTIST_SORTS, playlists: PLAYLIST_SORTS }[tab];
 }
 
 function currentSort(tab = state.library.tab) {
@@ -2008,6 +2032,10 @@ function libraryNote() {
 function librarySummary() {
   const { items, tab } = state.library;
   if (!items.length) return "";
+  if (tab === "playlists") {
+    const count = state.playlists.items.filter((entry) => !entry.smart).length;
+    return count ? t("{count} {playlistWord}", { count, playlistWord: plural(count, "плейлист", "плейлиста", "плейлистов") }) : "";
+  }
   if (tab === "artists") {
     const count = libraryArtists().length;
     return t("{count} {artistWord}", { count, artistWord: plural(count, "исполнитель", "исполнителя", "исполнителей") });
@@ -2104,7 +2132,9 @@ async function loadTracks() {
   renderLibrary();
   let items;
   try {
-    items = await api().tracks(folders);
+    const [tracks, counts] = await Promise.all([api().tracks(folders), api().play_counts().catch(() => ({}))]);
+    items = tracks;
+    state.plays = new Map(Object.entries(counts || {}));
   } catch (error) {
     console.error(error);
     items = [];
@@ -2123,12 +2153,20 @@ function renderLibrary({ enter = false } = {}) {
   $("#library-cards").hidden = !grid;
   $("#library-tracks").hidden = tab !== "tracks";
   $("#library-artists").hidden = tab !== "artists";
+  $("#library-playlists").hidden = tab !== "playlists";
+  $("#view-library").dataset.tab = tab;
+  $("#playlist-new").hidden = tab !== "playlists";
+  $("#playlist-import").hidden = tab !== "playlists";
   $("#library-view").hidden = tab !== "albums";
   syncRadios($("#library-view"), "data-library-view", library.view);
   renderSortPickers();
   renderGenrePicker();
+  if (tab === "playlists") {
+    $("#library-shuffle").hidden = true;
+    $("#library-genre").closest(".pick").hidden = true;
+  }
   const shownCount = tab === "albums" ? renderAlbums(grid, enter)
-    : tab === "tracks" ? renderTracks(enter) : renderArtists(enter);
+    : tab === "tracks" ? renderTracks(enter) : tab === "playlists" ? renderPlaylists(enter) : renderArtists(enter);
   renderSelection(); // and with it the bar above the list
 
   const empty = $("#library-empty");
@@ -2140,7 +2178,14 @@ function renderLibrary({ enter = false } = {}) {
   // The aardvark by an empty crate for an empty folder, among dug-up holes for a
   // search that turned nothing up, and nowhere while the folder is still being read
   let scene = "art/nothing-found.webp";
-  if (!library.items.length || (tab === "tracks" && !library.trackList.items.length)) {
+  if (tab === "playlists") {
+    if (!query) {
+      const reading = state.playlists.loading && !state.playlists.items.length;
+      [title, text] = reading ? [t("Читаем плейлисты…"), ""] : [t("Плейлистов пока нет"),
+        t("Создайте свой или добавьте треки правым щелчком: «Добавить в плейлист». Плейлист .m3u8 из другого плеера тоже подойдёт")];
+      scene = reading ? "" : "art/empty-library.webp";
+    }
+  } else if (!library.items.length || (tab === "tracks" && !library.trackList.items.length)) {
     [title, text] = loading ? [t("Читаем папку…"), ""] : [t("В папке пока нет музыки"), libraryFolders().join(", ")];
     scene = loading ? "" : "art/empty-library.webp";
   }
@@ -2388,6 +2433,7 @@ function showLibraryTab(tab) {
     renderLibrary({ enter: true });
     $("#library-scroll").scrollTop = library.scroll[tab] || 0;
     if (tab === "tracks") loadTracks();
+    if (tab === "playlists") loadPlaylists();
     renderStatus();
   });
 }
@@ -2522,15 +2568,15 @@ function fadeBand(page) {
 
 function albumFillsWindow() {
   const pages = state.library.pages;
-  return state.view === "library" && pages[pages.length - 1]?.kind === "album" && !$("#library-page").hidden;
+  return state.view === "library" && ["album", "playlist"].includes(pages[pages.length - 1]?.kind) && !$("#library-page").hidden;
 }
 
 function showPage(kind) {
   const page = $("#library-page");
   $("#view-library").classList.add("page-open");
-  document.documentElement.classList.toggle("album-full", kind === "album");
+  document.documentElement.classList.toggle("album-full", kind !== "artist");
   page.classList.toggle("artist-open", kind === "artist");
-  $("#album-page").hidden = kind !== "album";
+  $("#album-page").hidden = kind === "artist";
   $("#artist-page").hidden = kind !== "artist";
   page.hidden = false;
   page.scrollTop = 0;
@@ -2553,7 +2599,7 @@ function backLabel() {
   const stack = state.library.pages;
   const below = stack[stack.length - 2];
   if (below) return below.kind === "artist" ? below.artist.name : below.item.title;
-  return t({ albums: "Альбомы", tracks: "Треки", artists: "Исполнители" }[state.library.tab]);
+  return t({ albums: "Альбомы", tracks: "Треки", artists: "Исполнители", playlists: "Плейлисты" }[state.library.tab]);
 }
 
 async function openAlbum(item, source = null, highlight = "") {
@@ -2588,6 +2634,11 @@ async function openAlbum(item, source = null, highlight = "") {
 
 function fillAlbumPage(item) {
   const page = $("#album-page");
+  page.dataset.kind = "album";
+  page.playlist = null;
+  page.tracks = [];
+  $(".album-head .artists", page).textContent = t("Исполнители");
+  $("use", $(".album-cover", page)).setAttribute("href", "#i-note");
   $(".album-title", page).textContent = item.title;
   page.dataset.path = item.path;
   $(".album-sub", page).textContent = albumSubline(item);
@@ -2664,6 +2715,8 @@ function renderAlbumTracks(item, data, highlight) {
                          { count: unknown, trackWord: plural(unknown, "трек", "трека", "треков") });
     rows.push(note);
   }
+  page.tracks = data.tracks.map((track) => ({ ...track, album: track.album || item.title,
+                                               album_artist: track.album_artist || item.artist }));
   const list = $(".album-list", page);
   list.replaceChildren(...rows);
   markPlayingRows();
@@ -2737,12 +2790,12 @@ async function closePage({ instant = false } = {}) {
   const top = library.pages.pop();
   library.pageToken += 1;
   const below = library.pages[library.pages.length - 1];
-  const fly = top.kind === "album" ? $(".album-cover", $("#album-page")) : $(".artist-photo", $("#artist-page"));
-  const sourcePicture = top.source && $(top.kind === "album" ? ".cover" : ".artist-photo", top.source);
+  const fly = top.kind !== "artist" ? $(".album-cover", $("#album-page")) : $(".artist-photo", $("#artist-page"));
+  const sourcePicture = top.source && $(top.kind !== "artist" ? ".cover" : ".artist-photo", top.source);
   // An artist's photo flies back to its card, so the rail has to be back
   // before it goes. An album's page fades out whole and gives the window back
   // afterwards (finishClose), so the layout is not rebuilt mid-animation.
-  const flies = top.kind !== "album";
+  const flies = top.kind === "artist";
   if (flies || below) document.documentElement.classList.remove("album-full");
   if (below) {
     // From an album back to the artist whose page it was opened from
@@ -3057,6 +3110,11 @@ function onLibraryMenuClick(event) {
   else if (action === "open" && items.length === 1) api().open_folder(items[0].path);
   else if (action === "tidy") tidyLibrary(items.filter(hasGaps));
   else if (action === "delete") deleteSelected();
+  else if (action === "next" || action === "queue") itemsTracks(items).then((tracks) => enqueue(tracks, action === "next"));
+  else if (action === "playlist") {
+    const { clientX: x, clientY: y } = event;
+    itemsTracks(items).then((tracks) => openPlaylistMenu(x, y, tracks));
+  }
 }
 
 function clearSelection() {
@@ -3105,6 +3163,10 @@ async function downloadAgain(items) {
 async function onPageAction(event) {
   const action = event.target.closest("[data-page-action]")?.dataset.pageAction;
   const top = state.library.pages[state.library.pages.length - 1];
+  if (action && top?.kind === "playlist") {
+    onPlaylistAction(action);
+    return;
+  }
   if (!action || !top || top.kind !== "album") return;
   const { item } = top;
   if (action === "open") api().open_folder(item.path);
@@ -3589,6 +3651,11 @@ const player = {
   repeat: "off", // "all" goes round the queue, "one" plays the track again
   taskbar: "",
   presence: "", // what Discord was last told
+  meta: new Map(), // path → title, artists and length of what was queued, for the queue's rows
+  handover: null, // what starts the next track on the dot, with a cancel() of its own
+  fading: 0, // the timer that frees the spare element once the last track has faded out
+  fadeUntil: 0, // the graph's time a crossfade's rise ends at
+  listen: null, // how much of this track has played, for counting it as listened to
 };
 const REPEATS = ["off", "all", "one"];
 // How far the arrow keys move: seconds through the track, and the volume
@@ -3620,12 +3687,19 @@ function bindPlayer() {
   $("#player-volume").value = Math.round(player.volume * 100);
   for (const element of [player.audio, player.spare]) {
     element.preload = "auto";
+    element.crossOrigin = "anonymous"; // Web Audio hears a file from the local server only so
     // Only the element that plays speaks; the other is loading what comes next
     const own = (handler) => (event) => { if (event.target === player.audio) handler(event); };
     element.addEventListener("timeupdate", own(renderPlayerTime));
     element.addEventListener("durationchange", own(renderPlayerTime));
     element.addEventListener("durationchange", own(() => syncPresence()));
     element.addEventListener("seeked", own(() => syncPresence(true)));
+    element.addEventListener("timeupdate", own(() => {
+      countListen();
+      watchHandover();
+    }));
+    element.addEventListener("seeking", own(cancelHandover));
+    element.addEventListener("pause", own(cancelHandover));
     element.addEventListener("play", own(renderPlayerButton));
     element.addEventListener("pause", own(renderPlayerButton));
     element.addEventListener("playing", own(() => { player.failures = 0; }));
@@ -3683,12 +3757,32 @@ function bindPlayer() {
   document.addEventListener("keydown", onPlayerKey);
   if ("mediaSession" in navigator) {
     // The keyboard's media keys and the system's own media controls
-    navigator.mediaSession.setActionHandler("play", () => player.audio.play());
-    navigator.mediaSession.setActionHandler("pause", () => player.audio.pause());
-    navigator.mediaSession.setActionHandler("previoustrack", () => stepTrack(-1));
-    navigator.mediaSession.setActionHandler("nexttrack", () => stepTrack(1));
-    navigator.mediaSession.setActionHandler("seekto", (details) => { player.audio.currentTime = details.seekTime; });
+    const handlers = {
+      play: () => {
+        wakeSound();
+        player.audio.play();
+      },
+      pause: () => player.audio.pause(),
+      stop: stopPlayer,
+      previoustrack: () => stepTrack(-1),
+      nexttrack: () => stepTrack(1),
+      seekto: (details) => { player.audio.currentTime = details.seekTime; },
+      seekbackward: (details) => { player.audio.currentTime = Math.max(0, player.audio.currentTime - (details.seekOffset || 10)); },
+      seekforward: (details) => { player.audio.currentTime += details.seekOffset || 10; },
+    };
+    for (const [action, handler] of Object.entries(handlers)) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch {
+        // an engine that knows no such action simply goes without it
+      }
+    }
   }
+  bindEqualizer();
+  bindQueue();
+  bindTrackMenu();
+  bindPlaylists();
+  bindPlayerSettings();
   renderPlayerModes();
   renderPlayerVolume();
 }
@@ -3718,6 +3812,8 @@ function onPlayerKey(event) {
     setMuted(!player.muted);
   } else if (event.code === "KeyL") {
     toggleNowPlaying();
+  } else if (event.code === "KeyQ") {
+    toggleQueue();
   } else if (event.code === "KeyF" && now) {
     toggleFullscreen();
   } else {
@@ -3728,6 +3824,11 @@ function onPlayerKey(event) {
 
 // The album page's own files, in the order shown; starting at a row or a position
 function playAlbumPage(start) {
+  if ($("#album-page").dataset.kind === "playlist") {
+    playPlaylistPage(typeof start === "number" ? null : start.dataset.path);
+    return;
+  }
+  rememberTracks($("#album-page").tracks || []);
   const rows = [...$$(".album-list .album-track[data-path]", $("#album-page"))];
   if (!rows.length) return;
   const index = typeof start === "number" ? start : Math.max(0, rows.indexOf(start));
@@ -3760,7 +3861,8 @@ function trackArtists(tracks) {
   return new Map(tracks.map((track) => [track.path, track.album_artist || track.artists || ""]));
 }
 
-async function loadTrack() {
+async function loadTrack({ fade = 0, outgoing = null } = {}) {
+  cancelHandover();
   const token = ++player.token;
   const path = player.queue[player.index];
   let info = null;
@@ -3781,9 +3883,13 @@ async function loadTrack() {
     }
     player.audio.src = info.url;
   }
-  clearSpare();
+  if (outgoing && outgoing === player.spare) releaseOutgoing(outgoing, fade);
+  else clearSpare();
+  if (!fade) player.fadeUntil = 0; // a skip during a crossfade takes the new track at its own level
   player.info = info;
-  applyVolume();
+  resetListen();
+  applyVolume(fade);
+  wakeSound();
   player.audio.play().catch(() => renderPlayerButton());
   renderPlayer();
   loadLyrics(path, token);
@@ -3793,7 +3899,7 @@ async function loadTrack() {
       artwork: info.cover ? [{ src: info.cover, sizes: "512x512" }] : [],
     });
   }
-  loadAhead();
+  if (!outgoing) loadAhead(); // after a handover it loads once the last track has let the spare go
 }
 
 // The track after this one is fetched and loaded while this one plays
@@ -3815,6 +3921,8 @@ async function loadAhead() {
 }
 
 function clearSpare() {
+  clearTimeout(player.fading);
+  player.fading = 0;
   player.ahead = null;
   player.aheadToken += 1;
   player.spare.pause();
@@ -3864,6 +3972,7 @@ function stepTrack(step, automatic = false) {
 function onTrackEnded() {
   if (player.repeat === "one") {
     player.audio.currentTime = 0;
+    resetListen(); // played again, it counts again
     player.audio.play();
     return;
   }
@@ -3884,6 +3993,7 @@ function skipBroken() {
 
 function togglePlay() {
   if (!player.info) return;
+  wakeSound();
   if (player.audio.paused) player.audio.play();
   else player.audio.pause();
 }
@@ -3990,16 +4100,33 @@ function setMuted(muted) {
 // quiet interlude stays quiet beside a loud single; shuffled, or from the
 // Tracks tab, each track takes its own. The element cannot play louder than
 // the file, so a track quieter than the reference stays at the slider's volume.
-function applyVolume() {
+function applyVolume(fadeIn = 0) {
   const gain = player.info?.gain || {};
   const inOrder = player.source === "album" && !player.shuffle;
   const decibels = (inOrder ? gain.album ?? gain.track : gain.track ?? gain.album) ?? 0;
-  player.audio.volume = player.volume * Math.min(1, 10 ** (decibels / 20));
-  player.audio.muted = player.muted;
+  const replayGain = Math.min(1, 10 ** (decibels / 20));
+  if (sound.context) {
+    for (const element of [player.audio, player.spare]) {
+      element.volume = 1;
+      element.muted = false;
+    }
+    const now = sound.context.currentTime;
+    if (fadeIn > 0) {
+      setElementGain(player.audio, replayGain, fadeIn, 0);
+      player.fadeUntil = now + fadeIn;
+    } else if (now >= player.fadeUntil) {
+      setElementGain(player.audio, replayGain); // a crossfade's rise is left to finish
+    }
+    sound.master.gain.setTargetAtTime(player.muted ? 0 : player.volume, now, 0.015);
+  } else {
+    player.audio.volume = player.volume * replayGain;
+    player.audio.muted = player.muted;
+  }
   renderPlayerVolume();
 }
 
 function stopPlayer() {
+  cancelHandover();
   player.token += 1;
   player.audio.pause();
   player.audio.removeAttribute("src");
@@ -4017,6 +4144,7 @@ function renderPlayer() {
   markPlayingRows();
   if (!info) {
     syncTaskbar();
+    renderQueue();
     return;
   }
   $(".player-title", bar).textContent = info.title;
@@ -4029,6 +4157,7 @@ function renderPlayer() {
   renderPlayerButton();
   renderPlayerTime();
   renderNowPlaying();
+  renderQueue();
 }
 
 function setPlayerPicture(box, url) {
@@ -4072,6 +4201,14 @@ function renderPlayerTime() {
   }
   $("#player-length").textContent = formatDuration(length);
   highlightLyric();
+  if ("mediaSession" in navigator && navigator.mediaSession.setPositionState && length && Number.isFinite(audio.duration)) {
+    try {
+      navigator.mediaSession.setPositionState({ duration: audio.duration, position: Math.min(audio.currentTime, audio.duration),
+                                                playbackRate: audio.playbackRate || 1 });
+    } catch {
+      // a position past the end while a new file loads
+    }
+  }
 }
 
 function renderPlayerVolume() {
@@ -4083,9 +4220,13 @@ function renderPlayerVolume() {
 
 // The buttons under the window's picture on the taskbar follow the player
 function syncTaskbar() {
-  const buttons = player.info
+  const { info } = player;
+  const buttons = info
     ? { playing: !player.audio.paused, prev: !$("#player-prev").disabled, next: !$("#player-next").disabled,
-        words: { prev: t("Предыдущий"), play: t("Слушать"), pause: t("Пауза"), next: t("Следующий") } }
+        words: { prev: t("Предыдущий"), play: t("Слушать"), pause: t("Пауза"), next: t("Следующий") },
+        // and for Windows' media controls, what plays
+        title: info.title, artists: info.artists || "", album: info.album || "", album_artist: info.album_artist || "",
+        cover: info.cover || "" }
     : null;
   const key = JSON.stringify(buttons);
   if (key === player.taskbar) return;
@@ -4099,13 +4240,23 @@ function syncPresence(moved = false) {
   const { info, audio } = player;
   const length = audio.duration || info?.duration || 0;
   const track = info && !audio.paused
-    ? { title: info.title, artists: info.artists || info.album_artist || "", album: info.album || "",
+    ? { path: info.path, title: info.title, artists: info.artists || info.album_artist || "", album: info.album || "",
         album_artist: info.album_artist || "", duration: length, position: audio.currentTime || 0 }
     : null;
   const key = track ? `${info.path}|${Math.round(length)}` : "";
   if (key === player.presence && !(moved && track)) return;
   player.presence = key;
   Promise.resolve().then(() => api().now_playing(track)).catch(() => {});
+}
+
+// A button of Windows' media controls or a media key, passed on by the program
+function mediaAction(name) {
+  if (!player.info) return;
+  if (name === "play" && player.audio.paused) togglePlay();
+  else if (name === "pause" && !player.audio.paused) togglePlay();
+  else if (name === "next") stepTrack(1);
+  else if (name === "previous") stepTrack(-1);
+  else if (name === "stop") stopPlayer();
 }
 
 // A click on one of those buttons, passed on by the program
@@ -4130,6 +4281,1100 @@ function markPlayingRows() {
   for (const row of $$(".album-list .album-track[data-path], #library-tracks .track-item")) {
     if (row.dataset.path === path) row.classList.add("is-playing");
   }
+}
+
+/* Sound: the equaliser and the crossfade */
+
+// Both elements play into one Web Audio graph: each through a gain of its own
+// (its ReplayGain, and its share of a crossfade), then the equaliser's ten
+// bands, then the volume. The graph is made at the first play the person asks
+// for, since a browser keeps sound shut until then; before it, and wherever Web
+// Audio fails, the elements play straight out as they used to.
+const EQ_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+const EQ_LIMIT = 12;
+const EQ_PRESETS = {
+  flat: { label: "Ровно", bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+  bass: { label: "Больше баса", bands: [6, 5, 4, 2, 0, 0, 0, 0, 0, 0] },
+  treble: { label: "Больше высоких", bands: [0, 0, 0, 0, 0, 1, 2, 4, 5, 6] },
+  vocal: { label: "Голос", bands: [-2, -2, -1, 1, 3, 4, 3, 1, 0, -1] },
+  rock: { label: "Рок", bands: [4, 3, 2, 0, -1, -1, 1, 2, 3, 4] },
+  electronic: { label: "Электроника", bands: [5, 4, 1, 0, -2, 1, 0, 1, 4, 5] },
+  acoustic: { label: "Акустика", bands: [3, 3, 2, 1, 1, 1, 2, 2, 2, 1] },
+  quiet: { label: "Тихо, но разборчиво", bands: [5, 4, 2, 0, -1, 0, 1, 2, 4, 4] },
+};
+const sound = { context: null, failed: false, gains: new Map(), filters: [], preamp: null, master: null };
+
+function soundGraph() {
+  if (sound.context || sound.failed) return sound.context;
+  try {
+    const context = new AudioContext({ latencyHint: "playback" });
+    sound.preamp = context.createGain();
+    sound.master = context.createGain();
+    sound.filters = EQ_FREQUENCIES.map((frequency, index) => {
+      const filter = context.createBiquadFilter();
+      filter.type = index === 0 ? "lowshelf" : index === EQ_FREQUENCIES.length - 1 ? "highshelf" : "peaking";
+      filter.frequency.value = frequency;
+      filter.Q.value = 1.1; // an octave wide: neighbouring bands meet without a dip
+      return filter;
+    });
+    let chain = sound.preamp;
+    for (const filter of sound.filters) chain = chain.connect(filter);
+    chain.connect(sound.master).connect(context.destination);
+    for (const element of [player.audio, player.spare]) {
+      const gain = context.createGain();
+      context.createMediaElementSource(element).connect(gain).connect(sound.preamp);
+      sound.gains.set(element, gain);
+    }
+    sound.context = context;
+    applyEqualizer();
+    applyVolume();
+  } catch (error) {
+    console.error(error);
+    sound.failed = true;
+  }
+  return sound.context;
+}
+
+// A browser starts a graph suspended until the page has been used
+function wakeSound() {
+  if (!sound.context && navigator.userActivation?.hasBeenActive) soundGraph();
+  if (sound.context?.state === "suspended") sound.context.resume().catch(() => {});
+}
+
+// One element's own gain, at once or along a curve of so many seconds. The
+// curve is a quarter of a sine: two tracks crossing keep the loudness of one,
+// where straight lines would dip in the middle.
+function setElementGain(element, value, seconds = 0, from = null) {
+  const gain = sound.gains.get(element)?.gain;
+  if (!gain) return;
+  const now = sound.context.currentTime;
+  const start = from ?? gain.value;
+  gain.cancelScheduledValues(now);
+  if (seconds > 0) {
+    const steps = 64;
+    const curve = new Float32Array(steps);
+    for (let i = 0; i < steps; i++) {
+      const x = i / (steps - 1);
+      curve[i] = value > start ? start + (value - start) * Math.sin(x * Math.PI / 2)
+        : value + (start - value) * Math.cos(x * Math.PI / 2);
+    }
+    gain.setValueCurveAtTime(curve, now, seconds);
+  } else {
+    gain.setValueAtTime(value, now);
+  }
+}
+
+function applyEqualizer() {
+  if (!sound.context) return;
+  const { on, bands } = equalizer();
+  const now = sound.context.currentTime;
+  sound.filters.forEach((filter, index) => filter.gain.setTargetAtTime(on ? bands[index] : 0, now, 0.03));
+  // Raised bands would push a loud master over the top: the whole is lowered
+  // by the highest of them, so the equaliser shapes the sound and never clips it
+  const peak = on ? Math.max(0, ...bands) : 0;
+  sound.preamp.gain.setTargetAtTime(10 ** (-peak / 20), now, 0.03);
+}
+
+function equalizer() {
+  const eq = state.settings.eq || {};
+  const bands = EQ_FREQUENCIES.map((_, index) => Number(eq.bands?.[index]) || 0);
+  return { on: Boolean(eq.on), bands, preset: eq.preset || "flat" };
+}
+
+function setEqualizer(patch) {
+  const eq = { ...equalizer(), ...patch };
+  rememberPlayer({ eq });
+  soundGraph();
+  applyEqualizer();
+  renderEqualizer();
+}
+
+function bindEqualizer() {
+  const bands = $("#eq-bands");
+  bands.replaceChildren(...EQ_FREQUENCIES.map((frequency, index) => {
+    const band = document.createElement("div");
+    band.className = "eq-band";
+    const value = document.createElement("output");
+    const slider = document.createElement("input");
+    Object.assign(slider, { type: "range", min: -EQ_LIMIT, max: EQ_LIMIT, step: 0.5, value: 0 });
+    slider.dataset.band = index;
+    const label = document.createElement("span");
+    label.textContent = frequency >= 1000 ? `${frequency / 1000}k` : String(frequency);
+    slider.setAttribute("aria-label", t("{hertz} Гц", { hertz: frequency }));
+    const slot = document.createElement("div");
+    slot.className = "eq-slot";
+    slot.append(slider);
+    band.append(value, slot, label);
+    return band;
+  }));
+  bands.addEventListener("input", (event) => {
+    const index = Number(event.target.dataset.band);
+    if (Number.isNaN(index)) return;
+    const values = equalizer().bands;
+    values[index] = Number(event.target.value);
+    // Moving a band means wanting to hear it: the equaliser comes on
+    setEqualizer({ bands: values, preset: "custom", on: true });
+  });
+  // A double click puts a band back to the middle
+  bands.addEventListener("dblclick", (event) => {
+    const index = Number(event.target.dataset?.band);
+    if (Number.isNaN(index)) return;
+    const values = equalizer().bands;
+    values[index] = 0;
+    setEqualizer({ bands: values, preset: "custom" });
+  });
+  $("#eq-on").addEventListener("click", () => setEqualizer({ on: !equalizer().on }));
+  $("#eq-preset").addEventListener("change", (event) => {
+    const preset = EQ_PRESETS[event.target.value];
+    if (preset) setEqualizer({ bands: [...preset.bands], preset: event.target.value, on: true });
+  });
+  $("#eq-close").addEventListener("click", () => toggleEqualizer(false));
+  $("#player-eq").addEventListener("click", () => toggleEqualizer());
+  $("#eq-open").addEventListener("click", () => toggleEqualizer(true));
+  // Anywhere else closes it, as a menu is closed
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest("#eq-panel, #player-eq, #eq-open")) toggleEqualizer(false);
+  });
+}
+
+function toggleEqualizer(open = $("#eq-panel").hidden) {
+  const panel = $("#eq-panel");
+  if (open === !panel.hidden) return;
+  panel.hidden = !open;
+  $("#player-eq").setAttribute("aria-pressed", String(open));
+  if (!open) return;
+  toggleQueue(false);
+  soundGraph();
+  placeFloat(panel);
+  renderEqualizer();
+  $("#eq-preset").focus();
+}
+
+function renderEqualizer() {
+  const { on, bands, preset } = equalizer();
+  syncSwitch($("#eq-on"), on);
+  $("#eq-panel").classList.toggle("off", !on);
+  const pick = $("#eq-preset");
+  const options = Object.entries(EQ_PRESETS).map(([key, entry]) => new Option(t(entry.label), key));
+  if (preset === "custom") options.push(new Option(t("Своя"), "custom"));
+  pick.replaceChildren(...options);
+  pick.value = preset in EQ_PRESETS || preset === "custom" ? preset : "flat";
+  for (const slider of $$("#eq-bands input")) {
+    const value = bands[Number(slider.dataset.band)];
+    if (document.activeElement !== slider) slider.value = value;
+    slider.style.setProperty("--p", (value + EQ_LIMIT) / (EQ_LIMIT * 2));
+    $("output", slider.closest(".eq-band")).textContent = value > 0 ? `+${value}` : String(value);
+  }
+  $("#player-eq").classList.toggle("on", on);
+  const name = preset === "custom" ? t("своя") : t(EQ_PRESETS[preset]?.label || "Ровно").toLocaleLowerCase(LANGUAGE);
+  $("#eq-state").textContent = on ? t("Включён: {preset}", { preset: name }) : t("Выключен");
+}
+
+// The queue and the equaliser float over the page, just above the player
+function placeFloat(panel) {
+  const bar = $("#player");
+  panel.style.bottom = `${(bar.hidden ? 0 : bar.offsetHeight) + 12}px`;
+}
+
+/* Handing over from one track to the next */
+
+// The next track of the same record starts the moment this one ends, and one
+// from another record fades in over this one's end (if a crossfade is set).
+// The spare element holds the next track already, so either is a matter of
+// starting it at the right time rather than waiting for "ended".
+function crossfadeFor(ahead) {
+  const seconds = Number(state.settings.crossfade) || 0;
+  if (!seconds || !sound.context || !player.info || !ahead) return 0;
+  // Only an album heard in its own order goes on without one: shuffled, its
+  // tracks are no longer each other's continuation
+  const sameRecord = !player.shuffle && Boolean(ahead.info.album) && ahead.info.album === player.info.album
+    && (ahead.info.album_artist || "") === (player.info.album_artist || "");
+  return sameRecord ? 0 : seconds;
+}
+
+function watchHandover() {
+  const { audio, ahead } = player;
+  if (player.handover || player.seeking || audio.paused || !player.info || player.repeat === "one") return;
+  const next = stepIndex(1);
+  // Round a shuffled queue the order is dealt again, so the track held is not the next one
+  if (next < 0 || (next === 0 && player.shuffle) || ahead?.path !== player.queue[next]) return;
+  if (player.spare.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
+  const length = audio.duration || 0;
+  const left = length - audio.currentTime;
+  if (!Number.isFinite(left) || left <= 0) return;
+  const fade = Math.min(crossfadeFor(ahead), length / 3, (player.spare.duration || 0) / 3);
+  if (fade >= 1 && left <= fade) {
+    handOver(fade);
+  } else if (fade < 1 && state.settings.gapless !== false && left <= 1) {
+    // Started a hair before the end: the one that ends is cut, not waited for
+    player.handover = atSoundTime(Math.max(0, left / (audio.playbackRate || 1) - 0.025), () => handOver(0));
+  }
+}
+
+// Something done so many seconds from now on the sound's own clock. A timer
+// will not do: in a window out of sight the browser lets timers run a second
+// late, and the track would end before the next one started. A silent source
+// stopped at that moment says so on time, since the sound is never held back.
+function atSoundTime(seconds, callback) {
+  const context = sound.context;
+  if (!context || context.state !== "running") {
+    const timer = setTimeout(callback, seconds * 1000);
+    return { cancel: () => clearTimeout(timer) };
+  }
+  const tick = context.createConstantSource();
+  const silence = context.createGain();
+  silence.gain.value = 0;
+  tick.connect(silence).connect(context.destination);
+  let live = true;
+  tick.onended = () => {
+    tick.disconnect();
+    silence.disconnect();
+    if (live) callback();
+  };
+  tick.start();
+  tick.stop(context.currentTime + seconds);
+  return { cancel: () => { live = false; } };
+}
+
+function cancelHandover() {
+  player.handover?.cancel?.();
+  player.handover = null;
+}
+
+function handOver(fade) {
+  cancelHandover();
+  const next = stepIndex(1);
+  if (next < 0 || player.ahead?.path !== player.queue[next]) return;
+  const outgoing = player.audio;
+  player.index = next;
+  loadTrack({ fade, outgoing });
+}
+
+// The track that has handed over fades out (or stops at once), and only then
+// is the spare element free to load the track after the new one
+function releaseOutgoing(element, fade) {
+  player.ahead = null;
+  player.aheadToken += 1;
+  clearTimeout(player.fading);
+  const done = () => {
+    player.fading = 0;
+    if (element !== player.spare) return; // taken up again meanwhile
+    element.pause();
+    element.removeAttribute("src");
+    element.load();
+    setElementGain(element, 1);
+    loadAhead();
+  };
+  if (fade > 0 && sound.context) {
+    setElementGain(element, 0, fade);
+    player.fading = setTimeout(done, fade * 1000 + 60);
+  } else {
+    done();
+  }
+}
+
+/* Listening: what counts, for the play counts, Last.fm and ListenBrainz */
+
+// A track counts once half of it, or four minutes, has played (the rule
+// Last.fm and ListenBrainz share), and only what really played: a jump
+// forward adds nothing
+function resetListen() {
+  player.listen = { at: player.audio.currentTime || 0, played: 0, counted: false };
+}
+
+function countListen() {
+  const { audio, info, listen } = player;
+  if (!info || !listen || listen.counted) return;
+  const step = audio.currentTime - listen.at;
+  listen.at = audio.currentTime;
+  if (step > 0 && step < 2) listen.played += step;
+  const length = audio.duration || info.duration || 0;
+  if (length < 30 || listen.played < Math.min(length / 2, 240)) return;
+  listen.counted = true;
+  const track = { path: info.path, title: info.title, artists: info.artists || "", album: info.album || "",
+                  album_artist: info.album_artist || "", duration: Math.round(length) };
+  Promise.resolve().then(() => api().listened(track)).catch(() => {});
+  state.plays.set(info.path, (state.plays.get(info.path) || 0) + 1);
+  state.playlists.stale = true; // "Recently played" and "Most played" have changed
+}
+
+/* The queue */
+
+// What a queued path shows: remembered from wherever it was queued from, else
+// from the Tracks tab, else its file name
+function rememberTracks(tracks) {
+  for (const track of tracks) {
+    if (!track?.path) continue;
+    player.meta.set(track.path, { path: track.path, title: track.title || "", artists: track.artists || track.album_artist || "",
+                                  album: track.album || "", album_artist: track.album_artist || "", duration: track.duration || 0 });
+  }
+}
+
+let tracksIndex = { items: null, byPath: new Map() };
+function libraryTrack(path) {
+  const items = state.library.trackList.items;
+  if (tracksIndex.items !== items) tracksIndex = { items, byPath: new Map(items.map((track) => [track.path, track])) };
+  return tracksIndex.byPath.get(path);
+}
+
+function trackMeta(path) {
+  const known = player.meta.get(path) || libraryTrack(path);
+  if (known) return known;
+  const name = path.split(/[\\/]/).pop() || path;
+  return { path, title: name.replace(/\.[^.]+$/, ""), artists: "", album: "", duration: 0 };
+}
+
+// Tracks put in the queue: after the one that plays, or at the end. With
+// nothing playing they simply start.
+function enqueue(tracks, next = false) {
+  const playable = tracks.filter((track) => track?.path && !track.missing);
+  if (!playable.length) return;
+  rememberTracks(playable);
+  const paths = playable.map((track) => track.path);
+  for (const track of playable) player.artists.set(track.path, track.album_artist || track.artists || "");
+  if (!player.info) {
+    playQueue(paths, 0, "queue", player.artists);
+  } else {
+    const at = next ? player.index + 1 : player.queue.length;
+    player.queue.splice(at, 0, ...paths);
+    if (player.unshuffled) {
+      // Back in order, they stay where they were put: after this track, or at the end
+      const place = next ? player.unshuffled.indexOf(player.queue[player.index]) + 1 : player.unshuffled.length;
+      player.unshuffled.splice(place || player.unshuffled.length, 0, ...paths);
+    }
+    queueChanged();
+  }
+  const title = playable[0].title || trackMeta(paths[0]).title;
+  announce(playable.length === 1
+    ? t(next ? "«{title}» заиграет следующим" : "«{title}» в очереди", { title })
+    : t(next ? "Заиграют следующими: {count}" : "Добавлено в очередь: {count}", { count: playable.length }));
+}
+
+// After any change to the queue the next track is loaded again, unless the
+// last one is still fading out of the spare element (it loads when it is done)
+function queueChanged() {
+  cancelHandover();
+  if (!player.fading) {
+    clearSpare();
+    loadAhead();
+  }
+  renderPlayer();
+  renderQueue();
+}
+
+function moveInQueue(from, to) {
+  const [path] = player.queue.splice(from, 1);
+  player.queue.splice(to, 0, path);
+  if (from === player.index) player.index = to;
+  else if (from < player.index && to >= player.index) player.index -= 1;
+  else if (from > player.index && to <= player.index) player.index += 1;
+  queueChanged();
+}
+
+function removeFromQueue(index) {
+  if (index === player.index) return;
+  const [path] = player.queue.splice(index, 1);
+  if (index < player.index) player.index -= 1;
+  const kept = player.unshuffled?.indexOf(path) ?? -1;
+  if (kept >= 0) player.unshuffled.splice(kept, 1);
+  queueChanged();
+}
+
+function clearUpcoming() {
+  const later = new Set(player.queue.splice(player.index + 1));
+  if (player.unshuffled) player.unshuffled = player.unshuffled.filter((path) => !later.has(path) || player.queue.includes(path));
+  queueChanged();
+}
+
+function bindQueue() {
+  const list = $("#queue-list");
+  $("#player-queue").addEventListener("click", () => toggleQueue());
+  $("#queue-close").addEventListener("click", () => toggleQueue(false));
+  $("#queue-clear").addEventListener("click", clearUpcoming);
+  $("#queue-keep").addEventListener("click", () => {
+    keepAsPlaylist(player.queue.map(trackMeta), t("Очередь от {date}", { date: new Date().toLocaleDateString(LANGUAGE) }));
+  });
+  list.addEventListener("click", (event) => {
+    const row = event.target.closest(".queue-row");
+    if (!row) return;
+    const index = [...list.children].indexOf(row);
+    if (event.target.closest(".queue-remove")) {
+      removeFromQueue(index);
+    } else if (index !== player.index) {
+      player.index = index;
+      loadTrack();
+    }
+  });
+  sortable(list, ".queue-row", moveInQueue);
+}
+
+function toggleQueue(open = $("#queue-panel").hidden) {
+  const panel = $("#queue-panel");
+  if (open === !panel.hidden) return;
+  panel.hidden = !open;
+  $("#player-queue").setAttribute("aria-pressed", String(open));
+  if (!open) return;
+  toggleEqualizer(false);
+  placeFloat(panel);
+  renderQueue();
+  $(".queue-row.current", panel)?.scrollIntoView({ block: "center" });
+}
+
+function renderQueue() {
+  const panel = $("#queue-panel");
+  if (panel.hidden) return;
+  if (!player.info) {
+    toggleQueue(false);
+    return;
+  }
+  const rows = player.queue.map((path, index) => {
+    const track = trackMeta(path);
+    const row = document.createElement("li");
+    row.className = `queue-row${index < player.index ? " played" : index === player.index ? " current" : ""}`;
+    row.draggable = true;
+    row.innerHTML = `<svg class="icon sm grip" aria-hidden="true"><use href="#i-grip"/></svg>
+      <span class="queue-names"><span class="queue-title"></span><span class="queue-artist"></span></span>
+      <span class="queue-time"></span>`;
+    $(".queue-title", row).textContent = track.title;
+    $(".queue-artist", row).textContent = track.artists || track.album_artist || "";
+    $(".queue-time", row).textContent = track.duration ? formatDuration(track.duration) : "";
+    if (index !== player.index) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "icon-btn queue-remove";
+      remove.title = t("Убрать из очереди");
+      remove.setAttribute("aria-label", remove.title);
+      remove.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg>`;
+      row.append(remove);
+    }
+    return row;
+  });
+  $("#queue-list").replaceChildren(...rows);
+  const upcoming = player.queue.slice(player.index + 1);
+  const seconds = upcoming.reduce((total, path) => total + (trackMeta(path).duration || 0), 0);
+  $("#queue-count").textContent = upcoming.length
+    ? [t("дальше {count} {trackWord}", { count: upcoming.length, trackWord: plural(upcoming.length, "трек", "трека", "треков") }),
+      formatLength(seconds)].join(" · ")
+    : t("дальше ничего");
+  $("#queue-clear").disabled = !upcoming.length;
+}
+
+// Rows put in another order by dragging them: the row goes where the line shows
+function sortable(list, selector, move) {
+  let dragged = null;
+  const unmark = () => { for (const row of $$(".drop-before, .drop-after", list)) row.classList.remove("drop-before", "drop-after"); };
+  list.addEventListener("dragstart", (event) => {
+    const row = event.target.closest?.(selector);
+    if (!row?.draggable) return;
+    dragged = row;
+    row.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", "");
+  });
+  list.addEventListener("dragend", () => {
+    dragged?.classList.remove("dragging");
+    dragged = null;
+    unmark();
+  });
+  list.addEventListener("dragover", (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    const row = event.target.closest?.(selector);
+    if (!row || row === dragged) return;
+    const box = row.getBoundingClientRect();
+    unmark();
+    row.classList.add(event.clientY > box.top + box.height / 2 ? "drop-after" : "drop-before");
+  });
+  list.addEventListener("drop", (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    event.stopPropagation(); // the window's own drop takes links and lists of links
+    const target = $(".drop-before, .drop-after", list);
+    const after = Boolean(target?.classList.contains("drop-after"));
+    unmark();
+    if (!target) return;
+    const rows = [...$$(selector, list)];
+    const from = rows.indexOf(dragged);
+    let to = rows.indexOf(target) + (after ? 1 : 0);
+    if (from < to) to -= 1;
+    if (from >= 0 && from !== to) move(from, to);
+  });
+}
+
+/* A track's own menu: the queue, the playlists, its album */
+
+function bindTrackMenu() {
+  for (const list of [$(".album-list", $("#album-page")), $("#library-tracks")]) {
+    list.addEventListener("contextmenu", onTrackContextMenu);
+  }
+  $("#track-menu").addEventListener("click", onTrackMenuClick);
+  $("#playlist-menu").addEventListener("click", onPlaylistMenuClick);
+  for (const menu of [$("#track-menu"), $("#playlist-menu"), $("#library-menu")]) {
+    menu.addEventListener("keydown", onMenuKey);
+  }
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest("#track-menu")) closeMenu($("#track-menu"));
+    if (!event.target.closest("#playlist-menu")) closeMenu($("#playlist-menu"));
+  });
+  window.addEventListener("blur", () => {
+    closeMenu($("#track-menu"));
+    closeMenu($("#playlist-menu"));
+  });
+}
+
+// Up and down through a menu's buttons, Escape out of it
+function onMenuKey(event) {
+  const menu = event.currentTarget;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    if (menu.id === "library-menu") closeLibraryMenu();
+    else closeMenu(menu);
+    return;
+  }
+  const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+  if (!step) return;
+  event.preventDefault();
+  const buttons = [...$$("button:not([hidden])", menu)];
+  buttons[(buttons.indexOf(document.activeElement) + step + buttons.length) % buttons.length]?.focus();
+}
+
+function openMenuAt(menu, x, y) {
+  menu.hidden = false;
+  const box = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - box.width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - box.height - 8))}px`;
+  $("button:not([hidden])", menu)?.focus();
+}
+
+function closeMenu(menu) {
+  menu.hidden = true;
+}
+
+// The track a row stands for, with what its page knows of it
+function rowTrack(row, playlist, index) {
+  const path = row.dataset.path;
+  if (playlist) return playlist.tracks[index];
+  if (row.closest("#album-page")) return ($("#album-page").tracks || []).find((track) => track.path === path) || trackMeta(path);
+  return libraryTrack(path) || trackMeta(path);
+}
+
+function onTrackContextMenu(event) {
+  const row = event.target.closest(".album-track, .track-item");
+  if (!row) return;
+  const page = $("#album-page");
+  const onPage = Boolean(row.closest("#album-page"));
+  const playlist = onPage && page.dataset.kind === "playlist" ? page.playlist : null;
+  if (!row.dataset.path && !playlist) return; // an album's missing track has no file to act on
+  event.preventDefault();
+  const index = [...$$(".album-list .album-track", page)].indexOf(row);
+  const track = rowTrack(row, playlist, index);
+  if (!track) return;
+  state.trackMenu = { tracks: [track], row, playlist, index };
+  const menu = $("#track-menu");
+  const gone = Boolean(track.missing);
+  for (const action of ["next", "queue", "playlist", "open"]) $(`[data-action=${action}]`, menu).hidden = gone;
+  $("[data-action=album]", menu).hidden = gone || (onPage && !playlist);
+  $("[data-action=remove]", menu).hidden = !playlist || playlist.smart;
+  $(".menu-divider", menu).hidden = gone;
+  openMenuAt(menu, event.clientX, event.clientY);
+}
+
+function onTrackMenuClick(event) {
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  const menu = state.trackMenu;
+  if (!action || !menu) return;
+  closeMenu($("#track-menu"));
+  const [track] = menu.tracks;
+  if (action === "next" || action === "queue") enqueue(menu.tracks, action === "next");
+  else if (action === "playlist") openPlaylistMenu(event.clientX, event.clientY, menu.tracks);
+  else if (action === "open") api().open_folder(track.path);
+  else if (action === "remove") removeFromPlaylist(menu.index);
+  else if (action === "album") openTrackAlbum(track);
+}
+
+// The album a track belongs to: the library's entry for its folder, or for the file itself
+async function openTrackAlbum(track) {
+  if (state.library.stale && !state.library.items.length) await loadLibrary();
+  const folder = track.path.replace(/[\\/][^\\/]*$/, "");
+  const item = itemByPath(track.entry || "") || itemByPath(folder) || itemByPath(track.path)
+    || state.library.items.find((entry) => track.path.startsWith(`${entry.path}\\`) || track.path.startsWith(`${entry.path}/`));
+  if (!item) {
+    announce(t("Альбома этого трека нет в библиотеке"));
+    return;
+  }
+  if (state.view !== "library") showView("library");
+  if (state.library.pages.length) await closePage({ instant: true });
+  openAlbum(item, null, track.path);
+}
+
+// Several albums picked in the library: their tracks, album by album, in order
+async function itemsTracks(items) {
+  const tracks = [];
+  for (const item of items) {
+    let data;
+    try {
+      data = await api().album(item.path);
+    } catch {
+      continue;
+    }
+    const sorted = [...data.tracks].sort((a, b) => (a.disc || 1) - (b.disc || 1) || (a.number || 999) - (b.number || 999));
+    tracks.push(...sorted.map((track) => ({ ...track, album: track.album || item.title,
+                                            album_artist: track.album_artist || item.artist })));
+  }
+  return tracks;
+}
+
+/* Playlists */
+
+async function loadPlaylists(force = false) {
+  const list = state.playlists;
+  if (!force && !list.stale && list.items.length) return list.items;
+  const token = ++list.token;
+  list.loading = true;
+  let items;
+  try {
+    items = await api().playlists();
+  } catch (error) {
+    console.error(error);
+    items = list.items;
+  }
+  if (token !== list.token) return list.items;
+  Object.assign(list, { items, stale: false, loading: false });
+  if (state.view === "library" && state.library.tab === "playlists") renderLibrary();
+  return items;
+}
+
+function playlistName(entry) {
+  if (!entry.smart) return entry.name;
+  return t({ recent: "Недавно играло", top: "Часто слушаю" }[entry.id] || entry.name);
+}
+
+function playlistCounts(entry) {
+  const count = entry.count ?? entry.tracks?.length ?? 0;
+  return [t("{tracks} {trackWord}", { tracks: count, trackWord: plural(count, "трек", "трека", "треков") }),
+    entry.duration ? formatLength(entry.duration) : ""].filter(Boolean).join(" · ");
+}
+
+function renderPlaylists(enter) {
+  const list = state.playlists;
+  if (list.stale && !list.loading) loadPlaylists();
+  const needle = libraryQuery();
+  const matches = (entry) => !needle || playlistName(entry).toLocaleLowerCase().includes(needle);
+  // What was listened to comes first, once there is some of it
+  const smart = list.items.filter((entry) => entry.smart && entry.count && matches(entry));
+  const own = sortBy(list.items.filter((entry) => !entry.smart && matches(entry)), PLAYLIST_SORTS,
+                     state.library.sorts.playlists, (a, b) => COLLATOR.compare(a.name, b.name));
+  const box = $("#library-playlists");
+  box.replaceChildren(...[...smart, ...own].map((entry, index) => createPlaylistCard(entry, index)));
+  box.querySelector(".card")?.setAttribute("tabindex", "0");
+  playEntrance(box, enter);
+  return smart.length + own.length;
+}
+
+function createPlaylistCard(entry, index) {
+  const card = $("#card-template").content.firstElementChild.cloneNode(true);
+  card.classList.add("playlist-card");
+  card.classList.toggle("smart", entry.smart);
+  card.removeAttribute("aria-selected");
+  card.setAttribute("role", "button");
+  card.dataset.playlist = entry.id;
+  card.style.setProperty("--i", Math.min(index, 24));
+  $(".card-title", card).textContent = playlistName(entry);
+  $(".card-title", card).title = playlistName(entry);
+  $(".card-sub", card).textContent = playlistCounts(entry);
+  $(".card-cover use", card).setAttribute("href", entry.id === "recent" ? "#i-history" : entry.id === "top" ? "#i-trend" : "#i-playlist");
+  if (entry.cover) loadCover($(".card-cover", card), entry.cover);
+  return card;
+}
+
+function bindPlaylists() {
+  const box = $("#library-playlists");
+  box.addEventListener("click", (event) => {
+    const card = event.target.closest(".card");
+    if (card) openPlaylist(card.dataset.playlist, card);
+  });
+  box.addEventListener("keydown", onCardsKey);
+  $("#playlist-new").addEventListener("click", async () => {
+    const name = await askName({ title: t("Новый плейлист"), value: nextPlaylistName(), action: t("Создать") });
+    if (!name) return;
+    const entry = await api().save_playlist(null, name, []);
+    state.playlists.stale = true;
+    await loadPlaylists(true);
+    openPlaylist(entry.id);
+  });
+  $("#playlist-import").addEventListener("click", async () => {
+    const entry = await api().import_playlist();
+    if (!entry) return;
+    state.playlists.stale = true;
+    await loadPlaylists(true);
+    announce(t("Плейлист «{name}»: {count}", { name: entry.name, count: entry.count }));
+    openPlaylist(entry.id);
+  });
+  sortable($(".album-list", $("#album-page")), ".album-track", (from, to) => {
+    const data = $("#album-page").playlist;
+    if (!data || data.smart || $("#album-page").dataset.kind !== "playlist") return;
+    const [track] = data.tracks.splice(from, 1);
+    data.tracks.splice(to, 0, track);
+    savePlaylist(data);
+  });
+}
+
+function nextPlaylistName() {
+  const taken = new Set(state.playlists.items.map((entry) => entry.name));
+  for (let number = 1; ; number += 1) {
+    const name = t("Плейлист {number}", { number });
+    if (!taken.has(name)) return name;
+  }
+}
+
+async function openPlaylist(id, source = null) {
+  const library = state.library;
+  const card = state.playlists.items.find((entry) => entry.id === id);
+  library.pages.push({ kind: "playlist", id, source, item: { title: card ? playlistName(card) : "" } });
+  const token = ++library.pageToken;
+  const page = $("#album-page");
+  page.dataset.kind = "playlist";
+  page.playlist = null;
+  page.tracks = [];
+  $(".album-title", page).textContent = card ? playlistName(card) : "";
+  $(".album-sub", page).textContent = card ? playlistCounts(card) : "";
+  $(".album-list", page).replaceChildren();
+  fillPageCover(page, card?.cover || "", "#i-playlist");
+  renderPageBack();
+  showPage("playlist");
+  riseIn([$("#page-back"), ...$(".album-info", page).children]);
+  if (!reduceMotion()) {
+    $(".album-cover", page).animate([{ opacity: 0, transform: "scale(0.92)" }, { opacity: 1, transform: "none" }],
+                                    { duration: 300, easing: EMPHASIZED });
+  }
+  $("#page-back").focus({ preventScroll: true });
+  let data = null;
+  try {
+    data = await api().playlist(id);
+  } catch (error) {
+    console.error(error);
+  }
+  if (token !== library.pageToken) return;
+  if (!data) {
+    closePage();
+    return;
+  }
+  fillPlaylistPage(data);
+}
+
+// The album page's cover box, for a page that may have no picture: its icon then
+function fillPageCover(page, src, icon) {
+  const cover = $(".album-cover", page);
+  $("use", cover).setAttribute("href", icon);
+  const image = $("img", cover);
+  image.hidden = true;
+  image.removeAttribute("src");
+  const owner = state.library.pageToken;
+  if (src) {
+    loadCover(cover, src);
+    showBackdrop(page, src);
+    tintPage(src, owner);
+  } else {
+    showBackdrop(page, "");
+    tintPage(null, owner);
+  }
+}
+
+function fillPlaylistPage(data) {
+  const page = $("#album-page");
+  const top = state.library.pages[state.library.pages.length - 1];
+  if (top?.kind === "playlist") top.item.title = playlistName(data);
+  page.playlist = data;
+  page.tracks = data.tracks;
+  page.dataset.path = `playlist:${data.id}`;
+  $(".album-title", page).textContent = playlistName(data);
+  const what = data.smart ? t(data.id === "recent" ? "По последнему прослушиванию" : "По числу прослушиваний") : t("Плейлист");
+  $(".album-sub", page).textContent = [what, playlistCounts(data)].join(" · ");
+  if ($("img", $(".album-cover", page)).getAttribute("src") !== data.cover) {
+    fillPageCover(page, data.cover, data.id === "recent" ? "#i-history" : data.id === "top" ? "#i-trend" : "#i-playlist");
+  }
+  const playable = data.tracks.some((track) => !track.missing);
+  for (const action of ["play", "shuffle", "export"]) $(`[data-page-action=${action}]`, page).disabled = !playable;
+  $("[data-page-action=rename]", page).hidden = data.smart;
+  $("[data-page-action=delete]", page).hidden = data.smart;
+  $("[data-page-action=keep]", page).hidden = !data.smart || !data.tracks.length;
+  $(".album-head .artists", page).textContent = t("Исполнитель · альбом");
+  const rows = data.tracks.map((track, index) => {
+    const row = createAlbumTrack({ ...track, number: index + 1 }, { artist: "" });
+    const artists = $(".artists", row);
+    artists.textContent = [track.artists || track.album_artist, track.album].filter(Boolean).join(" · ");
+    if (data.id === "top") {
+      artists.textContent = [t("{count} {timesWord}", { count: track.plays, timesWord: plural(track.plays, "раз", "раза", "раз") }),
+        artists.textContent].filter(Boolean).join(" · ");
+    }
+    row.draggable = !data.smart;
+    return row;
+  });
+  if (!rows.length) {
+    const note = document.createElement("div");
+    note.className = "album-note";
+    note.textContent = t(data.smart ? "Здесь появятся треки, когда вы их послушаете"
+      : "Пока пусто. Треки добавляются правым щелчком в альбоме, во вкладке «Треки» или в библиотеке");
+    rows.push(note);
+  }
+  $(".album-list", page).replaceChildren(...rows);
+  markPlayingRows();
+}
+
+async function savePlaylist(data) {
+  const saved = await api().save_playlist(data.id, data.name, data.tracks);
+  Object.assign(data, { count: saved.count, duration: saved.duration, cover: saved.cover });
+  state.playlists.stale = true;
+  loadPlaylists(true);
+  if ($("#album-page").playlist === data) fillPlaylistPage(data);
+}
+
+function removeFromPlaylist(index) {
+  const data = $("#album-page").playlist;
+  if (!data || data.smart || index < 0 || index >= data.tracks.length) return;
+  data.tracks.splice(index, 1);
+  savePlaylist(data);
+}
+
+function playPlaylistPage(start, shuffled = false) {
+  const data = $("#album-page").playlist;
+  if (!data) return;
+  const tracks = data.tracks.filter((track) => !track.missing);
+  if (!tracks.length) return;
+  rememberTracks(tracks);
+  if (shuffled && !player.shuffle) {
+    player.shuffle = true;
+    rememberPlayer({ shuffle: true });
+    renderPlayerModes();
+  }
+  const index = shuffled ? Math.floor(Math.random() * tracks.length)
+    : Math.max(0, tracks.findIndex((track) => track.path === start));
+  playQueue(tracks.map((track) => track.path), index, "playlist", trackArtists(tracks));
+}
+
+async function onPlaylistAction(action) {
+  const data = $("#album-page").playlist;
+  if (!data) return;
+  if (action === "play") playPlaylistPage(null);
+  else if (action === "shuffle") playPlaylistPage(null, true);
+  else if (action === "export") {
+    const path = await api().export_playlist(data.id);
+    if (path) announce(t("Сохранено: {path}", { path }));
+  } else if (action === "keep") {
+    keepAsPlaylist(data.tracks, playlistName(data));
+  } else if (action === "rename") {
+    const name = await askName({ title: t("Название плейлиста"), value: data.name, action: t("Сохранить") });
+    if (!name || name === data.name) return;
+    data.name = name;
+    savePlaylist(data);
+  } else if (action === "delete") {
+    const sure = await askConfirm({ title: t("Удалить плейлист «{name}»?", { name: data.name }),
+                                    text: t("Сами треки останутся в библиотеке"), action: t("Удалить") });
+    if (!sure) return;
+    await api().delete_playlist(data.id);
+    state.playlists.stale = true;
+    await loadPlaylists(true);
+    closePage();
+  }
+}
+
+async function keepAsPlaylist(tracks, name) {
+  const chosen = await askName({ title: t("Сохранить как плейлист"), value: name, action: t("Сохранить") });
+  if (!chosen) return;
+  const entry = await api().save_playlist(null, chosen, tracks.filter((track) => track?.path));
+  state.playlists.stale = true;
+  loadPlaylists(true);
+  announce(t("Плейлист «{name}»: {count}", { name: entry.name, count: entry.count }));
+}
+
+// Which playlist the tracks go to: one of one's own, or a new one
+async function openPlaylistMenu(x, y, tracks) {
+  const menu = $("#playlist-menu");
+  menu.tracks = tracks;
+  const own = (await loadPlaylists()).filter((entry) => !entry.smart);
+  const buttons = own.map((entry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("role", "menuitem");
+    button.dataset.playlist = entry.id;
+    button.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#i-playlist"/></svg><span class="menu-name"></span><span class="menu-note"></span>`;
+    $(".menu-name", button).textContent = entry.name;
+    $(".menu-note", button).textContent = String(entry.count);
+    return button;
+  });
+  const create = document.createElement("button");
+  create.type = "button";
+  create.setAttribute("role", "menuitem");
+  create.dataset.playlist = "";
+  create.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span></span>`;
+  $("span", create).textContent = t("Новый плейлист…");
+  const divider = document.createElement("div");
+  divider.className = "menu-divider";
+  menu.replaceChildren(...buttons, ...(buttons.length ? [divider] : []), create);
+  openMenuAt(menu, x, y);
+}
+
+async function onPlaylistMenuClick(event) {
+  const button = event.target.closest("[data-playlist]");
+  const menu = $("#playlist-menu");
+  if (!button) return;
+  closeMenu(menu);
+  const tracks = (menu.tracks || []).filter((track) => track?.path);
+  if (!tracks.length) return;
+  let entry;
+  if (button.dataset.playlist) {
+    entry = await api().add_to_playlist(button.dataset.playlist, tracks);
+  } else {
+    const name = await askName({ title: t("Новый плейлист"), value: nextPlaylistName(), action: t("Создать") });
+    if (!name) return;
+    entry = await api().save_playlist(null, name, tracks);
+  }
+  if (!entry) return;
+  state.playlists.stale = true;
+  loadPlaylists(true);
+  const shown = $("#album-page").playlist;
+  if (shown?.id === entry.id && $("#album-page").dataset.kind === "playlist") {
+    api().playlist(entry.id).then((data) => { if (data && $("#album-page").playlist === shown) fillPlaylistPage(data); });
+  }
+  announce(t("Добавлено в «{name}»: {count}", { name: entry.name, count: tracks.length }));
+}
+
+// A name asked for in the dialog the confirmations use, with a field in it
+async function askName({ title, value = "", action }) {
+  const field = $(".confirm-field", $("#confirm"));
+  const input = $("#confirm-input");
+  field.hidden = false;
+  input.value = value;
+  const onEnter = (event) => {
+    if (event.key === "Enter" && input.value.trim()) {
+      event.preventDefault();
+      $("#confirm-ok").click();
+    }
+  };
+  input.addEventListener("keydown", onEnter);
+  const asked = askConfirm({ title, text: "", action, danger: false });
+  input.focus();
+  input.select();
+  const agreed = await asked;
+  input.removeEventListener("keydown", onEnter);
+  field.hidden = true;
+  const name = input.value.replace(/\s+/g, " ").trim();
+  return agreed && name ? name : null;
+}
+
+/* Settings: the player's card */
+
+function bindPlayerSettings() {
+  bindSwitch($("#gapless"), (on) => updateSettings({ gapless: on }));
+  const crossfade = $("#crossfade");
+  crossfade.addEventListener("input", () => {
+    fillRange(crossfade);
+    renderCrossfade(Number(crossfade.value));
+  });
+  crossfade.addEventListener("change", () => updateSettings({ crossfade: Number(crossfade.value) }));
+  $("#lastfm-connect").addEventListener("click", onLastfmClick);
+  $("#listenbrainz-connect").addEventListener("click", onListenbrainzClick);
+  $("#listenbrainz-token").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") onListenbrainzClick();
+  });
+}
+
+function renderPlayerSettings() {
+  const settings = state.settings;
+  syncSwitch($("#gapless"), settings.gapless !== false);
+  const crossfade = $("#crossfade");
+  if (document.activeElement !== crossfade) crossfade.value = settings.crossfade || 0;
+  fillRange(crossfade);
+  renderCrossfade(Number(crossfade.value));
+  renderEqualizer();
+}
+
+function renderCrossfade(seconds) {
+  $("#crossfade-value").textContent = seconds ? t("{seconds} с", { seconds }) : t("нет");
+}
+
+async function loadScrobbleAccounts() {
+  try {
+    state.scrobble = await api().scrobble_accounts();
+  } catch (error) {
+    console.error(error);
+  }
+  renderScrobbleAccounts();
+}
+
+function renderScrobbleAccounts() {
+  const accounts = state.scrobble || {};
+  $("#lastfm-setting").hidden = !accounts.lastfm_ready;
+  const waiting = accounts.waiting ? t(" · ждут отправки: {count}", { count: accounts.waiting }) : "";
+  const lastfm = $("#lastfm-connect");
+  if (!state.lastfmWaiting) {
+    $("span", lastfm).textContent = t(accounts.lastfm ? "Отключить" : "Подключить");
+    lastfm.disabled = false;
+  }
+  $("#lastfm-state").textContent = accounts.lastfm
+    ? t("Прослушивания уходят в профиль {name}", { name: accounts.lastfm }) + waiting
+    : t("Отправляет прослушанные треки в ваш профиль Last.fm. Подключение откроет страницу Last.fm, где нужно разрешить доступ");
+  const listenbrainz = $("#listenbrainz-connect");
+  $("span", listenbrainz).textContent = t(accounts.listenbrainz ? "Отключить" : "Подключить");
+  $("#listenbrainz-field").hidden = Boolean(accounts.listenbrainz);
+  $("#listenbrainz-state").textContent = accounts.listenbrainz
+    ? t("Прослушивания уходят в профиль {name}", { name: accounts.listenbrainz }) + waiting
+    : t("Открытая замена Last.fm. Токен — на странице listenbrainz.org/settings");
+}
+
+async function onLastfmClick() {
+  const button = $("#lastfm-connect");
+  if (state.scrobble?.lastfm) {
+    state.scrobble = await api().disconnect_scrobbler("lastfm");
+    renderScrobbleAccounts();
+    return;
+  }
+  const started = await api().connect_lastfm();
+  if (started.error) {
+    announce(started.error);
+    return;
+  }
+  // Last.fm's page is open in the browser; the program asks until access is allowed
+  state.lastfmWaiting = true;
+  button.disabled = true;
+  $("span", button).textContent = t("Жду разрешения на Last.fm…");
+  for (let tries = 0; tries < 60 && state.lastfmWaiting; tries += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const answer = await api().lastfm_connected().catch(() => ({ name: "" }));
+    if (answer.name) {
+      announce(t("Last.fm подключён: {name}", { name: answer.name }));
+      break;
+    }
+  }
+  state.lastfmWaiting = false;
+  loadScrobbleAccounts();
+}
+
+async function onListenbrainzClick() {
+  if (state.scrobble?.listenbrainz) {
+    state.scrobble = await api().disconnect_scrobbler("listenbrainz");
+    renderScrobbleAccounts();
+    return;
+  }
+  const input = $("#listenbrainz-token");
+  const token = input.value.trim();
+  if (!token) {
+    input.focus();
+    return;
+  }
+  const button = $("#listenbrainz-connect");
+  button.disabled = true;
+  const answer = await api().connect_listenbrainz(token).catch((error) => ({ error: String(error) }));
+  button.disabled = false;
+  if (answer.error) {
+    announce(answer.error);
+    input.closest(".field").classList.add("invalid");
+    return;
+  }
+  input.value = "";
+  input.closest(".field").classList.remove("invalid");
+  announce(t("ListenBrainz подключён: {name}", { name: answer.name }));
+  loadScrobbleAccounts();
 }
 
 /* Now playing */

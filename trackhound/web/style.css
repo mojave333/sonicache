@@ -1165,3 +1165,92 @@ button.lyric-line:hover { opacity: 1; }
   .card:hover .card-cover, .artist-card:hover .artist-photo { transform: none; }
   @keyframes fade-in { from { opacity: 0; } }
 }
+
+/* The queue and the equaliser: panels that float over the page, just above the player */
+.float-panel {
+  position: fixed; right: 16px; bottom: 80px; z-index: 20; display: flex; flex-direction: column;
+  width: min(380px, calc(100vw - 32px)); max-height: min(72vh, 600px); overflow: hidden;
+  border: 1px solid var(--border-strong); border-radius: 10px; background: var(--field); box-shadow: var(--menu-shadow);
+  animation: float-in 220ms var(--ease);
+}
+@keyframes float-in { from { opacity: 0; transform: translateY(8px); } }
+.float-head {
+  display: flex; align-items: center; gap: 4px; flex: none; min-height: 48px; padding: 6px 8px 6px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+.float-head h2 { margin: 0 6px 0 0; font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+.float-note { flex: 1; min-width: 0; color: var(--text-subtle); font-size: 12px;
+              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.float-head .icon-btn:disabled { opacity: 0.4; pointer-events: none; }
+.queue-list { flex: 1; min-height: 0; margin: 0; padding: 4px; overflow-y: auto; list-style: none; }
+.queue-row {
+  display: grid; grid-template-columns: 16px minmax(0, 1fr) auto 28px; gap: 8px; align-items: center;
+  min-height: 44px; padding: 3px 4px 3px 6px; border-radius: var(--radius); cursor: pointer;
+}
+.queue-row:hover { background: var(--hover); }
+.queue-row.played { opacity: 0.5; }
+.queue-row.current { background: var(--selected); }
+.queue-row.current .queue-title { color: var(--accent-fg); }
+.queue-row .grip { color: var(--text-subtle); cursor: grab; opacity: 0; }
+.queue-row:hover .grip { opacity: 1; }
+.queue-names { display: grid; min-width: 0; }
+.queue-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-artist { color: var(--text-subtle); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-time { color: var(--text-subtle); font-size: 12px; font-variant-numeric: tabular-nums; }
+.queue-remove { opacity: 0; }
+.queue-row:hover .queue-remove, .queue-row:focus-within .queue-remove { opacity: 1; }
+/* Where a dragged row will land: a line above or below the row under the pointer */
+.dragging { opacity: 0.4; }
+.drop-before { box-shadow: inset 0 2px 0 var(--accent-fg); }
+.drop-after { box-shadow: inset 0 -2px 0 var(--accent-fg); }
+#album-page[data-kind="playlist"] .album-track[draggable="true"] { cursor: grab; }
+
+/* The equaliser: ten bands standing up, the decibels over each and the pitch under it */
+.eq-panel { width: min(470px, calc(100vw - 32px)); }
+.eq-preset { margin-left: auto; }
+.eq-preset select { field-sizing: content; max-width: 190px; }
+.eq-bands { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 2px; padding: 14px 12px 12px; }
+.eq-panel.off .eq-bands { opacity: 0.5; }
+.eq-band { display: grid; justify-items: center; gap: 6px; }
+.eq-band output, .eq-band span { color: var(--text-subtle); font-size: 11px; font-variant-numeric: tabular-nums; }
+.eq-slot { position: relative; width: 24px; height: 150px; }
+/* A level slider turned on end, so it keeps the look of the player's own */
+.eq-slot input { position: absolute; left: 50%; top: 50%; width: 150px; transform: translate(-50%, -50%) rotate(-90deg); }
+#player-queue[aria-pressed="true"], #player-eq[aria-pressed="true"], #player-eq.on { color: var(--accent-fg); }
+.eq-bands input[type="range"], .crossfade input[type="range"] { appearance: none; height: 18px; margin: 0; background: transparent; cursor: pointer; }
+.eq-bands input[type="range"]::-webkit-slider-runnable-track, .crossfade input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px; border-radius: 2px;
+  background: linear-gradient(to right, var(--bar-fill) calc(var(--p, 0) * 100%),
+                              color-mix(in srgb, var(--text) 20%, transparent) calc(var(--p, 0) * 100%));
+}
+.eq-bands input[type="range"]::-webkit-slider-thumb, .crossfade input[type="range"]::-webkit-slider-thumb {
+  appearance: none; width: 13px; height: 13px; margin-top: -5px; border-radius: 50%;
+  background: var(--bar-fill); transition: transform var(--press) var(--ease);
+}
+.eq-bands input[type="range"]:hover::-webkit-slider-thumb, .crossfade input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.2); }
+
+/* The playlist's buttons on the page it shares with albums, and the album's hidden there */
+#album-page[data-kind="playlist"] :is([data-page-action="open"], [data-page-action="again"],
+  [data-page-action="tidy"], [data-page-action="watch"]),
+#album-page:not([data-kind="playlist"]) :is([data-page-action="shuffle"], [data-page-action="rename"],
+  [data-page-action="keep"], [data-page-action="export"], [data-page-action="delete"]) { display: none; }
+.album-actions .tool-btn:disabled, .album-actions .btn:disabled { opacity: 0.5; pointer-events: none; }
+/* What was listened to, told apart from one's own lists by its colour */
+.playlist-card.smart .card-cover { background: var(--selected); color: var(--accent-fg); }
+.playlist-card .card-cover { color: var(--text-subtle); }
+/* Over a cover, the two made from the listens keep their sign in a corner */
+.playlist-card.smart .card-cover img:not([hidden]) ~ .icon {
+  position: absolute; right: 8px; bottom: 8px; z-index: 1; width: 30px; height: 30px; padding: 6px;
+  border-radius: 50%; background: var(--accent); color: var(--on-accent); stroke-width: 2;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+}
+/* Filling in tags is the albums' business */
+#view-library[data-tab="playlists"] #library-tidy { display: none; }
+.playlist-menu { max-height: min(360px, 70vh); overflow-y: auto; }
+
+/* The player's card in the settings */
+.crossfade { display: flex; align-items: center; gap: 10px; }
+.crossfade input { width: 180px; }
+.crossfade output { min-width: 32px; color: var(--text-subtle); font-size: 13px; font-variant-numeric: tabular-nums; }
+.token-field { flex: none; width: 240px; padding-right: 10px; }
+.confirm-field { height: 34px; margin-top: 6px; }

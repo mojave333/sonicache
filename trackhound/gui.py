@@ -11,6 +11,7 @@ import ctypes
 import hashlib
 import datetime
 import json
+import locale
 import logging
 import os
 import queue
@@ -34,12 +35,12 @@ from mutagen.id3 import Frames
 from mutagen.mp3 import MP3
 from mutagen.flac import Picture
 
-from . import __version__, logs, presence, relay_for, thumbbar, tray, watch
+from . import __version__, logs, mediacontrols, playlists, presence, relay_for, scrobble, thumbbar, tray, watch
 from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch, catalog, folders, loudness, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
-                                Downloader, Options, read_tags, use_proxy)
+                                Downloader, Options, _safe_name, read_tags, use_proxy)
 from .engine.matcher import Match
 from .engine.tidy import tidy as tidy_up
 
@@ -84,6 +85,8 @@ _ALBUM_UNDER_ARTIST = re.compile(r"^(?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
 LIBRARY_VIEWS = ("grid", "list")
 # What the player's repeat button steps through: the queue, one track, neither
 REPEAT_MODES = ("off", "all", "one")
+CROSSFADE_MAX = 12
+EQ_BANDS, EQ_LIMIT = 10, 12  # 31 Hz to 16 kHz an octave apart, each up or down 12 dB
 ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the history
 # Library entries tidied up, with their files as they were after it: as long
 # as they stay so, the Fill in tags button does not offer them again, even
@@ -120,9 +123,12 @@ class Api:
         self._tidying: threading.Event | None = None  # set to stop the tidy-up that runs
         self._tray: tray.Tray | None = None
         self._thumbbar: thumbbar.ThumbBar | None = None  # the player's buttons under the taskbar picture
-        self._presence = presence.Presence(catalog.album_cover)  # what plays, on the Discord profile
+        self._media: mediacontrols.MediaControls | None = None  # the track in Windows' own media controls
+        self._presence = presence.Presence(self._web_cover)  # what plays, on the Discord profile
         self._discord = False  # whether the person wants it shown there
         self._now: dict | None = None  # what plays, as the player last said
+        self._scrobbler = scrobble.Scrobbler()  # listens sent to Last.fm and ListenBrainz
+        self._announced = ""  # the track "now playing" was last sent for
         self._hidden = False  # in the tray, the window closed
         self._focused = True  # the window is the one being used; said by the page
         self._quitting = False  # the window closes for good, not into the tray
@@ -214,6 +220,8 @@ class Api:
                 self._tray.close()
             if self._thumbbar is not None:
                 self._thumbbar.close()
+            if self._media is not None:
+                self._media.close()
             return None
         threading.Thread(target=self._hide, daemon=True).start()
         return False
@@ -814,6 +822,8 @@ class Api:
             self._tray.close()
         if self._thumbbar is not None:
             self._thumbbar.close()
+        if self._media is not None:
+            self._media.close()
         self._presence.close()
         threading.Timer(3.0, _exit_now).start()
         try:
@@ -921,9 +931,14 @@ class Api:
 
     def player_buttons(self, buttons: dict | None) -> None:
         """Previous, play or pause and next under the window's picture on the
-        taskbar, as the player has them; None while nothing plays hides them."""
+        taskbar, as the player has them; None while nothing plays hides them.
+        The same goes to Windows' media controls, with the title and the cover."""
         if not thumbbar.SUPPORTED or self._window is None:
             return
+        if self._media is None and buttons and mediacontrols.SUPPORTED:
+            self._media = mediacontrols.MediaControls(self._window.native.Handle.ToInt64(), self._media_button)
+        if self._media is not None:
+            self._media.show(buttons)
         if self._thumbbar is None:
             if not buttons:
                 return
@@ -948,6 +963,164 @@ class Api:
         self._now = track or None
         if self._discord:
             self._presence.show(self._now)
+        # Last.fm and ListenBrainz hear of each track once, as it starts; a
+        # pause is no news to them
+        if track and track.get("path") != self._announced:
+            self._announced = str(track.get("path") or "")
+            self._scrobbler.now_playing(track)
+
+    def _web_cover(self, artist: str, album: str, title: str) -> str:
+        """A picture on the web for what plays, since Discord shows no other:
+        the album's cover, else that of a release with the same song, else the
+        artist's photo."""
+        return ((album and catalog.album_cover(artist, album)) or catalog.track_cover(artist, title)
+                or self.artist_picture(artist))
+
+    # What was listened to: kept for the play counts and "Most played", and
+    # sent to Last.fm and ListenBrainz when an account is connected
+
+    def listened(self, track: dict) -> None:
+        """The player has played enough of a track to count it as listened to."""
+        listen = playlists.record(track)
+        if listen is not None:
+            self._scrobbler.scrobble(listen)
+
+    def play_counts(self) -> dict[str, int]:
+        return playlists.counts()
+
+    def scrobble_accounts(self) -> dict:
+        return self._scrobbler.accounts()
+
+    def connect_listenbrainz(self, token: str) -> dict:
+        try:
+            return {"name": self._scrobbler.connect_listenbrainz(token)}
+        except (scrobble.Rejected, scrobble.Invalid):
+            return {"error": t("ListenBrainz не принял этот токен")}
+        except scrobble.Unavailable as e:
+            return {"error": t("ListenBrainz не ответил: {error}", error=e)}
+
+    def connect_lastfm(self) -> dict:
+        """Opens Last.fm's page where the person allows the program; the
+        window then asks lastfm_connected() until they have."""
+        try:
+            url = self._scrobbler.lastfm_start()
+        except (scrobble.Rejected, scrobble.Unavailable, scrobble.Invalid) as e:
+            return {"error": t("Last.fm не ответил: {error}", error=e)}
+        webbrowser.open(url)
+        return {"url": url}
+
+    def lastfm_connected(self) -> dict:
+        try:
+            return {"name": self._scrobbler.lastfm_finish()}
+        except (scrobble.Unavailable, scrobble.Invalid) as e:
+            return {"name": "", "error": str(e)}
+
+    def disconnect_scrobbler(self, service: str) -> dict:
+        if service in scrobble.SERVICES:
+            self._scrobbler.disconnect(service)
+        return self._scrobbler.accounts()
+
+    # Playlists of one's own, and the two made from what was listened to
+
+    def playlists(self) -> list[dict]:
+        """Every playlist as its card shows it: name, count, length and cover."""
+        listens = playlists.plays()
+        cards = [self._playlist_card({"id": kind, "name": "", "tracks": playlists.smart(kind, listens)}, smart=True)
+                 for kind in playlists.SMART]
+        return cards + [self._playlist_card(entry) for entry in playlists.load()]
+
+    def _playlist_card(self, entry: dict, smart: bool = False) -> dict:
+        cover = next((address for address in map(self._track_cover, entry["tracks"][:8]) if address), "")
+        return {"id": entry["id"], "name": entry["name"], "smart": smart, "count": len(entry["tracks"]),
+                "duration": sum(track["duration"] for track in entry["tracks"]), "cover": cover,
+                "modified": entry.get("modified", 0)}
+
+    def _track_cover(self, entry: dict) -> str:
+        path = Path(entry["path"])
+        if not path.exists():
+            return ""
+        return self.cover(str(path.parent if folders.cover_file(path.parent) else path)) or ""
+
+    def playlist(self, playlist_id: str) -> dict | None:
+        """A playlist with its tracks, each saying whether its file is still there."""
+        if playlist_id in playlists.SMART:
+            entry = {"id": playlist_id, "name": "", "tracks": playlists.smart(playlist_id)}
+        else:
+            entry = next((found for found in playlists.load() if found["id"] == playlist_id), None)
+            if entry is None:
+                return None
+        card = self._playlist_card(entry, smart=playlist_id in playlists.SMART)
+        tracks = [{**track, "missing": not os.path.exists(track["path"])} for track in entry["tracks"]]
+        return {**card, "tracks": tracks}
+
+    def save_playlist(self, playlist_id: str | None, name: str, tracks: list[dict]) -> dict:
+        kept = [entry for entry in map(playlists.track, tracks or []) if entry]
+        return self._playlist_card(playlists.save(playlist_id or None, str(name or ""), kept))
+
+    def add_to_playlist(self, playlist_id: str, tracks: list[dict]) -> dict | None:
+        entry = playlists.add(playlist_id, tracks or [])
+        return self._playlist_card(entry) if entry else None
+
+    def delete_playlist(self, playlist_id: str) -> None:
+        playlists.delete(playlist_id)
+
+    def export_playlist(self, playlist_id: str) -> str | None:
+        """Writes the playlist as .m3u8 where the person says, the music
+        folder offered first; returns the file's path."""
+        entry = self.playlist(playlist_id)
+        if entry is None or self._window is None:
+            return None
+        name = entry["name"] or t({"recent": "Недавно играло", "top": "Часто слушаю"}.get(playlist_id, "Плейлист"))
+        chosen = self._window.create_file_dialog(
+            webview.FileDialog.SAVE, directory=_load_settings()["folder"],
+            save_filename=f"{_safe_name(name)}.m3u8", file_types=(t("Плейлисты (*.m3u8)"),))
+        if not chosen:
+            return None
+        target = Path(chosen if isinstance(chosen, str) else chosen[0])
+        if target.suffix.lower() not in (".m3u8", ".m3u"):
+            target = target.with_suffix(".m3u8")
+        try:
+            target.write_text(playlists.to_m3u8({**entry, "name": name}, target), encoding="utf-8")
+        except OSError as e:
+            logs.log.warning("плейлист не записан в %s: %s", target, e)
+            return None
+        return str(target)
+
+    def import_playlist(self) -> dict | None:
+        """Reads an .m3u8 or .m3u file into a new playlist; the files it names
+        that are there get their names from their own tags."""
+        if self._window is None:
+            return None
+        chosen = self._window.create_file_dialog(
+            webview.FileDialog.OPEN, directory=_load_settings()["folder"],
+            file_types=(t("Плейлисты (*.m3u8;*.m3u)"), t("Все файлы (*.*)")))
+        if not chosen:
+            return None
+        return self._import_playlist(Path(chosen[0]))
+
+    def _import_playlist(self, path: Path) -> dict | None:
+        try:
+            raw = path.read_bytes()[:LIST_BYTES]
+        except OSError:
+            return None
+        try:
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:  # an old .m3u in the system's own code page
+            text = raw.decode(locale.getpreferredencoding(False), errors="replace")
+        found = playlists.from_m3u8(path, text)
+        tracks = []
+        for entry in found["tracks"]:
+            file = Path(entry["path"])
+            if _is_audio(file) and file.exists():
+                tags = _tags(file)
+                entry = {**entry, **{key: tags[key] for key in ("title", "artists", "album", "album_artist", "duration")
+                                     if tags.get(key)}}
+            tracks.append(entry)
+        return self.save_playlist(None, found["name"], tracks)
+
+    def _media_button(self, name: str) -> None:
+        if self._window is not None and name in mediacontrols.BUTTONS.values():
+            self._window.evaluate_js(f"mediaAction({json.dumps(name)})")
 
     def _thumbbar_click(self, name: str) -> None:
         if self._window is not None and name in thumbbar.BUTTONS:
@@ -1551,6 +1724,15 @@ class _CoverServer:
                 self.end_headers()
                 self.wfile.write(data)
 
+            def do_OPTIONS(self):
+                # Asked before a request whose Range the browser does not let through unasked
+                self.send_response(204)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET")
+                self.send_header("Access-Control-Allow-Headers", "Range")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
             def log_message(self, format, *args):
                 pass  # a line for every cover would bury the log
 
@@ -1584,11 +1766,16 @@ def _send_audio(handler: BaseHTTPRequestHandler, path: Path) -> None:
                 start = max(0, size - int(asked[2]))
             if start > end:
                 handler.send_response(416)
+                handler.send_header("Access-Control-Allow-Origin", "*")
                 handler.send_header("Content-Range", f"bytes */{size}")
                 handler.send_header("Content-Length", "0")
                 handler.end_headers()
                 return
         handler.send_response(206 if asked else 200)
+        # The player's sound goes through Web Audio (the equaliser, the
+        # crossfade), which hears a file from another address only when the
+        # server allows it; without this it plays silence
+        handler.send_header("Access-Control-Allow-Origin", "*")
         handler.send_header("Content-Type", AUDIO_TYPES.get(path.suffix.lower(), "application/octet-stream"))
         handler.send_header("Accept-Ranges", "bytes")
         handler.send_header("Content-Length", str(end - start + 1))
@@ -1700,6 +1887,10 @@ def _normalize(settings: dict) -> dict:
         volume = min(1.0, max(0.0, float(settings.get("volume", 0.8))))
     except (TypeError, ValueError):
         volume = 0.8
+    try:  # seconds one track fades into the next; 0 for none
+        crossfade = min(CROSSFADE_MAX, max(0, int(settings.get("crossfade", 0))))
+    except (TypeError, ValueError):
+        crossfade = 0
     try:
         rate_limit = int(settings.get("rate_limit") or 0)
     except (TypeError, ValueError):
@@ -1759,9 +1950,28 @@ def _normalize(settings: dict) -> dict:
         "volume": round(volume, 3),
         "shuffle": bool(settings.get("shuffle", False)),
         "repeat": settings.get("repeat") if settings.get("repeat") in REPEAT_MODES else "off",
+        "crossfade": crossfade,
+        # The next track of an album starts the moment the last one ends
+        "gapless": bool(settings.get("gapless", True)),
+        "eq": _equalizer(settings.get("eq")),
         # What plays, shown on the person's Discord profile
         "discord": bool(settings.get("discord", False)),
     }
+
+
+def _equalizer(value) -> dict:
+    """The equaliser: whether it is on, and the gain of each band in decibels."""
+    value = value if isinstance(value, dict) else {}
+    bands = value.get("bands") if isinstance(value.get("bands"), list) else []
+    gains = []
+    for number in range(EQ_BANDS):
+        try:
+            gain = float(bands[number])
+        except (IndexError, TypeError, ValueError):
+            gain = 0.0
+        gains.append(round(min(EQ_LIMIT, max(-EQ_LIMIT, gain)), 1))
+    preset = str(value.get("preset") or "flat")
+    return {"on": bool(value.get("on", False)), "bands": gains, "preset": preset[:32]}
 
 
 def _expand_artists(links: list[str]) -> list[str]:
@@ -2182,6 +2392,12 @@ def main() -> None:
     use_relay(relay_for(settings["relay"]))
     if not _webview2_installed() and not _offer_webview2():
         return
+    # The window's engine leaves Windows' media controls to the program,
+    # which says what plays there (mediacontrols); set by hand, it is left alone
+    if not os.environ.get("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"):
+        arguments = mediacontrols.browser_arguments()
+        if arguments:
+            os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = arguments
     api = Api()
     theme = _load_settings()["theme"]
     dark = theme == "dark" or (theme == "system" and _system_dark())

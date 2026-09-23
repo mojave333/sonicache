@@ -33,6 +33,8 @@ def deezer(monkeypatch):
         url = urllib.parse.urlsplit(request.full_url)
         asked.append((url.path.lstrip("/"), dict(urllib.parse.parse_qsl(url.query))))
         answer = answers[url.path.lstrip("/")]
+        if callable(answer):  # an answer that depends on the question
+            answer = answer(dict(urllib.parse.parse_qsl(url.query)).get("q", ""))
         if isinstance(answer, Exception):
             raise answer
         return contextlib.closing(io.BytesIO(json.dumps(answer).encode()))
@@ -65,16 +67,42 @@ def test_deezer_answers_every_kind_with_pictures_and_links(deezer):
     assert {params["q"] for _, params in deezer[1]} == {"radiohead"}
 
 
-def test_an_albums_cover_is_the_one_named_exactly_so(deezer):
+def test_an_albums_cover_is_the_one_named_so_its_edition_aside(deezer):
     answers, asked = deezer
     answers["search/album"] = {"data": [
-        {"title": "OK Computer OKNOTOK 1997 2017", "cover_big": "https://cdn.test/500-reissue.jpg"},
-        {"title": "OK Computer", "cover_big": "https://cdn.test/500-a.jpg"}]}
-    assert catalog.album_cover("Radiohead", "OK Computer") == "https://cdn.test/500-a.jpg"
-    assert asked[-1] == ("search/album", {"q": 'artist:"Radiohead" album:"OK Computer"', "limit": "5"})
-    assert catalog.album_cover("Radiohead", "Kid A") == "https://cdn.test/500-reissue.jpg"  # else the first found
-    answers["search/album"] = {"data": []}
-    assert catalog.album_cover("Radiohead", "Unknown") == ""
+        {"title": "OK Computer OKNOTOK 1997 2017", "artist": {"name": "Radiohead"}, "cover_big": "https://cdn.test/500-reissue.jpg"},
+        {"title": "OK Computer (Deluxe Edition)", "artist": {"name": "Radiohead"}, "cover_big": "https://cdn.test/500-a.jpg"}]}
+    assert catalog.album_cover("Radiohead", "OK Computer [Remastered]") == "https://cdn.test/500-a.jpg"
+    assert asked[-1] == ("search/album", {"q": 'artist:"Radiohead" album:"OK Computer [Remastered]"', "limit": "10"})
+
+
+def test_the_plain_search_finds_what_the_fields_miss_and_a_slip_is_forgiven(deezer):
+    answers, asked = deezer
+    found = {"data": [{"title": "Madvillainy", "artist": {"name": "Madvillain"}, "cover_big": "https://cdn.test/mv.jpg"}]}
+    answers["search/album"] = lambda query: found if not query.startswith("artist:") else {"data": []}
+    assert catalog.album_cover("Madvillian", "Madvillainy") == "https://cdn.test/mv.jpg"
+    assert [query["q"] for _, query in asked] == ['artist:"Madvillian" album:"Madvillainy"', "Madvillian Madvillainy"]
+
+
+def test_another_artists_album_of_that_name_is_no_cover(deezer, monkeypatch):
+    answers, _ = deezer
+    answers["search/album"] = {"data": [{"title": "Greatest Hits", "artist": {"name": "Queen"}, "cover_big": "https://cdn.test/q.jpg"}]}
+    monkeypatch.setattr(catalog, "fetch_json", lambda url, service: {"results": [
+        {"collectionName": "Greatest Hits", "artistName": "The Cure",
+         "artworkUrl100": "https://apple.test/100x100bb.jpg"}]})
+    # Deezer has only Queen's; Apple has the right one
+    assert catalog.album_cover("The Cure", "Greatest Hits") == "https://apple.test/600x600bb.jpg"
+    monkeypatch.setattr(catalog, "fetch_json", lambda url, service: {"results": []})
+    assert catalog.album_cover("The Cure", "Greatest Hits") == ""
+
+
+def test_a_record_no_catalogue_has_takes_the_cover_of_one_with_the_same_song(deezer):
+    answers, asked = deezer
+    answers["search/track"] = {"data": [
+        {"title": "Soon", "artist": {"name": "Pale Saints"}, "album": {"cover_big": "https://cdn.test/other.jpg"}},
+        {"title": "Soon", "artist": {"name": "my bloody valentine"}, "album": {"cover_big": "https://cdn.test/eps.jpg"}}]}
+    assert catalog.track_cover("My Bloody Valentine", "Soon") == "https://cdn.test/eps.jpg"
+    assert catalog.track_cover("Slowdive", "Soon") == ""
 
 
 def test_youtube_music_answers_where_deezer_does_not(deezer, monkeypatch):

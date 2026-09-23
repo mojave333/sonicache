@@ -11,9 +11,11 @@ ends, Discord takes the activity down by itself.
 The activity reads "Listening to" the track, with its artist, the album's
 cover and a bar that Discord moves along by itself from the times it was
 given. Discord shows only pictures on the web, so the cover is the album's on
-Deezer, found by its artist and title, and the program's logo when there is
-none. Discord takes five updates in twenty seconds, so they are sent from a
-thread of their own, the latest one only, a moment apart.
+Deezer or in Apple's catalogue, found by its artist and title; for a record
+neither has, the release on Deezer that has the same song, then a photo of
+the artist, and the program's logo when there is nothing at all. Discord
+takes five updates in twenty seconds, so they are sent from a thread of their
+own, the latest one only, a moment apart.
 """
 
 from __future__ import annotations
@@ -47,8 +49,8 @@ class Presence:
     """Keeps Discord told what plays. show() is called from anywhere and
     returns at once; the thread connects, finds the cover and sends."""
 
-    def __init__(self, cover_for: Callable[[str, str], str] | None = None):
-        self._cover_for = cover_for  # (artist, album) to a picture's address
+    def __init__(self, cover_for: Callable[[str, str, str], str] | None = None):
+        self._cover_for = cover_for  # (artist, album, title) to a picture's address
         self._covers: dict[tuple[str, str], str] = {}
         self._wanted: dict | None = None
         self._sent: dict | None = None
@@ -103,18 +105,18 @@ class Presence:
 
     def _activity(self, track: dict) -> dict:
         artist = str(track.get("album_artist") or track.get("artists") or "")
-        album = str(track.get("album") or "")
-        return activity(track, self._cover(artist, album))
+        return activity(track, self._cover(artist, str(track.get("album") or ""), str(track.get("title") or "")))
 
-    def _cover(self, artist: str, album: str) -> str:
-        key = (artist.casefold(), album.casefold())
+    def _cover(self, artist: str, album: str, title: str) -> str:
+        # One look for an album; a track without one is looked for by itself
+        key = (artist.casefold(), (album or f"track:{title}").casefold())
         if key not in self._covers:
             cover = ""
-            if album and self._cover_for is not None:
+            if (album or title) and self._cover_for is not None:
                 try:
-                    cover = self._cover_for(artist, album)
+                    cover = self._cover_for(artist, album, title)
                 except Exception as e:  # a picture is never worth a status left unsaid
-                    log.debug("Discord: обложка «%s» не нашлась: %s", album, e)
+                    log.debug("Discord: обложка «%s» не нашлась: %s", album or title, e)
                     return ""  # asked again with the next track
             self._covers[key] = cover
         return self._covers[key]

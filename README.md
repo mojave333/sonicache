@@ -47,6 +47,9 @@ downloading, after which the files get their tags and cover art.
   and runs it.
 - The library shows the whole music collection, not only what the program downloaded, and
   plays it: an album, the Tracks tab, or everything shuffled, with synced lyrics on screen.
+- A queue to reorder, playlists of your own (to and from `.m3u8`), albums without gaps,
+  a crossfade and a ten-band equalizer.
+- Listens go to Last.fm or ListenBrainz if you connect them, and make "Most played".
 - Search looks through Deezer's catalogue and marks the albums you already have.
 - "Fill in tags" gives albums from elsewhere the genre, cover and lyrics they lack.
 - The window and the terminal version are the same program.
@@ -252,15 +255,34 @@ pause, next and repeat (the whole queue, or one track), a position to drag, and 
 in the filled icons Harmonoid uses (Material Icons). Shuffled, each artist's tracks are
 spread evenly through the queue, so a band with many albums does not come back every few
 songs. The shuffle button above the library plays all of it, or the genre picked, that way.
-While a track plays, the next one is already loaded, so it starts without a pause. The keyboard's
-media keys, Windows' own media controls and the previous, pause and next buttons under the
-window's picture on the taskbar work too. The file is streamed from the program itself, so
-nothing is copied.
+While a track plays, the next one is already loaded, and the next track of an album starts
+the moment the last one ends, so a live record or an album whose songs run into each other
+plays as it does on the disc. Between records a crossfade can be set (Settings → Player, up
+to 12 seconds); an album played in its own order goes on without one. The equalizer (the bars button on the player) has ten bands and a few presets;
+the whole is lowered by its highest band, so it never clips. The file is streamed from the
+program itself, so nothing is copied.
 
-The volume, the shuffle and the repeat are kept in the settings file, so a new window
-starts where the last one left off.
+The queue (the list button, or Q) shows what has played and what comes next: drag a track
+to move it, the cross takes it out. A right click on a track, on an album's page or in the
+Tracks tab, plays it next, adds it to the end of the queue or to a playlist; on albums in
+the library it does the same for whole albums. On Windows the track, its artist and its
+cover show in the system's own media controls (with the volume keys and on the lock
+screen), the keyboard's media keys work, and so do the previous, pause and next buttons
+under the window's picture on the taskbar.
 
-With "Show on Discord what plays" turned on (Settings → Library), your Discord profile says
+The Playlists tab holds playlists of your own: made there, filled with a right click,
+reordered by dragging, saved as `.m3u8` for other players, or opened from one. Two more are
+made from what you listen to: "Recently played" and "Most played". A track counts once half
+of it, or four minutes, has played, as Last.fm counts it; the Tracks tab can sort by it.
+
+The volume, the shuffle, the repeat, the crossfade and the equalizer are kept in the settings
+file, so a new window starts where the last one left off.
+
+Settings → Player can send what you listen to to Last.fm (the program opens Last.fm's page,
+where you allow it) or to ListenBrainz (paste the token from your profile's settings). A
+listen that could not be sent, with the network down, waits and goes with the next one.
+
+With "Show on Discord what plays" turned on (Settings → Player), your Discord profile says
 "Listening to" the track, with its artist, the album's cover and a bar that moves with it,
 and says nothing while the player is paused. The program talks to the Discord app running on
 the same computer, as games do, so no account or token is involved. Discord shows only
@@ -784,6 +806,9 @@ The rest of `trackhound/` is the program built on top of it.
 | `trackhound/tray.py` | the icon by the clock and the notifications (Win32 through ctypes) |
 | `trackhound/thumbbar.py` | the player's buttons under the window's picture on the taskbar (Win32 through ctypes) |
 | `trackhound/presence.py` | what plays, on the Discord profile (Discord's local Rich Presence pipe) |
+| `trackhound/mediacontrols.py` | the track in Windows' own media controls, and the media keys (WinRT through ctypes) |
+| `trackhound/playlists.py` | playlists of one's own, `.m3u8` both ways, and the listens behind "Most played" |
+| `trackhound/scrobble.py` | listens sent to Last.fm and ListenBrainz, and kept while they cannot be |
 | `trackhound/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
 | `trackhound/web/art/`, `trackhound/web/fonts/` | the drawing on the empty screen and the Commissioner font |
 | `trackhound/cli.py`, `main.py` | the command line and the entry point |

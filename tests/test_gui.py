@@ -41,6 +41,9 @@ class TestNormalize:
             "volume": 0.8,
             "shuffle": False,
             "repeat": "off",
+            "crossfade": 0,
+            "gapless": True,
+            "eq": {"on": False, "bands": [0.0] * 10, "preset": "flat"},
             "discord": False,
         }
 

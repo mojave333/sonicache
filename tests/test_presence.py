@@ -88,7 +88,7 @@ def discord(monkeypatch):
 class TestPresence:
     def test_the_program_says_hello_then_what_plays_then_that_it_stopped(self, discord):
         covers = []
-        shown = presence.Presence(lambda artist, album: covers.append((artist, album)) or "https://covers.test/a.jpg")
+        shown = presence.Presence(lambda artist, album, title: covers.append((artist, album)) or "https://covers.test/a.jpg")
         shown.show(TRACK)
         assert discord.wait_for(1) == (0, {"v": 1, "client_id": presence.CLIENT_ID})
         op, message = discord.wait_for(2)
