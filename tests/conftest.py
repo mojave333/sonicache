@@ -1,6 +1,7 @@
 """What every test shares."""
 
 import math
+import sys
 
 import pytest
 
@@ -22,3 +23,6 @@ def own_data_dir(tmp_path_factory, monkeypatch):
     folder = tmp_path_factory.mktemp("data")
     monkeypatch.setenv("LOCALAPPDATA", str(folder))
     monkeypatch.setenv("XDG_DATA_HOME", str(folder))
+    # macOS keeps it under the home folder, which no variable of its own moves
+    if sys.platform == "darwin":
+        monkeypatch.setenv("HOME", str(folder))

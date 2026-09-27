@@ -1377,11 +1377,12 @@ def _package_manager(executable: str | None = None) -> str:
     """"scoop" or "aur" when the program was installed by one of them, "" else."""
     if not getattr(sys, "frozen", False) and executable is None:
         return ""
-    path = Path(executable or sys.executable)
-    parts = [part.casefold() for part in path.parts]
+    # Split by either slash, so a Windows path reads the same on any system
+    text = str(executable or sys.executable)
+    parts = [part.casefold() for part in re.split(r"[\\/]+", text) if part]
     if "scoop" in parts and "apps" in parts[parts.index("scoop"):]:
         return "scoop"
-    if path.as_posix().startswith("/opt/trackhound/"):
+    if text.replace("\\", "/").startswith("/opt/trackhound/"):
         return "aur"
     return ""
 
