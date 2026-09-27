@@ -65,7 +65,7 @@ class TestSearchByName:
         ("Wham! - Last Christmas - Single", ("Wham!", "Last Christmas - Single")),
     ])
     def test_the_artist_is_split_off(self, query, expected):
-        assert sources._split_query(query) == expected
+        assert sources._split_query(query)[1:] == expected
 
     def test_an_album_is_preferred(self, monkeypatch):
         monkeypatch.setattr(sources, "find_album", lambda artist, title, service: "album")
@@ -264,8 +264,8 @@ class TestDeezer:
         assert api == []
 
     def test_a_short_link_is_followed(self, monkeypatch):
-        monkeypatch.setattr(sources, "_deezer_short_link",
-                            lambda link: "https://www.deezer.com/album/302127")
+        monkeypatch.setattr(sources, "follow_short_link",
+                            lambda link, pattern: "https://www.deezer.com/album/302127")
         assert sources.resolve("https://link.deezer.com/s/30ZA1D9TrYl3").album.name == "Discovery"
 
     def test_a_dead_short_link_says_so(self, monkeypatch):

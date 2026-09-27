@@ -374,7 +374,7 @@ class TestLibrary:
     def test_what_counts_as_audio(self, tmp_path, name, audio):
         path = tmp_path / name
         path.write_bytes(b"x")
-        assert gui._is_audio(path) is audio
+        assert gui.folders.is_audio(path) is audio
 
 
 class TestClipboard:

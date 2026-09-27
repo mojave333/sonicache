@@ -13,7 +13,6 @@ import json
 import re
 import threading
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -25,7 +24,7 @@ from .i18n import language, t
 from .logs import YtdlpLogger
 from .matcher import _NOISE_RE, _VERSION_WORDS, _artist_score, _norm, _similarity, ytmusic
 from .models import Album, Release, SourceError, Track
-from .net import BROWSER_UA, fetch_json, fetch_text
+from .net import BROWSER_UA, fetch_json, fetch_text, follow_short_link
 
 SUPPORTED = "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp"
 _SUPPORTED_EN = "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm and sites such as Bandcamp"
@@ -233,9 +232,11 @@ def _split_kind(name: str) -> tuple[str, str]:
 # Deezer: the public API has albums, tracks and whole playlists, no key needed
 
 def _deezer(url: str, parts: urllib.parse.SplitResult) -> Release:
-    if (parts.hostname or "").lower() not in ("deezer.com", "www.deezer.com"):
-        url = _deezer_short_link(url)
-        parts = urllib.parse.urlsplit(url)
+    if (parts.hostname or "").lower() not in ("deezer.com", "www.deezer.com"):  # link.deezer.com, deezer.page.link
+        found = follow_short_link(url, _DEEZER_LINK_RE)
+        if not found:
+            raise SourceError.of("short_link_broken", "Короткая ссылка Deezer никуда не ведёт: {link}", link=url)
+        url, parts = found, urllib.parse.urlsplit(found)
     m = _DEEZER_PATH_RE.match(parts.path)
     if not m:
         raise SourceError.of("unsupported_link",
@@ -246,22 +247,6 @@ def _deezer(url: str, parts: urllib.parse.SplitResult) -> Release:
     if kind == "playlist":
         return _deezer_playlist(deezer_id)
     return _deezer_track(deezer_id)
-
-
-def _deezer_short_link(link: str) -> str:
-    """link.deezer.com and deezer.page.link redirect to www.deezer.com."""
-    request = urllib.request.Request(link, headers={"User-Agent": BROWSER_UA})
-    try:
-        with urllib.request.urlopen(request, timeout=20) as resp:
-            final = resp.geturl()
-            body = "" if _DEEZER_LINK_RE.search(final) else resp.read().decode("utf-8", "replace")
-    except (urllib.error.URLError, TimeoutError) as e:
-        raise SourceError.of("short_link_broken", "Не удалось открыть короткую ссылку {link}: {error}",
-                             link=link, error=e) from e
-    m = _DEEZER_LINK_RE.search(final) or _DEEZER_LINK_RE.search(body)
-    if not m:
-        raise SourceError.of("short_link_broken", "Короткая ссылка Deezer никуда не ведёт: {link}", link=link)
-    return m.group(0)
 
 
 def _deezer_album(album_id: str) -> Release:
@@ -754,11 +739,7 @@ def search(query: str) -> Release:
     Typed instead of a link. An album wins over a track of the same name,
     because a person who means one song usually says so in the title.
     """
-    query = " ".join(query.split())
-    if not query:
-        raise SourceError.of("empty_query",
-                             "Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»")
-    artist, title = _split_query(query)
+    query, artist, title = _split_query(query)
     album = find_album(artist, title, t("поиск")) if title else None
     if album:
         return album
@@ -771,21 +752,22 @@ def search_track(query: str) -> Release:
     Lists read from a playlist export name songs, and a playlist often holds
     the title track of an album; search() would take the album for it.
     """
+    query, artist, title = _split_query(query)
+    return find_track(artist, title or query, t("поиск"))
+
+
+def _split_query(query: str) -> tuple[str, str, str]:
+    """The query with its spaces evened out, and "Artist - Title" split on the
+    dash people actually type; an empty query is refused."""
     query = " ".join(query.split())
     if not query:
         raise SourceError.of("empty_query",
                              "Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»")
-    artist, title = _split_query(query)
-    return find_track(artist, title or query, t("поиск"))
-
-
-def _split_query(query: str) -> tuple[str, str]:
-    """Splits "Artist - Title" on the dash people actually type."""
     for separator in (" - ", " — ", " – ", " -- "):
         artist, found, title = query.partition(separator)
         if found and artist.strip() and title.strip():
-            return artist.strip(), title.strip()
-    return "", query
+            return query, artist.strip(), title.strip()
+    return query, "", query
 
 
 # Finding a release by name, for links that carry nothing else

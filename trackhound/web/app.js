@@ -3026,10 +3026,7 @@ async function showArtistPhoto(photo) {
   const { name } = photo.dataset;
   if (!state.artistPhotos.has(name)) state.artistPhotos.set(name, api().artist_picture(name).catch(() => ""));
   const url = await state.artistPhotos.get(name);
-  if (!url || photo.dataset.name !== name) return;
-  const image = $("img", photo);
-  image.addEventListener("load", () => { image.hidden = false; }, { once: true });
-  image.src = url;
+  if (url && photo.dataset.name === name) loadCover(photo, url);
 }
 
 function onArtistsClick(event) {
@@ -3334,7 +3331,7 @@ function createSearchAlbum(item, index) {
     ? t("{tracks} {trackWord}", { tracks: item.tracks, trackWord: plural(item.tracks, "трек", "трека", "треков") }) : "";
   $(".card-sub", card).textContent = [item.artist, t(RELEASE_KINDS[item.type] || "Альбом"), item.year, tracks]
     .filter(Boolean).join(" · ");
-  showRemotePicture($(".card-cover", card), item.cover);
+  loadCover($(".card-cover", card), item.cover);
   markQueued($(".queue-btn", card), item.link);
   $(".in-library", card).hidden = !inLibrary(item);
   card._item = item;
@@ -3351,7 +3348,7 @@ function createSearchTrack(item) {
   $(".cell-artists", row).textContent = item.artist;
   $(".cell-album", row).textContent = item.album;
   $(".cell-time", row).textContent = item.duration ? formatDuration(item.duration) : "";
-  showRemotePicture($(".cover", row), item.cover);
+  loadCover($(".cover", row), item.cover);
   markQueued($(".queue-btn", row), item.link);
   return row;
 }
@@ -3377,16 +3374,6 @@ function createSearchArtist(item, index) {
 }
 
 // A catalogue's picture, straight from its own address; the note stays where it does not load
-function showRemotePicture(box, url) {
-  const image = $("img", box);
-  if (!url) return;
-  image.addEventListener("load", () => {
-    image.hidden = false;
-    box.classList.add("has-image");
-  }, { once: true });
-  image.src = url; // not lazy: a hidden picture is never in view, so it would never load
-}
-
 function markQueued(button, link) {
   const queued = state.search.queued.has(link);
   button.classList.toggle("is-queued", queued);
@@ -3468,7 +3455,7 @@ async function fillSearchAlbum(entry) {
   const cover = $(".album-cover", page);
   $("img", cover).hidden = true;
   $("img", cover).removeAttribute("src");
-  showRemotePicture(cover, item.cover.replace("/250x250-", "/500x500-"));
+  loadCover(cover, item.cover.replace("/250x250-", "/500x500-"));
   renderSearchPageButton();
   riseIn([...$(".album-info", page).children]);
   if (!entry.data) {
@@ -5849,6 +5836,7 @@ function showBackdrop(page, src) {
 }
 
 function loadCover(cover, src) {
+  if (!src) return;
   const image = $("img", cover);
   image.addEventListener("load", () => { image.hidden = false; }, { once: true });
   image.src = src;

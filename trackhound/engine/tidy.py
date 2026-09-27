@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import folders, lyrics, sources
-from .downloader import FORMATS, _write_lrc, _write_tags, fetch_cover, read_marker, read_tags
+from .downloader import _write_lrc, _write_tags, fetch_cover, read_marker, read_tags
 from .i18n import t
 from .logs import log
 from .matcher import _norm, _similarity
@@ -27,7 +27,6 @@ from .models import Release, Track
 LENGTH_SLACK = 3
 # How alike a file's title must be to a track's for the file to be that track
 TITLE_LIKENESS = 0.85
-AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
 # "01. ", "1-01. ", "01 - " at the start of a file name
 _NUMBER_RE = re.compile(r"^\d+(?:-\d+)?(?:\.\s*|\s+-\s+|\s+)")
 _log = log.getChild("tidy")
@@ -182,11 +181,6 @@ def _own_track(file: Path, tags: dict, album_artist: str) -> Track:
     return Track(id=file.name, title=tags.get("title") or _NUMBER_RE.sub("", file.stem),
                  artists=tags.get("artist") or album_artist, duration=tags.get("duration") or 0,
                  track_number=0)
-
-
-def _is_audio(path: Path) -> bool:
-    # _part_ files are tracks still being downloaded
-    return path.suffix.lower() in AUDIO_SUFFIXES and not path.name.startswith("_part_") and path.is_file()
 
 
 def _most(values: list) -> str:

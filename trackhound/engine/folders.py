@@ -105,10 +105,10 @@ def stat(path: Path) -> os.stat_result:
 
 
 def is_audio(path: Path) -> bool:
-    return _audio_name(path.name) and path.is_file()
+    return audio_name(path.name) and path.is_file()
 
 
-def _audio_name(name: str) -> bool:
+def audio_name(name: str) -> bool:
     # _part_ files are tracks still being downloaded
     return os.path.splitext(name)[1].lower() in AUDIO_SUFFIXES and not name.startswith("_part_")
 
@@ -191,7 +191,7 @@ def _gather(folder: Path, tag: str, own: list[Path], apart: list[Path], depth: i
 
 
 def _direct(folder: Path) -> list[Path]:
-    return [Path(entry.path) for entry in listing(folder) if _audio_name(entry.name) and entry.is_file()]
+    return [Path(entry.path) for entry in listing(folder) if audio_name(entry.name) and entry.is_file()]
 
 
 def _subfolders(folder: Path) -> list[Path]:

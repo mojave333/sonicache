@@ -64,7 +64,6 @@ _RELAY_RE = re.compile(r"^https?://[^\s?#]+(?:\?\S*)?$", re.I)
 # How the taskbar button shows the downloads, as ITaskbarList3 numbers them:
 # nothing, a sweep while no count is known yet, green, red, yellow
 TASKBAR_STATES = {"none": 0, "indeterminate": 1, "normal": 2, "error": 4, "paused": 8}
-AUDIO_SUFFIXES = {f".{name}" for name in FORMATS}
 # What a profile remembers: where the music goes and in what shape. The rest of
 # the settings — theme, language, proxy — are about the program, not the music,
 # and stay the same whichever profile is picked.
@@ -212,15 +211,16 @@ class Api:
         in the tray; anything else lets the window close and the program end."""
         if self._quitting or not self._keeps_running():
             self._quitting = True
-            if self._tray is not None:
-                self._tray.close()
-            if self._thumbbar is not None:
-                self._thumbbar.close()
-            if self._media is not None:
-                self._media.close()
+            self._close_extras()
             return None
         threading.Thread(target=self._hide, daemon=True).start()
         return False
+
+    def _close_extras(self) -> None:
+        """The tray icon, the taskbar buttons and Windows' media controls go before the window."""
+        for extra in (self._tray, self._thumbbar, self._media):
+            if extra is not None:
+                extra.close()
 
     def _hide(self) -> None:
         if self._window is None:
@@ -426,7 +426,7 @@ class Api:
             gone.add(str(raw))
             # A track's synced lyrics go with it; an album's are inside its folder already
             lrc = path.with_suffix(".lrc")
-            if path.suffix.lower() in AUDIO_SUFFIXES and lrc.is_file():
+            if path.suffix.lower() in folders.AUDIO_SUFFIXES and lrc.is_file():
                 try:
                     _recycle(lrc)
                 except OSError:
@@ -793,12 +793,7 @@ class Api:
         program. So the exit is forced a moment later, whatever the window did.
         """
         self._quitting = True  # the tray must not catch this close
-        if self._tray is not None:
-            self._tray.close()
-        if self._thumbbar is not None:
-            self._thumbbar.close()
-        if self._media is not None:
-            self._media.close()
+        self._close_extras()
         self._presence.close()
         threading.Timer(3.0, _exit_now).start()
         try:
@@ -891,7 +886,7 @@ class Api:
     def play(self, path: str) -> dict | None:
         """Where the window streams one file from, with its tags and cover."""
         target = Path(path)
-        if not _is_audio(target):
+        if not folders.is_audio(target):
             return None
         cover = self.cover(str(target.parent if folders.cover_file(target.parent) else target))
         try:  # how the sound is made, for the line under the title in Now playing
@@ -1128,7 +1123,7 @@ class Api:
         tracks = []
         for entry in found["tracks"]:
             file = Path(entry["path"])
-            if _is_audio(file) and file.exists():
+            if folders.is_audio(file) and file.exists():
                 tags = _tags(file)
                 entry = {**entry, **{key: tags[key] for key in ("title", "artists", "album", "album_artist", "duration")
                                      if tags.get(key)}}
@@ -1152,7 +1147,7 @@ class Api:
         """The words of a track: synced ones from the .lrc beside it, plain ones
         from its tags, or both from LRCLIB when the file has none."""
         target = Path(path)
-        if not _is_audio(target):
+        if not folders.is_audio(target):
             return {"synced": "", "plain": "", "source": ""}
         try:
             synced = target.with_suffix(".lrc").read_text(encoding="utf-8-sig", errors="replace").strip()
@@ -1203,7 +1198,7 @@ class Api:
         if not link:
             return self.watched()
         try:
-            formats = [file.suffix[1:].lower() for file in target.iterdir() if _is_audio(file)]
+            formats = [file.suffix[1:].lower() for file in target.iterdir() if folders.is_audio(file)]
         except OSError:
             formats = []
         settings = {**_load_settings(), "folder": str(target.parent)}
@@ -1470,15 +1465,6 @@ def _trash_by_hand(path: Path) -> None:
         raise
 
 
-def _is_audio(path: Path) -> bool:
-    return _is_audio_name(path) and path.is_file()
-
-
-def _is_audio_name(path: Path) -> bool:
-    # _part_ files are tracks still being downloaded
-    return path.suffix.lower() in AUDIO_SUFFIXES and not path.name.startswith("_part_")
-
-
 # How deep the library looks into a folder: iTunes Media / Music / Artist / Album is four
 LIBRARY_DEPTH = 6
 
@@ -1493,7 +1479,7 @@ def _library_items(root: Path, artist: str = "", depth: int = 0) -> list[dict]:
         path = Path(entry.path)
         try:
             if not entry.is_dir():
-                if depth == 0 and entry.is_file() and _is_audio_name(path):
+                if depth == 0 and entry.is_file() and folders.audio_name(entry.name):
                     items.append(_library_item(path, [path]))
                 continue
             items += _folder_items(path, artist, depth)
@@ -1955,7 +1941,7 @@ _GAP_CACHE: dict[tuple[str, int, int], frozenset] = {}
 def _entry_files(entry: Path) -> list[Path]:
     if entry.is_dir():
         return folders.album_files(entry)[0]
-    return [entry] if _is_audio(entry) else []
+    return [entry] if folders.is_audio(entry) else []
 
 
 def _files_signature(files: list[Path]) -> str:

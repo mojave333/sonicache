@@ -14,14 +14,13 @@ import gzip
 import html
 import json
 import re
-import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 from .i18n import t
 from .logs import log
 from .models import Album, SourceError, Track
-from .net import BROWSER_UA, fetch_text
+from .net import BROWSER_UA, fetch_text, follow_short_link
 
 # Spotify renders meta tags only for link-preview bots, not for browsers.
 PREVIEW_UA = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
@@ -47,8 +46,8 @@ _ATTR_RE = re.compile(r'([\w:-]+)="([^"]*)"')
 def parse_link(link: str) -> tuple[str, str]:
     """Return ("album" | "track" | "playlist", id) for a Spotify link or URI."""
     link = link.strip()
-    if _SHORT_LINK_RE.match(link):
-        link = _resolve_short_link(link)
+    if _SHORT_LINK_RE.match(link):  # spotify.link and spoti.fi lead to open.spotify.com, sometimes via a page
+        link = follow_short_link(link, _LINK_RE) or link
     m = _LINK_RE.search(link)
     if not m:
         raise SourceError.of("unsupported_link",
@@ -381,16 +380,4 @@ def _id_from_url(url: str) -> str:
     return url.split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1] if url else ""
 
 
-def _resolve_short_link(link: str) -> str:
-    """spotify.link / spoti.fi redirect to open.spotify.com (sometimes via HTML)."""
-    request = urllib.request.Request(link, headers={"User-Agent": BROWSER_UA})
-    try:
-        with urllib.request.urlopen(request, timeout=20) as resp:
-            if _LINK_RE.search(resp.geturl()):
-                return resp.geturl()
-            body = resp.read().decode("utf-8", "replace")
-    except (urllib.error.URLError, TimeoutError) as e:
-        raise SourceError.of("short_link_broken", "Не удалось открыть короткую ссылку {link}: {error}",
-                             link=link, error=e) from e
-    m = _LINK_RE.search(body)
-    return m.group(0) if m else link
+
