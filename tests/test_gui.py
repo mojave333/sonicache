@@ -31,7 +31,6 @@ class TestNormalize:
             "folder_name": "flat",
             "sidebar": 64,
             "replaygain": False,
-            "ask_doubtful": True,
             "lyrics": True,
             "tray": True,
             "notify": True,
@@ -676,42 +675,18 @@ class TestCovers:
         assert api.cover(str(tmp_path)) != first
 
 
-class TestChoices:
-    """What a person chose for a held-back track goes back to the downloader."""
+class TestBestMatch:
+    """A track whose match is in doubt downloads from its best candidate: the
+    window offers no choice of recording, so nothing is held back for one."""
 
-    CANDIDATE = {"source": "soundcloud", "url": "https://soundcloud.com/a/b", "page_url": "https://soundcloud.com/a/b",
-                 "title": "Resonance", "artists": "DV-i", "duration": 179.0, "score": 0.8, "source_name": "SoundCloud"}
-
-    def api(self, monkeypatch):
+    def test_a_link_is_queued_to_take_the_best_match(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".trackhound.json")
         api = gui.Api()
-        queued = []
-        monkeypatch.setattr(api, "_enqueue", lambda link, settings, choices=None: queued.append(
-            (link, settings["dry_run"], choices)) or {"job": 1, "link": link})
-        return api, queued
-
-    def test_the_chosen_match_is_queued_for_its_track(self, monkeypatch):
-        api, queued = self.api(monkeypatch)
-        assert api.download_choices("https://x.test/album", {"dry_run": True}, {"7": self.CANDIDATE}) == {
-            "job": 1, "link": "https://x.test/album"}
-        link, dry_run, choices = queued[0]
-        assert (link, dry_run, choices["7"].url, choices["7"].score) == (
-            "https://x.test/album", False, "https://soundcloud.com/a/b", 0.8)
-
-    def test_nothing_usable_queues_nothing(self, monkeypatch):
-        api, queued = self.api(monkeypatch)
-        assert api.download_choices("https://x.test/album", {}, {"7": {"title": "no url"},
-                                                                 "8": {**self.CANDIDATE, "url": "file:///C:/x"}}) is None
-        assert queued == []
-
-    @pytest.mark.parametrize("url, opened", [
-        ("https://music.youtube.com/watch?v=x", True), ("https://soundcloud.com/a/b", True),
-        ("https://evil.test/", False), ("file:///C:/Windows", False),
-    ])
-    def test_only_a_candidates_own_page_is_opened(self, monkeypatch, url, opened):
-        seen = []
-        monkeypatch.setattr(gui.webbrowser, "open", seen.append)
-        assert gui.Api().open_page(url) is opened
-        assert seen == ([url] if opened else [])
+        monkeypatch.setattr(api, "_work", lambda: None)  # no real download starts
+        # Sent by a window, or read from a settings file, of the version that asked
+        api.download(["https://x.test/album"], {"ask_doubtful": True})
+        _, _, options = api._jobs.get_nowait()
+        assert options.ask is False and options.choices == {}
 
 
 class TestTidy:
@@ -810,10 +785,10 @@ class TestBackground:
 
     def test_a_notice_waits_for_the_window_to_be_out_of_use(self, monkeypatch):
         api = self.api(monkeypatch)
-        api._finished = [{"title": "In Rainbows", "state": "done", "ok": 10, "skipped": 0, "failed": 0, "doubtful": 0}]
+        api._finished = [{"title": "In Rainbows", "state": "done", "ok": 10, "skipped": 0, "failed": 0}]
         api._announce()
         assert api._tray.said == []  # looked at: the card says it already
-        api._finished = [{"title": "In Rainbows", "state": "done", "ok": 10, "skipped": 0, "failed": 0, "doubtful": 0}]
+        api._finished = [{"title": "In Rainbows", "state": "done", "ok": 10, "skipped": 0, "failed": 0}]
         api.focus(False)
         api._announce()
         assert api._tray.said == [("Скачано: In Rainbows", "скачано: 10")]
@@ -821,16 +796,16 @@ class TestBackground:
 
     def test_many_releases_make_one_notice(self):
         title, text = gui._notice([
-            {"title": "A", "state": "done", "ok": 3, "skipped": 1, "failed": 1, "doubtful": 0},
-            {"title": "B", "state": "done", "ok": 2, "skipped": 0, "failed": 0, "doubtful": 1},
+            {"title": "A", "state": "done", "ok": 3, "skipped": 1, "failed": 1},
+            {"title": "B", "state": "done", "ok": 2, "skipped": 0, "failed": 0},
             {"title": "C", "state": "error", "message": "Spotify не отдал"},
         ])
         assert title == "Загрузки завершены: 3"
-        assert text == "скачано: 5, уже были: 1, не скачалось: 1, ждут выбора: 1, ссылок с ошибкой: 1"
+        assert text == "скачано: 5, уже были: 1, не скачалось: 1, ссылок с ошибкой: 1"
 
     def test_a_release_not_all_downloaded_says_so(self):
-        assert gui._notice([{"title": "A", "state": "done", "ok": 3, "skipped": 0, "failed": 2,
-                             "doubtful": 0}])[0] == "Скачано не всё: A"
+        assert gui._notice([{"title": "A", "state": "done", "ok": 3, "skipped": 0,
+                             "failed": 2}])[0] == "Скачано не всё: A"
         assert gui._notice([{"title": "A", "state": "error", "message": "нет сети"}]) == ("Не скачалось: A", "нет сети")
 
 

@@ -132,13 +132,12 @@ class TestWatch:
         api._watched = [self.entry()]
         monkeypatch.setattr(gui.watch, "save", lambda entries: None)
         queued = []
-        monkeypatch.setattr(api, "_enqueue", lambda link, settings: queued.append((link, settings["folder"],
-                                                                                  settings["ask_doubtful"]))
+        monkeypatch.setattr(api, "_enqueue", lambda link, settings: queued.append((link, settings["folder"]))
                             or {"job": len(queued), "link": link})
         monkeypatch.setattr(gui.catalog, "artist", lambda link: {"releases": [
             {"link": "https://x.test/new", "date": "2026-09-01"}, {"link": "https://x.test/old", "date": "2007-10-10"}]})
         api.check_watched(force=True)
-        assert queued == [("https://x.test/new", "M", False)]
+        assert queued == [("https://x.test/new", "M")]
         assert api.watched()[0]["kind"] == "artist" and api.watched()[0]["added_tracks"] == 1
 
     def test_watching_an_artist_remembers_what_they_have(self, monkeypatch):

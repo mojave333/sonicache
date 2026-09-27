@@ -125,7 +125,6 @@ ENGLISH.update({
     "скачано: {count}": "downloaded: {count}",
     "уже были: {count}": "already there: {count}",
     "не скачалось: {count}": "failed: {count}",
-    "ждут выбора: {count}": "waiting for a choice: {count}",
     "Не скачалось: {title}": "Not downloaded: {title}",
     "Скачано: {title}": "Downloaded: {title}",
     "Скачано не всё: {title}": "Partly downloaded: {title}",

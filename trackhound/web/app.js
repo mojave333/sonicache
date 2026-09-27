@@ -26,10 +26,6 @@ const TRACK_UI = {
   missing: { label: "Не найден", icon: "x", tone: "danger" },
   error: { label: "Ошибка", icon: "alert", tone: "danger" },
   cancel: { label: "Отменён", icon: "stop", tone: "muted" },
-  // Held back: the match may be the wrong song, and a person chooses
-  doubtful: { label: "Нужен выбор", icon: "alert", tone: "warning" },
-  handed: { label: "Докачивается отдельно", icon: "download", tone: "muted" },
-  declined: { label: "Пропущен", icon: "stop", tone: "muted" },
 };
 const TRACK_ACTIVE = new Set(["waiting", "search", "download"]);
 // The signs of a step under way: a tick that follows one of them draws itself in
@@ -289,7 +285,6 @@ function renderSettings() {
   applySidebar(settings.sidebar);
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   syncSwitch($("#replaygain"), settings.replaygain);
-  syncSwitch($("#ask-doubtful"), settings.ask_doubtful);
   syncSwitch($("#lyrics"), settings.lyrics);
   syncSwitch($("#tray"), settings.tray);
   syncSwitch($("#notify"), settings.notify);
@@ -731,7 +726,6 @@ function bindUi() {
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
   bindSwitch($("#replaygain"), (on) => updateSettings({ replaygain: on }));
-  bindSwitch($("#ask-doubtful"), (on) => updateSettings({ ask_doubtful: on }));
   bindSwitch($("#lyrics"), (on) => updateSettings({ lyrics: on }));
   bindSwitch($("#tray"), (on) => updateSettings({ tray: on }));
   bindSwitch($("#notify"), (on) => updateSettings({ notify: on }));
@@ -1202,10 +1196,6 @@ function addJob(id, link, dryRun, format) {
   });
   $(".open", node).addEventListener("click", () => api().open_folder(job.folder));
   $(".retry", node).addEventListener("click", () => retryJob(job));
-  $(".choose-go", node).addEventListener("click", (event) => {
-    event.stopPropagation();
-    downloadChosen(job);
-  });
   $(".offer-use", node).addEventListener("click", (event) => {
     event.stopPropagation();
     updateSettings({ proxy: job.offer.url });
@@ -1243,10 +1233,10 @@ function restoreHistory(history) {
       job.sub = [entry.artist, kind, entry.year, entry.service].filter(Boolean).join(" · ");
     }
     if (entry.ok !== undefined) {
-      job.result = { ok: entry.ok, skipped: entry.skipped, failed: entry.failed, doubtful: entry.doubtful || 0 };
+      // Tracks an earlier version held back for a choice of recording never arrived
+      job.result = { ok: entry.ok, skipped: entry.skipped, failed: entry.failed + (entry.doubtful || 0) };
       job.summary = summaryText({ ...job.result, dry_run: job.dryRun });
-      if (entry.failed) job.state = "partial";
-      if (entry.doubtful) job.state = "choose";
+      if (job.result.failed) job.state = "partial";
     }
     if (entry.cover) loadCover($(".cover", job.node), entry.cover);
     if (entry.tracks && entry.tracks.length) {
@@ -1281,15 +1271,7 @@ function renderJob(job) {
   const note = $(".note", node);
   note.textContent = job.note || "";
   note.hidden = !job.note || job.state === "error";
-  // Tracks held back for a choice: how many are chosen, and the button that sends them
-  const waiting = [...job.tracks.values()].filter((track) => track.state === "doubtful");
-  const chosen = waiting.filter((track) => track.choice !== undefined).length;
-  $(".choose-bar", node).hidden = !waiting.length;
-  $(".choose-text", node).textContent = chosen
-    ? t("Выбрано {chosen} из {count}", { chosen, count: waiting.length })
-    : t("Выберите запись для каждого такого трека или пропустите его");
-  $(".choose-go", node).hidden = !chosen;
-  const offer = $(".offer:not(.choose-bar)", node);
+  const offer = $(".offer", node);
   offer.hidden = !(job.offer && job.state === "error" && !state.settings.proxy);
   if (!offer.hidden) {
     $(".offer-text", node).textContent =
@@ -1336,12 +1318,6 @@ function jobStatus(job) {
       const { ok, skipped } = job.result;
       const text = t(job.dryRun ? "Всё найдено" : !ok && skipped ? "Уже скачано" : "Готово");
       return { icon: "check", tone: "success", text, tip: job.summary };
-    }
-    case "choose": {
-      const waiting = [...job.tracks.values()].filter((track) => track.state === "doubtful").length;
-      if (!waiting) return { icon: "check", tone: "success", text: t("Готово"), tip: job.summary };
-      return { icon: "alert", tone: "warning", tip: job.summary,
-               text: t("Ждут выбора: {count}", { count: waiting }) };
     }
     case "partial":
       return { icon: "alert", tone: "warning", tip: job.summary,
@@ -1571,10 +1547,8 @@ function onJobEvent(job, event) {
   } else if (event.state === "done") {
     job.result = event;
     job.summary = summaryText(event);
-    // Tracks held back for a choice come first: they wait for the person at the window
-    job.state = event.doubtful > 0 ? "choose" : event.failed > 0 ? "partial" : "done";
-    if (event.doubtful > 0) setExpanded(job, true);
-    else if (!event.failed && !event.dry_run) setExpanded(job, false);
+    job.state = event.failed > 0 ? "partial" : "done";
+    if (!event.failed && !event.dry_run) setExpanded(job, false);
     announce(`${job.title}: ${job.summary}`);
   }
   // Tracks that never started get no event of their own
@@ -1590,12 +1564,7 @@ function onJobEvent(job, event) {
   }
 }
 
-function summaryText({ ok, skipped, failed, doubtful, dry_run: dryRun }) {
-  const waiting = doubtful ? t("ждут выбора: {count}", { count: doubtful }) : "";
-  return [summaryCounts({ ok, skipped, failed, dry_run: dryRun }), waiting].filter(Boolean).join(" · ");
-}
-
-function summaryCounts({ ok, skipped, failed, dry_run: dryRun }) {
+function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
   if (dryRun) {
     return failed
       ? t("Найдено {ok} из {total} · не найдено: {failed}", { ok, total: ok + failed, failed })
@@ -1626,11 +1595,11 @@ function onRelease(job, event, restored = false) {
   const rows = [];
   for (const info of event.tracks) {
     const track = {
-      job, id: info.id, number: multiDisc ? `${info.disc}-${info.number}` : info.number,
+      job, number: multiDisc ? `${info.disc}-${info.number}` : info.number,
       title: info.title, artists: info.artists, duration: info.duration,
-      state: restored ? info.state || "waiting" : "waiting", percent: 0,
+      // A state an earlier version saved and this one does not know: the track did not arrive here
+      state: restored ? (TRACK_UI[info.state] ? info.state : "cancel") : "waiting", percent: 0,
       source: restored ? info.source || "" : "", text: restored ? info.text || "" : "",
-      candidates: restored ? info.candidates || [] : [],
     };
     track.row = createTrackRow(track, info.artists === event.artist ? "" : info.artists);
     renderTrack(track);
@@ -1639,7 +1608,6 @@ function onRelease(job, event, restored = false) {
     if (!restored) state.tracks.push(track);
   }
   $(".tracks", job.node).replaceChildren(...rows);
-  for (const track of job.tracks.values()) renderChoices(track); // a row has to be in the list first
   setExpanded(job, !restored);
 }
 
@@ -1667,7 +1635,6 @@ function onTrack(job, event) {
   if ((event.state === "search" || event.state === "download") && !track.startedAt) track.startedAt = Date.now();
   if (event.state === "done" && track.startedAt && !track.took) track.took = (Date.now() - track.startedAt) / 1000;
   if (event.source) track.source = event.source;
-  if (event.candidates) track.candidates = event.candidates;
   if (event.state !== "skip" && state.run?.jobs.has(job.id) && !state.run.workStart) state.run.workStart = Date.now();
   renderTrack(track);
 }
@@ -1694,76 +1661,6 @@ function renderTrack(track) {
       drop,
     });
   }
-  renderChoices(track);
-}
-
-// A track held back because it looks like more than one recording: its
-// candidates under its row, each to be listened to and chosen, or the track
-// passed over. The choices go out together from the card's own button.
-function renderChoices(track) {
-  const shown = track.state === "doubtful" && track.candidates?.length && track.row.parentNode;
-  if (!shown) {
-    track.choicesNode?.remove();
-    track.choicesNode = null;
-    return;
-  }
-  if (!track.choicesNode) {
-    track.choicesNode = document.createElement("li");
-    track.choicesNode.className = "choices";
-    track.row.after(track.choicesNode);
-  }
-  const items = track.candidates.map((candidate, index) => {
-    const item = document.createElement("div");
-    const chosen = track.choice === index;
-    item.className = `choice${chosen ? " is-chosen" : ""}`;
-    item.innerHTML = '<button type="button" class="choice-pick" role="radio"><svg class="icon sm" aria-hidden="true">'
-      + '<use href="#i-check"/></svg></button><div class="choice-main"><p class="title"></p><p class="sub"></p></div>'
-      + '<button type="button" class="tool-btn choice-listen"></button>';
-    const pick = $(".choice-pick", item);
-    pick.setAttribute("aria-checked", String(chosen));
-    pick.setAttribute("aria-label", t("Выбрать эту запись"));
-    $(".title", item).textContent = [candidate.artists, candidate.title].filter(Boolean).join(" — ");
-    $(".sub", item).textContent = t("{source} · {length}, нужно {wanted} · совпадение {percent}%", {
-      source: candidate.source_name || candidate.source, length: formatDuration(candidate.duration),
-      wanted: track.duration, percent: Math.min(100, Math.round(candidate.score * 100)),
-    });
-    $(".choice-listen", item).textContent = t("Послушать");
-    $(".choice-listen", item).addEventListener("click", () => api().open_page(candidate.page_url || candidate.url));
-    const choose = () => {
-      track.choice = chosen ? undefined : index;
-      renderChoices(track);
-      renderJob(track.job);
-    };
-    pick.addEventListener("click", choose);
-    $(".choice-main", item).addEventListener("click", choose);
-    return item;
-  });
-  const skip = document.createElement("button");
-  skip.type = "button";
-  skip.className = "tool-btn choice-skip";
-  skip.textContent = t("Не скачивать");
-  skip.addEventListener("click", () => {
-    track.state = "declined";
-    delete track.choice;
-    renderTrack(track);
-    renderJob(track.job);
-  });
-  track.choicesNode.replaceChildren(...items, skip);
-}
-
-async function downloadChosen(job) {
-  const chosen = [...job.tracks.values()].filter((track) => track.state === "doubtful" && track.choice !== undefined);
-  const choices = Object.fromEntries(chosen.map((track) => [track.id, track.candidates[track.choice]]));
-  const queued = await api().download_choices(job.link, state.settings, choices);
-  if (!queued) return;
-  addJob(queued.job, queued.link, false, job.format);
-  for (const track of chosen) {
-    track.state = "handed";
-    delete track.choice;
-    renderTrack(track);
-  }
-  renderJob(job);
-  announce(t("Выбранные треки поставлены в очередь: {count}", { count: chosen.length }));
 }
 
 // Which turn the step has taken: the second search, over every source, or a
@@ -1780,7 +1677,6 @@ function trackNote({ state: name, text }) {
   switch (name) {
     case "found": return t("Найдено: {text}", { text });
     case "missing": return t("Нет в открытом доступе на YouTube Music и SoundCloud");
-    case "doubtful": return t("Похоже сразу на несколько записей — выберите нужную");
     case "error": return text;
     default: return "";
   }
