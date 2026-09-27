@@ -1141,7 +1141,6 @@ button.lyric-line:hover { opacity: 1; }
   .track { grid-template-columns: 24px 30px minmax(0, 1fr) 120px 60px; }
   .track .cell-dur { display: none; }
   .track .cell-status { grid-column: 4; }
-  .col-dur { display: none; }
   .cover { width: 30px; height: 30px; }
   .cell-actions { gap: 0; }
   .icon-btn { width: 26px; }

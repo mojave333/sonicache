@@ -26,3 +26,13 @@ def own_data_dir(tmp_path_factory, monkeypatch):
     # macOS keeps it under the home folder, which no variable of its own moves
     if sys.platform == "darwin":
         monkeypatch.setenv("HOME", str(folder))
+
+
+@pytest.fixture(autouse=True)
+def russian():
+    """The tests read Russian messages; a runner with an English locale must not change that."""
+    from trackhound.engine.i18n import set_language
+
+    set_language("ru")
+    yield
+    set_language("ru")

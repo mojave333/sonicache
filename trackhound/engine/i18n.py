@@ -124,7 +124,6 @@ ENGLISH = {
     "В ссылке нет названия трека": "The link carries no track name",
     "Вставьте ссылку или напишите, что искать: «Исполнитель - Альбом»":
         "Paste a link, or write what to look for: \"Artist - Album\"",
-    "Не похоже на ссылку: {link}": "This does not look like a link: {link}",
     "По этой ссылке не нашлось музыки. Подойдут ссылки из {services}":
         "No music behind that link. Links from {services} will do",
     "Не удалось открыть ссылку: {error}": "Could not open the link: {error}",

@@ -32,7 +32,6 @@ classifiers = [
 ]
 dependencies = [
     "yt-dlp[default]",
-    "yt-dlp-ejs",
     "ytmusicapi",
     "mutagen",
     "requests[socks]",  # PySocks: a SOCKS proxy for urllib and requests

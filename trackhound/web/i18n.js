@@ -29,8 +29,6 @@ const TRANSLATIONS = {
   "Выравнивание громкости": "Loudness levelling",
   "Записывает теги ReplayGain, по которым плеер делает треки одинаково громкими. Сам звук не меняется. Такие теги читают foobar2000, MusicBee, AIMP и VLC":
     "Writes ReplayGain tags, which a player uses to play every track at the same volume. The audio itself is not changed. foobar2000, MusicBee, AIMP and VLC read these tags",
-  "Выкл": "Off",
-  "Вкл": "On",
   "Ищем источник": "Looking for a source",
   "Выравниваем громкость": "Levelling the loudness",
 
@@ -84,16 +82,12 @@ const TRANSLATIONS = {
   "Обновить программу": "Update the program",
   "Программа скачает установщик с GitHub и сверит его хеш. Потом она закроется, обновится и откроется снова":
     "The program downloads the installer from GitHub and checks its hash. Then it closes, updates and opens again",
-  "Скачается установщик с GitHub, программа сверит его хеш и запустит; окно закроется, чтобы файлы можно было заменить":
-    "The installer is fetched from GitHub, checked against its hash and started; the window closes so the files can be replaced",
   "Скачиваем…": "Downloading…",
   "Скачиваем… {percent}%": "Downloading… {percent}%",
   "Проверяем хеш…": "Checking the hash…",
   "Запускаем установщик": "Starting the installer",
   "Окно сейчас закроется: установщик заменит файлы и откроет новую версию сам":
     "The window is about to close: the installer replaces the files and opens the new version itself",
-  "Окно сейчас закроется, чтобы установщик мог заменить файлы":
-    "The window is about to close so the installer can replace the files",
   "Не получилось обновиться: {error}": "The update did not go through: {error}",
 
   // Download view
@@ -125,7 +119,6 @@ const TRANSLATIONS = {
 
   // Library view
   "Поиск": "Search",
-  "Поиск по исполнителю или названию": "Search by artist or title",
   "Открыть папку в проводнике": "Open the folder in the file manager",
   "Обновить": "Refresh",
   "Обновить (F5)": "Refresh (F5)",
@@ -157,19 +150,8 @@ const TRANSLATIONS = {
 
   // Queue view
   "Показать": "Show",
-  "Все": "All",
-  "В работе": "Running",
   "Готово": "Done",
-  "Проблемы": "Problems",
   "Трек": "Track",
-  "Релиз": "Release",
-  "Источник": "Source",
-  "Длит.": "Length",
-  "Статус": "Status",
-  "Очередь пуста": "The queue is empty",
-  "Сейчас ничего не качается": "Nothing is downloading right now",
-  "Готовых треков пока нет": "No finished tracks yet",
-  "Проблемных треков нет": "No tracks in trouble",
 
   // Track and job states
   "В очереди": "Queued",
@@ -338,13 +320,11 @@ const TRANSLATIONS = {
     ". When it is empty, the system's settings apply",
   "Cookies из браузера": "Cookies from a browser",
   "Не использовать": "Do not use any",
-  "Компоненты": "Components",
   "В буфере обмена пусто. Скопируйте ссылку на альбом или трек: «Поделиться» → «Копировать ссылку».":
     "The clipboard is empty. Copy a link to an album or a track: \"Share\" → \"Copy link\".",
   "Всё необходимое установлено": "Everything needed is installed",
   "Не хватает компонентов": "Components are missing",
   "ffmpeg, Deno или Node.js, yt-dlp-ejs": "ffmpeg, Deno or Node.js, yt-dlp-ejs",
-  "Диагностика": "Diagnostics",
   "YouTube часто меняется. Если загрузки перестали работать, сначала обновите Trackhound":
     "YouTube changes often. If downloads stop working, update Trackhound first",
   "Звук скачивает yt-dlp. Он обновляется вместе с Trackhound":
@@ -497,9 +477,6 @@ const TRANSLATIONS = {
   "Не удалось скопировать отчёт": "The report could not be copied",
   "О программе": "About",
   "Доступна версия {version}": "Version {version} is available",
-  "Скачайте новую версию со страницы релизов и распакуйте поверх старой":
-    "Download the new version from the releases page and unpack it over the old one",
-  "Открыть страницу": "Open the page",
   "Названия, обложки и номера треков программа берёт со страницы по ссылке. Звук берётся оттуда же, если он там в открытом доступе, а иначе с YouTube Music или SoundCloud":
     "Titles, covers and track numbers come from the page behind the link. The audio comes from there too when it is openly available, and otherwise from YouTube Music or SoundCloud",
   "Папка для музыки: {folder}": "Music folder: {folder}",
@@ -508,8 +485,6 @@ const TRANSLATIONS = {
   // Messages
   "Вставьте ссылку на альбом, сингл или трек — или напишите, что искать: «Исполнитель - Альбом».":
     "Paste a link to an album, a single or a track — or write what to look for: \"Artist - Album\".",
-  "В буфере обмена пусто. Скопируйте ссылку на альбом или трек: «Поделиться» → «Копировать ссылку».":
-    "The clipboard is empty. Copy a link to an album or a track: \"Share\" → \"Copy link\".",
   "Интерфейс не запустился: {error}": "The interface did not start: {error}",
   "Загрузка на паузе": "The download is paused",
   "Загрузка продолжается": "The download continues",
