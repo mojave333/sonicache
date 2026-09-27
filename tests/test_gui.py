@@ -675,20 +675,6 @@ class TestCovers:
         assert api.cover(str(tmp_path)) != first
 
 
-class TestBestMatch:
-    """A track whose match is in doubt downloads from its best candidate: the
-    window offers no choice of recording, so nothing is held back for one."""
-
-    def test_a_link_is_queued_to_take_the_best_match(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".trackhound.json")
-        api = gui.Api()
-        monkeypatch.setattr(api, "_work", lambda: None)  # no real download starts
-        # Sent by a window, or read from a settings file, of the version that asked
-        api.download(["https://x.test/album"], {"ask_doubtful": True})
-        _, _, options = api._jobs.get_nowait()
-        assert options.ask is False and options.choices == {}
-
-
 class TestTidy:
     """The library's tidy-up runs in the background and says how it went."""
 

@@ -15,7 +15,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, wait
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -31,7 +31,7 @@ from yt_dlp.utils import DownloadCancelled
 from . import loudness, lyrics, sources
 from .i18n import t
 from .logs import YtdlpLogger, log
-from .matcher import ISRC_SCORE, SOURCE_NAMES, Match, Matcher, doubtful
+from .matcher import ISRC_SCORE, SOURCE_NAMES, Match, Matcher
 from .models import Album, Track, _CodedError
 from .progress import Clock
 from .net import BROWSER_UA
@@ -46,8 +46,6 @@ MARKER_NAME = ".trackhound.json"
 DEFAULT_OUTPUT_DIR = Path.home() / "Music" / "Trackhound"
 # A 1000x1000 cover is about a megabyte; past this it is not artwork any more
 MAX_COVER_BYTES = 8 * 1024 * 1024
-# A held-back track offers this many candidates to choose from
-DOUBT_CHOICES = 5
 KINDS = {"album": "альбом", "single": "сингл", "ep": "EP", "compilation": "сборник", "playlist": "плейлист"}
 
 _UNSAFE_CHARS = str.maketrans({
@@ -107,24 +105,9 @@ class Options:
     proxy: str = ""  # "http://127.0.0.1:1080", "socks5://…"; empty uses the system settings
     # Measure each file with ffmpeg and write ReplayGain tags; the audio stays as it is
     replaygain: bool = False
-    # Hold back a track whose best match may be the wrong song, instead of
-    # downloading it: its candidates come in the "doubtful" track event and in
-    # Report.doubts, for a person to choose from
-    ask: bool = False
-    # The tracks chosen that way, by track id: only they are downloaded, each
-    # from its own match, with no search
-    choices: dict[str, Match] = field(default_factory=dict)
     # Lyrics from LRCLIB: the plain ones into the tags, the synced ones into an
     # .lrc file beside the track
     lyrics: bool = False
-
-
-@dataclass
-class Doubt:
-    """A track held back because its match may be the wrong song."""
-
-    track: Track
-    candidates: list[Match]  # best first
 
 
 @dataclass
@@ -142,17 +125,12 @@ class Report:
     skipped: list[str] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)  # "Artist - Title: reason", one line each
     failures: list[Failure] = field(default_factory=list)  # the same tracks, with their codes
-    doubtful: list[str] = field(default_factory=list)  # "Artist - Title" held back for a choice
-    doubts: list[Doubt] = field(default_factory=list)  # the same tracks, with their candidates
 
     def summary(self, dry_run: bool = False) -> str:
         text = t("{done}: {ok}, уже было: {skipped}, ошибок: {failed}",
                  done=t("найдено") if dry_run else t("скачано"), ok=len(self.ok),
                  skipped=len(self.skipped), failed=len(self.failed))
-        if self.doubtful:
-            text += t(", ждут выбора: {count}", count=len(self.doubtful))
-        return "\n".join([text, *(f"  ✗ {item}" for item in self.failed),
-                          *(f"  ? {item}" for item in self.doubtful)])
+        return "\n".join([text, *(f"  ✗ {item}" for item in self.failed)])
 
 
 class Downloader:
@@ -210,8 +188,6 @@ class Downloader:
 
         release = sources.resolve(link)
         album, tracks, single = release.album, release.tracks, release.single
-        if self.options.choices:  # only the tracks chosen for, the album still whole for the numbering
-            tracks = [track for track in tracks if track.id in self.options.choices]
         if (album.kind != "playlist" and len(album.tracks) > 1
                 and any(not track.isrc and not track.audio_url for track in tracks)):
             # Spotify and Apple name no ISRC: the same album on Deezer does, for all its tracks at once
@@ -278,8 +254,7 @@ class Downloader:
                 if result:
                     kind, line, *more = result
                     getattr(report, kind).append(line)
-                    # A failed track carries its Failure, a held-back one its Doubt
-                    (report.doubts if kind == "doubtful" else report.failures).extend(more)
+                    report.failures.extend(more)  # a failed track carries its Failure
                 done += 1
                 self.progress(done, len(tracks))
 
@@ -329,7 +304,7 @@ class Downloader:
                 self._clocks[track.id] = {"clock": Clock(track.duration), "track": track, "source": "",
                                           "retry": False}
         announced = False  # the search shown from the ISRC lookup on, not only once it asks YouTube
-        if not (direct or track.isrc or self.options.choices.get(track.id)):
+        if not (direct or track.isrc):
             self._track_event(track, "search", wide=False)
             announced = True
             try:
@@ -355,16 +330,7 @@ class Downloader:
             return match
 
         try:
-            chosen = self.options.choices.get(track.id)
-            match = chosen or direct or next_match()
-            if match is not None and self.options.ask and not (chosen or direct or self.options.dry_run):
-                candidates = [match, *pool]
-                if doubtful(candidates):
-                    self.log(t("? {label}: похоже на несколько записей, ждёт выбора", label=label))
-                    self._track_event(track, "doubtful", candidates=[
-                        {**asdict(candidate), "source_name": t(SOURCE_NAMES.get(candidate.source, ""))}
-                        for candidate in candidates[:DOUBT_CHOICES]])
-                    return "doubtful", label, Doubt(track, candidates)
+            match = direct or next_match()
             if match is None:
                 self.log(t("✗ Не найдено ни на YouTube Music, ни на SoundCloud: {label}",
                            label=label))
@@ -529,7 +495,7 @@ class Downloader:
 
     def _track_event(self, track: Track, state: str, text: str = "", source: str = "", **extra) -> None:
         with self._clock_lock:
-            if state not in ("search", "download"):  # over, or waiting for a choice: no more ticks
+            if state not in ("search", "download"):  # over: no more ticks
                 entry = self._clocks.pop(track.id, None)
                 if entry is not None and state == "done":
                     entry["clock"].done()

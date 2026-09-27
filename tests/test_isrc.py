@@ -9,7 +9,7 @@ import urllib.parse
 import pytest
 
 from trackhound.engine import sources
-from trackhound.engine.matcher import ISRC_SCORE, Matcher, doubtful
+from trackhound.engine.matcher import ISRC_SCORE, Matcher
 from trackhound.engine.models import Album, Track
 
 
@@ -37,11 +37,11 @@ class TestMatcher:
         monkeypatch.setattr(finder, "_youtube_videos", lambda query: asked.append("videos") or [])
         return finder, asked
 
-    def test_the_recording_under_the_code_wins_and_is_never_doubted(self, monkeypatch):
+    def test_the_recording_under_the_code_wins(self, monkeypatch):
         finder, asked = self.matcher(monkeypatch, [song(video="exact")], [song("Fuel (Live)", video="live")])
         matches = finder.find_all(track(isrc="GBAMC9700001"), Album(id="a", name="Reload", artist="Metallica"))
         assert [match.url for match in matches] == ["https://www.youtube.com/watch?v=exact"]
-        assert matches[0].score == ISRC_SCORE and not doubtful(matches)
+        assert matches[0].score == ISRC_SCORE
         assert asked == ["GBAMC9700001"]  # no search by name needed
 
     def test_a_code_youtube_does_not_know_brings_nothing_but_look_alikes(self, monkeypatch):
