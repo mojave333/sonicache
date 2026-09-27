@@ -196,6 +196,7 @@ const TRANSLATIONS = {
   "Ошибка: {message}": "Error: {message}",
   "Остановлено · {done} из {total}": "Stopped · {done} of {total}",
   "{done} из {total} · {percent}%": "{done} of {total} · {percent}%",
+  "{done} из {total}": "{done} of {total}",
   "Не найдено: {failed}": "Not found: {failed}",
   "Не скачано: {failed}": "Not downloaded: {failed}",
   "Найдено {ok} из {total} · не найдено: {failed}":

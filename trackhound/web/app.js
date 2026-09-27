@@ -99,6 +99,9 @@ const state = {
     trackList: { items: [], folder: null, stale: true, loading: false, token: 0 },
     pages: [], // the album and artist pages open over the grid, the top one last
     pageToken: 0,
+    // Downloads into the library's folders, by job: shown grey from the moment
+    // the release is read until the library is read again after them
+    pending: new Map(),
   },
   // The catalogue search: what was asked last and what came back
   search: { query: "", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null, pages: [] },
@@ -1503,7 +1506,10 @@ function handleEvent(event) {
 
 // Events come in bursts; rows and counters are redrawn once per burst
 function flushRender() {
-  for (const job of state.dirty) renderJob(job);
+  for (const job of state.dirty) {
+    renderJob(job);
+    if (state.library.pending.has(job.id)) renderDownloading(job);
+  }
   state.dirty.clear();
   renderChrome();
 }
@@ -1583,7 +1589,7 @@ function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
 // bar, and the card waits to be opened instead of opening itself.
 function onRelease(job, event, restored = false) {
   Object.assign(job, { folder: event.folder, title: event.title, total: event.tracks.length,
-                       single: Boolean(event.single) });
+                       single: Boolean(event.single), artist: event.artist, year: event.year, cover: event.cover });
   const kind = event.kind.charAt(0).toUpperCase() + event.kind.slice(1);
   const fromAlbum = event.kind === t("трек") && event.album && event.album !== event.title
     && t("из «{album}»", { album: event.album });
@@ -1609,6 +1615,11 @@ function onRelease(job, event, restored = false) {
   }
   $(".tracks", job.node).replaceChildren(...rows);
   setExpanded(job, !restored);
+  // A download into the library shows there at once, grey until it lands
+  if (!restored && !job.dryRun && inLibraryFolders(job.folder)) {
+    state.library.pending.set(job.id, job);
+    redrawAlbums();
+  }
 }
 
 function createTrackRow(track, artists, release = "") {
@@ -1773,6 +1784,7 @@ function removeJob(job, fade = false) {
   // second click can never act on a job that is already gone.
   state.tracks = state.tracks.filter((track) => track.job !== job);
   state.jobs.delete(job.id);
+  if (state.library.pending.delete(job.id)) redrawAlbums();
   if (!fade) {
     job.node.remove();
     return;
@@ -1993,6 +2005,7 @@ async function loadLibrary() {
   }
   if (token !== library.token) return;
   Object.assign(library, { items, folder, stale: false, loading: false });
+  for (const [id, job] of library.pending) if (!ACTIVE.has(job.state)) library.pending.delete(id);
   library.artists = null;
   renderLibrary({ enter: !early });
   markInLibrary();
@@ -2158,27 +2171,121 @@ function compare(a, b) {
 function renderAlbums(grid, enter) {
   const library = state.library;
   const needle = libraryQuery();
-  const found = library.items.filter((item) => inGenre(item.genre)
-    && (!needle || `${item.artist} ${item.title}`.toLocaleLowerCase().includes(needle)));
+  const matches = (artist, title) => !needle || `${artist} ${title}`.toLocaleLowerCase().includes(needle);
+  const found = library.items.filter((item) => inGenre(item.genre) && matches(item.artist, item.title));
   const shown = sortBy(found, LIBRARY_SORTS, library.sorts.albums, (a, b) => COLLATOR.compare(a.title, b.title));
   library.shown = shown.map((item) => item.path);
   // Something the filter hides must not stay selected: a batch delete would
   // then take away something nobody can see.
   const visible = new Set(library.shown);
   for (const path of library.selected) if (!visible.has(path)) library.selected.delete(path);
+  // Downloads under way: an album already in the folder turns grey where it
+  // stands, and one with nothing there yet comes first as a grey card of its
+  // own, with no genre to be filtered by until its files are read
+  const fresh = [];
+  const downloading = new Map();
+  if (library.pending.size) {
+    const present = new Set(library.items.map((item) => pathKey(item.path)));
+    for (const job of library.pending.values()) {
+      if (!job.single && present.has(pathKey(job.folder))) downloading.set(pathKey(job.folder), job);
+      else if (!library.genre && matches(job.artist, job.title)) fresh.push(job);
+    }
+  }
+  const downloadOf = (item) => (downloading.size ? downloading.get(pathKey(item.path)) : undefined);
   if (grid) {
     const cards = $("#library-cards");
-    cards.replaceChildren(...shown.map((item, index) => createCard(item, index)));
+    cards.replaceChildren(...fresh.map(createDownloadingCard),
+      ...shown.map((item, index) => createCard(item, fresh.length + index, downloadOf(item))));
     cards.querySelector(".card")?.setAttribute("tabindex", "0");
     playEntrance(cards, enter);
     $("#library").replaceChildren();
   } else {
-    $("#library").replaceChildren(...shown.map(createLibraryRow));
+    $("#library").replaceChildren(...fresh.map(createDownloadingRow),
+      ...shown.map((item) => createLibraryRow(item, downloadOf(item))));
     $$("#library .library-row").forEach((row, index) => { row.tabIndex = index ? -1 : 0; });
     $("#library-cards").replaceChildren();
     renderSortHeader();
   }
-  return shown.length;
+  return fresh.length + shown.length;
+}
+
+// A path the way the library compares them: one kind of slash, none at the
+// end, and one case, as Windows does not tell them apart
+function pathKey(path) {
+  return String(path).replace(/[\\/]+/g, "/").replace(/\/$/, "").toLocaleLowerCase();
+}
+
+// The albums tab drawn again for a download that came or went: at once when
+// it is on screen, otherwise when the library is next opened
+function redrawAlbums() {
+  if (state.view !== "library") state.library.stale = true;
+  else if (state.library.tab === "albums") renderLibrary();
+}
+
+function inLibraryFolders(folder) {
+  const key = pathKey(folder);
+  return libraryFolders().some((root) => key === pathKey(root) || key.startsWith(`${pathKey(root)}/`));
+}
+
+// A download under way, on its card or row in the library: grey, with a bar
+// for how far it has got
+function markDownloading(element, job) {
+  element.classList.add("is-downloading");
+  element.dataset.job = job.id;
+  element.setAttribute("aria-busy", "true");
+  const bar = document.createElement("span");
+  bar.className = "bar download-bar";
+  bar.innerHTML = '<span class="bar-fill"></span>';
+  $(".cover", element).append(bar);
+  fillDownloading(element, job);
+}
+
+function renderDownloading(job) {
+  for (const element of $$(`#library-cards [data-job="${job.id}"], #library [data-job="${job.id}"]`)) {
+    fillDownloading(element, job);
+  }
+}
+
+function fillDownloading(element, job) {
+  const count = job.single ? t("трек") : t("{done} из {total}", { done: job.done, total: job.total });
+  $(".card-sub, .sub", element).textContent = [job.artist, count].filter(Boolean).join(" · ");
+  $(".bar-fill", element).style.setProperty("--p", job.total ? jobProgress(job) : 0);
+}
+
+// Grey cards of downloads with nothing in the folder yet. They are not
+// library entries: a click leads to the download, and there is nothing to
+// select or to offer in a menu
+function createDownloadingCard(job, index) {
+  const card = $("#card-template").content.firstElementChild.cloneNode(true);
+  card.style.setProperty("--i", Math.min(index, 24));
+  $(".card-title", card).textContent = job.title;
+  $(".card-title", card).title = job.title;
+  if (job.cover) loadCover($(".cover", card), job.cover);
+  markDownloading(card, job);
+  return card;
+}
+
+function createDownloadingRow(job) {
+  const row = $("#library-template").content.firstElementChild.cloneNode(true);
+  const title = $(".title", row);
+  title.textContent = job.title;
+  title.title = job.title;
+  $(".cell-year", row).textContent = job.single ? "" : job.year || "";
+  $(".cell-count", row).textContent = job.total;
+  $(".open", row).hidden = true;
+  row.addEventListener("dblclick", () => showJob(job));
+  row.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") showJob(job);
+  });
+  if (job.cover) loadCover($(".cover", row), job.cover);
+  markDownloading(row, job);
+  return row;
+}
+
+function showJob(job) {
+  if (!state.jobs.has(job.id)) return; // its card was cleared away since
+  showView("download");
+  job.node.scrollIntoView({ block: "nearest", behavior: reduceMotion() ? "auto" : "smooth" });
 }
 
 function renderTracks(enter) {
@@ -2758,7 +2865,7 @@ function finishClose(page) {
 
 /* Cards: a click opens, Ctrl and Shift pick, the right button offers the menu */
 
-function createCard(item, index) {
+function createCard(item, index, download = null) {
   const card = $("#card-template").content.firstElementChild.cloneNode(true);
   card.dataset.path = item.path;
   card.style.setProperty("--i", Math.min(index, 24));
@@ -2768,6 +2875,7 @@ function createCard(item, index) {
   $(".card-sub", card).textContent = [item.artist, year].filter(Boolean).join(" · ");
   if (state.library.selected.has(item.path)) card.classList.add("is-selected");
   if (item.cover) coverObserver.observe(card);
+  if (download) markDownloading(card, download);
   return card;
 }
 
@@ -2778,6 +2886,11 @@ function itemByPath(path) {
 function onCardsClick(event) {
   const card = event.target.closest(".card");
   if (!card) return;
+  if (!card.dataset.path) { // a download with nothing in the folder yet
+    const job = state.jobs.get(Number(card.dataset.job));
+    if (job) showJob(job);
+    return;
+  }
   if (event.ctrlKey || event.shiftKey) {
     selectRow(card.dataset.path, event);
     return;
@@ -2818,6 +2931,7 @@ function onCardsContextMenu(event) {
   const card = event.target.closest(".card");
   if (!card) return;
   event.preventDefault();
+  if (!card.dataset.path) return;
   if (!state.library.selected.has(card.dataset.path)) selectRow(card.dataset.path, {});
   openLibraryMenu(event.clientX, event.clientY);
 }
@@ -2929,7 +3043,7 @@ function onArtistsClick(event) {
 
 function onLibraryClick(event) {
   const row = event.target.closest(".library-row");
-  if (row) selectRow(row.dataset.path, event);
+  if (row?.dataset.path) selectRow(row.dataset.path, event);
 }
 
 function selectRow(path, { ctrlKey = false, shiftKey = false } = {}) {
@@ -2965,7 +3079,7 @@ function onLibraryKey(event) {
   event.preventDefault();
   const row = rows[next === -1 ? 0 : next];
   focusRow(row);
-  if (!event.ctrlKey) selectRow(row.dataset.path, { shiftKey: event.shiftKey });
+  if (!event.ctrlKey && row.dataset.path) selectRow(row.dataset.path, { shiftKey: event.shiftKey });
 }
 
 function focusRow(row) {
@@ -2977,6 +3091,7 @@ function onLibraryContextMenu(event) {
   const row = event.target.closest(".library-row");
   if (!row) return;
   event.preventDefault();
+  if (!row.dataset.path) return;
   if (!state.library.selected.has(row.dataset.path)) selectRow(row.dataset.path, {});
   openLibraryMenu(event.clientX, event.clientY);
 }
@@ -3040,8 +3155,11 @@ function renderSelection() {
 // Only an album this program downloaded knows its tracklist, and only one
 // with tracks still missing has anything to fetch. The row, the menu, the
 // toolbar and the album page all ask this, so a whole album offers nothing.
+// An album still downloading lacks its tracks only for now: fetching them
+// again would start a second download into the same folder
 function hasMissing(item) {
-  return Boolean(item.link) && item.expected > item.tracks;
+  return Boolean(item.link) && item.expected > item.tracks
+    && ![...state.library.pending.values()].some((job) => pathKey(job.folder) === pathKey(item.path));
 }
 
 function selectedItems() {
@@ -5657,7 +5775,7 @@ function askConfirm({ title, text, action, danger = true }) {
   });
 }
 
-function createLibraryRow(item) {
+function createLibraryRow(item, download = null) {
   const row = $("#library-template").content.firstElementChild.cloneNode(true);
   const title = $(".title", row);
   title.textContent = item.title;
@@ -5689,6 +5807,7 @@ function createLibraryRow(item) {
     downloadAgain([item]);
   });
   if (item.cover) coverObserver.observe(row);
+  if (download) markDownloading(row, download);
   return row;
 }
 
