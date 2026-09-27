@@ -25,12 +25,12 @@ class TestHandler:
     def test_it_answers_as_the_handler_windows_asks_for_and_nothing_else(self):
         handler = mediacontrols._handler(lambda args: None)
         this = ctypes.addressof(handler[0])
-        query = self.call(handler, 0, ctypes.POINTER(mediacontrols._Guid), ctypes.POINTER(ctypes.c_void_p))
+        query = self.call(handler, 0, ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p))
         found = ctypes.c_void_p()
-        assert query(this, ctypes.byref(mediacontrols._guid(mediacontrols._IID_HANDLER)), ctypes.byref(found)) == 0
+        assert query(this, mediacontrols._guid(mediacontrols._IID_HANDLER), ctypes.byref(found)) == 0
         assert found.value == this
         with pytest.raises(OSError):  # IMarshal and the like are not pretended
-            query(this, ctypes.byref(mediacontrols._guid("{00000003-0000-0000-c000-000000000046}")), ctypes.byref(found))
+            query(this, mediacontrols._guid("{00000003-0000-0000-c000-000000000046}"), ctypes.byref(found))
 
     def test_a_press_reaches_the_callback(self):
         pressed = []

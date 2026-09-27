@@ -21,6 +21,7 @@ import ctypes
 import queue
 import sys
 import threading
+import uuid
 from ctypes import wintypes
 from typing import Callable
 
@@ -54,14 +55,7 @@ _ARGS_GET_BUTTON = 6
 _REFERENCE_FROM_URI, _URI_CREATE = 7, 6
 
 if SUPPORTED:
-    class _Guid(ctypes.Structure):
-        _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD), ("Data3", wintypes.WORD),
-                    ("Data4", ctypes.c_ubyte * 8)]
-
-        def __eq__(self, other):
-            return bytes(self) == bytes(other)
-
-    _QUERY_TYPE = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, ctypes.POINTER(_Guid), ctypes.POINTER(ctypes.c_void_p))
+    _QUERY_TYPE = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p))
     _COUNT_TYPE = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)
     _INVOKE_TYPE = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 
@@ -158,8 +152,8 @@ class MediaControls:
         interop = _factory("Windows.Media.SystemMediaTransportControls", _IID_INTEROP)
         try:
             controls = ctypes.c_void_p()
-            get = _call(interop, _INTEROP_GET_FOR_WINDOW, wintypes.HWND, ctypes.POINTER(_Guid), ctypes.POINTER(ctypes.c_void_p))
-            get(interop, self._hwnd, ctypes.byref(_guid(_IID_CONTROLS)), ctypes.byref(controls))
+            get = _call(interop, _INTEROP_GET_FOR_WINDOW, wintypes.HWND, ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p))
+            get(interop, self._hwnd, _guid(_IID_CONTROLS), ctypes.byref(controls))
         finally:
             _release(interop)
         for method in (_PUT_PLAY, _PUT_PAUSE, _PUT_STOP):
@@ -226,10 +220,9 @@ class MediaControls:
 
 # WinRT through ctypes
 
-def _guid(text: str):
-    guid = _Guid()
-    ctypes.oledll.ole32.CLSIDFromString(text, ctypes.byref(guid))
-    return guid
+def _guid(text: str) -> bytes:
+    """A GUID as COM lays it out in memory, to be passed where a pointer to one goes."""
+    return uuid.UUID(text).bytes_le
 
 
 def _call(pointer, index: int, *arguments):
@@ -247,8 +240,8 @@ def _release(pointer) -> None:
 def _query(pointer, iid: str):
     found = ctypes.c_void_p()
     try:
-        _call(pointer, _QUERY, ctypes.POINTER(_Guid), ctypes.POINTER(ctypes.c_void_p))(
-            pointer, ctypes.byref(_guid(iid)), ctypes.byref(found))
+        _call(pointer, _QUERY, ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p))(
+            pointer, _guid(iid), ctypes.byref(found))
     except OSError:
         return None
     return found
@@ -272,7 +265,7 @@ class _String:
 def _factory(name: str, iid: str):
     factory = ctypes.c_void_p()
     with _String(name) as class_name:
-        result = ctypes.windll.combase.RoGetActivationFactory(class_name, ctypes.byref(_guid(iid)), ctypes.byref(factory))
+        result = ctypes.windll.combase.RoGetActivationFactory(class_name, _guid(iid), ctypes.byref(factory))
     if result < 0 or not factory:
         raise OSError(f"no {name}: {result & 0xFFFFFFFF:#x}")
     return factory
@@ -306,11 +299,11 @@ def _stream_reference(address: str):
 def _handler(callback: Callable):
     """A COM object Windows calls with each button press: its table of four
     methods is made of Python functions, kept alive in the returned list."""
-    accepted = [_guid(_IID_HANDLER), _guid(_IID_UNKNOWN), _guid(_IID_AGILE)]
+    accepted = {_guid(_IID_HANDLER), _guid(_IID_UNKNOWN), _guid(_IID_AGILE)}
     count = [1]
 
     def query(this, iid, found):
-        if any(iid.contents == known for known in accepted):
+        if iid and ctypes.string_at(iid, 16) in accepted:
             found[0] = this
             count[0] += 1
             return 0

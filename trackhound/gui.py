@@ -368,7 +368,7 @@ class Api:
         if sys.platform != "win32":
             return
         try:
-            _taskbar_progress(window.native.Handle.ToInt64(), TASKBAR_STATES[state], percent)
+            thumbbar.progress(window.native.Handle.ToInt64(), TASKBAR_STATES[state], percent)
         except Exception as e:  # only a picture of the progress: never worth a failed call
             logs.log.debug("панель задач: %s", e)
 
@@ -1393,55 +1393,6 @@ class _FileOperation(ctypes.Structure):
 _FO_DELETE = 3
 # Undoable, and quiet: the window asks for confirmation itself
 _FOF_FLAGS = 0x0040 | 0x0010 | 0x0004 | 0x0400  # ALLOWUNDO | NOCONFIRMATION | SILENT | NOERRORUI
-
-
-class _Guid(ctypes.Structure):
-    _fields_ = [("data1", ctypes.c_uint32), ("data2", ctypes.c_uint16), ("data3", ctypes.c_uint16),
-                ("data4", ctypes.c_ubyte * 8)]
-
-
-_CLSID_TASKBAR_LIST = "{56FDF344-FD6D-11d0-958A-006097C9A090}"
-_IID_TASKBAR_LIST3 = "{EA1AFB91-9E28-4B86-90E9-9E9F8A5EEFAF}"
-
-
-def _taskbar_progress(hwnd: int, flag: int, percent: int) -> None:
-    """Fills the program's taskbar button the way Explorer does while copying.
-
-    ITaskbarList3 is a COM interface with no wrapper in the standard library,
-    so its methods are called by their place in its table: 2 Release, 3 HrInit,
-    9 SetProgressValue, 10 SetProgressState. The window's calls each come on a
-    thread of their own, so each one sets up COM for itself.
-    """
-    ole32 = ctypes.oledll.ole32
-    try:
-        ole32.CoInitializeEx(None, 2)  # COINIT_APARTMENTTHREADED
-        owned = True
-    except OSError:  # the thread already has COM in another mode, which serves as well
-        owned = False
-    try:
-        clsid, iid = _Guid(), _Guid()
-        ole32.CLSIDFromString(_CLSID_TASKBAR_LIST, ctypes.byref(clsid))
-        ole32.CLSIDFromString(_IID_TASKBAR_LIST3, ctypes.byref(iid))
-        taskbar = ctypes.c_void_p()
-        ole32.CoCreateInstance(ctypes.byref(clsid), None, 1, ctypes.byref(iid),  # CLSCTX_INPROC_SERVER
-                               ctypes.byref(taskbar))
-        methods = ctypes.cast(taskbar, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
-        release = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)(methods[2])
-        init = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p)(methods[3])
-        set_value = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p,
-                                       ctypes.c_ulonglong, ctypes.c_ulonglong)(methods[9])
-        set_state = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, ctypes.c_void_p,
-                                       ctypes.c_int)(methods[10])
-        try:
-            init(taskbar)
-            set_state(taskbar, hwnd, flag)
-            if flag not in (0, 1):  # a value would turn the sweep back into a plain fill
-                set_value(taskbar, hwnd, percent, 100)
-        finally:
-            release(taskbar)
-    finally:
-        if owned:
-            ole32.CoUninitialize()
 
 
 def _reveal(path: Path) -> bool:

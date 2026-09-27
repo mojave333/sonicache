@@ -1,6 +1,7 @@
 """The built-in player: files streamed with seeking, and the lyrics beside them."""
 
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 
@@ -102,18 +103,20 @@ class TestLyrics:
 
 
 class TestTaskbarIcons:
-    """The buttons under the taskbar picture are drawn in the player's own shapes."""
+    """The buttons under the taskbar picture have their icons in both colours,
+    at every size the taskbar asks for as the screen is scaled."""
 
-    def test_a_shape_covers_its_inside_and_leaves_its_outside(self):
+    @pytest.mark.parametrize("colour", ["black", "white"])
+    @pytest.mark.parametrize("name", ["prev", "play", "pause", "next"])
+    def test_every_button_has_its_icon_at_every_size(self, name, colour):
         from trackhound import thumbbar
-        play = thumbbar.coverage(thumbbar.SHAPES["play"], 24)
-        assert play[12 * 24 + 10] == 1  # inside the triangle
-        assert play[2 * 24 + 2] == 0 and play[12 * 24 + 21] == 0  # the margin, and past the tip
-        assert any(0 < share < 1 for share in play)  # the slanted edges are smoothed
+        data = thumbbar._icon_file(name, colour).read_bytes()
+        count = int.from_bytes(data[4:6], "little")
+        assert data[:4] == b"\0\0\1\0"  # an icon file
+        assert {data[6 + 16 * i] for i in range(count)} == {16, 20, 24, 32, 40, 48}
 
-    def test_every_button_has_its_shapes_at_any_size(self):
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows' own icons")
+    def test_windows_reads_them_at_the_size_asked_for(self):
         from trackhound import thumbbar
-        for name in ("prev", "play", "pause", "next"):
-            for size in (16, 20, 24, 32):
-                shares = thumbbar.coverage(thumbbar.SHAPES[name], size)
-                assert len(shares) == size * size and 0.1 < sum(shares) / len(shares) < 0.5, (name, size)
+        for size in (16, 20, 48):
+            thumbbar._user32.DestroyIcon(thumbbar._load_icon(thumbbar._icon_file("play", "white"), size))

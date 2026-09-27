@@ -602,7 +602,7 @@ class TestProgress:
 
     def api(self, monkeypatch, platform="linux", taskbar=None):
         monkeypatch.setattr(gui.sys, "platform", platform)
-        monkeypatch.setattr(gui, "_taskbar_progress", taskbar or (lambda *args: None))
+        monkeypatch.setattr(gui.thumbbar, "progress", taskbar or (lambda *args: None))
         api = gui.Api()
         api._window = self.Window()
         return api

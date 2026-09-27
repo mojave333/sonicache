@@ -45,18 +45,13 @@ _TPM_RIGHTBUTTON, _TPM_RETURNCMD = 0x2, 0x100
 _MENU_OPEN, _MENU_CHECK, _MENU_QUIT = 1, 2, 3
 
 
-class _Guid(ctypes.Structure):
-    _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD), ("Data3", wintypes.WORD),
-                ("Data4", ctypes.c_ubyte * 8)]
-
-
 class _NotifyIconData(ctypes.Structure):
     _fields_ = [
         ("cbSize", wintypes.DWORD), ("hWnd", wintypes.HWND), ("uID", wintypes.UINT),
         ("uFlags", wintypes.UINT), ("uCallbackMessage", wintypes.UINT), ("hIcon", wintypes.HICON),
         ("szTip", wintypes.WCHAR * 128), ("dwState", wintypes.DWORD), ("dwStateMask", wintypes.DWORD),
         ("szInfo", wintypes.WCHAR * 256), ("uVersion", wintypes.UINT), ("szInfoTitle", wintypes.WCHAR * 64),
-        ("dwInfoFlags", wintypes.DWORD), ("guidItem", _Guid), ("hBalloonIcon", wintypes.HICON),
+        ("dwInfoFlags", wintypes.DWORD), ("guidItem", ctypes.c_uint32 * 4), ("hBalloonIcon", wintypes.HICON),
     ]
 
 
