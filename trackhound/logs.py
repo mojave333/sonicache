@@ -1,4 +1,5 @@
-"""A rolling log file and the report a person can paste into a bug report.
+"""A rolling log file and the report a person can paste into a bug report,
+and the small JSON files the program keeps beside it.
 
 The window swallows the detail of a failed download on purpose — a person
 wants "не найдено", not a yt-dlp traceback — so the detail goes here instead.
@@ -8,10 +9,12 @@ opened when somebody asks for it.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import platform
 import sys
+import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -36,6 +39,28 @@ def data_dir() -> Path:
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Application Support" / "Trackhound"
     return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "trackhound"
+
+
+def read_json(path: Path, kind: type = dict):
+    """One of the program's own files, or an empty dict (or list) when it is
+    missing, unreadable or holds something else."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return kind()
+    return data if isinstance(data, kind) else kind()
+
+
+def write_json(path: Path, data, indent: int | None = None) -> None:
+    """Writes one of them whole or not at all: a crash midway leaves the old
+    file, and a read-only profile costs the file, not the program."""
+    spare = path.with_name(f"{path.name}.{threading.get_ident()}.tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        spare.write_text(json.dumps(data, ensure_ascii=False, indent=indent), encoding="utf-8")
+        os.replace(spare, path)
+    except OSError as e:
+        log.warning("не записал %s: %s", path.name, e)
 
 
 def log_dir() -> Path:

@@ -66,22 +66,11 @@ def _playlist(value) -> dict | None:
 
 
 def load() -> list[dict]:
-    try:
-        data = json.loads(playlists_file().read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
-    return [kept for kept in map(_playlist, data if isinstance(data, list) else []) if kept]
+    return [kept for kept in map(_playlist, logs.read_json(playlists_file(), list)) if kept]
 
 
 def _save(playlists: list[dict]) -> None:
-    path = playlists_file()
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        spare = path.with_suffix(".tmp")
-        spare.write_text(json.dumps(playlists, ensure_ascii=False), encoding="utf-8")
-        os.replace(spare, path)  # a crash mid-write leaves the old list, not half of one
-    except OSError as e:
-        logs.log.warning("плейлисты не записаны: %s", e)
+    logs.write_json(playlists_file(), playlists)
 
 
 def save(playlist_id: str | None, name: str, tracks: list[dict]) -> dict:

@@ -40,7 +40,7 @@ from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch, catalog, folders, loudness, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
-                                Downloader, Options, _safe_name, read_tags, use_proxy)
+                                Downloader, Options, _safe_name, read_marker, read_tags, use_proxy)
 from .engine.tidy import tidy as tidy_up
 
 TITLE = "Trackhound"
@@ -519,7 +519,7 @@ class Api:
         when lyrics are on, lyrics, or an album folder without cover.jpg.
         Entries tidied before and not changed since are left out."""
         with_lyrics = bool(settings.get("lyrics", True))
-        tidied = _read_json(logs.data_dir() / TIDIED_FILE)
+        tidied = logs.read_json(logs.data_dir() / TIDIED_FILE)
         _load_library_cache()
         found = []
         with folders.scanning():
@@ -855,7 +855,7 @@ class Api:
         files = folders.album_files(target)[0] if target.is_dir() else [target]
         tracks = [{**_tags(file), "path": str(file)} for file in files]
         tracks.sort(key=lambda track: (track["disc"], track["number"] or 999, track["title"].casefold()))
-        marker = _read_marker(target) if target.is_dir() else {}
+        marker = read_marker(target) if target.is_dir() else {}
         have = {(track["disc"], track["number"]) for track in tracks}
         missing = [item for item in marker.get("tracklist") or []
                    if isinstance(item, dict) and (item.get("disc", 1), item.get("number")) not in have]
@@ -976,21 +976,21 @@ class Api:
         if isinstance(session.get("queue"), list):
             queue = [entry for entry in map(playlists.track, session["queue"][:playlists.TRACKS_LIMIT]) if entry]
             unshuffled = session.get("unshuffled")
-            _write_json(folder / PLAYER_QUEUE_FILE, {
+            logs.write_json(folder / PLAYER_QUEUE_FILE, {
                 "queue": queue, "source": str(session.get("source") or "queue"),
                 "unshuffled": [str(path) for path in unshuffled] if isinstance(unshuffled, list) else None})
         try:
             position = max(0.0, float(session.get("position") or 0))
         except (TypeError, ValueError):
             position = 0.0
-        _write_json(folder / PLAYER_PLACE_FILE, {"index": int(session.get("index") or 0),
+        logs.write_json(folder / PLAYER_PLACE_FILE, {"index": int(session.get("index") or 0),
                                                  "path": str(session.get("path") or ""), "position": round(position, 1)})
 
     def player_session(self) -> dict | None:
         """What the player held when the program was last closed, or None:
         the queue must still hold the track it was on, and its file be there."""
         folder = logs.data_dir()
-        saved, place = _read_json(folder / PLAYER_QUEUE_FILE), _read_json(folder / PLAYER_PLACE_FILE)
+        saved, place = logs.read_json(folder / PLAYER_QUEUE_FILE), logs.read_json(folder / PLAYER_PLACE_FILE)
         queue = [entry for entry in map(playlists.track, saved.get("queue") or []) if entry]
         index = place.get("index") if isinstance(place.get("index"), int) else -1
         if not (0 <= index < len(queue)) or queue[index]["path"] != place.get("path"):
@@ -1176,7 +1176,7 @@ class Api:
             return ""
         path = logs.data_dir() / ARTISTS_FILE
         with _ARTIST_LOCK:
-            known = _read_json(path)
+            known = logs.read_json(path)
         entry = known.get(key)
         if isinstance(entry, dict) and (entry.get("url") or time.time() - entry.get("asked", 0) < ARTIST_RETRY):
             return entry.get("url", "")
@@ -1186,9 +1186,9 @@ class Api:
             except SourceError:
                 return ""  # offline or refused: asked again next time, nothing remembered
         with _ARTIST_LOCK:
-            known = _read_json(path)
+            known = logs.read_json(path)
             known[key] = {"url": url, "asked": int(time.time())}
-            _write_json(path, known)
+            logs.write_json(path, known)
         return url
 
     def watch_album(self, path: str) -> list[dict]:
@@ -1198,7 +1198,7 @@ class Api:
         files already have, named by the current rules.
         """
         target = Path(path)
-        marker = _read_marker(target)
+        marker = read_marker(target)
         link = marker.get("link")
         if not link:
             return self.watched()
@@ -1323,19 +1323,11 @@ def _history_file() -> Path:
 
 
 def _load_history() -> list[dict]:
-    try:
-        data = json.loads(_history_file().read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
-    return [entry for entry in data if isinstance(entry, dict)] if isinstance(data, list) else []
+    return [entry for entry in logs.read_json(_history_file(), list) if isinstance(entry, dict)]
 
 
 def _save_history(history: list[dict]) -> None:
-    try:
-        _history_file().parent.mkdir(parents=True, exist_ok=True)
-        _history_file().write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
-    except OSError:
-        pass  # a read-only profile costs the history, not the download
+    logs.write_json(_history_file(), history)
 
 
 def _package_manager(executable: str | None = None) -> str:
@@ -1540,7 +1532,7 @@ def _library_item(path: Path, files: list[Path], artist: str = "") -> dict:
     pattern = _ALBUM_UNDER_ARTIST if artist else _ALBUM_NAME if album else _TRACK_NAME
     match = pattern.match(path.name if album else path.stem)
     # Only a folder with the marker beside its files is opened to read it
-    marker = _read_marker(path) if album and any(entry.name == MARKER_NAME for entry in folders.listing(path)) else {}
+    marker = read_marker(path) if album and any(entry.name == MARKER_NAME for entry in folders.listing(path)) else {}
     tags = _tags(files[0])
     named = {
         "title": match["title"] if match else (path.name if album else path.stem),
@@ -1828,30 +1820,6 @@ def _embedded_cover(path: Path) -> bytes | None:
     return None
 
 
-def _read_json(path: Path) -> dict:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def _write_json(path: Path, data: dict) -> None:
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    except OSError as e:
-        logs.log.warning("не записал %s: %s", path.name, e)
-
-
-def _read_marker(folder: Path) -> dict:
-    try:
-        data = json.loads((folder / MARKER_NAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
 def _normalize(settings: dict) -> dict:
     try:
         threads = min(8, max(1, int(settings.get("threads", 3))))
@@ -2031,7 +1999,7 @@ def _load_library_cache() -> None:
         if _LIBRARY_CACHE["loaded"]:
             return
         _LIBRARY_CACHE["loaded"] = True
-        data = _read_json(logs.data_dir() / LIBRARY_CACHE_FILE)
+        data = logs.read_json(logs.data_dir() / LIBRARY_CACHE_FILE)
         if data.get("version") != 1:
             return
         items = data.get("items")
@@ -2062,7 +2030,7 @@ def _save_library_cache(roots: str = "", items: list[dict] | None = None) -> Non
         tags = {key[0]: [*key, info] for key, info in list(_TAG_CACHE.items())}
         gaps = {key[0]: [*key, sorted(names)] for key, names in list(_GAP_CACHE.items())}
         albums = {key[0]: [*key, name] for key, name in folders.known_albums().items()}
-        _write_json(logs.data_dir() / LIBRARY_CACHE_FILE, {
+        logs.write_json(logs.data_dir() / LIBRARY_CACHE_FILE, {
             "version": 1, "items": kept, "tags": list(tags.values()), "gaps": list(gaps.values()),
             "albums": list(albums.values())})
         _LIBRARY_CACHE["saved"] = size
@@ -2110,9 +2078,9 @@ def _remember_tidied(entry: Path) -> None:
         return
     path = logs.data_dir() / TIDIED_FILE
     with _ARTIST_LOCK:  # the same small-file lock the artists' photos use
-        known = _read_json(path)
+        known = logs.read_json(path)
         known[str(entry)] = _files_signature(files)
-        _write_json(path, known)
+        logs.write_json(path, known)
 
 
 def _library_folders(raw, folder: str) -> list[str]:
@@ -2193,20 +2161,12 @@ def _profiles(raw) -> list[dict]:
 
 
 def _load_settings() -> dict:
-    try:
-        data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = {}
-    return _normalize(data if isinstance(data, dict) else {})
+    return _normalize(logs.read_json(SETTINGS_FILE))
 
 
 def _save_settings(settings: dict) -> None:
     # "check only" is not remembered: forgetting it on would silently skip downloads
-    data = {key: value for key, value in settings.items() if key != "dry_run"}
-    try:
-        SETTINGS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    logs.write_json(SETTINGS_FILE, {key: value for key, value in settings.items() if key != "dry_run"}, indent=2)
 
 
 def _copy_to_clipboard(text: str) -> bool:

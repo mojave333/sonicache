@@ -275,19 +275,10 @@ class Scrobbler:
     # The file
 
     def _load(self) -> dict:
-        try:
-            data = json.loads(accounts_file().read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return {}
-        return data if isinstance(data, dict) else {}
+        return logs.read_json(accounts_file())
 
     def _save(self) -> None:
-        path = accounts_file()
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(self._data, ensure_ascii=False), encoding="utf-8")
-        except OSError as e:
-            logs.log.warning("не записал %s: %s", path.name, e)
+        logs.write_json(accounts_file(), self._data)
 
 
 def _listen(track: dict) -> dict:

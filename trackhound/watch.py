@@ -17,7 +17,6 @@ and dates; the queueing itself belongs to the window's Api.
 from __future__ import annotations
 
 import datetime
-import json
 import time
 from pathlib import Path
 
@@ -38,20 +37,11 @@ def watch_file() -> Path:
 
 
 def load() -> list[dict]:
-    try:
-        data = json.loads(watch_file().read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
-    return [entry for entry in data if _valid(entry)] if isinstance(data, list) else []
+    return [entry for entry in logs.read_json(watch_file(), list) if _valid(entry)]
 
 
 def save(entries: list[dict]) -> None:
-    try:
-        watch_file().parent.mkdir(parents=True, exist_ok=True)
-        watch_file().write_text(json.dumps(entries[:WATCH_LIMIT], ensure_ascii=False, indent=2),
-                                encoding="utf-8")
-    except OSError as e:  # a read-only profile costs the list, not the program
-        logs.log.warning("не сохранил список слежения: %s", e)
+    logs.write_json(watch_file(), entries[:WATCH_LIMIT], indent=2)
 
 
 def _valid(entry) -> bool:

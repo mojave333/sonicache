@@ -9,7 +9,6 @@ missing: nothing it already says is changed, and the audio is not touched.
 
 from __future__ import annotations
 
-import json
 import re
 import threading
 from collections import Counter
@@ -18,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import folders, lyrics, sources
-from .downloader import FORMATS, MARKER_NAME, _write_lrc, _write_tags, fetch_cover, read_tags
+from .downloader import FORMATS, _write_lrc, _write_tags, fetch_cover, read_marker, read_tags
 from .i18n import t
 from .logs import log
 from .matcher import _norm, _similarity
@@ -112,7 +111,7 @@ def _release(entry: Path, known: dict[Path, dict], artist: str, title: str) -> t
     """The release the entry is, and whether it came from the link it was
     downloaded from rather than a search by name."""
     if entry.is_dir():
-        link = _marker(entry).get("link")
+        link = read_marker(entry).get("link")
         if link:
             try:
                 return sources.resolve(link), True
@@ -188,14 +187,6 @@ def _own_track(file: Path, tags: dict, album_artist: str) -> Track:
 def _is_audio(path: Path) -> bool:
     # _part_ files are tracks still being downloaded
     return path.suffix.lower() in AUDIO_SUFFIXES and not path.name.startswith("_part_") and path.is_file()
-
-
-def _marker(folder: Path) -> dict:
-    try:
-        data = json.loads((folder / MARKER_NAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
 
 
 def _most(values: list) -> str:

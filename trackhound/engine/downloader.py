@@ -729,6 +729,15 @@ def _remote_dns(proxy: str) -> str:
     return re.sub(r"^socks5://", "socks5h://", re.sub(r"^socks4://", "socks4a://", proxy))
 
 
+def read_marker(folder: Path) -> dict:
+    """What _write_marker left in an album folder; {} where there is none to read."""
+    try:
+        data = json.loads((folder / MARKER_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def _write_marker(folder: Path, album: Album, link: str) -> None:
     """Leaves the link the album came from inside its folder.
 
