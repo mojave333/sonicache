@@ -543,13 +543,13 @@ def fetch_cover(url: str, say: Callable[[str], None]) -> bytes | None:
             # bounded amount and check that it really is an image.
             data = resp.read(MAX_COVER_BYTES + 1)
     except (urllib.error.URLError, TimeoutError) as e:
-        say(f"! Обложка не скачалась: {e}")
+        say(t("! Обложка не скачалась: {error}", error=e))
         return None
     if len(data) > MAX_COVER_BYTES:
-        say(f"! Обложка больше {MAX_COVER_BYTES // (1024 * 1024)} МБ, пропускаю: {url}")
+        say(t("! Обложка больше {limit} МБ, пропускаю: {url}", limit=MAX_COVER_BYTES // (1024 * 1024), url=url))
         return None
     if not data.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")):
-        say(f"! По адресу обложки не JPEG и не PNG, пропускаю: {url}")
+        say(t("! По адресу обложки не JPEG и не PNG, пропускаю: {url}", url=url))
         return None
     return data
 

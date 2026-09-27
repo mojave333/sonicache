@@ -319,6 +319,15 @@ class TestCover:
     def test_no_address_means_no_request(self, tmp_path):
         assert downloader.Downloader(Options(tmp_path))._fetch_cover("") is None
 
+    def test_the_reason_is_said_in_the_language_set(self, monkeypatch, tmp_path):
+        from trackhound.engine import set_language
+        set_language("en")  # the tests' own fixture puts Russian back afterwards
+        huge = b"\xff\xd8\xff" + b"x" * downloader.MAX_COVER_BYTES
+        assert self.fetch(monkeypatch, tmp_path, huge)[1] == [
+            "! The cover is larger than 8 MB, skipping it: https://cover.test/art"]
+        assert self.fetch(monkeypatch, tmp_path, b"<html>")[1] == [
+            "! What is at the cover address is neither JPEG nor PNG, skipping it: https://cover.test/art"]
+
 
 def test_mmss():
     assert _mmss(0) == "0:00"
