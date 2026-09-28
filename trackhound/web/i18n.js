@@ -142,6 +142,7 @@ const TRANSLATIONS = {
   "Добавлено в очередь: {count}": "Added to the queue: {count}",
   "Выбрано: {count} · {size}": "Selected: {count} · {size}",
   "Найдено: {shown} из {total}": "Found: {shown} of {total}",
+  "Найдено: {text}": "Found: {text}",
   "{albums} {albumWord}": "{albums} {albumWord}",
   "{tracks} {trackWord}": "{tracks} {trackWord}",
   "{count} {recordWord}": "{count} {recordWord}",
