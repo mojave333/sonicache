@@ -351,6 +351,13 @@ p { margin: 0; }
              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-divider { height: 1px; margin: 4px 6px; background: var(--divider); }
 .menu-empty { margin: 0; padding: 8px 10px; color: var(--text-subtle); font-size: 12px; }
+/* Where and in what the next download goes: the format, the folder, the profiles */
+.target-menu { min-width: 300px; padding: 6px; }
+.menu-label { margin: 6px 10px 5px; color: var(--text-subtle); font-size: 12px; }
+.target-menu .segmented { display: flex; margin: 0 4px 4px; }
+.target-menu .segmented button { flex: 1; width: auto; height: auto; justify-content: center; padding: 0; border-radius: 0; }
+#folder .menu-name { overflow: hidden; text-overflow: ellipsis; }
+#profile-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 /* Lit while the settings still match the profile that set them */
 .tool-btn.on { border-color: var(--accent-edge); background: var(--selected); color: var(--accent-fg); }
 .profile-field { flex: 0 1 240px; }
@@ -1145,8 +1152,6 @@ button.lyric-line:hover { opacity: 1; }
   .cards { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px 14px; padding: 14px; }
   .track-item { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) 52px; }
   .track-item .cell-album { display: none; }
-  #folder span { display: none; }
-  #folder { flex: none; }
   .segmented button { padding: 0 10px; }
   .library-grid { grid-template-columns: 34px minmax(0, 1fr) 54px 64px 38px; }
   .col-date { display: none; }

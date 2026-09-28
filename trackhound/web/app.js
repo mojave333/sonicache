@@ -592,10 +592,12 @@ const FOLDER_LAYOUTS = {
 function renderProfiles() {
   const profiles = state.settings.profiles || [];
   const active = activeProfile();
-  $("#profile-name").textContent = active ? active.name : t("Профиль");
+  // The button says where and in what the next download goes, or the profile that set it
+  const folder = state.settings.folder.split(/[\\/]+/).filter(Boolean).pop() || state.settings.folder;
+  $("#profile-name").textContent = active ? active.name : `${state.settings.format} · ${folder}`;
   $("#profile").classList.toggle("on", Boolean(active));
 
-  const menu = $("#profile-menu");
+  const menu = $("#profile-list");
   menu.replaceChildren();
   if (!profiles.length) {
     const empty = document.createElement("p");
@@ -872,6 +874,9 @@ function onShortcut(event) {
   }
   if (event.key === "Escape" && !$("#mode-menu").hidden) {
     setMenuOpen(false);
+  } else if (event.key === "Escape" && !$("#profile-menu").hidden) {
+    setProfileMenuOpen(false);
+    $("#profile").focus();
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && /^[1-4]$/.test(event.key)) {
     event.preventDefault();
     showView(VIEWS[Number(event.key) - 1]);

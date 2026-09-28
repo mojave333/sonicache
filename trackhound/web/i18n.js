@@ -58,8 +58,6 @@ const TRANSLATIONS = {
   "Проверяем плейлисты под наблюдением": "Checking the watched playlists",
 
   // Profiles
-  "Профиль": "Profile",
-  "Профили: папка, формат и имена одним нажатием": "Profiles: folder, format and naming in one click",
   "Профили": "Profiles",
   "Сохранить текущие настройки": "Save the current settings",
   "Запоминает папку, формат и правила имён под одним названием. Вернуть их можно одним нажатием в панели загрузки":
@@ -182,6 +180,7 @@ const TRANSLATIONS = {
   "Скачано: {title}": "Downloaded: {title}",
   "Сейчас: {tracks}": "Now: {tracks}",
   "в работе: {count}": "under way: {count}",
+  "Формат, папка и профили": "Format, folder and profiles",
   "Скачано не всё: {title}": "Not all of it downloaded: {title}",
   "Не скачалось: {title}": "Did not download: {title}",
   "Не найдено: {failed}": "Not found: {failed}",
