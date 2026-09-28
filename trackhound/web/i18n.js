@@ -181,6 +181,7 @@ const TRANSLATIONS = {
   "{done} из {total}": "{done} of {total}",
   "Скачано: {title}": "Downloaded: {title}",
   "Сейчас: {tracks}": "Now: {tracks}",
+  "в работе: {count}": "under way: {count}",
   "Скачано не всё: {title}": "Not all of it downloaded: {title}",
   "Не скачалось: {title}": "Did not download: {title}",
   "Не найдено: {failed}": "Not found: {failed}",

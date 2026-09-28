@@ -208,12 +208,18 @@ p { margin: 0; }
 /* text-align because a button centres its text, which left the labels floating
    in the middle of the open panel instead of sitting against their icons */
 .nav-label { display: none; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-badge {
-  position: absolute; top: 3px; right: 5px; min-width: 16px; height: 16px; padding: 0 4px;
-  border-radius: 8px; background: var(--accent); color: var(--on-accent);
-  box-shadow: inset 0 0 0 1px var(--accent-edge);
-  font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums;
+/* How far the downloads have come, round the Download icon, seen from any section;
+   yellow on pause, red once something failed, a turning quarter before the count */
+.nav-ring {
+  position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
+  background: conic-gradient(var(--ring, var(--bar-fill)) calc(var(--p, 0) * 360deg), var(--divider) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  pointer-events: none;
 }
+.nav-ring[data-state="paused"] { --ring: var(--warning); }
+.nav-ring[data-state="error"] { --ring: var(--danger); }
+.nav-ring[data-state="indeterminate"] { animation: spin 1.2s linear infinite; }
 .nav-dot {
   position: absolute; top: 9px; right: 11px; width: 8px; height: 8px;
   border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--chrome);
@@ -225,7 +231,8 @@ p { margin: 0; }
   .brand-name { display: block; flex: 1; }
   .nav-item { justify-content: flex-start; padding: 0 12px; }
   .nav-label { display: block; flex: 1; }
-  .nav-badge, .nav-dot { position: static; flex: none; }
+  .nav-dot { position: static; flex: none; }
+  .nav-ring { left: 21px; }
 }
 
 /* Columns react to the content width, which a widened side panel narrows */

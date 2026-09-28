@@ -1842,11 +1842,12 @@ function renderChrome() {
   if (!active && state.paused) setPaused(false); // nothing left to hold back
   $("#clear").hidden = !jobs.some((job) => !ACTIVE.has(job.state));
 
-  // How many tracks are under way, on the panel, for when another section is open
+  // How many tracks are under way, said by the panel's button; its ring shows how far (reportProgress)
   const underWay = state.tracks.filter((track) => TRACK_ACTIVE.has(track.state)).length;
-  const badge = $("#download-badge");
-  badge.textContent = underWay > 99 ? "99+" : underWay;
-  badge.hidden = !underWay;
+  const button = $('.nav-item[data-view="download"]');
+  const count = underWay ? t("в работе: {count}", { count: underWay }) : "";
+  button.title = [t("Загрузка (Ctrl+1)"), count].filter(Boolean).join(" · ");
+  button.setAttribute("aria-label", [t("Загрузка"), count].filter(Boolean).join(", "));
   renderStatus();
   reportProgress();
 }
@@ -1866,6 +1867,10 @@ function reportProgress() {
     if (!tracks.length) name = "indeterminate"; // only links being read: no count yet
     else name = state.paused ? "paused" : failed ? "error" : "normal";
   }
+  const ring = $("#download-ring");
+  ring.hidden = name === "none";
+  ring.dataset.state = name;
+  ring.style.setProperty("--p", name === "indeterminate" ? 0.25 : ratio);
   const reported = `${name} ${Math.floor(ratio * 100)}`;
   if (reported === state.reported) return;
   state.reported = reported;
