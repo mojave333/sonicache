@@ -2915,6 +2915,14 @@ function createCard(item, index, download = null) {
   return card;
 }
 
+// A cover's own play button: the album from its first track, its page left closed
+async function playItem(item) {
+  const tracks = (await itemsTracks([item])).filter((track) => track.path && !track.missing);
+  if (!tracks.length) return;
+  rememberTracks(tracks);
+  playQueue(tracks.map((track) => track.path), 0, "album", trackArtists(tracks));
+}
+
 function itemByPath(path) {
   return state.library.items.find((item) => item.path === path);
 }
@@ -2922,6 +2930,11 @@ function itemByPath(path) {
 function onCardsClick(event) {
   const card = event.target.closest(".card");
   if (!card) return;
+  if (event.target.closest(".play-btn") && card.dataset.path) {
+    const item = itemByPath(card.dataset.path);
+    if (item) playItem(item);
+    return;
+  }
   if (!card.dataset.path) { // a download with nothing in the folder yet
     const job = state.jobs.get(Number(card.dataset.job));
     if (job) showJob(job);

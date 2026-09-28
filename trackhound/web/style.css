@@ -622,6 +622,16 @@ p { margin: 0; }
   opacity: 1; transform: none;
 }
 .search-card .queue-btn:active { transform: scale(0.92); }
+/* The library's covers play at once, as the search's download: the page is for more than that */
+.card .play-btn {
+  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 36px; height: 36px;
+  border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+  opacity: 0; transform: translateY(6px);
+  transition: opacity var(--quick) ease-out, transform var(--settle) var(--ease);
+}
+.card:hover .play-btn, .card:focus-within .play-btn { opacity: 1; transform: none; }
+.card .play-btn:active { transform: scale(0.92); }
+.playlist-card .play-btn, .card.is-downloading .play-btn { display: none; }
 /* What the library holds already, so it is not downloaded twice by mistake */
 .in-library {
   position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 4px;
