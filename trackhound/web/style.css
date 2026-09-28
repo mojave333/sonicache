@@ -437,6 +437,7 @@ p { margin: 0; }
 .sub:empty { display: none; }
 .sub.danger { color: var(--danger); white-space: normal; user-select: text; }
 .sub.note { color: var(--warning); white-space: normal; }
+.sub.now { color: var(--text-muted); }
 /* A VPN client's proxy found on a card Spotify refused, one click from use */
 .offer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 5px; color: var(--text-muted); font-size: 13px; }
 .offer[hidden] { display: none; }

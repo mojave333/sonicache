@@ -180,6 +180,7 @@ const TRANSLATIONS = {
   "{done} из {total} · {percent}%": "{done} of {total} · {percent}%",
   "{done} из {total}": "{done} of {total}",
   "Скачано: {title}": "Downloaded: {title}",
+  "Сейчас: {tracks}": "Now: {tracks}",
   "Скачано не всё: {title}": "Not all of it downloaded: {title}",
   "Не скачалось: {title}": "Did not download: {title}",
   "Не найдено: {failed}": "Not found: {failed}",

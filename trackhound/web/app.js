@@ -1275,6 +1275,13 @@ function renderJob(job) {
   const note = $(".note", node);
   note.textContent = job.note || "";
   note.hidden = !job.note || job.state === "error";
+  // Folded while it runs, the card still names the tracks on their way
+  const busy = job.state === "running" && !job.expanded
+    ? [...job.tracks.values()].filter((track) => track.state === "search" || track.state === "download") : [];
+  const now = $(".now", node);
+  now.textContent = busy.length ? t("Сейчас: {tracks}", { tracks: busy.map((track) => track.title).join(", ") }) : "";
+  now.title = now.textContent;
+  now.hidden = !busy.length;
   const offer = $(".offer", node);
   offer.hidden = !(job.offer && job.state === "error" && !state.settings.proxy);
   if (!offer.hidden) {
@@ -1555,7 +1562,8 @@ function onJobEvent(job, event) {
     job.result = event;
     job.summary = summaryText(event);
     job.state = event.failed > 0 ? "partial" : "done";
-    if (!event.failed && !event.dry_run) setExpanded(job, false);
+    // What failed, or what a trial run found, is what the card is opened for
+    setExpanded(job, event.failed > 0 || Boolean(event.dry_run));
     announce(`${job.title}: ${job.summary}`);
   }
   // The card says it on the Download view; anywhere else the toast does
@@ -1608,7 +1616,9 @@ function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
 
 // A restored card is filled from what was saved, not from events: its tracks
 // belong to a run that is over, so they stay out of the queue and the status
-// bar, and the card waits to be opened instead of opening itself.
+// bar. No card opens by itself while it runs, as a whole album of rows buried
+// the rest of the queue: it names the tracks under way instead (renderJob), and
+// opens at the end when there is something to look at (onJobEvent).
 function onRelease(job, event, restored = false) {
   Object.assign(job, { folder: event.folder, title: event.title, total: event.tracks.length,
                        single: Boolean(event.single), artist: event.artist, year: event.year, cover: event.cover });
@@ -1636,7 +1646,6 @@ function onRelease(job, event, restored = false) {
     if (!restored) state.tracks.push(track);
   }
   $(".tracks", job.node).replaceChildren(...rows);
-  setExpanded(job, !restored);
   // A download into the library shows there at once, grey until it lands
   if (!restored && !job.dryRun && inLibraryFolders(job.folder)) {
     state.library.pending.set(job.id, job);
