@@ -180,9 +180,13 @@ async function init() {
   // Only now, so the saved panel width is in place before it can be animated
   setTimeout(() => document.documentElement.classList.add("motion-ready"), 0);
   // Notices about finished downloads are for when the window is not in use
-  window.addEventListener("focus", () => api().focus(true));
+  window.addEventListener("focus", () => {
+    api().focus(true);
+    offerClipboard();
+  });
   window.addEventListener("blur", () => api().focus(false));
   if (data.first_run) showWelcome();
+  else offerClipboard(); // a link copied before the program was started
 }
 
 // The first start: what the program does and where the music goes. Starting
@@ -1115,14 +1119,38 @@ function appendLinks(text) {
   input.focus();
 }
 
+// The links in a text as the program keeps them: Spotify's tracking ?si= goes,
+// while other services keep their ids in the query (?v=, ?list=, ?i=)
+function linksIn(text) {
+  return [...new Set((text.match(LINK_RE) || []).map((link) =>
+    link.replace(/^https?:\/\//i, "").replace(/(spotify\.com\/\S*?)\?.*$/, "$1")))];
+}
+
+// A music link copied elsewhere, offered once, when the window comes back into
+// use; not one already in the field, in the queue or in the library
+let clipboardOffered = "";
+async function offerClipboard() {
+  let text = "";
+  try {
+    text = (await api().paste()) || "";
+  } catch {
+    return;
+  }
+  const [link] = linksIn(text);
+  if (!link || link === clipboardOffered) return;
+  clipboardOffered = link;
+  const known = [$("#link").value, ...[...state.jobs.values()].map((job) => job.link),
+                 ...state.library.items.map((item) => item.link || "")];
+  if (known.some((where) => linksIn(where).includes(link))) return;
+  showToast(t("В буфере ссылка: {link}", { link: prettyLink(link) }), t("Скачать"), () => queueLinks([link]));
+}
+
 async function submitLinks(event) {
   event.preventDefault();
   hideSuggest();
   const input = $("#link");
   const raw = input.value.trim();
-  // Spotify adds a tracking ?si= parameter; other services keep ids in the query (?v=, ?list=, ?i=)
-  const found = [...new Set((raw.match(LINK_RE) || []).map((link) =>
-    link.replace(/^https?:\/\//i, "").replace(/(spotify\.com\/\S*?)\?.*$/, "$1")))];
+  const found = linksIn(raw);
   // No link in the field: the text is a name to search for, one release at a time
   const links = found.length ? found : (raw ? [raw] : []);
   if (!links.length) {

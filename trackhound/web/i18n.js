@@ -182,6 +182,7 @@ const TRANSLATIONS = {
   "в работе: {count}": "under way: {count}",
   "Формат, папка и профили": "Format, folder and profiles",
   "Все результаты в поиске": "All results in Search",
+  "В буфере ссылка: {link}": "A link in the clipboard: {link}",
   "Исполнитель": "Artist",
   "Найдено": "Found",
   "Скачано не всё: {title}": "Not all of it downloaded: {title}",
