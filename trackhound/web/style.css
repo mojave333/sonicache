@@ -1158,6 +1158,7 @@ button.lyric-line:hover { opacity: 1; }
   .expander[aria-expanded="true"] .icon { transition: none; }
   .cards.entering .card { animation: fade-in var(--quick) ease-out; }
   .card:hover .card-cover, .artist-card:hover .artist-photo { transform: none; }
+  .toast { animation: fade-in var(--quick) ease-out; }
   @keyframes fade-in { from { opacity: 0; } }
 }
 
@@ -1169,6 +1170,15 @@ button.lyric-line:hover { opacity: 1; }
   animation: float-in 220ms var(--ease);
 }
 @keyframes float-in { from { opacity: 0; transform: translateY(8px); } }
+/* A word from the program wherever the window is, just above the player */
+.toast {
+  position: fixed; right: 16px; bottom: 12px; z-index: 30; display: flex; align-items: center; gap: 10px;
+  max-width: min(480px, calc(100vw - 32px)); padding: 6px 6px 6px 14px;
+  border: 1px solid var(--border-strong); border-radius: 10px; background: var(--field); box-shadow: var(--menu-shadow);
+  animation: float-in 220ms var(--ease);
+}
+.toast-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast-action { color: var(--accent-fg); font-weight: 600; }
 .float-head {
   display: flex; align-items: center; gap: 4px; flex: none; min-height: 48px; padding: 6px 8px 6px 16px;
   border-bottom: 1px solid var(--divider);

@@ -179,6 +179,9 @@ const TRANSLATIONS = {
   "Остановлено · {done} из {total}": "Stopped · {done} of {total}",
   "{done} из {total} · {percent}%": "{done} of {total} · {percent}%",
   "{done} из {total}": "{done} of {total}",
+  "Скачано: {title}": "Downloaded: {title}",
+  "Скачано не всё: {title}": "Not all of it downloaded: {title}",
+  "Не скачалось: {title}": "Did not download: {title}",
   "Не найдено: {failed}": "Not found: {failed}",
   "Не скачано: {failed}": "Not downloaded: {failed}",
   "Найдено {ok} из {total} · не найдено: {failed}":

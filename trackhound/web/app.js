@@ -723,6 +723,7 @@ function bindUi() {
   for (const button of $$("[data-view]")) {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
+  bindToast();
   bindSidebarToggle();
   bindProfiles();
   bindWatch();
@@ -1557,6 +1558,8 @@ function onJobEvent(job, event) {
     if (!event.failed && !event.dry_run) setExpanded(job, false);
     announce(`${job.title}: ${job.summary}`);
   }
+  // The card says it on the Download view; anywhere else the toast does
+  if (["done", "partial", "error"].includes(job.state) && !job.dryRun && state.view !== "download") toastFinished(job);
   // Tracks that never started get no event of their own
   for (const track of job.tracks.values()) {
     if (TRACK_ACTIVE.has(track.state)) {
@@ -1568,6 +1571,25 @@ function onJobEvent(job, event) {
     state.library.stale = true;
     if (state.view === "library") loadLibrary();
   }
+}
+
+function toastFinished(job) {
+  if (job.state === "done") {
+    showToast(t("Скачано: {title}", { title: job.title }), t("Открыть"), () => openDownloaded(job));
+  } else {
+    const text = job.state === "partial" ? "Скачано не всё: {title}" : "Не скачалось: {title}";
+    showToast(t(text, { title: job.title }), t("Показать"), () => showJob(job));
+  }
+}
+
+// A finished album on its page in the library, once the library has read it
+async function openDownloaded(job) {
+  showView("library");
+  for (let wait = 0; wait < 100 && (state.library.loading || state.library.stale); wait++) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  const item = !job.single && state.library.items.find((entry) => entry.album && pathKey(entry.path) === pathKey(job.folder));
+  if (item && state.view === "library") openAlbum(item);
 }
 
 function summaryText({ ok, skipped, failed, dry_run: dryRun }) {
@@ -4538,6 +4560,46 @@ function renderEqualizer() {
 }
 
 // The queue and the equaliser float over the page, just above the player
+// A word from the program wherever the window is, with at most one thing to do
+// about it; it goes by itself, but not while the pointer rests on it
+const toast = { timer: 0, act: null };
+
+function showToast(text, action = "", act = null) {
+  const box = $("#toast");
+  $(".toast-text", box).textContent = text;
+  $(".toast-text", box).title = text;
+  const button = $(".toast-action", box);
+  button.textContent = action;
+  button.hidden = !action;
+  toast.act = act;
+  placeFloat(box);
+  box.hidden = false;
+  holdToast(false);
+}
+
+function hideToast() {
+  clearTimeout(toast.timer);
+  $("#toast").hidden = true;
+  toast.act = null;
+}
+
+function holdToast(held) {
+  clearTimeout(toast.timer);
+  if (!held) toast.timer = setTimeout(hideToast, 8000);
+}
+
+function bindToast() {
+  const box = $("#toast");
+  $(".toast-action", box).addEventListener("click", () => {
+    const act = toast.act;
+    hideToast();
+    act?.();
+  });
+  $(".toast-close", box).addEventListener("click", hideToast);
+  box.addEventListener("mouseenter", () => holdToast(true));
+  box.addEventListener("mouseleave", () => holdToast(false));
+}
+
 function placeFloat(panel) {
   const bar = $("#player");
   panel.style.bottom = `${(bar.hidden ? 0 : bar.offsetHeight) + 12}px`;
