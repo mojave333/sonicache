@@ -39,7 +39,7 @@ _NIF_MESSAGE, _NIF_ICON, _NIF_TIP, _NIF_INFO, _NIF_SHOWTIP = 0x1, 0x2, 0x4, 0x10
 _NIIF_USER, _NIIF_LARGE_ICON = 0x4, 0x20
 _NOTIFYICON_VERSION_4 = 4
 _IMAGE_ICON, _LR_LOADFROMFILE = 1, 0x10
-_SM_CXICON, _SM_CXSMICON = 11, 49
+_SM_CXSMICON = 49
 _MF_STRING, _MF_SEPARATOR = 0x0, 0x800
 _TPM_RIGHTBUTTON, _TPM_RETURNCMD = 0x2, 0x100
 _MENU_OPEN, _MENU_CHECK, _MENU_QUIT = 1, 2, 3
@@ -180,11 +180,14 @@ class Tray:
                                            None, None, instance, None)
             if not hwnd:
                 raise OSError(ctypes.get_last_error(), "CreateWindowExW")
-            # The sizes this screen's scaling asks for, picked out of icon.ico
-            small, large = _user32.GetSystemMetrics(_SM_CXSMICON), _user32.GetSystemMetrics(_SM_CXICON)
+            # The icon by the clock in the size this screen's scaling asks for, picked out of icon.ico.
+            # The notices' picture is its largest image: Windows shows it bigger than SM_CXICON,
+            # stretching a smaller one out of focus, and once the window has made the process
+            # DPI-aware, which happens after this, it refuses one smaller than SM_CXICON
+            # (ERROR_INCORRECT_SIZE) and no notice is shown at all
+            small = _user32.GetSystemMetrics(_SM_CXSMICON)
             self._icon = _user32.LoadImageW(None, str(self._icon_path), _IMAGE_ICON, small, small, _LR_LOADFROMFILE)
-            self._picture = _user32.LoadImageW(None, str(self._icon_path), _IMAGE_ICON, large, large,
-                                               _LR_LOADFROMFILE)
+            self._picture = _user32.LoadImageW(None, str(self._icon_path), _IMAGE_ICON, 256, 256, _LR_LOADFROMFILE)
             self._hwnd = hwnd
             if not self._add():
                 raise OSError(ctypes.get_last_error(), "Shell_NotifyIconW")

@@ -130,6 +130,8 @@ class TestApi:
             monkeypatch.setattr(gui, name, lambda *args: None)
         api = gui.Api()
         api._presence = FakePresence()
+        # Nor may a real icon by the clock stay behind for the rest of the run
+        monkeypatch.setattr(api, "_sync_tray", lambda settings: None)
         return api
 
     def test_what_plays_goes_to_discord_only_when_asked_for(self, api):
