@@ -1,6 +1,6 @@
 pkgbase = trackhound-bin
 	pkgdesc = Music downloader, library and player: albums, playlists and tracks by link or by name, with tags, covers and lyrics
-	pkgver = 2.0.0
+	pkgver = 2.1.0
 	pkgrel = 1
 	url = https://github.com/mojave333/trackhound
 	arch = x86_64
@@ -23,9 +23,9 @@ pkgbase = trackhound-bin
 	conflicts = trackhound
 	options = !strip
 	options = !debug
-	source = Trackhound-v2.0.0-linux-x64.tar.xz::https://github.com/mojave333/trackhound/releases/download/v2.0.0/Trackhound-v2.0.0-linux-x64.tar.xz
-	source = trackhound.png::https://raw.githubusercontent.com/mojave333/trackhound/v2.0.0/docs/logo.png
-	sha256sums = 51cc48434efa4c69ac3d49d24830aa513b7d7b613b5779f9b7071f05f9216948
+	source = Trackhound-v2.1.0-linux-x64.tar.xz::https://github.com/mojave333/trackhound/releases/download/v2.1.0/Trackhound-v2.1.0-linux-x64.tar.xz
+	source = trackhound.png::https://raw.githubusercontent.com/mojave333/trackhound/v2.1.0/docs/logo.png
+	sha256sums = 53e6653e958587d78ecb56aa323343ab38645bbc4acd5f4120713332d326edab
 	sha256sums = 2bebe0ae274a0841e879f234699cbdc86f2f44edef51c163c7b44dfe19c8060d
 
 pkgname = trackhound-bin

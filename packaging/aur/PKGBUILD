@@ -1,6 +1,6 @@
 # Maintainer: mojave333 <https://github.com/mojave333>
 pkgname=trackhound-bin
-pkgver=2.0.0
+pkgver=2.1.0
 pkgrel=1
 pkgdesc="Music downloader, library and player: albums, playlists and tracks by link or by name, with tags, covers and lyrics"
 arch=('x86_64')
@@ -12,7 +12,7 @@ depends=('alsa-lib' 'libglvnd' 'libxcomposite' 'libxdamage' 'libxkbcommon-x11' '
 options=('!strip' '!debug')
 source=("Trackhound-v${pkgver}-linux-x64.tar.xz::${url}/releases/download/v${pkgver}/Trackhound-v${pkgver}-linux-x64.tar.xz"
         "trackhound.png::https://raw.githubusercontent.com/mojave333/trackhound/v${pkgver}/docs/logo.png")
-sha256sums=('51cc48434efa4c69ac3d49d24830aa513b7d7b613b5779f9b7071f05f9216948'
+sha256sums=('53e6653e958587d78ecb56aa323343ab38645bbc4acd5f4120713332d326edab'
             '2bebe0ae274a0841e879f234699cbdc86f2f44edef51c163c7b44dfe19c8060d')
 
 package() {

@@ -1,9 +1,9 @@
 cask "trackhound" do
   arch arm: "arm64", intel: "x64"
 
-  version "2.0.0"
-  sha256 arm:   "a758f3920793579844e9e1817357d41bdb35f59cd35d1d3c85acd39734ed5c1b",
-         intel: "53b2a0c79e77216691acfcb9575b07481d19584c6cd3042c9024f411b7e6d235"
+  version "2.1.0"
+  sha256 arm:   "0785a923307085b00a74e8ff9f9ef2d4caf6122dbf94c297b279772c0f1e1fca",
+         intel: "88e5ae343ba5d0fd6a341192c8cee2b8e939f92a76f893c638adac427e8cb9aa"
 
   url "https://github.com/mojave333/trackhound/releases/download/v#{version}/Trackhound-v#{version}-macos-#{arch}.dmg"
   name "Trackhound"
