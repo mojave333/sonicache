@@ -157,7 +157,9 @@
           <div class="field">
             <svg class="icon sm" aria-hidden="true"><use href="#i-link"/></svg>
             <input id="link" type="text" inputmode="url" autocomplete="off" spellcheck="false"
-                   placeholder="Ссылка на трек, альбом или плейлист — или «Исполнитель - Альбом»" aria-label="Ссылка">
+                   placeholder="Ссылка на трек, альбом или плейлист — или «Исполнитель - Альбом»" aria-label="Ссылка"
+                   role="combobox" aria-autocomplete="list" aria-controls="suggest" aria-expanded="false">
+            <div id="suggest" class="menu suggest" role="listbox" aria-label="Найдено" hidden></div>
             <button type="button" id="paste" class="icon-btn" title="Вставить из буфера обмена" aria-label="Вставить из буфера обмена">
               <svg class="icon sm" aria-hidden="true"><use href="#i-clipboard"/></svg>
             </button>

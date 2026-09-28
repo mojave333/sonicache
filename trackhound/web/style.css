@@ -353,6 +353,18 @@ p { margin: 0; }
 .menu-empty { margin: 0; padding: 8px 10px; color: var(--text-subtle); font-size: 12px; }
 /* Where and in what the next download goes: the format, the folder, the profiles */
 .target-menu { min-width: 300px; padding: 6px; }
+/* What the catalogue finds for a name typed in the link field, right under it */
+#view-download .field { position: relative; }
+.suggest { left: 0; right: 0; min-width: 0; max-height: min(60vh, 440px); overflow-y: auto; color: var(--text); }
+.menu .suggest-item { height: 46px; gap: 10px; }
+.menu .suggest-item.is-active { background: var(--hover); }
+.suggest-item .cover { width: 34px; height: 34px; }
+.suggest-item[data-kind="artist"] .cover { border-radius: 50%; }
+.suggest-main { display: grid; flex: 1; min-width: 0; }
+.suggest-title, .suggest-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest-sub, .suggest-kind { color: var(--text-subtle); font-size: 12px; }
+.suggest-kind { flex: none; }
+.menu .suggest-more { color: var(--accent-fg); }
 .menu-label { margin: 6px 10px 5px; color: var(--text-subtle); font-size: 12px; }
 .target-menu .segmented { display: flex; margin: 0 4px 4px; }
 .target-menu .segmented button { flex: 1; width: auto; height: auto; justify-content: center; padding: 0; border-radius: 0; }

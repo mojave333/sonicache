@@ -775,6 +775,10 @@ function bindUi() {
   bindSwitch($("#relay"), (on) => updateSettings({ relay: on ? "" : "off" }));
   $("#paste").addEventListener("click", pasteFromClipboard);
   $("#link").addEventListener("input", clearLinkError);
+  $("#link").addEventListener("input", onLinkInput);
+  $("#link").addEventListener("keydown", onLinkKey);
+  $("#link").addEventListener("blur", hideSuggest);
+  $("#suggest").addEventListener("mousedown", (event) => event.preventDefault()); // the field keeps the focus
   $("#form").addEventListener("submit", submitLinks);
   bindModeMenu();
   for (const button of $$(".stop")) button.addEventListener("click", stopAll);
@@ -1113,6 +1117,7 @@ function appendLinks(text) {
 
 async function submitLinks(event) {
   event.preventDefault();
+  hideSuggest();
   const input = $("#link");
   const raw = input.value.trim();
   // Spotify adds a tracking ?si= parameter; other services keep ids in the query (?v=, ?list=, ?i=)
@@ -1126,6 +1131,135 @@ async function submitLinks(event) {
     return;
   }
   if (await queueLinks(links)) input.value = "";
+}
+
+/* The link field searches too: a name typed there brings the catalogue's
+   finds under it, to download or open; Enter with none picked still downloads
+   the best match, as it always did */
+
+const suggest = { timer: 0, token: 0, items: [], active: -1, query: "" };
+
+function onLinkInput() {
+  clearTimeout(suggest.timer);
+  const query = $("#link").value.trim();
+  if (query.length < 2 || (query.match(LINK_RE) || []).length) {
+    hideSuggest();
+    return;
+  }
+  suggest.timer = setTimeout(() => findSuggestions(query), 300);
+}
+
+async function findSuggestions(query) {
+  const token = ++suggest.token;
+  let results;
+  try {
+    results = await api().search(query);
+  } catch (error) {
+    console.error(error);
+    return;
+  }
+  if (token !== suggest.token || $("#link").value.trim() !== query || document.activeElement !== $("#link")) return;
+  Object.assign(suggest, { query, active: -1, items: [
+    ...(results.albums || []).slice(0, 3).map((item) => ({ kind: "album", item })),
+    ...(results.tracks || []).slice(0, 3).map((item) => ({ kind: "track", item })),
+    ...(results.artists || []).slice(0, 2).map((item) => ({ kind: "artist", item })),
+  ] });
+  renderSuggestions();
+}
+
+function renderSuggestions() {
+  const rows = suggest.items.map(({ kind, item }, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.id = `suggest-${index}`;
+    row.className = "suggest-item";
+    row.dataset.kind = kind;
+    row.setAttribute("role", "option");
+    row.innerHTML = '<span class="cover"><img alt="" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg></span>'
+      + '<span class="suggest-main"><span class="suggest-title"></span><span class="suggest-sub"></span></span>'
+      + '<span class="suggest-kind"></span>';
+    $(".suggest-title", row).textContent = kind === "artist" ? item.name : item.title;
+    $(".suggest-sub", row).textContent = kind === "album" ? [item.artist, item.year].filter(Boolean).join(" · ")
+      : kind === "track" ? [item.artist, item.album].filter(Boolean).join(" · ") : "";
+    const where = kind !== "artist" && inLibrary(item, kind) ? t("в библиотеке") : "";
+    $(".suggest-kind", row).textContent = where || t(kind === "album" ? RELEASE_KINDS[item.type] || "Альбом"
+      : kind === "track" ? "Трек" : "Исполнитель");
+    loadCover($(".cover", row), kind === "artist" ? item.picture : item.cover);
+    row.addEventListener("click", () => pickSuggestion(index));
+    return row;
+  });
+  if (!rows.length) {
+    const none = document.createElement("p");
+    none.className = "menu-empty";
+    none.textContent = t("Ничего не найдено");
+    rows.push(none);
+  }
+  const more = document.createElement("button");
+  more.type = "button";
+  more.id = `suggest-${suggest.items.length}`;
+  more.className = "suggest-more";
+  more.setAttribute("role", "option");
+  more.textContent = t("Все результаты в поиске");
+  more.addEventListener("click", () => pickSuggestion(suggest.items.length));
+  $("#suggest").replaceChildren(...rows, more);
+  $("#suggest").hidden = false;
+  $("#link").setAttribute("aria-expanded", "true");
+  markSuggestion();
+}
+
+function markSuggestion() {
+  const rows = [...$$("#suggest [role=option]")];
+  rows.forEach((row, index) => row.classList.toggle("is-active", index === suggest.active));
+  const active = rows[suggest.active];
+  if (active) {
+    $("#link").setAttribute("aria-activedescendant", active.id);
+    active.scrollIntoView({ block: "nearest" });
+  } else {
+    $("#link").removeAttribute("aria-activedescendant");
+  }
+}
+
+function onLinkKey(event) {
+  if ($("#suggest").hidden) return;
+  const count = suggest.items.length + 1; // and the line that leads to the Search view
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const next = suggest.active + (event.key === "ArrowDown" ? 1 : -1);
+    suggest.active = next >= count ? -1 : next < -1 ? count - 1 : next;
+    markSuggestion();
+  } else if (event.key === "Enter" && suggest.active >= 0) {
+    event.preventDefault();
+    pickSuggestion(suggest.active);
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    hideSuggest();
+  }
+}
+
+function hideSuggest() {
+  clearTimeout(suggest.timer);
+  suggest.token++;
+  suggest.active = -1;
+  $("#suggest").hidden = true;
+  $("#link").setAttribute("aria-expanded", "false");
+  $("#link").removeAttribute("aria-activedescendant");
+}
+
+async function pickSuggestion(index) {
+  const { query } = suggest;
+  const picked = suggest.items[index];
+  hideSuggest();
+  if (!picked) { // every find, on the Search view
+    showView("search");
+    $("#search-input").value = query;
+    runSearch(query);
+  } else if (picked.kind === "artist") {
+    showView("search");
+    openSearchPage("artist", picked.item);
+  } else if (await queueLinks([picked.item.link])) {
+    $("#link").value = "";
+  }
 }
 
 async function queueLinks(links) {
