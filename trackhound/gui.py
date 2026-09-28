@@ -2155,11 +2155,23 @@ def _save_settings(settings: dict) -> None:
     logs.write_json(SETTINGS_FILE, {key: value for key, value in settings.items() if key != "dry_run"}, indent=2)
 
 
+def _windows_clipboard():
+    """user32 and kernel32 with the clipboard's calls typed for 64-bit handles
+    and pointers: left untyped, one above 2 GB came back cut to 32 bits and
+    the copy wrote to an address that was not there."""
+    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+    kernel32.GlobalAlloc.restype = kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalLock.argtypes = kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    user32.GetClipboardData.restype = user32.SetClipboardData.restype = ctypes.c_void_p
+    user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+    return user32, kernel32
+
+
 def _copy_to_clipboard(text: str) -> bool:
     """Windows keeps clipboard data after the program that put it there exits,
     which Tk on its own does not: hence the shell call."""
     if sys.platform == "win32":
-        user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+        user32, kernel32 = _windows_clipboard()
         buffer = ctypes.create_unicode_buffer(text)
         size = ctypes.sizeof(buffer)
         handle = kernel32.GlobalAlloc(0x2000, size)  # GMEM_MOVEABLE
@@ -2201,14 +2213,42 @@ def _copy_to_clipboard(text: str) -> bool:
 
 
 def _clipboard_text() -> str:
-    """Tk owns a hidden root of its own here: the window itself is WebView2,
-    which gives Python no clipboard of its own to ask.
+    """The text on the clipboard, "" when there is none. The window asks each
+    time it comes back into use, so the system is asked directly where it
+    answers at once: Windows itself, and the command line tools that macOS and
+    the Linux desktops have. Tk is the last resort: it takes half a second to
+    start, and here it owns a hidden root of its own, as the window is a web
+    view that gives Python no clipboard to ask.
 
     Everything is guarded, including the import and the root: a Python built
     without Tcl/Tk must leave the button quiet, not raise into the window,
     where the js_api call would come back as a rejected promise and lose the
     message about the clipboard being empty.
     """
+    if sys.platform == "win32":
+        user32, kernel32 = _windows_clipboard()
+        if not user32.OpenClipboard(None):
+            return ""
+        try:
+            handle = user32.GetClipboardData(13)  # CF_UNICODETEXT
+            pointer = kernel32.GlobalLock(handle) if handle else None
+            if not pointer:
+                return ""
+            try:
+                return ctypes.wstring_at(pointer)
+            finally:
+                kernel32.GlobalUnlock(handle)
+        finally:
+            user32.CloseClipboard()
+
+    for command in (["pbpaste"], ["wl-paste", "--no-newline"], ["xclip", "-selection", "clipboard", "-o"], ["xsel", "-ob"]):
+        if not shutil.which(command[0]):
+            continue
+        try:
+            return subprocess.run(command, capture_output=True, check=True, timeout=5).stdout.decode("utf-8", "replace")
+        except (OSError, subprocess.SubprocessError):
+            continue
+
     root = None
     try:
         from tkinter import Tk

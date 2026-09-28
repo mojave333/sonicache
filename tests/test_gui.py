@@ -1,5 +1,6 @@
 """Settings, the update check and the library listing behind the window."""
 
+import ctypes
 import json
 import os
 import time
@@ -395,8 +396,36 @@ class TestClipboard:
 
         monkeypatch.setattr(builtins, "__import__", refuse)
 
-    def test_paste_answers_empty(self, without_tkinter):
+    def test_paste_answers_empty(self, without_tkinter, monkeypatch):
+        monkeypatch.setattr(gui.sys, "platform", "linux")  # the win32 path never reaches Tk
+        monkeypatch.setattr(gui.shutil, "which", lambda name: None)  # nor do pbpaste, wl-paste, xclip, xsel
         assert gui._clipboard_text() == ""
+
+    def test_windows_is_asked_without_tk(self, without_tkinter, monkeypatch):
+        """The window asks each time it comes back into use, and Tk takes half
+        a second to start: Windows' own clipboard answers at once."""
+        import types
+
+        text = ctypes.create_unicode_buffer("https://open.spotify.com/album/x")
+        calls = []
+
+        class Call:
+            def __init__(self, answer):
+                self.answer = answer
+
+            def __call__(self, *args):
+                calls.append((self.answer, args))
+                return self.answer
+
+        user32 = types.SimpleNamespace(OpenClipboard=Call(1), GetClipboardData=Call(4242), CloseClipboard=Call("closed"),
+                                       SetClipboardData=Call(None))
+        kernel32 = types.SimpleNamespace(GlobalLock=Call(ctypes.addressof(text)), GlobalUnlock=Call("unlocked"),
+                                         GlobalAlloc=Call(None))
+        monkeypatch.setattr(gui.sys, "platform", "win32")
+        monkeypatch.setattr(gui.ctypes, "windll", types.SimpleNamespace(user32=user32, kernel32=kernel32), raising=False)
+        assert gui._clipboard_text() == "https://open.spotify.com/album/x"
+        assert (4242, (13,)) in calls  # CF_UNICODETEXT
+        assert [answer for answer, _ in calls][-2:] == ["unlocked", "closed"]  # handed back
 
     def test_copy_answers_false(self, without_tkinter, monkeypatch):
         monkeypatch.setattr(gui.sys, "platform", "linux")  # the win32 path never reaches Tk
