@@ -16,6 +16,8 @@ SoundCloud, Last.fm and sites such as Bandcamp.
 
 ### [⬇ Download for Windows, macOS or Linux](https://github.com/mojave333/trackhound/releases/latest)
 
+<sub>Questions and ideas: [Discussions](https://github.com/mojave333/trackhound/discussions) · Bugs: [Issues](https://github.com/mojave333/trackhound/issues)</sub>
+
 <img src="docs/rumspringa.gif" width="880" alt="The name ear - Rumspringa is typed into the download field, and the album's ten tracks download one after another">
 
 <sub>An album typed in by name instead of a link, its ten tracks downloaded one at a time.</sub>
