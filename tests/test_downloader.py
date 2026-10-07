@@ -9,9 +9,9 @@ from mutagen import File as MutagenFile
 
 from trackhound.engine import downloader
 from trackhound.engine.downloader import (DownloaderError, Options, Report, _check_duration, _clear_partials,
-                                   _direct_match, _error_text, _file_stem, _legacy_stem, _mmss,
-                                   _safe_name)
-from trackhound.engine.models import Album, Track
+                                   _cookie_options, _direct_match, _error_text, _file_stem, _legacy_stem,
+                                   _mmss, _safe_name)
+from trackhound.engine.models import Album, Release, Track
 
 
 def album(artist="Daft Punk", name="Discovery", discs=1):
@@ -583,4 +583,56 @@ class TestFailures:
         loader._process = lambda album, track, folder, single, cover: ("failed", "Y - X: nowhere", failure)
         report = loader._download_tracks(album(), [track], tmp_path, False)
         assert (report.failed, report.failures) == (["Y - X: nowhere"], [failure])
+
+
+class TestDownloadRelease:
+    def test_download_link_hands_the_release_to_download_release(self, monkeypatch, tmp_path):
+        release = Release(album(), album().tracks[:1], single=True)
+        handed = []
+        monkeypatch.setattr(downloader.sources, "resolve", lambda link: release)
+        monkeypatch.setattr(downloader.Downloader, "download_release",
+                            lambda self, release, link="": handed.append((release, link)))
+        loader = downloader.Downloader(Options(tmp_path, dry_run=True), log=lambda message: None)
+        loader.download_link("x")
+        assert handed == [(release, "x")]
+
+    def test_download_release_reports_the_file_of_each_track(self, monkeypatch, tmp_path):
+        track = Track(id="1", title="X", artists="Y", duration=10, track_number=1)
+        release = Release(Album(id="a", name="X", artist="Y", tracks=[track]), [track], single=True)
+        loader = downloader.Downloader(Options(tmp_path, audio_format="m4a"), log=lambda message: None)
+
+        def process(album, track, folder, single, cover):
+            loader._paths[track.id] = tmp_path / "a.mp3"
+            return "ok", "a"
+
+        monkeypatch.setattr(loader, "_process", process)
+        monkeypatch.setattr(downloader.sources, "find_genre", lambda *args: "")  # no lookup on the net
+        report = loader.download_release(release)
+        assert report.paths == {"1": tmp_path / "a.mp3"}
+
+
+class TestCookieOptions:
+    def test_a_file_is_passed_to_yt_dlp(self, tmp_path):
+        assert _cookie_options(Options(tmp_path, cookies_file="c.txt"), "youtube") == {"cookiefile": "c.txt"}
+
+    def test_a_browser_is_passed_to_yt_dlp(self, tmp_path):
+        assert _cookie_options(Options(tmp_path, cookies_browser="firefox"), "youtube") == {
+            "cookiesfrombrowser": ("firefox",)}
+
+    def test_the_file_wins_over_the_browser(self, tmp_path):
+        options = Options(tmp_path, cookies_file="c.txt", cookies_browser="firefox")
+        assert _cookie_options(options, "youtube") == {"cookiefile": "c.txt"}
+
+    def test_soundcloud_gets_no_cookies(self, tmp_path):
+        options = Options(tmp_path, cookies_file="c.txt", cookies_browser="firefox")
+        assert _cookie_options(options, "soundcloud") == {}
+
+    def test_no_cookies_asked_for_gives_none(self, tmp_path):
+        assert _cookie_options(Options(tmp_path), "youtube") == {}
+
+    def test_the_cli_and_the_window_still_set_the_options_by_position(self, tmp_path):
+        options = Options(tmp_path, "mp3", 3, False, "firefox", "title", "nested", 100, "proxy", True)
+        assert (options.cookies_browser, options.track_name, options.folder_name, options.rate_limit,
+                options.proxy, options.replaygain, options.cookies_file) == (
+            "firefox", "title", "nested", 100, "proxy", True, "")
 

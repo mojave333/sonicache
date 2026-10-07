@@ -32,7 +32,7 @@ from . import loudness, lyrics, sources
 from .i18n import t
 from .logs import YtdlpLogger, log
 from .matcher import ISRC_SCORE, SOURCE_NAMES, Match, Matcher
-from .models import Album, Track, _CodedError
+from .models import Album, Release, Track, _CodedError
 from .progress import Clock
 from .net import BROWSER_UA
 
@@ -108,6 +108,9 @@ class Options:
     # Lyrics from LRCLIB: the plain ones into the tags, the synced ones into an
     # .lrc file beside the track
     lyrics: bool = False
+    # A cookies.txt file to take YouTube cookies from instead, for a machine with
+    # no browser (a server); it is preferred to cookies_browser.
+    cookies_file: str = ""
 
 
 @dataclass
@@ -125,6 +128,7 @@ class Report:
     skipped: list[str] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)  # "Artist - Title: reason", one line each
     failures: list[Failure] = field(default_factory=list)  # the same tracks, with their codes
+    paths: dict[str, Path] = field(default_factory=dict)  # Track.id -> its file, for the tracks that are on disk
 
     def summary(self, dry_run: bool = False) -> str:
         text = t("{done}: {ok}, уже было: {skipped}, ошибок: {failed}",
@@ -178,7 +182,7 @@ class Downloader:
             problems.append(t("Не установлен пакет yt-dlp-ejs: pip install -U yt-dlp-ejs"))
         return problems
 
-    def download_link(self, link: str) -> Report:
+    def _check_options(self) -> None:
         if self.options.audio_format not in FORMATS:
             raise DownloaderError.of("unknown_format", "Неизвестный формат: {format}",
                                      format=self.options.audio_format)
@@ -186,7 +190,16 @@ class Downloader:
             raise DownloaderError.of("ffmpeg_missing",
                                      "Для mp3 и opus нужен ffmpeg (winget install Gyan.FFmpeg)")
 
-        release = sources.resolve(link)
+    def download_link(self, link: str) -> Report:
+        self._check_options()
+        return self.download_release(sources.resolve(link), link)
+
+    def download_release(self, release: Release, link: str = "") -> Report:
+        """Downloads a release already resolved from a link (or built by the caller).
+
+        link is only left in the album folder's marker; it may stay empty.
+        """
+        self._check_options()
         album, tracks, single = release.album, release.tracks, release.single
         if (album.kind != "playlist" and len(album.tracks) > 1
                 and any(not track.isrc and not track.audio_url for track in tracks)):
@@ -274,6 +287,7 @@ class Downloader:
             raise
         finally:
             pool.shutdown(wait=True, cancel_futures=True)
+        report.paths = dict(self._paths)
         return report
 
     def _process(self, album: Album, track: Track, folder: Path, single: bool,
@@ -469,8 +483,7 @@ class Downloader:
             opts["ratelimit"] = self.options.rate_limit / max(1, self.options.threads)
         if self.options.proxy:
             opts["proxy"] = _remote_dns(self.options.proxy)
-        if self.options.cookies_browser and match.source != "soundcloud":
-            opts["cookiesfrombrowser"] = (self.options.cookies_browser,)
+        opts.update(_cookie_options(self.options, match.source))
         if self.ffmpeg:
             opts["ffmpeg_location"] = self.ffmpeg
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -727,6 +740,20 @@ def _remote_dns(proxy: str) -> str:
     """A SOCKS proxy is asked to look the names up itself: where a service is
     blocked, the local DNS may be lying about its address as well."""
     return re.sub(r"^socks5://", "socks5h://", re.sub(r"^socks4://", "socks4a://", proxy))
+
+
+def _cookie_options(options: Options, source: str) -> dict:
+    """The yt-dlp options that carry the user's cookies: the file if one is set, else the browser's.
+
+    SoundCloud is given none.
+    """
+    if source == "soundcloud":
+        return {}
+    if options.cookies_file:
+        return {"cookiefile": options.cookies_file}
+    if options.cookies_browser:
+        return {"cookiesfrombrowser": (options.cookies_browser,)}
+    return {}
 
 
 def read_marker(folder: Path) -> dict:
