@@ -2213,7 +2213,7 @@ function setPaused(paused) {
   for (const button of $$(".pause")) {
     button.setAttribute("aria-pressed", String(paused));
     $("span", button).textContent = paused ? "Продолжить" : "Пауза";
-    $("use", button).setAttribute("href", paused ? "#i-play" : "#i-pause");
+    $("use", button).setAttribute("href", paused ? "#i-mi-play" : "#i-mi-pause");
   }
   reportProgress();
 }
