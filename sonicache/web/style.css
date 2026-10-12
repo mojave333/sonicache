@@ -1065,17 +1065,16 @@ p { margin: 0; }
 .theme-preview { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08); }
 .theme-preview.system { display: grid; grid-template-columns: 1fr 1fr; }
 .theme-preview .half { height: 100%; border-radius: 0; }
-/* The panel, two lines of text and a button in the accent, as the window has them */
-.theme-preview i { position: absolute; left: 0; top: 0; bottom: 0; width: 14px; background: var(--p-side); }
-.theme-preview b { position: absolute; left: 22px; height: 6px; border-radius: var(--radius-sm); background: var(--p-ink); }
-.theme-preview b:first-of-type { top: 14px; width: 46%; }
-.theme-preview b:last-of-type { top: 26px; width: 30%; }
+/* The bar, two lines of text and a button in the accent, as the window has them */
+.theme-preview i { position: absolute; left: 0; right: 0; top: 0; height: 12px; background: var(--p-side); }
+.theme-preview b { position: absolute; left: 10px; height: 6px; border-radius: var(--radius-sm); background: var(--p-ink); }
+.theme-preview b:first-of-type { top: 22px; width: 46%; }
+.theme-preview b:last-of-type { top: 34px; width: 30%; }
 .theme-preview::after, .theme-preview .half::after {
-  content: ""; position: absolute; left: 22px; bottom: 10px; width: 26px; height: 10px; border-radius: var(--radius-sm); background: var(--p-accent);
+  content: ""; position: absolute; left: 10px; bottom: 8px; width: 26px; height: 10px; border-radius: var(--radius-sm); background: var(--p-accent);
 }
 .theme-preview.system::after { display: none; }
 .theme-preview .half.dark b, .theme-preview .half.dark::after { left: 8px; }
-.theme-preview .half.dark i { display: none; }
 /* What the album and its first file will be called, with the rules above */
 .naming-preview {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 12px 20px 16px;
