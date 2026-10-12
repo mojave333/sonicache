@@ -936,6 +936,7 @@ function bindUi() {
   $("#library").addEventListener("keydown", onLibraryKey);
   $("#library").addEventListener("contextmenu", onLibraryContextMenu);
   $("#view-home").addEventListener("click", onHomeClick);
+  $(".album-more").addEventListener("click", onCardsClick);
   $("#library-cards").addEventListener("click", onCardsClick);
   $("#library-cards").addEventListener("keydown", onCardsKey);
   $("#library-cards").addEventListener("contextmenu", onCardsContextMenu);
@@ -3028,6 +3029,33 @@ async function openAlbum(item, source = null, highlight = "") {
   renderAlbumTracks(item, data, highlight);
 }
 
+// Under an album's tracks: the artist's other albums in the library, newest first
+function renderAlbumMore(item) {
+  const more = $(".album-more", $("#album-page"));
+  const key = (item.artist || "").toLocaleLowerCase();
+  const others = key ? state.library.items
+    .filter((other) => other !== item && (other.artist || "").toLocaleLowerCase() === key)
+    .sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0)) : [];
+  more.hidden = !others.length;
+  $(".album-more-heading", more).textContent = t("Ещё от {artist}", { artist: item.artist });
+  $(".cards", more).replaceChildren(...others.slice(0, 16).map((other, index) => createCard(other, index)));
+}
+// The line under the title, with the artist's name as the way to their page
+function fillAlbumSub(item, text) {
+  const sub = $(".album-sub", $("#album-page"));
+  const artist = item.artist && libraryArtists().find((entry) => entry.name === item.artist);
+  if (!artist || !text.startsWith(item.artist)) {
+    sub.textContent = text;
+    return;
+  }
+  const link = document.createElement("button");
+  link.type = "button";
+  link.className = "link";
+  link.textContent = item.artist;
+  link.addEventListener("click", () => openArtist(artist));
+  sub.replaceChildren(link, text.slice(item.artist.length));
+}
+
 function fillAlbumPage(item) {
   const page = $("#album-page");
   page.dataset.kind = "album";
@@ -3037,7 +3065,9 @@ function fillAlbumPage(item) {
   $("use", $(".album-cover", page)).setAttribute("href", "#i-note");
   $(".album-title", page).textContent = item.title;
   page.dataset.path = item.path;
-  $(".album-sub", page).textContent = albumSubline(item);
+  fillAlbumSub(item, albumSubline(item));
+  $(".album-stats", page).textContent = "";
+  renderAlbumMore(item);
   const image = $(".album-cover img", page);
   image.hidden = true;
   image.removeAttribute("src");
@@ -3065,10 +3095,14 @@ function fillAlbumPage(item) {
   $(".album-list", page).replaceChildren();
 }
 
-function albumSubline(item, format = "", genre = "") {
-  const parts = [item.artist, genre, item.year,
-    t("{tracks} {trackWord}", { tracks: item.tracks, trackWord: plural(item.tracks, "трек", "трека", "треков") }),
-    formatSize(item.size), format];
+// Under the title, what an album is known by; the counts stand under its tracks
+function albumSubline(item, genre = "") {
+  return [item.artist, item.year, genre].filter(Boolean).join(" · ");
+}
+
+function albumStats(item, format = "", length = 0) {
+  const parts = [t("{tracks} {trackWord}", { tracks: item.tracks, trackWord: plural(item.tracks, "трек", "трека", "треков") }),
+    length ? formatLength(length) : "", formatSize(item.size), format];
   return parts.filter(Boolean).join(" · ");
 }
 
@@ -3083,9 +3117,11 @@ function renderAlbumTracks(item, data, highlight) {
   const page = $("#album-page");
   const formats = data.tracks.map((track) => track.format);
   const format = formats.sort((a, b) => formats.filter((f) => f === b).length - formats.filter((f) => f === a).length)[0] || "";
-  // "Alternative Rock; Art Rock" in the tags reads better with commas on the page
-  const genre = (data.tracks.map((track) => track.genre).find(Boolean) || "").replace(/\s*;\s*/g, ", ");
-  $(".album-sub", page).textContent = albumSubline(item, format, genre);
+  // Of "Alternative Rock; Rock; Art Rock" in the tags the first says enough here
+  const genre = (data.tracks.map((track) => track.genre).find(Boolean) || "").split(";")[0].trim();
+  const length = data.tracks.reduce((sum, track) => sum + (Number(track.duration) || 0), 0);
+  fillAlbumSub(item, albumSubline(item, genre));
+  $(".album-stats", page).textContent = albumStats(item, format, length);
   const rows = [];
   const all = [...data.tracks.map((track) => ({ ...track, missing: false })),
     ...data.missing.map((track) => ({ ...track, missing: true }))];

@@ -598,6 +598,7 @@ const TRANSLATIONS = {
   "ASCII-арт": "ASCII art",
   "Ничего": "Nothing",
   "Продвинутые": "Advanced",
+  "Ещё от {artist}": "More by {artist}",
   "Главная": "Home",
   "Недавно добавлено": "Recently added",
   "Недавно слушали": "Recently played",

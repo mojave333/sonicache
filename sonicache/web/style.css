@@ -777,6 +777,18 @@ p { margin: 0; }
 .album-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
 .album-title { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .album-sub { margin: 4px 0 14px; color: var(--text-subtle); }
+/* The artist's name leads to their page */
+.album-sub .link { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.album-sub .link:hover { color: var(--accent-fg); text-decoration-color: currentColor; }
+/* Under the tracks: what else of the artist's the library holds, one row of covers */
+/* How many tracks, how long, how big: for reference, under the list */
+.album-stats { margin: 12px 10px 0; color: var(--text-subtle); font-size: 13px; }
+.album-stats:empty { display: none; }
+#album-page[data-kind="playlist"] .album-stats { display: none; }
+.album-more { margin: 26px 0 18px; }
+.album-more-heading { margin: 0; font: 600 17px var(--font-display); }
+.album-more-cards { padding: 12px 0 0; }
+#album-page[data-kind="playlist"] .album-more { display: none; }
 .album-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
 .album-actions .tool-btn[aria-pressed="true"] { border-color: var(--accent-edge); background: var(--selected); color: var(--accent-fg); }
 .album-track {
