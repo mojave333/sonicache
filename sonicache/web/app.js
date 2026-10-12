@@ -2523,6 +2523,7 @@ function renderLibrary({ enter = false } = {}) {
   const grid = tab === "albums" && library.view === "grid";
   $("#library").hidden = !(tab === "albums" && !grid);
   $("#library-head").hidden = !(tab === "albums" && !grid);
+  $("#tracks-head").hidden = tab !== "tracks";
   $("#library-cards").hidden = !grid;
   $("#library-tracks").hidden = tab !== "tracks";
   $("#library-artists").hidden = tab !== "artists";
@@ -3177,6 +3178,7 @@ function fillAlbumPage(item) {
   page.playlist = null;
   page.tracks = [];
   $(".album-head .artists", page).textContent = t("Исполнители");
+  $(".album-tracks", page).classList.remove("no-artists");
   $("use", $(".album-cover", page)).setAttribute("href", "#i-note");
   $(".album-title", page).textContent = item.title;
   $(".album-title", page).title = item.title;
@@ -3253,8 +3255,10 @@ function renderAlbumTracks(item, data, highlight) {
       head.textContent = t("Диск {number}", { number: disc });
       rows.push(head);
     }
-    rows.push(createAlbumTrack(track, item));
+    rows.push(addRowMore(createAlbumTrack(track, item)));
   }
+  // Every track by the album's own artist: the column that says so is left out
+  $(".album-tracks", page).classList.toggle("no-artists", all.every((track) => !track.artists || track.artists === item.artist));
   const unknown = Math.max(0, data.expected - data.tracks.length - data.missing.length);
   $("[data-page-action=again]", page).hidden = !item.link || !(data.missing.length || unknown);
   if (unknown) {
@@ -3302,6 +3306,18 @@ function createAlbumTrack(track, item) {
   time.className = "num";
   time.textContent = track.duration ? formatDuration(track.duration) : "";
   row.append(number, title, artists, time);
+  return row;
+}
+
+// A track row's "more" button; a track with no file in the folder has none, but
+// keeps the cell so the columns line up
+function addRowMore(row) {
+  if (!row.dataset.path) {
+    row.append(document.createElement("span"));
+    return row;
+  }
+  const more = $("#library-track-template").content.querySelector(".row-more").cloneNode(true);
+  row.append(more);
   return row;
 }
 
@@ -5505,6 +5521,13 @@ function sortable(list, selector, move) {
 function bindTrackMenu() {
   for (const list of [$(".album-list", $("#album-page")), $("#library-tracks")]) {
     list.addEventListener("contextmenu", onTrackContextMenu);
+    list.addEventListener("click", (event) => {
+      const more = event.target.closest(".row-more");
+      if (!more) return;
+      event.stopPropagation();
+      const box = more.getBoundingClientRect();
+      more.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: box.right, clientY: box.bottom }));
+    });
   }
   $("#track-menu").addEventListener("click", onTrackMenuClick);
   $("#playlist-menu").addEventListener("click", onPlaylistMenuClick);
@@ -5798,6 +5821,7 @@ function fillPlaylistPage(data) {
   $("[data-page-action=delete]", page).hidden = data.smart;
   $("[data-page-action=keep]", page).hidden = !data.smart || !data.tracks.length;
   $(".album-head .artists", page).textContent = t("Исполнитель · альбом");
+  $(".album-tracks", page).classList.remove("no-artists");
   const rows = data.tracks.map((track, index) => {
     const row = createAlbumTrack({ ...track, number: index + 1 }, { artist: "" });
     const artists = $(".artists", row);
@@ -5807,7 +5831,7 @@ function fillPlaylistPage(data) {
         artists.textContent].filter(Boolean).join(" · ");
     }
     row.draggable = !data.smart;
-    return row;
+    return addRowMore(row);
   });
   if (!rows.length) {
     const note = document.createElement("div");

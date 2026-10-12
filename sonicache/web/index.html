@@ -52,6 +52,7 @@
     <symbol id="i-mi-queue" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></symbol>
     <symbol id="i-mi-eq" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M10 20h4V4h-4v16zm-6 0h4v-8H4v8zM16 9v11h4V9h-4z"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01"/></symbol>
     <symbol id="i-playlist" viewBox="0 0 24 24"><path d="M4 6h13M4 11h13M4 16h7"/><path d="M15 14v6l5-3z"/></symbol>
     <symbol id="i-playlist-add" viewBox="0 0 24 24"><path d="M4 6h12M4 11h12M4 16h7"/><path d="M18 13v7M14.5 16.5h7"/></symbol>
     <symbol id="i-queue-next" viewBox="0 0 24 24"><path d="M4 7h9M4 12h9M4 17h6"/><path d="M16 9l5 3-5 3z"/></symbol>
@@ -358,6 +359,9 @@
             <div class="list-head columns library-grid" role="row" id="library-head">
               <span></span><span role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="title">Название<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="year">Год<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="tracks">Треков<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="num col-size" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="size">Размер<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span class="col-date" role="columnheader" aria-sort="none"><button type="button" class="sort" data-sort="modified">Изменён<svg class="icon sm sort-arrow" aria-hidden="true"><use href="#i-chevron"/></svg></button></span><span></span>
             </div>
+            <div class="list-head columns tracks-head" role="row" id="tracks-head" hidden>
+              <span></span><span role="columnheader">Название</span><span role="columnheader">Исполнитель</span><span role="columnheader" class="h-album">Альбом</span><span role="columnheader" class="num">Время</span><span></span>
+            </div>
             <div class="list-scroll" id="library-scroll">
               <div id="library-empty" class="empty">
                 <div class="scene" data-scene="radio" aria-hidden="true" hidden><pre class="ascii"></pre><span class="crayon"></span></div>
@@ -398,7 +402,7 @@
                   <button type="button" class="tool-btn icon-only danger" data-page-action="delete" title="Удалить плейлист" aria-label="Удалить плейлист"><svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg></button>
                 </div>
                 <div class="album-tracks" role="table" aria-label="Треки альбома">
-                  <div class="album-track album-head" role="row"><span role="columnheader" class="n">#</span><span role="columnheader">Трек</span><span role="columnheader" class="artists">Исполнители</span><span role="columnheader" class="num">Время</span></div>
+                  <div class="album-track album-head" role="row"><span role="columnheader" class="n">#</span><span role="columnheader">Трек</span><span role="columnheader" class="artists">Исполнители</span><span role="columnheader" class="num">Время</span><span></span></div>
                   <div class="album-list"></div>
                   <p class="album-stats"></p>
                   <section class="album-more" hidden>
@@ -1057,6 +1061,7 @@
       <span class="sub cell-artists"></span>
       <span class="sub cell-album"></span>
       <span class="num sub cell-time"></span>
+      <button type="button" class="icon-btn row-more" tabindex="-1" title="Ещё" aria-label="Ещё" aria-haspopup="menu"><svg class="icon sm" aria-hidden="true"><use href="#i-more"/></svg></button>
     </li>
   </template>
 

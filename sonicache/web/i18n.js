@@ -612,6 +612,7 @@ const TRANSLATIONS = {
   "Доброй ночи": "Good night",
   "Продолжить слушать": "Continue listening",
   "Из избранного": "From your favourites",
+  "Ещё": "More",
   "Музыки пока нет": "No music yet",
   "Скачайте альбом в разделе «Загрузка» или добавьте папку в «Библиотеке»": "Download an album in Download, or add a folder in Library",
   "Новое": "New",
