@@ -1005,18 +1005,21 @@ p { margin: 0; }
 
 /* Player: a bar at the foot of the window while something plays */
 .player {
-  display: grid; grid-template-columns: minmax(150px, 1fr) auto minmax(180px, 2fr) auto; gap: 16px;
-  align-items: center; height: 64px; padding: 0 16px; background: var(--chrome);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 1.5fr) minmax(0, 1fr); gap: 20px;
+  align-items: center; height: 76px; padding: 0 16px; background: var(--chrome);
   /* A plate of its own, clear of the window's edges, not a strip across the bottom */
   margin: 0 12px 12px; border: 1px solid var(--divider); border-radius: 12px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.10);
 }
-.player-track { display: flex; align-items: center; gap: 12px; min-width: 0; text-align: left; border-radius: var(--radius); }
+.player-track { display: flex; align-items: center; gap: 14px; min-width: 0; text-align: left; border-radius: var(--radius); }
 .player-track:hover .player-title { text-decoration: underline; }
-.player-cover { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: 5px; box-shadow: inset 0 0 0 1px var(--border); }
+.player-cover { position: relative; flex: none; width: 52px; height: 52px; overflow: hidden; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--border); }
 .player-cover img, .now-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .player-names { display: grid; min-width: 0; }
-.player-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-title { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-artist { color: var(--text-subtle); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* What moves through the queue over the line of how far it has come, so the
+   track's name and the buttons at the end are not squeezed by a bar of their own */
+.player-centre { display: grid; justify-items: center; gap: 2px; min-width: 0; }
 .player-controls { display: flex; align-items: center; gap: 12px; }
 .player-play {
   display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
@@ -1028,12 +1031,14 @@ p { margin: 0; }
 .player-play .icon { width: 24px; height: 24px; }
 .player-controls .icon-btn { width: 32px; height: 32px; }
 .player-controls .icon-btn .icon { width: 22px; height: 22px; }
-.player-seek { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.player-seek { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 560px; min-width: 0; }
 .player-seek input { flex: 1; min-width: 60px; }
 .player-time { color: var(--text-subtle); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 34px; text-align: center; }
-.player-extra { display: flex; align-items: center; gap: 4px; }
+.player-extra { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
 .player-extra .icon-btn { width: 32px; height: 32px; }
 .player-extra .icon-btn .icon { width: 20px; height: 20px; }
+/* The volume stands apart from the panels: a gap before the mute button */
+#player-mute { margin-left: 10px; }
 /* A straight line apart from the volume: the button's own border would curve with its corners */
 #player-stop { position: relative; margin-left: 8px; }
 #player-stop::before { content: ""; position: absolute; left: -5px; top: 6px; bottom: 6px; border-left: 1px solid var(--border); }
@@ -1055,10 +1060,20 @@ p { margin: 0; }
 #player-lyrics[aria-pressed="true"], .player-mode[aria-pressed="true"] { color: var(--accent-fg); }
 /* Shuffle and repeat are quieter than the buttons that move through the queue */
 .player-controls .player-mode .icon { width: 19px; height: 19px; }
-@container content (max-width: 720px) {
-  .player { grid-template-columns: minmax(0, 1fr) auto auto; }
-  .player-seek { display: none; }
+/* Narrower, what is optional steps aside in turn: the volume's line and the
+   equaliser first, then shuffle and repeat. The track's name and the line of
+   how far it has come stay at every width. */
+@container content (max-width: 900px) {
+  .player { grid-template-columns: minmax(0, 1fr) minmax(220px, 1.2fr) auto; gap: 16px; }
   .player-extra input { display: none; }
+  #player-mute { margin-left: 0; }
+  #player-eq { display: none; }
+}
+@container content (max-width: 640px) {
+  .player { grid-template-columns: minmax(0, 1.3fr) minmax(172px, 1fr) auto; gap: 12px; padding: 0 12px; }
+  .player-seek { gap: 8px; }
+  .player-mode { display: none; }
+  .player-extra #player-lyrics { display: none; }
 }
 .album-track.is-playing, .track-item.is-playing .title { color: var(--accent-fg); }
 #library-tracks .track-item .cover { position: relative; cursor: pointer; }
@@ -1152,20 +1167,25 @@ button.lyric-line:hover { opacity: 1; }
 /* The player under Now playing floats over the view as a rounded dock; what
    plays is already shown above it, so the dock keeps to the controls */
 .now-mode #player {
-  position: fixed; left: 48px; right: 48px; bottom: 22px; z-index: 41;
+  position: fixed; left: 48px; right: 48px; bottom: 22px; z-index: 41; height: 64px;
   grid-template-columns: auto minmax(140px, 1fr) auto; gap: 20px; padding: 0 20px;
   border: 1px solid var(--divider); border-radius: 12px; box-shadow: var(--menu-shadow);
   background: color-mix(in srgb, var(--chrome) 84%, transparent); backdrop-filter: blur(16px) saturate(1.2);
 }
 .now-mode .player-track { display: none; }
-.now-mode .player-seek { display: flex; }
+.now-mode .player-centre { display: contents; }
+.now-mode .player-seek { display: flex; max-width: none; }
 .now-mode .player-extra input { display: block; }
+.now-mode #player-mute { margin-left: 10px; }
+.now-mode #player-eq { display: grid; }
+.now-mode .player-mode, .now-mode .player-extra #player-lyrics { display: grid; }
 #player-full { display: none; }
 .now-mode #player-full { display: grid; }
 @container content (max-width: 820px) {
   .now-mode #player { left: 12px; right: 12px; bottom: 12px; gap: 12px; }
   /* The keys and the mute button still set the volume: the seek bar needs the room more */
   .now-mode .player-extra input { display: none; }
+  .now-mode #player-mute { margin-left: 0; }
 }
 
 ::-webkit-scrollbar { width: 12px; height: 12px; }

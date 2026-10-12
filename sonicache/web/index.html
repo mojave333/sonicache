@@ -837,17 +837,19 @@
           <span class="player-cover cover"><img alt="" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg></span>
           <span class="player-names"><span class="player-title"></span><span class="player-artist"></span></span>
         </button>
-        <div class="player-controls">
-          <button type="button" class="icon-btn player-mode" id="player-shuffle" title="Играть вперемешку" aria-label="Играть вперемешку" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-shuffle"/></svg></button>
-          <button type="button" class="icon-btn" id="player-prev" title="Предыдущий" aria-label="Предыдущий"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-prev"/></svg></button>
-          <button type="button" class="player-play" id="player-play" title="Пауза" aria-label="Пауза"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-pause"/></svg></button>
-          <button type="button" class="icon-btn" id="player-next" title="Следующий" aria-label="Следующий"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-next"/></svg></button>
-          <button type="button" class="icon-btn player-mode" id="player-repeat" title="Повторять очередь" aria-label="Повторять очередь" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-repeat"/></svg></button>
-        </div>
-        <div class="player-seek">
-          <span class="player-time" id="player-time">0:00</span>
-          <input type="range" id="player-position" min="0" max="1000" value="0" step="1" aria-label="Позиция">
-          <span class="player-time" id="player-length">0:00</span>
+        <div class="player-centre">
+          <div class="player-controls">
+            <button type="button" class="icon-btn player-mode" id="player-shuffle" title="Играть вперемешку" aria-label="Играть вперемешку" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-shuffle"/></svg></button>
+            <button type="button" class="icon-btn" id="player-prev" title="Предыдущий" aria-label="Предыдущий"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-prev"/></svg></button>
+            <button type="button" class="player-play" id="player-play" title="Пауза" aria-label="Пауза"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-pause"/></svg></button>
+            <button type="button" class="icon-btn" id="player-next" title="Следующий" aria-label="Следующий"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-next"/></svg></button>
+            <button type="button" class="icon-btn player-mode" id="player-repeat" title="Повторять очередь" aria-label="Повторять очередь" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-repeat"/></svg></button>
+          </div>
+          <div class="player-seek">
+            <span class="player-time" id="player-time">0:00</span>
+            <input type="range" id="player-position" min="0" max="1000" value="0" step="1" aria-label="Позиция">
+            <span class="player-time" id="player-length">0:00</span>
+          </div>
         </div>
         <div class="player-extra">
           <button type="button" class="icon-btn" id="player-lyrics" title="Текст песни" aria-label="Текст песни" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-mi-lyrics"/></svg></button>
