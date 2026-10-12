@@ -23,6 +23,7 @@ class TestNormalize:
             "threads": 3,
             "theme": "light",
             "font": "source-serif",
+            "art": "crayon",
             "sketch": False,
             "dry_run": False,
             "cookies_browser": "",
@@ -82,6 +83,10 @@ class TestNormalize:
         # The first is the one the stylesheet falls back to, so it needs no rule of its own
         for font in gui.FONTS[1:]:
             assert f':root[data-font="{font}"]' in styles
+
+    @pytest.mark.parametrize("given, expected", [("ascii", "ascii"), ("none", "none"), ("photo", "crayon"), (None, "crayon")])
+    def test_only_known_pictures_survive(self, given, expected):
+        assert gui._normalize({"art": given})["art"] == expected
 
     def test_the_drawn_look_is_off_until_asked_for(self):
         assert gui._normalize({"sketch": 1})["sketch"] is True

@@ -59,6 +59,8 @@ WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 THEMES = ("system", "light", "dark")
 # The faces the names can be set in (web/style.css); the first is a new installation's
 FONTS = ("source-serif", "comic", "system")
+# What an empty screen shows: a crayon drawing, ASCII art or no picture
+ARTS = ("crayon", "ascii", "none")
 # Browsers yt-dlp can read cookies from; "" means it takes none
 COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera", "vivaldi")
 # Speeds offered in the settings, bytes per second; 0 is no limit
@@ -1849,6 +1851,7 @@ def _normalize(settings: dict) -> dict:
         # A new installation opens on paper; the dark theme and the system's are a choice
         "theme": settings.get("theme") if settings.get("theme") in THEMES else "light",
         "font": settings.get("font") if settings.get("font") in FONTS else FONTS[0],
+        "art": settings.get("art") if settings.get("art") in ARTS else ARTS[0],
         # Staff lines, wobbly frames and coloured pencils: off unless asked for
         "sketch": bool(settings.get("sketch", False)),
         "dry_run": bool(settings.get("dry_run", False)),

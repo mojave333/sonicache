@@ -803,9 +803,10 @@ p { margin: 0; }
 .empty .icon { width: 26px; height: 26px; margin-bottom: 6px; stroke-width: 1.5; }
 /* An empty screen shows a picture, not only words */
 .empty .scene { display: grid; place-items: center; max-width: 100%; margin-bottom: 12px; }
-/* In the usual look the picture is typed: a thing in ASCII with a part that moves (app.js) */
-.ascii { margin: 0; color: var(--text-muted); font: 13px/1.18 "Cascadia Mono", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace; text-align: left; }
+/* The picture typed: a thing in ASCII with a part that moves (app.js) */
+.ascii { display: none; margin: 0; color: var(--text-muted); font: 13px/1.18 "Cascadia Mono", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace; text-align: left; }
 .ascii b { color: var(--accent-fg); font-weight: 400; }
+[data-art="ascii"] .ascii { display: block; }
 .empty-title { color: var(--text-muted); font-weight: 600; }
 .empty-title:empty { display: none; }
 .empty-text { font-size: 13px; }
@@ -1288,8 +1289,8 @@ button.lyric-line:hover { opacity: 1; }
 
 /* Drawn by hand: the optional look (Settings, Appearance). The window stays as
    it is, plain and straight; three pencils take the accent's place, and the
-   pictures are drawn in wax crayon: a staff over the albums, the empty
-   screens, the line under the tab in use and the ring round a picked album.
+   line under the tab in use and the ring round a picked album are drawn in
+   wax crayon. The pictures of the empty screens are a setting of their own.
    The crayon is drawn once into art/ (light paper and dark), nothing is
    filtered while the window runs. Everything here is under :root.sketchy. */
 :root.sketchy {
@@ -1300,27 +1301,21 @@ button.lyric-line:hover { opacity: 1; }
   --accent: #E8736A; --accent-hover: #EE8A82; --accent-edge: transparent; --accent-fg: #EE8A82; --bar-fill: #E8736A;
   --on-accent: #231612; --selected: rgb(242 193 74 / 0.16); --split-divider: rgb(0 0 0 / 0.25);
 }
+/* The picture of an empty screen: crayon, ASCII or none, as the settings say */
 .crayon { display: none; width: 100%; height: 100%; background: center / contain no-repeat; }
-.sketchy .ascii { display: none; }
-.sketchy .crayon { display: block; }
+[data-art="crayon"] .crayon { display: block; }
+[data-art="none"] :is(.scene, .settings-art) { display: none; }
 [data-scene="cassette"] .crayon { background-image: url("art/crayon-downloads.webp"); }
 [data-scene="turntable"] .crayon { background-image: url("art/crayon-library.webp"); }
 [data-scene="radio"] .crayon { background-image: url("art/crayon-nothing.webp"); }
-[data-scene="mixer"] .crayon { background-image: url("art/crayon-settings.webp"); }
+[data-scene="mixer"] .crayon { background-image: url("art/crayon-band.webp"); background-position: left center; background-size: auto 100%; }
 [data-theme="dark"] [data-scene="cassette"] .crayon { background-image: url("art/crayon-downloads-dark.webp"); }
 [data-theme="dark"] [data-scene="turntable"] .crayon { background-image: url("art/crayon-library-dark.webp"); }
 [data-theme="dark"] [data-scene="radio"] .crayon { background-image: url("art/crayon-nothing-dark.webp"); }
-[data-theme="dark"] [data-scene="mixer"] .crayon { background-image: url("art/crayon-settings-dark.webp"); }
-.sketchy .empty .scene { width: 320px; height: 180px; }
-.sketchy .settings-art { width: 176px; height: 96px; }
-
-/* The staff runs over the albums and scrolls away with them */
-.crayon-band { display: none; }
-.sketchy .crayon-band:has(+ .cards:not([hidden]):not(:empty)) {
-  display: block; height: 118px; margin: 6px 0 -6px;
-  background: url("art/crayon-band.webp") left center / auto 100% no-repeat;
-}
-.sketchy[data-theme="dark"] .crayon-band { background-image: url("art/crayon-band-dark.webp"); }
+[data-theme="dark"] [data-scene="mixer"] .crayon { background-image: url("art/crayon-band-dark.webp"); }
+[data-art="crayon"] .empty .scene { width: 320px; height: 180px; }
+/* In the settings the staff runs from the heading to the edge of the card */
+[data-art="crayon"] .settings-art { flex: 1; min-width: 176px; height: 104px; }
 
 /* The tab in use is underlined in crayon, and a picked album is ringed */
 .sketchy .tabs::after {

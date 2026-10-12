@@ -313,7 +313,6 @@
                 <p class="empty-text"></p>
               </div>
               <ol id="library" class="rows" role="listbox" aria-multiselectable="true" aria-label="Альбомы и треки"></ol>
-              <div class="crayon-band" aria-hidden="true"></div>
               <div id="library-cards" class="cards" role="listbox" aria-multiselectable="true" aria-label="Альбомы и треки"></div>
               <ol id="library-tracks" class="rows" aria-label="Треки"></ol>
               <div id="library-artists" class="cards artists" aria-label="Исполнители"></div>
@@ -437,10 +436,21 @@
                       <option value="system">Системный</option>
                     </select>
                   </div>
+                  <div class="setting">
+                    <div class="setting-label">
+                      <p><label for="art">Картинки на пустых экранах</label></p>
+                      <p class="setting-desc">Что показывать, пока список пуст: рисунок мелком, ASCII-арт с анимацией или только текст</p>
+                    </div>
+                    <select id="art" class="select">
+                      <option value="crayon">Рисунок</option>
+                      <option value="ascii">ASCII-арт</option>
+                      <option value="none">Ничего</option>
+                    </select>
+                  </div>
                   <div class="setting toggle">
                     <div class="setting-label">
                       <p id="sketch-label">Рисованные детали</p>
-                      <p class="setting-desc">Три цветных карандаша вместо одного акцента и рисунки мелком: нотный стан над альбомами и на пустых экранах. На работу программы не влияет</p>
+                      <p class="setting-desc">Три цветных карандаша вместо одного акцента, вкладка подчёркнута мелком, выбранный альбом обведён. На работу программы не влияет</p>
                     </div>
                     <button type="button" id="sketch" class="switch" role="switch" aria-checked="false" aria-labelledby="sketch-label"></button>
                   </div>

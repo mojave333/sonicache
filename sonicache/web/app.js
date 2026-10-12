@@ -143,7 +143,7 @@ const artistObserver = new IntersectionObserver((entries) => {
   }
 }, { rootMargin: "200px" });
 
-// The pictures of the usual look are typed in ASCII, each with a part that
+// The pictures of the empty screens, when typed in ASCII, each have a part that
 // moves: a cassette's reels for the downloads, a turntable with no record for
 // the library, a radio that finds no station for a search, a mixer for the
 // settings. A scene is its lines and the cells drawn in the accent.
@@ -229,9 +229,9 @@ const ASCII_SCENES = {
   },
 };
 let asciiTick = 0;
-// Draws the scenes on screen; the hand-drawn look shows crayon in their place
+// Draws the scenes on screen, where the settings ask for ASCII
 function drawAscii() {
-  if (document.documentElement.classList.contains("sketchy")) return;
+  if (document.documentElement.dataset.art !== "ascii") return;
   for (const node of document.querySelectorAll("[data-scene] > .ascii")) {
     if (!node.offsetParent) continue;
     const scene = ASCII_SCENES[node.parentElement.dataset.scene];
@@ -254,6 +254,8 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
 
 // The faces the names can be set in; the first is the one a new installation has
 const FONTS = ["source-serif", "comic", "system"];
+// What an empty screen shows: a crayon drawing, ASCII or no picture
+const ARTS = ["crayon", "ascii", "none"];
 applyTheme();
 
 let booted = false;
@@ -403,6 +405,7 @@ function renderSettings() {
   applySidebar(settings.sidebar);
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   $("#font").value = FONTS.includes(settings.font) ? settings.font : FONTS[0];
+  $("#art").value = ARTS.includes(settings.art) ? settings.art : ARTS[0];
   syncSwitch($("#sketch"), settings.sketch);
   syncSwitch($("#replaygain"), settings.replaygain);
   syncSwitch($("#lyrics"), settings.lyrics);
@@ -555,6 +558,7 @@ function applyTheme() {
   const root = document.documentElement;
   root.dataset.theme = dark ? "dark" : "light";
   root.dataset.font = FONTS.includes(settings.font) ? settings.font : FONTS[0];
+  root.dataset.art = ARTS.includes(settings.art) ? settings.art : ARTS[0];
   root.classList.toggle("sketchy", Boolean(settings.sketch));
   drawAscii();
 }
@@ -859,6 +863,7 @@ function bindUi() {
     // Another face is another width: the line under the tab is measured again once it has loaded
     document.fonts.ready.then(() => placeTabInk(false));
   });
+  $("#art").addEventListener("change", (event) => updateSettings({ art: event.target.value }));
   bindSwitch($("#sketch"), (on) => updateSettings({ sketch: on }));
   bindSwitch($("#replaygain"), (on) => updateSettings({ replaygain: on }));
   bindSwitch($("#lyrics"), (on) => updateSettings({ lyrics: on }));
