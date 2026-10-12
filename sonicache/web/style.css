@@ -512,7 +512,10 @@ p { margin: 0; }
 @keyframes level-c { 0%, 100% { transform: scaleY(1.25); } 45%, 80% { transform: none; } }
 
 /* Downloads */
-.job-row { grid-template-columns: 24px 34px minmax(0, 1fr) auto 210px 72px; }
+.job-row { grid-template-columns: 24px 48px minmax(0, 1fr) auto 260px 72px; min-height: 64px; }
+/* A release's cover is large enough to be recognised, and its bar to be seen from across the room */
+.job-row .cover { width: 48px; height: 48px; border-radius: 6px; }
+.job-row .bar { height: 6px; border-radius: 3px; }
 .expander { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; color: var(--text-subtle); }
 .expander:hover { color: var(--text); }
 .expander .icon { transition: transform var(--settle) var(--ease); }
@@ -528,7 +531,7 @@ p { margin: 0; }
 /* The fold itself is animated by the script (foldTracks), which knows how much
    of the list is on screen; overflow clips the rows while the height moves. */
 .tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); overflow: hidden; }
-.track { grid-template-columns: 24px 34px minmax(0, 1fr) 140px 52px 210px 72px; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
+.track { grid-template-columns: 24px 34px minmax(0, 1fr) 140px 52px 260px 72px; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
 .track::before { content: ""; }
 .track .num { color: var(--text-subtle); font-size: 13px; }
 .track .cell-release { display: none; }
@@ -1287,10 +1290,10 @@ button.lyric-line:hover { opacity: 1; }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--text-subtle); }
 
 @container content (max-width: 956px) {
-  .track { grid-template-columns: 24px 34px minmax(0, 1fr) 52px 180px 72px; }
+  .track { grid-template-columns: 24px 34px minmax(0, 1fr) 52px 230px 72px; }
   .track .cell-source { display: none; }
   .track .cell-status { grid-column: 5; }
-  .job-row { grid-template-columns: 24px 34px minmax(0, 1fr) auto 180px 72px; }
+  .job-row { grid-template-columns: 24px 48px minmax(0, 1fr) auto 230px 72px; }
   .library-grid { grid-template-columns: 34px minmax(0, 1fr) 54px 64px 104px 38px; }
   .col-size { display: none; }
 }
@@ -1308,7 +1311,8 @@ button.lyric-line:hover { opacity: 1; }
 
 /* Very narrow: the title keeps the space, everything optional steps aside */
 @container content (max-width: 620px) {
-  .job-row { grid-template-columns: 24px 30px minmax(0, 1fr) 120px 60px; }
+  .job-row { grid-template-columns: 24px 40px minmax(0, 1fr) 120px 60px; }
+  .job-row .cover { width: 40px; height: 40px; }
   .job-row .tag { display: none; }
   .track { grid-template-columns: 24px 30px minmax(0, 1fr) 120px 60px; }
   .track .cell-dur { display: none; }
