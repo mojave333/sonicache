@@ -105,19 +105,6 @@ For macOS and Linux there are builds of their own (see [macOS and Linux](#macos-
 `Sonicache-cli.exe --check` prints the version and the paths to the ffmpeg and Deno it
 found.
 
-### If you had Trackhound
-
-Until version 3.0 the program was called Trackhound. Installing Sonicache over it replaces
-it: the installer removes the old program and its shortcuts from the folder it finds, and
-the first start copies the settings, the playlists, the listens and the queue from the old
-files. Albums downloaded as Trackhound keep everything the library knows about them. Three
-things change by hand:
-
-- the command line is `Sonicache-cli` (or `sonicache`) where it was `Trackhound-cli`;
-- with Scoop or Homebrew, uninstall `trackhound` and install `sonicache` as above;
-- with pip, `pip uninstall trackhound` and `pip install sonicache`: the package is imported
-  as `sonicache` now.
-
 ### Three notes about the first run
 
 > [!NOTE]

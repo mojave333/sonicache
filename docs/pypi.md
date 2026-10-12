@@ -25,10 +25,6 @@ ffmpeg and a JavaScript runtime (Deno, or Node.js 22+) have to be on `PATH`. yt-
 the runtime to get audio from YouTube, and ffmpeg is needed for mp3, opus and ReplayGain.
 `sonicache --check` says what it found.
 
-Until version 3.0 the package was called `trackhound`. It is the same program: uninstall
-`trackhound`, install `sonicache`, and write `sonicache` where the code or the command line
-said `trackhound`.
-
 ## Command line
 
 ```sh
