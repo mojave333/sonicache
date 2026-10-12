@@ -1164,6 +1164,7 @@ function showView(name) {
     else button.removeAttribute("aria-current");
   }
   for (const view of $$(".view")) view.hidden = view.id !== `view-${name}`;
+  $(".topbar-search").classList.toggle("is-active", name === "search");
   setMenuOpen(false, false);
   if (name === "download") $("#link").focus();
   $("#player-lyrics")?.setAttribute("aria-pressed", String(name === "now"));
@@ -3842,6 +3843,7 @@ async function onPageAction(event) {
 function bindSearch() {
   const input = $("#search-input");
   input.addEventListener("input", () => {
+    if (state.view !== "search") showView("search");
     clearTimeout(state.search.timer);
     state.search.timer = setTimeout(() => runSearch(input.value), 450);
   });
@@ -3849,6 +3851,19 @@ function bindSearch() {
     if (event.key !== "Enter") return;
     clearTimeout(state.search.timer);
     runSearch(input.value, true);
+  });
+  // The field is in the bar over every view: reaching for it brings the results up
+  input.addEventListener("focus", () => {
+    if (state.view !== "search") showView("search");
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (input.value) {
+      input.value = "";
+      runSearch("");
+    } else {
+      input.blur();
+    }
   });
   $("#search-scroll").addEventListener("click", onSearchClick);
   radioGroup($("#search-chips"), "data-search-filter", (filter) => {
@@ -3905,7 +3920,7 @@ function renderSearch({ enter = false } = {}) {
     : loading ? "" : results?.error || t("По запросу «{query}»", { query });
   $("#search-service").textContent = results?.service ? t("Каталог: {service}", { service: results.service }) : "";
   const { filter } = state.search;
-  $("#search-chips").hidden = !query || !(found.albums.length + found.tracks.length + found.artists.length);
+  $("#search-bar").hidden = !query || !(found.albums.length + found.tracks.length + found.artists.length);
   syncRadios($("#search-chips"), "data-search-filter", filter);
   const best = filter === "all" && !loading ? bestSearchResult(found, query) : null;
   $("#search-best-section").hidden = !best;

@@ -83,13 +83,16 @@
           <span class="nav-label">Загрузка</span>
           <span id="download-ring" class="nav-ring" aria-hidden="true" hidden></span>
         </button>
-        <button type="button" class="nav-item" data-view="search" title="Поиск (Ctrl+2)" aria-label="Поиск">
-          <span class="nav-label">Поиск</span>
-        </button>
         <button type="button" class="nav-item" data-view="library" title="Библиотека (Ctrl+3)" aria-label="Библиотека">
           <span class="nav-label">Библиотека</span>
         </button>
       </nav>
+      <span class="spacer"></span>
+      <div class="field topbar-search" role="search" title="Поиск (Ctrl+2)">
+        <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="search-input" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Исполнитель, альбом или трек" aria-label="Что найти">
+      </div>
       <span class="spacer"></span>
       <button type="button" class="nav-item nav-icon" data-view="settings" title="Настройки (Ctrl+4)" aria-label="Настройки">
         <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
@@ -226,19 +229,14 @@
       </section>
 
       <section id="view-search" class="view" aria-label="Поиск" hidden>
-        <div class="toolbar">
-          <div class="field search-field">
-            <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
-            <input id="search-input" type="search" autocomplete="off" spellcheck="false"
-                   placeholder="Исполнитель, альбом или трек" aria-label="Что найти">
+        <div id="search-bar" class="search-bar" hidden>
+          <div id="search-chips" class="chips" role="radiogroup" aria-label="Что показать">
+            <button type="button" role="radio" data-search-filter="all">Всё</button>
+            <button type="button" role="radio" data-search-filter="albums">Альбомы</button>
+            <button type="button" role="radio" data-search-filter="artists">Исполнители</button>
+            <button type="button" role="radio" data-search-filter="tracks">Треки</button>
           </div>
           <span id="search-service" class="search-service"></span>
-        </div>
-        <div id="search-chips" class="chips" role="radiogroup" aria-label="Что показать" hidden>
-          <button type="button" role="radio" data-search-filter="all">Всё</button>
-          <button type="button" role="radio" data-search-filter="albums">Альбомы</button>
-          <button type="button" role="radio" data-search-filter="artists">Исполнители</button>
-          <button type="button" role="radio" data-search-filter="tracks">Треки</button>
         </div>
         <div class="library-body">
           <div class="list-scroll" id="search-scroll">
@@ -315,7 +313,7 @@
           </div>
           <div class="field library-search">
             <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
-            <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Поиск в библиотеке" aria-label="Поиск">
+            <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр библиотеки" title="Показать в библиотеке только то, что подходит">
           </div>
           <button type="button" id="library-again" class="tool-btn" hidden>
             <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Докачать недостающее</span>

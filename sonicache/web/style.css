@@ -690,20 +690,23 @@ p { margin: 0; }
 @keyframes img-in { from { opacity: 0; } }
 
 /* Search */
-.search-field { flex: 1 1 320px; max-width: 640px; height: var(--h-lg); }
-.search-field input { font-size: var(--fs-md); }
+/* The search field is in the top bar, between the sections and the settings */
+.topbar-search { flex: 0 1 440px; min-width: 120px; height: var(--h-lg); }
+.topbar-search input { font-size: var(--fs-md); }
+.topbar-search.is-active { border-color: var(--border-strong); }
 .search-service { margin-left: auto; color: var(--text-subtle); font-size: var(--fs-xs); }
 .search-section + .search-section { border-top: 1px solid var(--divider); }
 .search-head { margin: 0; padding: 20px 20px 0; font: 600 var(--fs-xl)/1.3 var(--font-display); }
 /* What to show of the answer: all of it, or only the albums, the artists or the tracks */
-.chips { display: flex; flex: none; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--divider); }
+.search-bar { display: flex; align-items: center; flex: none; gap: 16px; padding: 8px 16px; border-bottom: 1px solid var(--divider); }
+.chips { display: flex; gap: 8px; }
 .chips button {
   height: var(--h-sm); padding: 0 16px; border-radius: var(--radius); background: var(--selected); color: var(--text); font-weight: 600;
   transition: background-color var(--press) ease-out, color var(--press) ease-out;
 }
 .chips button:hover { background: var(--selected-hover); }
 .chips button[aria-checked="true"] { background: var(--text); color: var(--bg); }
-#view-search:has(#search-page:not([hidden])) .chips { display: none; }
+#view-search:has(#search-page:not([hidden])) .search-bar { display: none; }
 /* The answer that most likely is what was asked for, set larger than the rest */
 .search-best { padding: 12px 20px 4px; }
 .search-best .card.best {
