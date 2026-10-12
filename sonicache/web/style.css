@@ -43,6 +43,22 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-pill: 999px;
+  /* Type: 11 for labels, 12 for captions and table heads, 13 for what is
+     secondary, 14 for the text itself, 15 for titles inside the interface, then
+     18, 20, 24 and 28 for headings and the lyrics */
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 28px;
+  /* Two sizes that follow the width of the page: the name of an album or an
+     artist, and the line that opens a page (the home's greeting) */
+  --fs-display: clamp(30px, 5cqi, 52px);
+  --fs-title: clamp(26px, 3.8cqi, 40px);
   /* How light the cover-coloured band is: a pastel under dark text, a deep
      shade under light text, so the title stays readable on any cover */
   --band-l: 89%;
@@ -141,7 +157,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 400 14px/1.45 var(--font);
+  font: 400 var(--fs-base)/1.45 var(--font);
   user-select: none;
   cursor: default;
 }
@@ -187,7 +203,7 @@ p { margin: 0; }
 .logo { display: grid; place-items: center; flex: none; color: var(--text); }
 :root[data-theme="dark"] .logo { color: #FFFFFF; }
 .logo img { width: 46px; height: 46px; }
-.brand-name { display: none; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.brand-name { display: none; font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.02em; }
 .nav-item {
   position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
   flex: none; height: 38px; border-radius: var(--radius); color: var(--text-subtle);
@@ -340,10 +356,10 @@ p { margin: 0; }
 .menu [aria-checked="true"] .check { visibility: visible; }
 /* A profile line carries its name and, quieter, what it sets */
 .menu-name { flex: none; }
-.menu-note { margin-left: auto; padding-left: 12px; color: var(--text-subtle); font-size: 12px;
+.menu-note { margin-left: auto; padding-left: 12px; color: var(--text-subtle); font-size: var(--fs-xs);
              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-divider { height: 1px; margin: 4px 6px; background: var(--divider); }
-.menu-empty { margin: 0; padding: 8px 12px; color: var(--text-subtle); font-size: 12px; }
+.menu-empty { margin: 0; padding: 8px 12px; color: var(--text-subtle); font-size: var(--fs-xs); }
 /* Where and in what the next download goes: the format, the folder, the profiles */
 .target-menu { min-width: 300px; padding: 6px; }
 /* What the catalogue finds for a name typed in the link field, right under it */
@@ -355,10 +371,10 @@ p { margin: 0; }
 .suggest-item[data-kind="artist"] .cover { border-radius: 50%; }
 .suggest-main { display: grid; flex: 1; min-width: 0; }
 .suggest-title, .suggest-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.suggest-sub, .suggest-kind { color: var(--text-subtle); font-size: 12px; }
+.suggest-sub, .suggest-kind { color: var(--text-subtle); font-size: var(--fs-xs); }
 .suggest-kind { flex: none; }
 .menu .suggest-more { color: var(--accent-fg); }
-.menu-label { margin: 6px 12px 4px; color: var(--text-subtle); font-size: 12px; }
+.menu-label { margin: 6px 12px 4px; color: var(--text-subtle); font-size: var(--fs-xs); }
 .target-menu .segmented { display: flex; margin: 0 4px 4px; }
 .target-menu .segmented button { flex: 1; width: auto; height: auto; justify-content: center; padding: 0; border-radius: 0; }
 #folder .menu-name { overflow: hidden; text-overflow: ellipsis; }
@@ -372,7 +388,7 @@ p { margin: 0; }
 
 .strip {
   display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 8px 16px;
-  border-bottom: 1px solid var(--divider); font-size: 13px; user-select: text;
+  border-bottom: 1px solid var(--divider); font-size: var(--fs-sm); user-select: text;
 }
 .strip .icon { margin-top: 1px; }
 .strip.danger { background: var(--danger-bg); color: var(--danger); }
@@ -387,7 +403,7 @@ p { margin: 0; }
 .confirm::backdrop { background: var(--scrim); }
 .confirm-body { display: grid; gap: 6px; padding: 16px; }
 .confirm-title { font-weight: 600; }
-.confirm-text { color: var(--text-subtle); font-size: 13px; user-select: text; }
+.confirm-text { color: var(--text-subtle); font-size: var(--fs-sm); user-select: text; }
 .confirm-actions {
   display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px;
   border-top: 1px solid var(--divider);
@@ -403,13 +419,13 @@ p { margin: 0; }
 .welcome-title { text-align: center; }
 /* The empty download list keeps its own picture back: one on screen at a time */
 .welcoming #empty .scene { visibility: hidden; }
-.welcome-title { font-size: 18px; font-weight: 650; }
+.welcome-title { font-size: var(--fs-lg); font-weight: 650; }
 .welcome-folder {
   display: flex; align-items: center; gap: 12px; margin: 4px 0; padding: 12px 12px;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg);
 }
 .welcome-where { flex: 1; min-width: 0; }
-.welcome-label { color: var(--text-subtle); font-size: 12px; }
+.welcome-label { color: var(--text-subtle); font-size: var(--fs-xs); }
 .welcome-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
 .welcome-folder .tool-btn { flex: none; }
 
@@ -417,7 +433,7 @@ p { margin: 0; }
 .list-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: none;
   min-height: 36px; padding: 4px 16px;
-  border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: 13px;
+  border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: var(--fs-sm);
 }
 .list-head .list-title { color: var(--text); font-weight: 600; }
 /* How the downloads are going, where the window's status bar used to say it */
@@ -452,31 +468,31 @@ p { margin: 0; }
 .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .cell-main { min-width: 0; }
 .title, .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sub { color: var(--text-subtle); font-size: 13px; }
+.sub { color: var(--text-subtle); font-size: var(--fs-sm); }
 .sub:empty { display: none; }
 .sub.danger { color: var(--danger); white-space: normal; user-select: text; }
 .sub.note { color: var(--warning); white-space: normal; }
 .sub.now { color: var(--text-muted); }
 /* A VPN client's proxy found on a card Spotify refused, one click from use */
-.offer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 4px; color: var(--text-muted); font-size: 13px; }
+.offer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 4px; color: var(--text-muted); font-size: var(--fs-sm); }
 .offer[hidden] { display: none; }
-.offer .tool-btn { height: 26px; padding: 0 8px; color: var(--accent-fg); font-size: 13px; }
+.offer .tool-btn { height: 26px; padding: 0 8px; color: var(--accent-fg); font-size: var(--fs-sm); }
 .tag {
   justify-self: start; padding: 1px 6px; border-radius: var(--radius);
   background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-edge); color: var(--on-accent);
-  font-size: 12px; font-weight: 600; line-height: 18px;
+  font-size: var(--fs-xs); font-weight: 600; line-height: 18px;
 }
 .tag:empty { display: none; }
 .cell-release, .cell-source {
-  overflow: hidden; color: var(--text-subtle); font-size: 13px; text-overflow: ellipsis; white-space: nowrap;
+  overflow: hidden; color: var(--text-subtle); font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap;
 }
-.cell-dur, .cell-year, .cell-count, .cell-size, .cell-date { color: var(--text-subtle); font-size: 13px; }
+.cell-dur, .cell-year, .cell-count, .cell-size, .cell-date { color: var(--text-subtle); font-size: var(--fs-sm); }
 .cell-actions { display: flex; justify-content: flex-end; gap: 2px; }
 
 .cell-status { display: grid; gap: 4px; min-width: 0; }
 .status-line {
   display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden;
-  color: var(--text-muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums;
+  color: var(--text-muted); font-size: var(--fs-sm); white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 .status-text { overflow: hidden; text-overflow: ellipsis; }
 .tone-muted .status-line { color: var(--text-subtle); }
@@ -537,7 +553,7 @@ p { margin: 0; }
 .tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); overflow: hidden; }
 .track { grid-template-columns: 24px 34px minmax(0, 1fr) 140px 52px 260px 72px; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
 .track::before { content: ""; }
-.track .num { color: var(--text-subtle); font-size: 13px; }
+.track .num { color: var(--text-subtle); font-size: var(--fs-sm); }
 .track .cell-release { display: none; }
 .track .cell-status { grid-column: 6; }
 .track .bar { height: 4px; }
@@ -551,7 +567,7 @@ p { margin: 0; }
    Material tab strip moves. The script places it through --ink-x and --ink-w. */
 .tabs { position: relative; display: flex; flex: none; gap: 4px; height: 34px; }
 .tabs button {
-  padding: 0 12px; border-radius: var(--radius); color: var(--text-subtle); font-size: 15px; white-space: nowrap;
+  padding: 0 12px; border-radius: var(--radius); color: var(--text-subtle); font-size: var(--fs-md); white-space: nowrap;
 }
 .tabs button:hover { background: var(--hover); color: var(--text); }
 .tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; }
@@ -568,7 +584,7 @@ p { margin: 0; }
 
 .library-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; flex: none; min-height: 40px; padding: 4px 16px;
-  border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: 13px;
+  border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: var(--fs-sm);
 }
 .library-summary { margin-right: auto; font-variant-numeric: tabular-nums; }
 /* The genre and the order are pills, one step above the bar they stand in */
@@ -606,12 +622,12 @@ p { margin: 0; }
 /* The home page: a heading and one row of covers under it, as many as the
    width takes; the rest of a row is cut off, the library has them all */
 .home { padding: 12px 0 24px; }
-.home-heading { margin: 16px 20px 0; font: 600 20px var(--font-display); }
+.home-heading { margin: 16px 20px 0; font: 600 var(--fs-xl) var(--font-display); }
 .home-cards { grid-template-rows: auto; grid-auto-rows: 0; row-gap: 0; overflow: hidden; padding: 12px 20px 0; margin-bottom: 6px; }
 .home-empty { position: static; min-height: 70vh; }
 /* Over the rows: a greeting, the album to go on with, and a few to start from */
 .home-top { padding: 20px 20px 4px; }
-.home-greeting { margin: 0 0 16px; font: 600 clamp(28px, 4cqi, 40px)/1.1 var(--font-display); letter-spacing: -0.02em; }
+.home-greeting { margin: 0 0 16px; font: 600 var(--fs-title)/1.1 var(--font-display); letter-spacing: -0.02em; }
 .home-feature {
   --wash: hsl(var(--tint-h, 0) clamp(0%, var(--tint-s, 0%), var(--band-s-max)) var(--band-l) / var(--tint-a, 0));
   display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 24px; align-items: center; padding: 20px;
@@ -625,9 +641,9 @@ p { margin: 0; }
 .home-feature-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .home-feature-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
 .home-feature-text { min-width: 0; }
-.home-feature-kicker { margin: 0 0 6px; color: var(--text-muted); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.home-feature-kicker { margin: 0 0 6px; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .home-feature-title {
-  margin: 0; font: 600 clamp(24px, 3.4cqi, 34px)/1.15 var(--font-display); letter-spacing: -0.015em; overflow-wrap: anywhere;
+  margin: 0; font: 600 var(--fs-3xl)/1.15 var(--font-display); letter-spacing: -0.015em; overflow-wrap: anywhere;
 }
 .home-feature-sub { margin: 4px 0 18px; color: var(--text-muted); }
 .home-feature-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -659,7 +675,7 @@ p { margin: 0; }
 .card:focus-visible .card-cover { outline: 2px solid var(--accent-fg); outline-offset: 3px; }
 .card.is-selected .card-cover { outline: 3px solid var(--accent-fg); outline-offset: 3px; }
 .card-title { margin-top: 8px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card-sub { color: var(--text-subtle); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-sub { color: var(--text-subtle); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* A download under way, in the library before its files are: the cover grey
    and faded, the download's own bar along its foot */
 .is-downloading .cover { background: var(--divider); }
@@ -677,10 +693,10 @@ p { margin: 0; }
 
 /* Search */
 .search-field { flex: 1 1 320px; max-width: 640px; height: 38px; }
-.search-field input { font-size: 15px; }
-.search-service { margin-left: auto; color: var(--text-subtle); font-size: 12px; }
+.search-field input { font-size: var(--fs-md); }
+.search-service { margin-left: auto; color: var(--text-subtle); font-size: var(--fs-xs); }
 .search-section + .search-section { border-top: 1px solid var(--divider); }
-.search-head { margin: 0; padding: 20px 20px 0; color: var(--text-muted); font-size: 13px; font-weight: 600; }
+.search-head { margin: 0; padding: 20px 20px 0; color: var(--text-muted); font-size: var(--fs-sm); font-weight: 600; }
 /* What to show of the answer: all of it, or only the albums, the artists or the tracks */
 .chips { display: flex; flex: none; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--divider); }
 .chips button {
@@ -701,7 +717,7 @@ p { margin: 0; }
 .search-best .best .card-cover, .search-best .best .artist-photo { grid-row: 1 / 3; width: 120px; }
 .search-best .best .card-cover { height: 120px; aspect-ratio: auto; }
 .search-best .best:hover .card-cover, .search-best .best:hover .artist-photo { transform: none; box-shadow: none; }
-.search-best .best .card-title { align-self: end; margin: 0; font-size: 22px; line-height: 1.2; white-space: normal; }
+.search-best .best .card-title { align-self: end; margin: 0; font-size: var(--fs-xl); line-height: 1.2; white-space: normal; }
 .search-best .best .card-sub { align-self: start; margin-top: 4px; white-space: normal; }
 .search-best .best .queue-btn { opacity: 1; transform: none; }
 .search-section .cards { padding-top: 12px; }
@@ -733,13 +749,13 @@ p { margin: 0; }
 .in-library {
   position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 4px;
   padding: 2px 8px 2px 4px; border-radius: var(--radius); background: var(--accent); color: var(--on-accent);
-  box-shadow: inset 0 0 0 1px var(--accent-edge), 0 2px 8px rgb(0 0 0 / 0.25); font-size: 11px; font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--accent-edge), 0 2px 8px rgb(0 0 0 / 0.25); font-size: var(--fs-2xs); font-weight: 600;
 }
 .in-library .icon { width: 13px; height: 13px; stroke-width: 2.5; }
 /* On a cover in the library: downloaded within the week, or with tracks still missing */
 .cover-mark {
   position: absolute; top: 8px; z-index: 1; display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px;
-  border-radius: var(--radius); font-size: 11px; font-weight: 600; box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+  border-radius: var(--radius); font-size: var(--fs-2xs); font-weight: 600; box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
 }
 .cover-mark.new { left: 8px; background: var(--field); color: var(--text); }
 .cover-mark.gap { right: 8px; padding-left: 4px; background: var(--field); color: var(--text); }
@@ -751,7 +767,7 @@ p { margin: 0; }
 #album-page[data-kind="playlist"] [data-page-action="favourite"] { display: none; }
 .search-track .title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .search-track .title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.in-library-tag { flex: none; color: var(--accent-fg); font-size: 12px; font-weight: 600; }
+.in-library-tag { flex: none; color: var(--accent-fg); font-size: var(--fs-xs); font-weight: 600; }
 .search-tracks { padding: 8px 8px 24px; }
 .search-track {
   grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 52px 34px; cursor: default;
@@ -778,7 +794,7 @@ p { margin: 0; }
 }
 .artist-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .artist-photo img:not([hidden]) { animation: img-in 260ms ease-out; }
-.artist-photo .initials { font-size: 26px; font-weight: 600; letter-spacing: 0.02em; }
+.artist-photo .initials { font-size: var(--fs-2xl); font-weight: 600; letter-spacing: 0.02em; }
 .artist-card:hover .artist-photo { transform: translateY(-3px); box-shadow: 0 8px 20px rgb(0 0 0 / 0.22); }
 .artist-card:focus-visible .artist-photo { outline: 2px solid var(--accent-fg); outline-offset: 3px; }
 
@@ -873,7 +889,7 @@ p { margin: 0; }
 /* The name of an album or an artist leads its page: set large, in the page's own
    width, and at most two lines on an album's page, where the tracks scroll under it */
 .album-title, .artist-name {
-  margin: 0; font-size: clamp(30px, 5cqi, 52px); font-weight: 600; line-height: 1.08; letter-spacing: -0.02em;
+  margin: 0; font-size: var(--fs-display); font-weight: 600; line-height: 1.08; letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 .album-full .album-title {
@@ -885,11 +901,11 @@ p { margin: 0; }
 .album-sub .link:hover { color: var(--accent-fg); text-decoration-color: currentColor; }
 /* Under the tracks: what else of the artist's the library holds, one row of covers */
 /* How many tracks, how long, how big: for reference, under the list */
-.album-stats { margin: 12px 12px 0; color: var(--text-subtle); font-size: 13px; }
+.album-stats { margin: 12px 12px 0; color: var(--text-subtle); font-size: var(--fs-sm); }
 .album-stats:empty { display: none; }
 #album-page[data-kind="playlist"] .album-stats { display: none; }
 .album-more { margin: 28px 0 20px; }
-.album-more-heading { margin: 0; font: 600 17px var(--font-display); }
+.album-more-heading { margin: 0; font: 600 var(--fs-lg) var(--font-display); }
 .album-more-cards { padding: 12px 0 0; }
 #album-page[data-kind="playlist"] .album-more { display: none; }
 .album-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
@@ -900,18 +916,18 @@ p { margin: 0; }
 }
 .album-track > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .album-list .album-track:hover { background: var(--hover); }
-.album-head { min-height: 30px; color: var(--text-subtle); font-size: 12px; }
+.album-head { min-height: 30px; color: var(--text-subtle); font-size: var(--fs-xs); }
 .album-track .n, .album-track .num { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 .album-track .artists { color: var(--text-subtle); }
 /* An album by one artist does not say so on every line */
 .album-tracks.no-artists .album-track { grid-template-columns: 34px minmax(0, 1fr) 56px 32px; }
 .album-tracks.no-artists .artists { display: none; }
 .album-track.missing { color: var(--text-subtle); }
-.album-track.missing .gone { font-size: 12px; }
+.album-track.missing .gone { font-size: var(--fs-xs); }
 .album-track.highlight { animation: highlight 1.6s ease-out; }
 @keyframes highlight { from { background: var(--selected); } }
-.disc-head { padding: 16px 12px 6px; color: var(--text-subtle); font-size: 12px; font-weight: 600; }
-.album-note { padding: 12px; color: var(--text-subtle); font-size: 13px; }
+.disc-head { padding: 16px 12px 6px; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 600; }
+.album-note { padding: 12px; color: var(--text-subtle); font-size: var(--fs-sm); }
 .artist-head { display: flex; align-items: center; gap: 24px; max-width: 1100px; margin-bottom: 6px; }
 .artist-head .artist-photo { width: 150px; flex: none; box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
 .artist-head .artist-photo .initials { font-size: 44px; }
@@ -938,12 +954,12 @@ p { margin: 0; }
 /* An empty screen shows a picture, not only words */
 .empty .scene { display: grid; place-items: center; max-width: 100%; margin-bottom: 12px; }
 /* The picture typed: a thing in ASCII with a part that moves (app.js) */
-.ascii { display: none; margin: 0; color: var(--text-muted); font: 13px/1.18 "Cascadia Mono", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace; text-align: left; }
+.ascii { display: none; margin: 0; color: var(--text-muted); font: var(--fs-sm)/1.18 "Cascadia Mono", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace; text-align: left; }
 .ascii b { color: var(--accent-fg); font-weight: 400; }
 [data-art="ascii"] .ascii { display: block; }
 .empty-title { color: var(--text-muted); font-weight: 600; }
 .empty-title:empty { display: none; }
-.empty-text { font-size: 13px; }
+.empty-text { font-size: var(--fs-sm); }
 .empty-text:empty { display: none; }
 
 /* Settings: a card per subject, each with its own icon, and the subjects
@@ -959,10 +975,10 @@ p { margin: 0; }
   background: var(--field);
   box-shadow: inset 0 0 0 1px var(--divider);
 }
-.settings-title { margin: 0; font-family: var(--font-display); font-size: 26px; font-weight: 700; }
+.settings-title { margin: 0; font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 700; }
 .settings-lead { margin: 4px 0 0; color: var(--text-subtle); }
 .settings-art { flex: none; margin: -12px 0 -14px 0; }
-.settings-art .ascii { font-size: 10px; }
+.settings-art .ascii { font-size: var(--fs-2xs); }
 .settings-update {
   grid-area: update; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
   margin-bottom: 20px; padding: 16px 20px; border-radius: var(--radius-lg); background: var(--selected);
@@ -977,7 +993,7 @@ p { margin: 0; }
 }
 .settings-nav a {
   display: flex; align-items: center; gap: 12px; min-height: 34px; padding: 6px 12px; border-radius: var(--radius);
-  color: var(--text-muted); font-size: 13px; text-decoration: none;
+  color: var(--text-muted); font-size: var(--fs-sm); text-decoration: none;
   transition: background-color var(--press) ease-out, color var(--press) ease-out;
 }
 .settings-nav a:hover { background: var(--hover); color: var(--text); }
@@ -989,8 +1005,8 @@ p { margin: 0; }
   box-shadow: inset 0 0 0 1px var(--divider);
 }
 .card-head { display: flex; align-items: center; gap: 16px; padding: 16px 20px 16px; }
-.card-head h2 { margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 700; }
-.card-head p { margin: 2px 0 0; color: var(--text-subtle); font-size: 13px; }
+.card-head h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); font-weight: 700; }
+.card-head p { margin: 2px 0 0; color: var(--text-subtle); font-size: var(--fs-sm); }
 .card-icon {
   display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: var(--radius-md);
   background: var(--selected); color: var(--text-muted);
@@ -1006,7 +1022,7 @@ p { margin: 0; }
 .setting-label { flex: 1 1 260px; min-width: 0; }
 .setting-label > p { margin: 0; }
 .setting-label > p + p { margin-top: 3px; }
-.setting-desc { color: var(--text-subtle); font-size: 13px; line-height: 1.45; }
+.setting-desc { color: var(--text-subtle); font-size: var(--fs-sm); line-height: 1.45; }
 /* A row with a switch turns it by a click anywhere on it */
 .setting.toggle { cursor: pointer; }
 .setting.toggle:hover { background: var(--hover); }
@@ -1032,7 +1048,7 @@ p { margin: 0; }
 }
 .theme-choice:hover { background: var(--hover); }
 .theme-choice[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--text-muted); background: var(--selected); color: var(--text); }
-.theme-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.theme-name { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 600; }
 .theme-preview, .theme-preview .half {
   --p-bg: #F6F0DE; --p-side: #EDE5CD; --p-ink: #C2C0CC; --p-accent: #BE3237;
   position: relative; display: block; height: 64px; overflow: hidden; border-radius: var(--radius); background: var(--p-bg);
@@ -1057,9 +1073,9 @@ p { margin: 0; }
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 12px 20px 16px;
   border-top: 1px dashed var(--divider); background: var(--inset);
 }
-.naming-label { color: var(--text-subtle); font-size: 12px; }
-.naming-preview code { font-size: 12px; color: var(--text); overflow-wrap: anywhere; user-select: text; }
-.setting-empty { margin: 0; padding: 16px 20px; color: var(--text-subtle); font-size: 13px; border-top: 1px solid var(--divider); }
+.naming-label { color: var(--text-subtle); font-size: var(--fs-xs); }
+.naming-preview code { font-size: var(--fs-xs); color: var(--text); overflow-wrap: anywhere; user-select: text; }
+.setting-empty { margin: 0; padding: 16px 20px; color: var(--text-subtle); font-size: var(--fs-sm); border-top: 1px solid var(--divider); }
 @container content (max-width: 900px) {
   .settings { grid-template-columns: minmax(0, 1fr); grid-template-areas: "hero" "update" "nav" "cards"; padding: 16px 20px 32px; }
   .settings-nav {
@@ -1076,7 +1092,7 @@ p { margin: 0; }
   .switch, .switch::after { transition: none; }
 }
 .env-list { margin: 0; padding: 0; list-style: none; user-select: text; }
-.net-list { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; user-select: text; }
+.net-list { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; font-size: var(--fs-sm); user-select: text; }
 .net-list:empty { display: none; }
 .net-item { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .net-item > span:not(.net-note) { flex: 1 1 220px; min-width: 0; }
@@ -1099,7 +1115,7 @@ p { margin: 0; }
   display: inline-flex; align-items: center; height: 32px; overflow: hidden;
   border: 1px solid var(--border); border-radius: var(--radius);
 }
-.stepper button { width: 32px; height: 100%; color: var(--text-muted); font-size: 17px; }
+.stepper button { width: 32px; height: 100%; color: var(--text-muted); font-size: var(--fs-lg); }
 .stepper button:hover { background: var(--hover); color: var(--text); }
 .stepper output {
   min-width: 36px; height: 100%; border-inline: 1px solid var(--border);
@@ -1118,8 +1134,8 @@ p { margin: 0; }
 .player-cover { position: relative; flex: none; width: 52px; height: 52px; overflow: hidden; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--border); }
 .player-cover img, .now-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .player-names { display: grid; min-width: 0; }
-.player-title { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-artist { color: var(--text-subtle); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-title { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-artist { color: var(--text-subtle); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* What moves through the queue over the line of how far it has come, so the
    track's name and the buttons at the end are not squeezed by a bar of their own */
 .player-centre { display: grid; justify-items: center; gap: 2px; min-width: 0; }
@@ -1136,7 +1152,7 @@ p { margin: 0; }
 .player-controls .icon-btn .icon { width: 22px; height: 22px; }
 .player-seek { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 560px; min-width: 0; }
 .player-seek input { flex: 1; min-width: 60px; }
-.player-time { color: var(--text-subtle); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 34px; text-align: center; }
+.player-time { color: var(--text-subtle); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; min-width: 34px; text-align: center; }
 .player-extra { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
 .player-extra .icon-btn { width: 32px; height: 32px; }
 .player-extra .icon-btn .icon { width: 20px; height: 20px; }
@@ -1182,12 +1198,12 @@ p { margin: 0; }
 #library-tracks .track-item .cover { position: relative; cursor: pointer; }
 #library-tracks .track-item:hover .cover::after {
   content: "▶"; position: absolute; inset: 0; display: grid; place-items: center;
-  background: rgb(0 0 0 / 0.45); color: #FFFFFF; font-size: 11px; border-radius: inherit;
+  background: rgb(0 0 0 / 0.45); color: #FFFFFF; font-size: var(--fs-2xs); border-radius: inherit;
 }
 .album-list .album-track[data-path] { cursor: default; }
 .album-list .album-track[data-path] .n { cursor: pointer; }
 .album-list .album-track[data-path]:hover .n { font-size: 0; }
-.album-list .album-track[data-path]:hover .n::before { content: "▶"; font-size: 11px; color: var(--text); }
+.album-list .album-track[data-path]:hover .n::before { content: "▶"; font-size: var(--fs-2xs); color: var(--text); }
 
 /* Now playing: the whole window, in the page's own colours. The cover and
    what plays on the left, the words on the right; the line being sung is in
@@ -1224,15 +1240,15 @@ p { margin: 0; }
 }
 .now-cover .icon { width: 56px; height: 56px; stroke-width: 1.2; }
 .now-names { min-width: 0; }
-.now-title { margin: 24px 0 0; font-size: 24px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
-.now-artist { margin: 4px 0 0; color: var(--text-muted); font-size: 16px; font-weight: 600; }
+.now-title { margin: 24px 0 0; font-size: var(--fs-2xl); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.now-artist { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-md); font-weight: 600; }
 .now-sub { margin: 2px 0 0; color: var(--text-subtle); }
 /* The file's make, one small label per fact */
 .now-format { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; }
 .now-format:empty { display: none; }
 .now-format span {
   padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--radius);
-  color: var(--text-subtle); font-size: 12px; line-height: 20px; font-variant-numeric: tabular-nums;
+  color: var(--text-subtle); font-size: var(--fs-xs); line-height: 20px; font-variant-numeric: tabular-nums;
 }
 .now-format span:first-child { border-color: var(--accent-edge); background: var(--accent); color: var(--on-accent); font-weight: 600; }
 /* The line being sung stays level with the top of the cover; the ones gone by
@@ -1245,7 +1261,7 @@ p { margin: 0; }
 .now-lyrics::-webkit-scrollbar { display: none; }
 .lyric-line {
   display: block; width: 100%; margin: 0; padding: 8px 0; text-align: left;
-  color: var(--text-muted); font-family: var(--font-display); font-size: 26px; font-weight: 600; line-height: 1.35;
+  color: var(--text-muted); font-family: var(--font-display); font-size: var(--fs-3xl); font-weight: 600; line-height: 1.35;
   opacity: 0.75; transform-origin: left center;
   transition: color var(--settle) var(--ease), opacity var(--settle) var(--ease), transform var(--settle) var(--ease);
 }
@@ -1254,15 +1270,15 @@ button.lyric-line:hover { opacity: 1; }
 .lyric-line.is-past { opacity: 0.55; }
 /* Grown, not set in a heavier weight: the lines keep their wrapping and nothing below jumps */
 .lyric-line.is-current { color: var(--text); opacity: 1; transform: scale(1.04); }
-.lyrics-plain { margin: 0; white-space: pre-wrap; color: var(--text-muted); font-size: 18px; line-height: 1.6; }
-.lyrics-none { margin: 0; color: var(--text-subtle); font-size: 15px; }
+.lyrics-plain { margin: 0; white-space: pre-wrap; color: var(--text-muted); font-size: var(--fs-lg); line-height: 1.6; }
+.lyrics-none { margin: 0; color: var(--text-subtle); font-size: var(--fs-md); }
 @container content (max-width: 820px) {
   .now-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); padding: 12px 20px 96px; }
   .now-side { flex-direction: row; align-items: center; gap: 16px; margin-bottom: 20px; }
   .now-view .now-cover { width: 96px; height: auto; } /* over the very narrow window's small covers */
-  .now-title { margin: 0; font-size: 18px; }
+  .now-title { margin: 0; font-size: var(--fs-lg); }
   .now-format { margin-top: 8px; }
-  .lyric-line { font-size: 20px; }
+  .lyric-line { font-size: var(--fs-xl); }
 }
 @media (prefers-reduced-motion: reduce) {
   .lyric-line { transition: none; }
@@ -1367,8 +1383,8 @@ button.lyric-line:hover { opacity: 1; }
   display: flex; align-items: center; gap: 4px; flex: none; min-height: 48px; padding: 6px 8px 6px 16px;
   border-bottom: 1px solid var(--divider);
 }
-.float-head h2 { margin: 0 6px 0 0; font-family: var(--font-display); font-size: 15px; font-weight: 700; }
-.float-note { flex: 1; min-width: 0; color: var(--text-subtle); font-size: 12px;
+.float-head h2 { margin: 0 6px 0 0; font-family: var(--font-display); font-size: var(--fs-md); font-weight: 700; }
+.float-note { flex: 1; min-width: 0; color: var(--text-subtle); font-size: var(--fs-xs);
               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .float-head .icon-btn:disabled { opacity: 0.4; pointer-events: none; }
 .queue-list { flex: 1; min-height: 0; margin: 0; padding: 4px; overflow-y: auto; list-style: none; }
@@ -1384,8 +1400,8 @@ button.lyric-line:hover { opacity: 1; }
 .queue-row:hover .grip { opacity: 1; }
 .queue-names { display: grid; min-width: 0; }
 .queue-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.queue-artist { color: var(--text-subtle); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.queue-time { color: var(--text-subtle); font-size: 12px; font-variant-numeric: tabular-nums; }
+.queue-artist { color: var(--text-subtle); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-time { color: var(--text-subtle); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 .queue-remove { opacity: 0; }
 .queue-row:hover .queue-remove, .queue-row:focus-within .queue-remove { opacity: 1; }
 /* Where a dragged row will land: a line above or below the row under the pointer */
@@ -1401,7 +1417,7 @@ button.lyric-line:hover { opacity: 1; }
 .eq-bands { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 2px; padding: 16px 12px 12px; }
 .eq-panel.off .eq-bands { opacity: 0.5; }
 .eq-band { display: grid; justify-items: center; gap: 6px; }
-.eq-band output, .eq-band span { color: var(--text-subtle); font-size: 11px; font-variant-numeric: tabular-nums; }
+.eq-band output, .eq-band span { color: var(--text-subtle); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
 .eq-slot { position: relative; width: 24px; height: 150px; }
 /* A level slider turned on end, so it keeps the look of the player's own */
 .eq-slot input { position: absolute; left: 50%; top: 50%; width: 150px; transform: translate(-50%, -50%) rotate(-90deg); }
@@ -1440,7 +1456,7 @@ button.lyric-line:hover { opacity: 1; }
 /* The player's card in the settings */
 .crossfade { display: flex; align-items: center; gap: 12px; }
 .crossfade input { width: 180px; }
-.crossfade output { min-width: 32px; color: var(--text-subtle); font-size: 13px; font-variant-numeric: tabular-nums; }
+.crossfade output { min-width: 32px; color: var(--text-subtle); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .token-field { flex: none; width: 240px; padding-right: 12px; }
 .confirm-field { height: 34px; margin-top: 6px; }
 
