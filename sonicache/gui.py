@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import ctypes
+from ctypes import wintypes
 import hashlib
 import datetime
 import json
@@ -77,6 +78,8 @@ TASKBAR_STATES = {"none": 0, "indeterminate": 1, "normal": 2, "error": 4, "pause
 PROFILE_KEYS = ("folder", "format", "track_name", "folder_name")
 PROFILE_LIMIT = 12
 UPDATE_HOST = "github.com"
+# The page's background in each theme (--bg in web/style.css): the window and its title bar take it
+PAGE_LIGHT, PAGE_DARK = "#F6F0DE", "#23212C"
 LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thousands of lines
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
@@ -186,9 +189,28 @@ class Api:
         set_language(settings["language"])  # errors from now on speak it
         _save_settings(settings)
         self._sync_tray(settings)
+        self._tint_title(settings["theme"])
         if settings["discord"] != self._discord:
             self._discord = settings["discord"]
             self._presence.show(self._now if self._discord else None)
+
+    def _tint_title(self, theme: str | None = None) -> None:
+        """Paints the window's title bar the colour of the page, so it is one
+        sheet with it and not a white strip above. Windows 11 takes the colour;
+        Windows 10 only goes dark or light; elsewhere the system keeps its own."""
+        if sys.platform != "win32" or self._window is None:
+            return
+        theme = theme or _load_settings()["theme"]
+        dark = theme == "dark" or (theme == "system" and _system_dark())
+        try:
+            hwnd = self._window.native.Handle.ToInt64()
+            set_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
+            for attribute, value in ((20, int(dark)),  # DWMWA_USE_IMMERSIVE_DARK_MODE
+                                     (35, _colorref(PAGE_DARK if dark else PAGE_LIGHT)),  # DWMWA_CAPTION_COLOR
+                                     (36, _colorref("#EDEBF2" if dark else "#1F1D26"))):  # DWMWA_TEXT_COLOR
+                set_attribute(wintypes.HWND(hwnd), attribute, ctypes.byref(ctypes.c_int(value)), 4)
+        except Exception:
+            logs.log.debug("окно: заголовок не перекрашен", exc_info=True)
 
     def focus(self, focused: bool) -> None:
         """The page says whether the window is the one being used."""
@@ -2305,6 +2327,11 @@ def _clipboard_text() -> str:
             root.destroy()
 
 
+def _colorref(colour: str) -> int:
+    """"#RRGGBB" as Windows counts a colour: blue first."""
+    return int(colour[5:7] + colour[3:5] + colour[1:3], 16)
+
+
 def _system_dark() -> bool:
     """Whether the desktop is in its dark theme; light when nothing says so."""
     if sys.platform == "darwin":
@@ -2413,9 +2440,10 @@ def main() -> None:
         height=800,  # the size the window returns to when it is un-maximized
         min_size=(720, 520),
         maximized=True,
-        background_color="#23212C" if dark else "#F6F0DE",  # matches --bg, so no flash before CSS loads
+        background_color=PAGE_DARK if dark else PAGE_LIGHT,  # matches --bg, so no flash before CSS loads
         text_select=True,
     )
     api._window.events.closing += api._on_closing
+    api._window.events.shown += api._tint_title
     api._sync_tray(_load_settings())
     webview.start(http_server=True)

@@ -211,6 +211,11 @@ class TestSettingsFile:
         assert gui._load_settings()["theme"] == "dark"
 
 
+def test_a_colour_is_turned_into_the_one_windows_counts():
+    assert gui._colorref("#F6F0DE") == 0xDEF0F6
+    assert gui._colorref(gui.PAGE_DARK) == 0x2C2123
+
+
 class TestSeen:
     """An album opened or played stops being marked as new."""
 
