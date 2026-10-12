@@ -3196,6 +3196,28 @@ function finishClose(page) {
 
 /* Cards: a click opens, Ctrl and Shift pick, the right button offers the menu */
 
+// What a cover says of its album at a glance: downloaded within the week, and
+// how many of its tracks are still missing
+const NEW_FOR = 7 * 24 * 3600;
+function markCover(card, item) {
+  const cover = $(".card-cover", card);
+  if (item.modified && Date.now() / 1000 - item.modified < NEW_FOR) {
+    const mark = document.createElement("span");
+    mark.className = "cover-mark new";
+    mark.textContent = t("Новое");
+    cover.append(mark);
+  }
+  const missing = item.album && item.link ? (item.expected || 0) - (item.tracks || 0) : 0;
+  if (missing > 0) {
+    const mark = document.createElement("span");
+    mark.className = "cover-mark gap";
+    mark.title = t("Не хватает треков: {count}", { count: missing });
+    mark.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>';
+    mark.append(String(missing));
+    cover.append(mark);
+  }
+}
+
 function createCard(item, index, download = null) {
   const card = $("#card-template").content.firstElementChild.cloneNode(true);
   card.dataset.path = item.path;
@@ -3205,6 +3227,7 @@ function createCard(item, index, download = null) {
   const year = item.album ? item.year : t("трек");
   $(".card-sub", card).textContent = [item.artist, year].filter(Boolean).join(" · ");
   if (state.library.selected.has(item.path)) card.classList.add("is-selected");
+  markCover(card, item);
   if (item.cover) coverObserver.observe(card);
   if (download) markDownloading(card, download);
   return card;

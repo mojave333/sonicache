@@ -598,6 +598,8 @@ const TRANSLATIONS = {
   "ASCII-арт": "ASCII art",
   "Ничего": "Nothing",
   "Продвинутые": "Advanced",
+  "Новое": "New",
+  "Не хватает треков: {count}": "Tracks missing: {count}",
   "Скорость, сеть и журнал: трогать, когда что-то не работает": "Speed, network and the log: for when something does not work",
   "Установлено через Scoop. Обновите командой scoop update sonicache": "Installed with Scoop. Update it with scoop update sonicache",
   "Установлено из AUR. Обновите пакет sonicache-bin, например командой yay -Syu sonicache-bin":

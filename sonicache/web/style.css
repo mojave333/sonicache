@@ -217,6 +217,10 @@ p { margin: 0; }
   .nav-item { justify-content: flex-start; padding: 0 12px; }
   .nav-label { display: block; flex: 1; }
   .nav-dot { position: static; flex: none; }
+  /* A dot at the far end of the section in use; the settings' own dot, when shown, stands there instead */
+  .nav-item[aria-current="page"]:not(:has(.nav-dot:not([hidden])))::after {
+    content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-fg);
+  }
   .nav-ring { left: 21px; }
 }
 
@@ -643,6 +647,14 @@ p { margin: 0; }
   box-shadow: inset 0 0 0 1px var(--accent-edge), 0 2px 8px rgb(0 0 0 / 0.25); font-size: 11px; font-weight: 600;
 }
 .in-library .icon { width: 13px; height: 13px; stroke-width: 2.5; }
+/* On a cover in the library: downloaded within the week, or with tracks still missing */
+.cover-mark {
+  position: absolute; top: 8px; z-index: 1; display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px;
+  border-radius: 10px; font-size: 11px; font-weight: 600; box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+.cover-mark.new { left: 8px; background: var(--accent); color: var(--on-accent); }
+.cover-mark.gap { right: 8px; padding-left: 5px; background: var(--field); color: var(--text); }
+.cover-mark .icon { width: 13px; height: 13px; stroke-width: 2.5; }
 .search-track .title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .search-track .title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .in-library-tag { flex: none; color: var(--accent-fg); font-size: 12px; font-weight: 600; }
@@ -974,7 +986,9 @@ p { margin: 0; }
 /* Player: a bar at the foot of the window while something plays */
 .player {
   display: grid; grid-template-columns: minmax(150px, 1fr) auto minmax(180px, 2fr) auto; gap: 16px;
-  align-items: center; height: 64px; padding: 0 16px; border-top: 1px solid var(--divider); background: var(--chrome);
+  align-items: center; height: 64px; padding: 0 16px; background: var(--chrome);
+  /* A plate of its own, clear of the window's edges, not a strip across the bottom */
+  margin: 0 12px 12px; border: 1px solid var(--divider); border-radius: 14px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.10);
 }
 .player-track { display: flex; align-items: center; gap: 10px; min-width: 0; text-align: left; border-radius: var(--radius); }
 .player-track:hover .player-title { text-decoration: underline; }
