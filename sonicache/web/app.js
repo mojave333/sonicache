@@ -283,6 +283,7 @@ async function init() {
   renderSettings();
   bindUi();
   state.seen = new Set(data.seen || []);
+  state.favourites = new Set(data.favourites || []);
   restoreHistory(data.history || []);
   showView("home");
   restorePlayer();
@@ -936,6 +937,7 @@ function bindUi() {
   $("#library").addEventListener("keydown", onLibraryKey);
   $("#library").addEventListener("contextmenu", onLibraryContextMenu);
   $("#view-home").addEventListener("click", onHomeClick);
+  $("#search-library").addEventListener("click", onHomeClick);
   $(".album-more").addEventListener("click", onCardsClick);
   $("#library-cards").addEventListener("click", onCardsClick);
   $("#library-cards").addEventListener("keydown", onCardsKey);
@@ -1088,6 +1090,7 @@ async function renderHome() {
   if (token !== homeToken) return;
   const rows = {
     added: [...items].sort((a, b) => (b.modified || 0) - (a.modified || 0)),
+    favourites: items.filter(isFavourite),
     recent: albumsOf(lists[0]?.tracks),
     top: albumsOf(lists[1]?.tracks),
   };
@@ -3056,6 +3059,49 @@ function fillAlbumSub(item, text) {
   sub.replaceChildren(link, text.slice(item.artist.length));
 }
 
+// Favourite albums: a heart on the album's page puts it in a row of its own on
+// the home page and at the foot of its cover everywhere
+function isFavourite(item) {
+  return Boolean(item && state.favourites && state.favourites.has(item.path));
+}
+function renderFavourite(item) {
+  const button = $("[data-page-action=favourite]", $("#album-page"));
+  const on = isFavourite(item);
+  button.setAttribute("aria-pressed", String(on));
+  button.title = t(on ? "Убрать из избранного" : "В избранное");
+  button.setAttribute("aria-label", button.title);
+}
+async function toggleFavourite(item) {
+  const on = !isFavourite(item);
+  if (on) state.favourites.add(item.path);
+  else state.favourites.delete(item.path);
+  renderFavourite(item);
+  for (const card of $$(".card")) {
+    if (card.dataset.path !== item.path) continue;
+    $(".cover-mark.fav", card)?.remove();
+    if (on) markFavourite(card);
+  }
+  await api().set_favourite(item.path, on);
+}
+function markFavourite(card) {
+  const mark = document.createElement("span");
+  mark.className = "cover-mark fav";
+  mark.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>';
+  $(".card-cover", card).append(mark);
+}
+
+// What the library already holds of what is being searched for: by title or artist
+function renderSearchLibrary() {
+  const words = (state.search.query || "").toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const found = words.length ? state.library.items.filter((item) => {
+    const text = `${item.title} ${item.artist || ""}`.toLocaleLowerCase();
+    return words.every((word) => text.includes(word));
+  }).slice(0, 16) : [];
+  $("#search-library-section").hidden = !found.length;
+  $("#search-library").replaceChildren(...found.map((item, index) => createCard(item, index)));
+  return found.length;
+}
+
 function fillAlbumPage(item) {
   const page = $("#album-page");
   page.dataset.kind = "album";
@@ -3066,6 +3112,7 @@ function fillAlbumPage(item) {
   $(".album-title", page).textContent = item.title;
   page.dataset.path = item.path;
   fillAlbumSub(item, albumSubline(item));
+  renderFavourite(item);
   $(".album-stats", page).textContent = "";
   renderAlbumMore(item);
   const image = $(".album-cover img", page);
@@ -3331,6 +3378,7 @@ function createCard(item, index, download = null) {
   $(".card-sub", card).textContent = [item.artist, year].filter(Boolean).join(" · ");
   if (state.library.selected.has(item.path)) card.classList.add("is-selected");
   markCover(card, item);
+  if (isFavourite(item)) markFavourite(card);
   if (item.cover) coverObserver.observe(card);
   if (download) markDownloading(card, download);
   return card;
@@ -3657,6 +3705,7 @@ async function onPageAction(event) {
   if (!action || !top || top.kind !== "album") return;
   const { item } = top;
   if (action === "open") api().open_folder(item.path);
+  else if (action === "favourite") toggleFavourite(item);
   else if (action === "again") downloadAgain([item]);
   else if (action === "tidy") tidyLibrary([item]);
   else if (action === "play") playAlbumPage(0);
@@ -3721,7 +3770,7 @@ async function runSearch(text, again = false) {
 function renderSearch({ enter = false } = {}) {
   const { query, results, loading } = state.search;
   const found = results || { albums: [], tracks: [], artists: [] };
-  const any = found.albums.length || found.tracks.length || found.artists.length;
+  const any = renderSearchLibrary() + found.albums.length + found.tracks.length + found.artists.length;
   const empty = $("#search-empty");
   empty.hidden = Boolean(any);
   $(".empty-title", empty).textContent = !query ? t("Найдите, что скачать")

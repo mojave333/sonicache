@@ -216,6 +216,21 @@ def test_a_colour_is_turned_into_the_one_windows_counts():
     assert gui._colorref(gui.PAGE_DARK) == 0x2C2123
 
 
+class TestFavourites:
+    def test_an_album_is_put_among_them_and_taken_out(self):
+        api = gui.Api()
+        assert api.set_favourite("C:/Music/A", True) == ["C:/Music/A"]
+        assert api.set_favourite("C:/Music/B", True) == ["C:/Music/A", "C:/Music/B"]
+        assert api.set_favourite("C:/Music/A", True) == ["C:/Music/B", "C:/Music/A"]  # once, not twice
+        assert api.set_favourite("C:/Music/B", False) == ["C:/Music/A"]
+        assert api.init()["favourites"] == ["C:/Music/A"]
+
+    def test_a_broken_file_is_no_favourites(self):
+        (gui.logs.data_dir()).mkdir(parents=True, exist_ok=True)
+        (gui.logs.data_dir() / gui.FAVOURITES_FILE).write_text("{ not json", encoding="utf-8")
+        assert gui._favourites() == []
+
+
 class TestSeen:
     """An album opened or played stops being marked as new."""
 

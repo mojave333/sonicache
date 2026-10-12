@@ -22,6 +22,7 @@
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.2 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9.5 6v12M14.5 6v12"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9.6A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.4C19 15.6 12 20 12 20z"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
     <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
@@ -110,6 +111,10 @@
         <div class="home list-scroll">
           <section class="home-row" data-row="added" hidden>
             <h2 class="home-heading">Недавно добавлено</h2>
+            <div class="cards home-cards"></div>
+          </section>
+          <section class="home-row" data-row="favourites" hidden>
+            <h2 class="home-heading">Избранное</h2>
             <div class="cards home-cards"></div>
           </section>
           <section class="home-row" data-row="recent" hidden>
@@ -229,6 +234,10 @@
               <p class="empty-title"></p>
               <p class="empty-text"></p>
             </div>
+            <section class="search-section" id="search-library-section" hidden>
+              <h3 class="search-head">В вашей библиотеке</h3>
+              <div class="cards home-cards" id="search-library"></div>
+            </section>
             <section class="search-section" id="search-artists-section" hidden>
               <h3 class="search-head">Исполнители</h3>
               <div class="cards artists search-artists" id="search-artists"></div>
@@ -361,6 +370,7 @@
                 <p class="album-sub"></p>
                 <div class="album-actions">
                   <button type="button" class="btn primary" data-page-action="play"><svg class="icon sm" aria-hidden="true"><use href="#i-play"/></svg><span>Слушать</span></button>
+                  <button type="button" class="tool-btn icon-only heart" data-page-action="favourite" aria-pressed="false" title="В избранное" aria-label="В избранное"><svg class="icon sm" aria-hidden="true"><use href="#i-heart"/></svg></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="open" title="Открыть папку в проводнике" aria-label="Открыть папку"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
                   <button type="button" class="tool-btn" data-page-action="again"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Докачать недостающее</span></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="tidy" title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново" aria-label="Дописать теги"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg></button>

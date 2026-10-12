@@ -178,7 +178,7 @@ p { margin: 0; }
 .brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 12px; }
 .logo { display: grid; place-items: center; flex: none; color: var(--text); }
 :root[data-theme="dark"] .logo { color: #FFFFFF; }
-.logo img { width: 40px; height: 40px; }
+.logo img { width: 46px; height: 46px; }
 .brand-name { display: none; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
 .nav-item {
   position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -228,7 +228,7 @@ p { margin: 0; }
 .main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0;
   container: content / inline-size; }
 .view { display: flex; flex-direction: column; min-height: 0; animation: view-in var(--quick) ease-out; }
-@keyframes view-in { from { opacity: 0; } }
+@keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
 
 /* Toolbar */
 /* Controls keep their size and wrap onto a second line rather than being cut
@@ -661,6 +661,11 @@ p { margin: 0; }
 .cover-mark.new { left: 8px; background: var(--field); color: var(--text); }
 .cover-mark.gap { right: 8px; padding-left: 4px; background: var(--field); color: var(--text); }
 .cover-mark .icon { width: 13px; height: 13px; stroke-width: 2.5; }
+/* A heart at the foot of a favourite's cover, and filled on its page's button */
+.cover-mark.fav { top: auto; bottom: 8px; left: 8px; padding: 4px; background: var(--field); color: var(--accent-fg); }
+.cover-mark.fav .icon, .heart[aria-pressed="true"] .icon { fill: currentColor; }
+.heart[aria-pressed="true"] { color: var(--accent-fg); }
+#album-page[data-kind="playlist"] [data-page-action="favourite"] { display: none; }
 .search-track .title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .search-track .title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .in-library-tag { flex: none; color: var(--accent-fg); font-size: 12px; font-weight: 600; }

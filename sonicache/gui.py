@@ -100,6 +100,8 @@ TIDIED_FILE = "tidied.json"
 # The albums opened or played since they arrived: their covers no longer say "New".
 # The mark lasts a week at most (web/app.js), so older entries are dropped
 SEEN_FILE = "seen.json"
+# The albums marked with a heart: a list of their folders
+FAVOURITES_FILE = "favourites.json"
 SEEN_FOR = 8 * 24 * 3600
 # The tags read from the library's files, kept between runs so that opening
 # the library reads again only the files changed since
@@ -163,6 +165,7 @@ class Api:
             "version": __version__,
             "first_run": not SETTINGS_FILE.exists(),  # the welcome screen, once
             "seen": sorted(_seen()),
+            "favourites": _favourites(),
             "tray": tray.SUPPORTED,  # whether the window can go on in the notification area
             "language": set_language(settings["language"]),  # "system" resolved to ru or en
             "settings": settings,
@@ -1034,6 +1037,14 @@ class Api:
 
     def play_counts(self) -> dict[str, int]:
         return playlists.counts()
+
+    def set_favourite(self, path: str, on: bool) -> list[str]:
+        """Puts an album among the favourites or takes it out; the list as it now is."""
+        kept = [entry for entry in _favourites() if entry != str(path)]
+        if on:
+            kept.append(str(path))
+        logs.write_json(logs.data_dir() / FAVOURITES_FILE, kept)
+        return kept
 
     def mark_seen(self, path: str) -> None:
         """An album was opened or played: its cover stops saying "New"."""
@@ -2188,6 +2199,10 @@ def _profiles(raw) -> list[dict]:
         if len(profiles) >= PROFILE_LIMIT:
             break
     return profiles
+
+
+def _favourites() -> list[str]:
+    return [entry for entry in logs.read_json(logs.data_dir() / FAVOURITES_FILE, list) if isinstance(entry, str)]
 
 
 def _seen() -> dict[str, float]:
