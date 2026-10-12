@@ -1101,10 +1101,79 @@ async function renderHome() {
     shown += row.length;
     $(".cards", section).replaceChildren(...row.map((item, index) => createCard(item, index)));
   }
+  renderHomeTop(rows);
   $(".home-empty").hidden = shown > 0 || state.library.loading;
   drawAscii();
 }
+
+function homeGreeting() {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return t("Доброе утро");
+  if (hour >= 12 && hour < 18) return t("Добрый день");
+  if (hour >= 18 && hour < 23) return t("Добрый вечер");
+  return t("Доброй ночи");
+}
+
+// Over the rows: a greeting, the album to go on with (the one played last, or
+// else a favourite, or else the newest) in the colours of its cover, and six
+// more albums to start from
+function renderHomeTop(rows) {
+  const top = $("#view-home .home-top");
+  const lead = rows.recent[0] || rows.favourites[0] || rows.added[0];
+  top.hidden = !lead;
+  if (!lead) return;
+  $(".home-greeting", top).textContent = homeGreeting();
+  const feature = $(".home-feature", top);
+  const changed = feature.dataset.path !== lead.path;
+  feature.dataset.path = lead.path;
+  $(".home-feature-kicker", feature).textContent = t(rows.recent[0] ? "Продолжить слушать"
+    : rows.favourites[0] ? "Из избранного" : "Недавно добавлено");
+  $(".home-feature-title", feature).textContent = lead.title;
+  const tracks = lead.tracks ? t("{tracks} {trackWord}", { tracks: lead.tracks, trackWord: plural(lead.tracks, "трек", "трека", "треков") }) : "";
+  $(".home-feature-sub", feature).textContent = [lead.artist, lead.album ? lead.year : t("трек"), tracks].filter(Boolean).join(" · ");
+  $("[data-home-action=open] span", feature).textContent = t(lead.album ? "Открыть альбом" : "Открыть");
+  if (changed) {
+    const image = $("img", feature);
+    image.hidden = true;
+    image.removeAttribute("src");
+    feature.style.setProperty("--tint-a", "0");
+    if (lead.cover) tintHomeFeature(feature, lead);
+  }
+  const quick = [];
+  for (const item of [...rows.favourites, ...rows.recent, ...rows.added]) {
+    if (item !== lead && !quick.includes(item)) quick.push(item);
+    if (quick.length === 6) break;
+  }
+  $(".home-quick", top).replaceChildren(...quick.map((item, index) => {
+    const card = createCard(item, index);
+    card.classList.add("quick");
+    return card;
+  }));
+}
+
+async function tintHomeFeature(feature, item) {
+  showLibraryCover(feature);
+  const src = await state.covers.get(item.path);
+  const tint = src ? await pictureTint(src) : null;
+  if (!tint || feature.dataset.path !== item.path) return;
+  feature.style.setProperty("--tint-h", tint.hue);
+  feature.style.setProperty("--tint-s", `${tint.saturation}%`);
+  feature.style.setProperty("--tint-a", "1");
+}
+
 function onHomeClick(event) {
+  const action = event.target.closest("[data-home-action]");
+  if (action) {
+    const lead = itemByPath(action.closest(".home-feature").dataset.path);
+    if (!lead) return;
+    if (action.dataset.homeAction === "play") {
+      playItem(lead);
+    } else {
+      showView("library");
+      openAlbum(lead);
+    }
+    return;
+  }
   const card = event.target.closest(".card");
   const item = card && itemByPath(card.dataset.path);
   if (!item) return;

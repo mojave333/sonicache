@@ -590,6 +590,46 @@ p { margin: 0; }
 .home-heading { margin: 16px 20px 0; font: 600 20px var(--font-display); }
 .home-cards { grid-template-rows: auto; grid-auto-rows: 0; row-gap: 0; overflow: hidden; padding: 12px 20px 0; margin-bottom: 6px; }
 .home-empty { position: static; min-height: 70vh; }
+/* Over the rows: a greeting, the album to go on with, and a few to start from */
+.home-top { padding: 20px 20px 4px; }
+.home-greeting { margin: 0 0 16px; font: 600 clamp(28px, 4cqi, 40px)/1.1 var(--font-display); letter-spacing: -0.02em; }
+.home-feature {
+  --wash: hsl(var(--tint-h, 0) clamp(0%, var(--tint-s, 0%), var(--band-s-max)) var(--band-l) / var(--tint-a, 0));
+  display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 24px; align-items: center; padding: 20px;
+  border-radius: 12px; background: linear-gradient(var(--wash), var(--wash)), var(--field);
+  box-shadow: inset 0 0 0 1px var(--divider); transition: background-color var(--settle) var(--ease);
+}
+.home-feature-cover {
+  position: relative; width: 168px; height: 168px; overflow: hidden; border-radius: 8px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+}
+.home-feature-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.home-feature-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
+.home-feature-text { min-width: 0; }
+.home-feature-kicker { margin: 0 0 6px; color: var(--text-muted); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.home-feature-title {
+  margin: 0; font: 600 clamp(24px, 3.4cqi, 34px)/1.15 var(--font-display); letter-spacing: -0.015em; overflow-wrap: anywhere;
+}
+.home-feature-sub { margin: 4px 0 18px; color: var(--text-muted); }
+.home-feature-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Six of what is nearest to hand: favourites first, then what was played last */
+.home-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 12px; margin-top: 16px; }
+.home-quick:empty { display: none; }
+.card.quick {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px;
+  align-content: center; align-items: center; padding: 6px 12px 6px 6px; border-radius: 8px;
+  background: var(--selected); transition: background-color var(--quick) ease-out;
+}
+.card.quick:hover { background: color-mix(in srgb, var(--selected) 70%, var(--text) 10%); }
+.card.quick .card-cover { grid-row: 1 / 3; width: 56px; height: 56px; aspect-ratio: auto; border-radius: 6px; }
+.card.quick:hover .card-cover { transform: none; box-shadow: none; }
+.card.quick .card-title { align-self: end; margin: 0; }
+.card.quick .card-sub { align-self: start; }
+.card.quick .play-btn, .card.quick .cover-mark { display: none; }
+@container content (max-width: 640px) {
+  .home-feature { grid-template-columns: 112px minmax(0, 1fr); gap: 16px; padding: 16px; }
+  .home-feature-cover { width: 112px; height: 112px; }
+}
 .card .card-cover {
   width: 100%; height: auto; aspect-ratio: 1; border-radius: 8px;
   transition: transform var(--settle) var(--ease), box-shadow var(--settle) var(--ease);

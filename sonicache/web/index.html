@@ -109,6 +109,22 @@
     <div class="main">
       <section id="view-home" class="view" aria-label="Главная" hidden>
         <div class="home list-scroll">
+          <header class="home-top" hidden>
+            <h1 class="home-greeting"></h1>
+            <div class="home-feature" role="group" aria-labelledby="home-feature-title">
+              <div class="home-feature-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
+              <div class="home-feature-text">
+                <p class="home-feature-kicker"></p>
+                <h2 class="home-feature-title" id="home-feature-title"></h2>
+                <p class="home-feature-sub"></p>
+                <div class="home-feature-actions">
+                  <button type="button" class="btn primary" data-home-action="play"><svg class="icon sm" aria-hidden="true"><use href="#i-play"/></svg><span>Слушать</span></button>
+                  <button type="button" class="tool-btn" data-home-action="open"><span>Открыть альбом</span></button>
+                </div>
+              </div>
+            </div>
+            <div class="home-quick"></div>
+          </header>
           <section class="home-row" data-row="added" hidden>
             <h2 class="home-heading">Недавно добавлено</h2>
             <div class="cards home-cards"></div>
