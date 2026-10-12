@@ -134,7 +134,7 @@ ENGLISH.update({
     "ListenBrainz не принял этот токен": "ListenBrainz did not accept this token",
     "ListenBrainz не ответил: {error}": "ListenBrainz did not answer: {error}",
     "Last.fm не ответил: {error}": "Last.fm did not answer: {error}",
-    "Недавно играло": "Recently played",
+    "Недавно слушали": "Recently played",
     "Часто слушаю": "Most played",
     "Плейлисты (*.m3u8)": "Playlists (*.m3u8)",
     "Плейлисты (*.m3u8;*.m3u)": "Playlists (*.m3u8;*.m3u)",

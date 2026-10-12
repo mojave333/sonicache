@@ -5766,7 +5766,7 @@ async function loadPlaylists(force = false) {
 
 function playlistName(entry) {
   if (!entry.smart) return entry.name;
-  return t({ recent: "Недавно играло", top: "Часто слушаю" }[entry.id] || entry.name);
+  return t({ recent: "Недавно слушали", top: "Часто слушаю" }[entry.id] || entry.name);
 }
 
 function playlistCounts(entry) {

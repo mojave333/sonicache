@@ -587,7 +587,6 @@ const TRANSLATIONS = {
   "Заиграют следующими: {count}": "Playing next: {count}",
   "По последнему прослушиванию": "Latest first",
   "По числу прослушиваний": "Most played first",
-  "Недавно играло": "Recently played",
   "Часто слушаю": "Most played",
   "Шрифт названий": "Font for titles",
   "Им набраны заголовки, названия альбомов и вкладки. Мелкий текст остаётся системным, чтобы легко читался": "Headings, album titles and tabs are set in it. Small text stays in the system font, which reads easily",

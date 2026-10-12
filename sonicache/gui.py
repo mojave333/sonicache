@@ -1134,7 +1134,7 @@ class Api:
         entry = self.playlist(playlist_id)
         if entry is None or self._window is None:
             return None
-        name = entry["name"] or t({"recent": "Недавно играло", "top": "Часто слушаю"}.get(playlist_id, "Плейлист"))
+        name = entry["name"] or t({"recent": "Недавно слушали", "top": "Часто слушаю"}.get(playlist_id, "Плейлист"))
         chosen = self._window.create_file_dialog(
             webview.FileDialog.SAVE, directory=_load_settings()["folder"],
             save_filename=f"{_safe_name(name)}.m3u8", file_types=(t("Плейлисты (*.m3u8)"),))
