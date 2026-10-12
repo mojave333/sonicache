@@ -41,6 +41,14 @@ def resized(origin: tuple[int, int, int, int], delta: tuple[int, int], edge: str
     return left, top, right, bottom
 
 
+def centred(work: tuple[int, int, int, int], size: tuple[int, int]) -> tuple[int, int, int, int]:
+    """A window of `size` (smaller of it and the screen's working area) in the middle of the area."""
+    left, top, right, bottom = work
+    width, height = min(size[0], right - left), min(size[1], bottom - top)
+    x, y = left + (right - left - width) // 2, top + (bottom - top - height) // 2
+    return x, y, x + width, y + height
+
+
 def restored_corner(maximized: tuple[int, int, int, int], cursor: tuple[int, int],
                     size: tuple[int, int]) -> tuple[int, int]:
     """Where the top left of a window goes when it is taken out of maximized by its
@@ -93,24 +101,77 @@ if sys.platform == "win32":
     _user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
     _user32.GetWindowLongW.restype = ctypes.c_long
     _user32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+    _LRESULT = ctypes.c_ssize_t
+    _WNDPROC = ctypes.WINFUNCTYPE(_LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+    _user32.SetWindowLongPtrW.restype = ctypes.c_void_p
+    _user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_void_p]
+    _user32.CallWindowProcW.restype = _LRESULT
+    _user32.CallWindowProcW.argtypes = [ctypes.c_void_p, wintypes.HWND, wintypes.UINT, wintypes.WPARAM,
+                                        wintypes.LPARAM]
 
-    GWL_STYLE = -16
+    class _CalcSize(ctypes.Structure):
+        """NCCALCSIZE_PARAMS: the window's proposed rectangle first, then two the system keeps for itself."""
+        _fields_ = [("rects", wintypes.RECT * 3), ("position", ctypes.c_void_p)]
+
+    _user32.GetSystemMetrics.argtypes = [ctypes.c_int]
+    SM_CXSIZEFRAME, SM_CYSIZEFRAME, SM_CXPADDEDBORDER = 32, 33, 92
+    GWL_STYLE, GWLP_WNDPROC = -16, -4
+    WM_NCCALCSIZE = 0x0083
+    WS_CAPTION, WS_THICKFRAME = 0x00C00000, 0x00040000
     WS_SYSMENU, WS_MINIMIZEBOX, WS_MAXIMIZEBOX = 0x00080000, 0x00020000, 0x00010000
     SWP_NOMOVE, SWP_FRAMECHANGED = 0x0002, 0x0020
+    _hooks: dict[int, tuple] = {}  # a procedure the system calls into must be kept alive
 
-    def keep_system_buttons(hwnd: int) -> None:
-        """A window with no frame is made without the marks that let the taskbar minimize
-        it by a click on its button and the system's menu (Alt+Space, the button's right
-        click) offer to size it; they are put back, and draw nothing."""
+    def keep_system_frame_style(hwnd: int) -> None:
+        """Gives a window that has no frame the style of one that has, and draws none of it.
+
+        The system animates a window's minimizing, maximizing and restoring, and offers
+        the taskbar's button and its menu, only for a window with a caption, a sizing
+        frame and the three buttons' marks; one made without them (no frame) jumps
+        from state to state. The marks are put back and the window is told, as it is
+        asked how much of its area the frame takes, that it takes none, so the page
+        has all of it and the frame draws nothing. A maximized window of this style is
+        laid out by the system a frame's width past every edge of the screen, so the
+        width is taken off again there.
+        """
+        if hwnd in _hooks:
+            return
+        chain = [None]
+
+        def window_proc(handle, message, wparam, lparam):
+            if message == WM_NCCALCSIZE:
+                if wparam and _user32.IsZoomed(handle):
+                    rect = ctypes.cast(lparam, ctypes.POINTER(_CalcSize)).contents.rects[0]
+                    across = _user32.GetSystemMetrics(SM_CXSIZEFRAME) + _user32.GetSystemMetrics(SM_CXPADDEDBORDER)
+                    down = _user32.GetSystemMetrics(SM_CYSIZEFRAME) + _user32.GetSystemMetrics(SM_CXPADDEDBORDER)
+                    rect.left += across
+                    rect.right -= across
+                    rect.top += down
+                    rect.bottom -= down
+                return 0  # the client area is the whole window
+            return _user32.CallWindowProcW(chain[0], handle, message, wparam, lparam)
+
+        proc = _WNDPROC(window_proc)
+        chain[0] = _user32.SetWindowLongPtrW(hwnd, GWLP_WNDPROC, ctypes.cast(proc, ctypes.c_void_p))
+        _hooks[hwnd] = (proc, chain)
         style = _user32.GetWindowLongW(hwnd, GWL_STYLE) & 0xFFFFFFFF
-        wanted = style | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
-        if wanted != style:
-            _user32.SetWindowLongW(hwnd, GWL_STYLE, ctypes.c_long(wanted).value)
-            _user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
-                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)
+        wanted = style | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+        _user32.SetWindowLongW(hwnd, GWL_STYLE, ctypes.c_long(wanted).value)
+        _user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
+                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)
 
     def is_maximized(hwnd: int) -> bool:
         return bool(_user32.IsZoomed(hwnd))
+
+    def centre(hwnd: int, size: tuple[int, int]) -> None:
+        """Sets the window, as it is when not maximized, in the middle of the screen's working area; `size` is in 96-dpi pixels."""
+        area = wintypes.RECT()
+        _user32.SystemParametersInfoW.argtypes = [wintypes.UINT, wintypes.UINT, ctypes.c_void_p, wintypes.UINT]
+        _user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(area), 0)  # SPI_GETWORKAREA
+        scale = _scale(hwnd)
+        left, top, right, bottom = centred((area.left, area.top, area.right, area.bottom),
+                                           (round(size[0] * scale), round(size[1] * scale)))
+        _user32.SetWindowPos(hwnd, None, left, top, right - left, bottom - top, SWP_NOZORDER | SWP_NOACTIVATE)
 
     def drag(hwnd: int) -> None:
         """Moves the window with the cursor until the button is let go. A press that
@@ -153,11 +214,14 @@ if sys.platform == "win32":
             time.sleep(STEP)
 
 else:  # a window with a frame of its own needs none of this
-    def keep_system_buttons(hwnd: int) -> None:
+    def keep_system_frame_style(hwnd: int) -> None:
         return None
 
     def is_maximized(hwnd: int) -> bool:
         return False
+
+    def centre(hwnd: int, size: tuple[int, int]) -> None:
+        return None
 
     def drag(hwnd: int) -> None:
         return None

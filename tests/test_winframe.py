@@ -59,5 +59,18 @@ class TestRestoredCorner:
         assert winframe.restored_corner(screen, (-960, 10), (1000, 700))[0] == -1460
 
 
+class TestCentred:
+    WORK = (0, 0, 1920, 1020)
+
+    def test_a_window_that_fits_is_set_in_the_middle(self):
+        assert winframe.centred(self.WORK, (1450, 1000)) == (235, 10, 1685, 1010)
+
+    def test_one_that_does_not_is_cut_to_the_area_and_fills_it(self):
+        assert winframe.centred(self.WORK, (2400, 1400)) == self.WORK
+
+    def test_an_area_that_does_not_begin_at_zero_is_allowed_for(self):
+        assert winframe.centred((0, 40, 1920, 1080), (1000, 600)) == (460, 260, 1460, 860)
+
+
 def test_only_known_edges_are_drawn():
     assert set(winframe.EDGES) == {"n", "s", "e", "w", "ne", "nw", "se", "sw"}

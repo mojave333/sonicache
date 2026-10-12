@@ -85,6 +85,7 @@ CHROME_LIGHT, CHROME_DARK = "#EDE5CD", "#15131B"
 # On Windows the window has no frame of its own: the top bar is its title bar and the page draws the
 # buttons and the edges to size it by. SONICACHE_SYSTEM_FRAME=1 brings the system's frame back.
 FRAMELESS = sys.platform == "win32" and not os.environ.get("SONICACHE_SYSTEM_FRAME")
+WINDOW_SIZE = (1160, 800)
 MIN_SIZE = (720, 520)
 LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thousands of lines
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
@@ -1223,15 +1224,11 @@ class Api:
             return False
         try:
             from System import Func, Type
-            from System.Windows.Forms import FormWindowState, Screen
+            from System.Windows.Forms import FormWindowState
 
             def toggle():
-                if form.WindowState == FormWindowState.Maximized:
-                    form.WindowState = FormWindowState.Normal
-                else:
-                    # Without a frame the system would fill the whole screen, the taskbar's strip too
-                    form.MaximizedBounds = Screen.FromControl(form).WorkingArea
-                    form.WindowState = FormWindowState.Maximized
+                form.WindowState = (FormWindowState.Normal if form.WindowState == FormWindowState.Maximized
+                                    else FormWindowState.Maximized)
 
             form.Invoke(Func[Type](toggle))
         except Exception:
@@ -1260,23 +1257,20 @@ class Api:
         if FRAMELESS and self._handle():
             winframe.in_background(winframe.resize, self._handle(), edge, MIN_SIZE)
 
-    def _keep_taskbar_buttons(self) -> None:
-        """Once the window is up: the taskbar's button and the system menu work on it as on any window."""
-        if FRAMELESS and self._handle():
-            try:
-                winframe.keep_system_buttons(self._handle())
-            except Exception:
-                logs.log.debug("окно: кнопки панели задач не возвращены", exc_info=True)
-
-    def _fit_maximized(self) -> None:
-        """Before the window shows: maximized, it stops above the taskbar rather than under it."""
-        if not FRAMELESS or self._window is None or self._window.native is None:
+    def _keep_frame_style(self) -> None:
+        """Once the window is up: it animates, and the taskbar's button and the system menu work on it, as on any window."""
+        if not FRAMELESS or not self._handle():
             return
         try:
-            from System.Windows.Forms import Screen
-            self._window.native.MaximizedBounds = Screen.PrimaryScreen.WorkingArea
+            winframe.keep_system_frame_style(self._handle())
         except Exception:
-            logs.log.debug("окно: границы развёрнутого не заданы", exc_info=True)
+            logs.log.debug("окно: стиль рамки не возвращён", exc_info=True)
+        # The window opens at its size and fills the screen once it has its style: asked to
+        # fill it before, it is laid out wrongly (at its own place, a screen's size)
+        if self._window is not None:
+            winframe.centre(self._handle(), WINDOW_SIZE)  # what the window goes back to when it is un-maximized
+            self._window.maximize()
+
 
     def lyrics(self, path: str) -> dict:
         """The words of a track: synced ones from the .lrc beside it, plain ones
@@ -2525,18 +2519,17 @@ def main() -> None:
         TITLE,
         url=str(WEB_DIR / "index.html"),
         js_api=api,
-        width=1160,
-        height=800,  # the size the window returns to when it is un-maximized
+        width=WINDOW_SIZE[0],
+        height=WINDOW_SIZE[1],  # the size the window returns to when it is un-maximized
         min_size=MIN_SIZE,
         frameless=FRAMELESS,
         easy_drag=False,  # the program moves the window itself (winframe), without the lag of a call per step
-        maximized=True,
+        maximized=not FRAMELESS,  # a window without a frame is maximized once it is up (_keep_frame_style)
         background_color=PAGE_DARK if dark else PAGE_LIGHT,  # matches --bg, so no flash before CSS loads
         text_select=True,
     )
     api._window.events.closing += api._on_closing
-    api._window.events.before_show += api._fit_maximized
-    api._window.events.shown += api._keep_taskbar_buttons
+    api._window.events.shown += api._keep_frame_style
     api._window.events.shown += api._tint_title
     api._sync_tray(_load_settings())
     webview.start(http_server=True)
