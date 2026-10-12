@@ -1,12 +1,12 @@
 # PyInstaller build: one folder holding two entry points into the same code.
 #
-#     pyinstaller --noconfirm trackhound.spec
+#     pyinstaller --noconfirm sonicache.spec
 #
-# Trackhound(.exe)      double-clicked, no console window
-# Trackhound-cli(.exe)  run from a terminal, prints its progress
+# Sonicache(.exe)      double-clicked, no console window
+# Sonicache-cli(.exe)  run from a terminal, prints its progress
 #
-# The same file builds on all three systems. Windows gets dist\Trackhound, Linux
-# gets dist/Trackhound, macOS gets dist/Trackhound.app with both programs in
+# The same file builds on all three systems. Windows gets dist\Sonicache, Linux
+# gets dist/Sonicache, macOS gets dist/Sonicache.app with both programs in
 # Contents/MacOS.
 #
 # ffmpeg and deno are picked up from vendor/ when they are there (fetch-vendor.ps1
@@ -23,11 +23,11 @@ WINDOWS = sys.platform == "win32"
 MAC = sys.platform == "darwin"
 LINUX = sys.platform.startswith("linux")
 
-datas = [("trackhound/web", "trackhound/web")]
+datas = [("sonicache/web", "sonicache/web")]
 tools = {"ffmpeg.exe", "deno.exe"} if WINDOWS else {"ffmpeg", "deno"}
 binaries = [(str(tool), "bin") for tool in sorted(Path("vendor").glob("*")) if tool.name in tools]
 # socks and sockshandler are imported only once a SOCKS proxy is set
-hiddenimports = ["trackhound.cli", "trackhound.gui", "tkinter", "tkinter.messagebox", "socks", "sockshandler"]
+hiddenimports = ["sonicache.cli", "sonicache.gui", "tkinter", "tkinter.messagebox", "socks", "sockshandler"]
 
 # Extractors, JavaScript payloads, locale files and the window's glue are all
 # loaded dynamically, so PyInstaller cannot see them by reading the imports.
@@ -71,8 +71,8 @@ analysis = Analysis(
 )
 pyz = PYZ(analysis.pure)
 
-icon = ["trackhound/web/icon.ico"] if Path("trackhound/web/icon.ico").is_file() else None
-version = re.search(r'__version__ = "([^"]+)"', Path("trackhound/__init__.py").read_text(encoding="utf-8"))[1]
+icon = ["sonicache/web/icon.ico"] if Path("sonicache/web/icon.ico").is_file() else None
+version = re.search(r'__version__ = "([^"]+)"', Path("sonicache/__init__.py").read_text(encoding="utf-8"))[1]
 
 
 def version_resource(filename, description):
@@ -101,13 +101,13 @@ def version_resource(filename, description):
         kids=[
             StringFileInfo([
                 StringTable("040904B0", [  # English (US), Unicode
-                    StringStruct("CompanyName", "Trackhound"),
+                    StringStruct("CompanyName", "Sonicache"),
                     StringStruct("FileDescription", description),
                     StringStruct("FileVersion", version),
                     StringStruct("InternalName", filename),
                     StringStruct("LegalCopyright", "GPL-2.0-or-later"),
                     StringStruct("OriginalFilename", filename),
-                    StringStruct("ProductName", "Trackhound"),
+                    StringStruct("ProductName", "Sonicache"),
                     StringStruct("ProductVersion", version),
                 ]),
             ]),
@@ -121,37 +121,37 @@ window = EXE(
     analysis.scripts,
     [],
     exclude_binaries=True,
-    name="Trackhound",
+    name="Sonicache",
     console=False,
     icon=icon,
-    version=version_resource("Trackhound.exe", "Trackhound music downloader"),
+    version=version_resource("Sonicache.exe", "Sonicache music downloader"),
 )
 console = EXE(
     pyz,
     analysis.scripts,
     [],
     exclude_binaries=True,
-    name="Trackhound-cli",
+    name="Sonicache-cli",
     console=True,
     icon=icon,
-    version=version_resource("Trackhound-cli.exe", "Trackhound music downloader (command line)"),
+    version=version_resource("Sonicache-cli.exe", "Sonicache music downloader (command line)"),
 )
 folder = COLLECT(
     window,
     console,
     analysis.binaries,
     analysis.datas,
-    name="Trackhound",
+    name="Sonicache",
 )
 if MAC:
     BUNDLE(
         folder,
-        name="Trackhound.app",
+        name="Sonicache.app",
         icon=icon[0] if icon else None,  # converted to .icns, which needs Pillow at build time
-        bundle_identifier="io.github.mojave333.trackhound",
+        bundle_identifier="io.github.mojave333.sonicache",
         version=version,
         info_plist={
-            "CFBundleDisplayName": "Trackhound",
+            "CFBundleDisplayName": "Sonicache",
             "CFBundleShortVersionString": version,
             "LSMinimumSystemVersion": "11.0",
             "NSHighResolutionCapable": True,

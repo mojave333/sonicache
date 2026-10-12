@@ -2,7 +2,7 @@
 
 import pytest
 
-from trackhound.engine import batch, sources
+from sonicache.engine import batch, sources
 
 
 class TestText:

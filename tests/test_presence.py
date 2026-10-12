@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from trackhound import gui, presence
+from sonicache import gui, presence
 
 TRACK = {"title": "Teen Age Riot", "artists": "Sonic Youth", "album": "Daydream Nation",
          "album_artist": "Sonic Youth", "start": 1000.0, "duration": 417.0}
@@ -21,7 +21,7 @@ class TestActivity:
         assert shown["status_display_type"] == 1  # "Listening to Sonic Youth" under the name
         assert shown["assets"] == {"large_image": "https://covers.test/daydream.jpg", "large_text": "Daydream Nation"}
         assert shown["timestamps"] == {"start": 1_000_000, "end": 1_417_000}
-        assert shown["buttons"] == [{"label": "Trackhound", "url": presence.HOMEPAGE}]
+        assert shown["buttons"] == [{"label": "Sonicache", "url": presence.HOMEPAGE}]
 
     def test_without_a_cover_the_logo_shows(self):
         assert presence.activity(TRACK)["assets"]["large_image"] == presence.LOGO
@@ -123,7 +123,7 @@ class FakePresence:
 class TestApi:
     @pytest.fixture
     def api(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".trackhound.json")
+        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".sonicache.json")
         # Saving the settings sets the proxy, the relay and the language for the
         # whole process, which the other tests must not inherit
         for name in ("use_proxy", "use_relay", "set_language"):

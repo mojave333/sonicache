@@ -7,10 +7,10 @@ import urllib.request
 
 import pytest
 
-from trackhound import gui
-from trackhound.engine import downloader
-from trackhound.engine.lyrics import Lyrics
-from trackhound.engine.models import Album, Track
+from sonicache import gui
+from sonicache.engine import downloader
+from sonicache.engine.lyrics import Lyrics
+from sonicache.engine.models import Album, Track
 
 FFMPEG = downloader.find_tool("ffmpeg")
 SYNCED = "[00:00.50] Hello\n[00:01.00] World"
@@ -109,7 +109,7 @@ class TestTaskbarIcons:
     @pytest.mark.parametrize("colour", ["black", "white"])
     @pytest.mark.parametrize("name", ["prev", "play", "pause", "next"])
     def test_every_button_has_its_icon_at_every_size(self, name, colour):
-        from trackhound import thumbbar
+        from sonicache import thumbbar
         data = thumbbar._icon_file(name, colour).read_bytes()
         count = int.from_bytes(data[4:6], "little")
         assert data[:4] == b"\0\0\1\0"  # an icon file
@@ -117,6 +117,6 @@ class TestTaskbarIcons:
 
     @pytest.mark.skipif(sys.platform != "win32", reason="Windows' own icons")
     def test_windows_reads_them_at_the_size_asked_for(self):
-        from trackhound import thumbbar
+        from sonicache import thumbbar
         for size in (16, 20, 48):
             thumbbar._user32.DestroyIcon(thumbbar._load_icon(thumbbar._icon_file("play", "white"), size))

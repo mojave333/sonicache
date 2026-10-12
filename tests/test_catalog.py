@@ -8,9 +8,9 @@ import urllib.parse
 
 import pytest
 
-from trackhound import gui
-from trackhound.engine import catalog
-from trackhound.engine.models import Album, Release, SourceError, Track
+from sonicache import gui
+from sonicache.engine import catalog
+from sonicache.engine.models import Album, Release, SourceError, Track
 
 DEEZER = {
     "search/album": {"data": [{"id": 14879699, "title": "OK Computer", "link": "https://www.deezer.com/album/14879699",

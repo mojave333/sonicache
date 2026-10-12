@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from trackhound import gui, logs
+from sonicache import gui, logs
 
 
 class Ran:
@@ -25,20 +25,79 @@ class TestDataDir:
     def test_windows_uses_localappdata(self, monkeypatch):
         monkeypatch.setattr(sys, "platform", "win32")
         monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\x\AppData\Local")
-        assert logs.data_dir() == Path(r"C:\Users\x\AppData\Local") / "Trackhound"
+        assert logs.data_dir() == Path(r"C:\Users\x\AppData\Local") / "Sonicache"
 
     def test_macos_uses_application_support(self, monkeypatch):
         monkeypatch.setattr(sys, "platform", "darwin")
-        assert logs.data_dir().parts[-3:] == ("Library", "Application Support", "Trackhound")
+        assert logs.data_dir().parts[-3:] == ("Library", "Application Support", "Sonicache")
 
     def test_linux_follows_xdg(self, monkeypatch, tmp_path):
         monkeypatch.setattr(sys, "platform", "linux")
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-        assert logs.data_dir() == tmp_path / "trackhound"
+        assert logs.data_dir() == tmp_path / "sonicache"
 
     def test_the_log_lives_under_it(self, monkeypatch, tmp_path):
         monkeypatch.setattr(logs, "data_dir", lambda: tmp_path)
         assert logs.log_file() == tmp_path / "logs" / logs.LOG_NAME
+
+
+class TestFormerData:
+    """Until 3.0 the program was called Trackhound: what it kept under that
+    name is taken over on the first start under the new one."""
+
+    @pytest.fixture
+    def former(self):
+        old = logs._folder_of(logs.FORMER_NAME)  # inside the test's own folder (conftest)
+        (old / "logs").mkdir(parents=True)
+        (old / "playlists.json").write_text('{"mine": []}', encoding="utf-8")
+        (old / "logs" / "trackhound.log").write_text("old lines", encoding="utf-8")
+        return old
+
+    def test_it_sits_beside_the_new_folder(self, former):
+        assert former.parent == logs.data_dir().parent and former.name.lower() == "trackhound"
+
+    def test_the_files_come_over_and_the_log_stays(self, former):
+        assert logs.adopt_former_data() is True
+        assert (logs.data_dir() / "playlists.json").read_text(encoding="utf-8") == '{"mine": []}'
+        assert not (logs.data_dir() / "logs").exists()
+        assert (former / "playlists.json").is_file()  # a copy, the old folder is whole
+
+    def test_it_happens_once(self, former):
+        logs.adopt_former_data()
+        (former / "playlists.json").write_text('{"later": []}', encoding="utf-8")
+        assert logs.adopt_former_data() is False
+        assert "mine" in (logs.data_dir() / "playlists.json").read_text(encoding="utf-8")
+
+    def test_a_folder_of_its_own_is_never_written_over(self, former):
+        logs.data_dir().mkdir(parents=True)
+        assert logs.adopt_former_data() is False
+        assert list(logs.data_dir().iterdir()) == []
+
+    def test_with_nothing_to_take_over_no_folder_is_made(self):
+        assert logs.adopt_former_data() is False
+        assert not logs.data_dir().exists()
+
+    def test_a_copy_that_fails_halfway_leaves_nothing_behind(self, former, monkeypatch):
+        def half(source, target, **kwargs):
+            Path(target).mkdir(parents=True)
+            (Path(target) / "playlists.json").write_text("{", encoding="utf-8")
+            raise OSError("disk full")
+
+        monkeypatch.setattr(logs.shutil, "copytree", half)
+        assert logs.adopt_former_data() is False
+        assert [path.name for path in logs.data_dir().parent.iterdir()] == [former.name]
+
+    def test_starting_the_log_takes_them_over_first(self, former):
+        for handler in list(logs.log.handlers):
+            logs.log.removeHandler(handler)
+        try:
+            logs.setup()
+            assert (logs.data_dir() / "playlists.json").is_file()
+            assert str(former) in logs.log_file().read_text(encoding="utf-8")
+        finally:
+            for handler in list(logs.log.handlers):
+                logs.log.removeHandler(handler)
+                handler.close()
 
 
 class TestTrash:

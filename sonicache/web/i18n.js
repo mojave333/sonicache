@@ -334,12 +334,12 @@ const TRANSLATIONS = {
   "Всё необходимое установлено": "Everything needed is installed",
   "Не хватает компонентов": "Components are missing",
   "ffmpeg, Deno или Node.js, yt-dlp-ejs": "ffmpeg, Deno or Node.js, yt-dlp-ejs",
-  "YouTube часто меняется. Если загрузки перестали работать, сначала обновите Trackhound":
-    "YouTube changes often. If downloads stop working, update Trackhound first",
-  "Звук скачивает yt-dlp. Он обновляется вместе с Trackhound":
-    "yt-dlp downloads the audio. It is updated together with Trackhound",
-  "Этой сборке {days} {dayWord}, а YouTube за такое время обычно что-то меняет. Если загрузки перестали работать, обновите Trackhound":
-    "This build is {days} {dayWord} old, and YouTube usually changes something in that time. If downloads stop working, update Trackhound",
+  "YouTube часто меняется. Если загрузки перестали работать, сначала обновите Sonicache":
+    "YouTube changes often. If downloads stop working, update Sonicache first",
+  "Звук скачивает yt-dlp. Он обновляется вместе с Sonicache":
+    "yt-dlp downloads the audio. It is updated together with Sonicache",
+  "Этой сборке {days} {dayWord}, а YouTube за такое время обычно что-то меняет. Если загрузки перестали работать, обновите Sonicache":
+    "This build is {days} {dayWord} old, and YouTube usually changes something in that time. If downloads stop working, update Sonicache",
   "Доступ к сервисам": "Access to the services",
   "Проверяет, открываются ли из этой сети Spotify, YouTube и SoundCloud и есть ли на компьютере прокси VPN-клиента":
     "Checks whether Spotify, YouTube and SoundCloud open from this network, and whether a VPN client runs a proxy on this computer",
@@ -439,7 +439,7 @@ const TRANSLATIONS = {
   "Уведомления о завершении": "Notify when done",
   "Сообщает, что загрузки закончились, если окно свёрнуто, закрыто или спрятано под другими":
     "Says the downloads have finished when the window is minimized, closed or behind other windows",
-  "Добро пожаловать в Trackhound": "Welcome to Trackhound",
+  "Добро пожаловать в Sonicache": "Welcome to Sonicache",
   "Вставьте ссылку на альбом, плейлист или трек из Spotify, Apple Music, Deezer, YouTube или SoundCloud. Можно и просто написать «Исполнитель - Альбом». Программа найдёт эту запись в открытом доступе, скачает её и заполнит теги: название, обложку, жанр и текст песни.":
     "Paste a link to an album, playlist or track from Spotify, Apple Music, Deezer, YouTube or SoundCloud, or just write \"Artist - Album\". The program finds the same recording where it is openly available, downloads it and fills in the tags: title, cover, genre and lyrics.",
   "Музыка будет здесь": "The music goes here",
@@ -594,9 +594,9 @@ const TRANSLATIONS = {
   "Системный": "System",
   "Рисованные детали": "Hand-drawn details",
   "Нотный стан, линии от руки и цветные карандаши вместо ровных рамок и одного акцента. На работу программы не влияет": "A staff, lines drawn by hand and coloured pencils in place of straight frames and the single accent. It changes nothing in how the program works",
-  "Установлено через Scoop. Обновите командой scoop update trackhound": "Installed with Scoop. Update it with scoop update trackhound",
-  "Установлено из AUR. Обновите пакет trackhound-bin, например командой yay -Syu trackhound-bin":
-    "Installed from the AUR. Update the trackhound-bin package, for example with yay -Syu trackhound-bin",
+  "Установлено через Scoop. Обновите командой scoop update sonicache": "Installed with Scoop. Update it with scoop update sonicache",
+  "Установлено из AUR. Обновите пакет sonicache-bin, например командой yay -Syu sonicache-bin":
+    "Installed from the AUR. Update the sonicache-bin package, for example with yay -Syu sonicache-bin",
   "Исполнитель · альбом": "Artist · album",
   "{count} {timesWord}": "{count} {timesWord}",
   "{count} {playlistWord}": "{count} {playlistWord}",

@@ -226,9 +226,9 @@ async function loadDiagnostics() {
   const stale = info.ytdlp_age >= 60;
   $("#ytdlp-title").textContent = `yt-dlp ${info.ytdlp}`;
   $("#ytdlp-desc").textContent = stale
-    ? t("Этой сборке {days} {dayWord}, а YouTube за такое время обычно что-то меняет. Если загрузки перестали работать, обновите Trackhound",
+    ? t("Этой сборке {days} {dayWord}, а YouTube за такое время обычно что-то меняет. Если загрузки перестали работать, обновите Sonicache",
         { days: info.ytdlp_age, dayWord: plural(info.ytdlp_age, "день", "дня", "дней") })
-    : t("Звук скачивает yt-dlp. Он обновляется вместе с Trackhound");
+    : t("Звук скачивает yt-dlp. Он обновляется вместе с Sonicache");
   $("#ytdlp-desc").classList.toggle("warn", stale);
   $("#log-path").textContent = info.log;
   $("#log-path").title = info.log;
@@ -246,8 +246,8 @@ async function checkForUpdate() {
   // — the page is all that can be offered.
   $("#update-install").hidden = !release.installer || !release.digest;
   // Installed by a package manager, it is that manager's to update
-  const managers = { scoop: "Установлено через Scoop. Обновите командой scoop update trackhound",
-                     aur: "Установлено из AUR. Обновите пакет trackhound-bin, например командой yay -Syu trackhound-bin" };
+  const managers = { scoop: "Установлено через Scoop. Обновите командой scoop update sonicache",
+                     aur: "Установлено из AUR. Обновите пакет sonicache-bin, например командой yay -Syu sonicache-bin" };
   if (managers[release.manager]) $("#update-desc").textContent = t(managers[release.manager]);
   $("#update-install").addEventListener("click", startUpdate);
   renderSettingsDot();

@@ -2,9 +2,9 @@
 
 import pytest
 
-from trackhound.engine.matcher import (GOOD_SCORE, MIN_SCORE, Match, Matcher, SearchError, _artist_score, _norm,
+from sonicache.engine.matcher import (GOOD_SCORE, MIN_SCORE, Match, Matcher, SearchError, _artist_score, _norm,
                                 _score, _similarity)
-from trackhound.engine.models import Album, Track
+from sonicache.engine.models import Album, Track
 
 
 def track(title="One More Time", artists="Daft Punk", duration=320.0, explicit=False):
@@ -154,7 +154,7 @@ class TestFindAll:
             asked.append("youtube")
             raise SearchError("поиск на YouTube Music не удался: timed out")
 
-        monkeypatch.setattr("trackhound.engine.matcher.time.monotonic", lambda: clock[0])
+        monkeypatch.setattr("sonicache.engine.matcher.time.monotonic", lambda: clock[0])
         monkeypatch.setattr(finder, "_youtube_music_songs", blocked)
         monkeypatch.setattr(finder, "_youtube_videos", blocked)
         monkeypatch.setattr(finder, "_soundcloud", lambda query: [candidate(source="soundcloud")])

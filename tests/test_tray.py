@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from trackhound import tray
+from sonicache import tray
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="the notification area is Windows'")
 ICON = Path(tray.__file__).with_name("web") / "icon.ico"
@@ -44,7 +44,7 @@ def test_the_notices_picture_is_the_icons_largest():
     focus, and refuses one smaller than SM_CXICON (ERROR_INCORRECT_SIZE) once
     the window has made the process DPI-aware, which it does only after the
     icon by the clock is made."""
-    icon = tray.Tray(ICON, "Trackhound", lambda: {}, on_open=lambda: None, on_check=lambda: None,
+    icon = tray.Tray(ICON, "Sonicache", lambda: {}, on_open=lambda: None, on_check=lambda: None,
                      on_quit=lambda: None)
     if not icon.show():
         pytest.skip("no notification area here")

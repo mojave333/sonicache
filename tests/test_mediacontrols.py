@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from trackhound import mediacontrols
+from sonicache import mediacontrols
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows' own controls")
 

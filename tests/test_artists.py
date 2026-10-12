@@ -8,9 +8,9 @@ import urllib.parse
 
 import pytest
 
-from trackhound import gui, watch
-from trackhound.engine import catalog
-from trackhound.engine.models import SourceError
+from sonicache import gui, watch
+from sonicache.engine import catalog
+from sonicache.engine.models import SourceError
 
 
 def release(title, kind="album", date="2007-10-10", number=1):

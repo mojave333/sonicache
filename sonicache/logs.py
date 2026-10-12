@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import platform
+import shutil
 import sys
 import threading
 from logging.handlers import RotatingFileHandler
@@ -21,10 +22,15 @@ from pathlib import Path
 from .engine.logs import log
 from .i18n import t
 
-LOG_NAME = "trackhound.log"
+LOG_NAME = "sonicache.log"
 _MAX_BYTES = 1_000_000
 _BACKUPS = 2
 _FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
+
+# What the program was called before 3.0. Its folder is still looked for, once,
+# so that an update does not start from nothing (adopt_former_data)
+FORMER_NAME = "Trackhound"
+
 
 def data_dir() -> Path:
     """Where the program keeps what it writes for itself.
@@ -33,12 +39,38 @@ def data_dir() -> Path:
     ~/Library/Application Support on macOS, $XDG_DATA_HOME on Linux. The
     settings file stays in the home folder, where it has always been.
     """
+    return _folder_of("Sonicache")
+
+
+def _folder_of(name: str) -> Path:
     if sys.platform == "win32":
         root = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
-        return root / "Trackhound"
+        return root / name
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Trackhound"
-    return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "trackhound"
+        return Path.home() / "Library" / "Application Support" / name
+    return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / name.lower()
+
+
+def adopt_former_data() -> bool:
+    """Brings over what the program kept while it was called Trackhound:
+    playlists, listens, the queue, what is watched. True when it did.
+
+    Once, on the first start under the new name, and as a copy: an older
+    version still installed beside this one keeps its own. The copy is made
+    under another name and renamed when whole, so a failure halfway leaves
+    nothing that would pass for the folder next time. The old log stays behind.
+    """
+    new, old = data_dir(), _folder_of(FORMER_NAME)
+    if new.exists() or not old.is_dir():
+        return False
+    spare = new.with_name(f"{new.name}.{os.getpid()}.tmp")
+    try:
+        shutil.copytree(old, spare, ignore=shutil.ignore_patterns("logs"))
+        os.replace(spare, new)
+    except OSError:
+        shutil.rmtree(spare, ignore_errors=True)
+        return False
+    return True
 
 
 def read_json(path: Path, kind: type = dict):
@@ -82,6 +114,7 @@ def setup(console: bool = False) -> Path | None:
         stream.setLevel(logging.WARNING)
         stream.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
         log.addHandler(stream)
+    adopted = adopt_former_data()  # before the folder is made for the log, or it would look adopted already
     try:
         log_dir().mkdir(parents=True, exist_ok=True)
         handler = RotatingFileHandler(log_file(), maxBytes=_MAX_BYTES, backupCount=_BACKUPS,
@@ -91,8 +124,10 @@ def setup(console: bool = False) -> Path | None:
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(logging.Formatter(_FORMAT))
     log.addHandler(handler)
-    log.info("— запуск: Trackhound %s, %s, Python %s —", _version(), platform.platform(),
+    log.info("— запуск: Sonicache %s, %s, Python %s —", _version(), platform.platform(),
              platform.python_version())
+    if adopted:
+        log.info("данные прежней версии скопированы из %s", _folder_of(FORMER_NAME))
     return log_file()
 
 
@@ -109,7 +144,7 @@ def report(settings: dict | None = None, problems: list[str] | None = None,
            tools: dict[str, str] | None = None) -> str:
     """Everything worth pasting into an issue, as plain text."""
     parts = [
-        f"Trackhound {_version()}",
+        f"Sonicache {_version()}",
         f"{platform.platform()}, Python {platform.python_version()}, "
         f"{t('сборка') if getattr(sys, 'frozen', False) else t('из исходников')}",
         f"yt-dlp {package_version('yt_dlp')}, ytmusicapi {package_version('ytmusicapi')}",

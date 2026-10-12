@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from trackhound.engine import downloader, loudness
-from trackhound.engine.downloader import Downloader, Options
-from trackhound.engine.models import Album, Track
+from sonicache.engine import downloader, loudness
+from sonicache.engine.downloader import Downloader, Options
+from sonicache.engine.models import Album, Track
 
 SUMMARY = """[Parsed_ebur128_0 @ 0000] t: 1.0 M: -20.1 S: -20.3
 [Parsed_ebur128_0 @ 0000] Summary:

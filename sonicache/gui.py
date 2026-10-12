@@ -39,18 +39,21 @@ from . import __version__, logs, mediacontrols, playlists, presence, relay_for, 
 from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch, catalog, folders, loudness, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
-from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAME, TRACK_NAMES,
+from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAMES, TRACK_NAMES,
                                 Downloader, Options, _safe_name, read_marker, read_tags, use_proxy)
 from .engine.tidy import tidy as tidy_up
 
-TITLE = "Trackhound"
+TITLE = "Sonicache"
 WEB_DIR = Path(__file__).with_name("web")
-SETTINGS_FILE = Path.home() / ".trackhound.json"
+SETTINGS_FILE = Path.home() / ".sonicache.json"
+# The settings as the program wrote them while it was called Trackhound, before
+# 3.0: the first start under the new name takes them over (_adopt_former_settings)
+FORMER_SETTINGS_FILE = Path.home() / ".trackhound.json"
 HISTORY_LIMIT = 100  # releases remembered between runs
 # Track states that mean "not finished": a job that ends while a track is in
 # one of them was interrupted, and the saved card should say so.
 UNFINISHED = {"waiting", "search", "download"}
-REPO = "mojave333/trackhound"
+REPO = "mojave333/sonicache"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 THEMES = ("system", "light", "dark")
@@ -232,7 +235,7 @@ class Api:
         logs.log.info("окно: спрятано в трей")
         if not self._told_hidden and self._tray is not None:
             self._told_hidden = True
-            self._tray.notify(t("Trackhound работает в фоне"),
+            self._tray.notify(t("Sonicache работает в фоне"),
                               t("Загрузки и слежение продолжаются. Открыть окно или выйти — через значок у часов"))
 
     def show_window(self) -> None:
@@ -573,7 +576,7 @@ class Api:
         """
         request = urllib.request.Request(
             f"https://api.github.com/repos/{REPO}/releases/latest",
-            headers={"Accept": "application/vnd.github+json", "User-Agent": f"Trackhound/{__version__}"},
+            headers={"Accept": "application/vnd.github+json", "User-Agent": f"Sonicache/{__version__}"},
         )
         try:
             with urllib.request.urlopen(request, timeout=10) as response:
@@ -749,17 +752,18 @@ class Api:
             host = (parts.hostname or "").lower()
             # Only the project's own releases, and only over TLS: the file is
             # about to be run, and nothing else about it is verified by Windows.
-            if parts.scheme != "https" or host != UPDATE_HOST                     or not parts.path.startswith(f"/{REPO}/releases/download/"):
+            if parts.scheme != "https" or host != UPDATE_HOST \
+                    or not parts.path.startswith(f"/{REPO}/releases/download/"):
                 raise ValueError(t("Ссылка на установщик не с GitHub"))
             if not digest.startswith("sha256:"):
                 raise ValueError(t("GitHub не сообщил хеш установщика"))
 
-            setup = Path(tempfile.gettempdir()) / f"Trackhound-{release.get('version', 'new')}-setup.exe"
+            setup = Path(tempfile.gettempdir()) / f"Sonicache-{release.get('version', 'new')}-setup.exe"
             total = int(release.get("size") or 0)
             reader = hashlib.sha256()
             done = 0
             last = 0.0
-            request = urllib.request.Request(url, headers={"User-Agent": f"Trackhound/{__version__}"})
+            request = urllib.request.Request(url, headers={"User-Agent": f"Sonicache/{__version__}"})
             with urllib.request.urlopen(request, timeout=30) as response, setup.open("wb") as out:
                 while chunk := response.read(262_144):
                     out.write(chunk)
@@ -790,7 +794,7 @@ class Api:
         """Closes the window and makes sure the process really ends.
 
         Closing the window was all this used to do, and the process did not
-        always follow: Trackhound.exe stayed loaded, the installer could not
+        always follow: Sonicache.exe stayed loaded, the installer could not
         replace it, and the update stopped with the new files beside the old
         program. So the exit is forced a moment later, whatever the window did.
         """
@@ -1336,7 +1340,7 @@ def _package_manager(executable: str | None = None) -> str:
     parts = [part.casefold() for part in re.split(r"[\\/]+", text) if part]
     if "scoop" in parts and "apps" in parts[parts.index("scoop"):]:
         return "scoop"
-    if text.replace("\\", "/").startswith("/opt/trackhound/"):
+    if text.replace("\\", "/").startswith("/opt/sonicache/"):
         return "aur"
     return ""
 
@@ -1520,7 +1524,7 @@ def _library_item(path: Path, files: list[Path], artist: str = "") -> dict:
     pattern = _ALBUM_UNDER_ARTIST if artist else _ALBUM_NAME if album else _TRACK_NAME
     match = pattern.match(path.name if album else path.stem)
     # Only a folder with the marker beside its files is opened to read it
-    marker = read_marker(path) if album and any(entry.name == MARKER_NAME for entry in folders.listing(path)) else {}
+    marker = read_marker(path) if album and any(entry.name in MARKER_NAMES for entry in folders.listing(path)) else {}
     tags = _tags(files[0])
     named = {
         "title": match["title"] if match else (path.name if album else path.stem),
@@ -2085,7 +2089,7 @@ def _library_folders(raw, folder: str) -> list[str]:
 
 
 def _tray_words() -> dict[str, str]:
-    return {"open": t("Открыть Trackhound"), "check": t("Проверить слежение сейчас"), "quit": t("Выход")}
+    return {"open": t("Открыть Sonicache"), "check": t("Проверить слежение сейчас"), "quit": t("Выход")}
 
 
 def _notice(finished: list[dict]) -> tuple[str, str]:
@@ -2154,6 +2158,19 @@ def _profiles(raw) -> list[dict]:
 
 def _load_settings() -> dict:
     return _normalize(logs.read_json(SETTINGS_FILE))
+
+
+def _adopt_former_settings() -> None:
+    """The settings of the program under its former name become this one's,
+    on the first start that finds none of its own. A copy: an older version
+    still installed beside this one keeps the file it reads."""
+    if SETTINGS_FILE.exists() or not FORMER_SETTINGS_FILE.is_file():
+        return
+    try:
+        shutil.copyfile(FORMER_SETTINGS_FILE, SETTINGS_FILE)
+        logs.log.info("настройки прежней версии скопированы из %s", FORMER_SETTINGS_FILE)
+    except OSError as e:
+        logs.log.warning("не скопировал настройки из %s: %s", FORMER_SETTINGS_FILE, e)
 
 
 def _save_settings(settings: dict) -> None:
@@ -2353,6 +2370,7 @@ def main() -> None:
         # is the program's own, not the open web.
         os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
     logs.setup()
+    _adopt_former_settings()
     settings = _load_settings()
     set_language(settings["language"])
     use_proxy(settings["proxy"])

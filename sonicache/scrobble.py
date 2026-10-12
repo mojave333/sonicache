@@ -251,7 +251,7 @@ class Scrobbler:
         return self._ask(request)
 
     def _ask(self, request: urllib.request.Request) -> dict:
-        request.add_header("User-Agent", f"Trackhound/{__version__}")
+        request.add_header("User-Agent", f"Sonicache/{__version__}")
         try:
             with self._open(request, timeout=_TIMEOUT) as response:
                 data = json.loads(response.read() or b"{}")
@@ -300,7 +300,7 @@ def _lastfm_fields(listen: dict) -> dict:
 
 
 def _listenbrainz_listen(listen: dict, dated: bool) -> dict:
-    info = {"media_player": "Trackhound", "submission_client": "Trackhound",
+    info = {"media_player": "Sonicache", "submission_client": "Sonicache",
             "submission_client_version": __version__}
     if listen["duration"]:
         info["duration_ms"] = listen["duration"] * 1000

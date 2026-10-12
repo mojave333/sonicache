@@ -8,7 +8,7 @@ import urllib.parse
 
 import pytest
 
-from trackhound import scrobble
+from sonicache import scrobble
 
 LISTEN = {"artists": "Sonic Youth", "album_artist": "Sonic Youth", "title": "Teen Age Riot",
           "album": "Daydream Nation", "duration": 417, "time": 1_700_000_000}

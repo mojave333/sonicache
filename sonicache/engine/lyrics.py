@@ -21,7 +21,7 @@ from .models import Album, Track
 
 API = "https://lrclib.net/api"
 # LRCLIB asks the programs that use it to name themselves
-USER_AGENT = "Trackhound (https://github.com/mojave333/trackhound)"
+USER_AGENT = "Sonicache (https://github.com/mojave333/sonicache)"
 # How far a found song's length may be from the track's, in seconds
 LENGTH_SLACK = 3
 _TIMESTAMP_RE = re.compile(r"^\[\d+:\d+(?:[.:]\d+)?\]\s?", re.M)

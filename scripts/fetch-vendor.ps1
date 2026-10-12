@@ -1,5 +1,5 @@
-# Downloads the two tools that Trackhound ships with into vendor\, where
-# trackhound.spec picks them up. Run it before building a release:
+# Downloads the two tools that Sonicache ships with into vendor\, where
+# sonicache.spec picks them up. Run it before building a release:
 #
 #     powershell -ExecutionPolicy Bypass -File scripts\fetch-vendor.ps1
 #
@@ -12,7 +12,7 @@ $ProgressPreference = "SilentlyContinue"  # the progress bar makes downloads cra
 $vendor = Join-Path $PSScriptRoot "..\vendor"
 New-Item -ItemType Directory -Force -Path $vendor | Out-Null
 $vendor = (Resolve-Path $vendor).Path
-$temp = Join-Path ([System.IO.Path]::GetTempPath()) ("trackhound-vendor-" + [guid]::NewGuid())
+$temp = Join-Path ([System.IO.Path]::GetTempPath()) ("sonicache-vendor-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Force -Path $temp | Out-Null
 
 function Fetch-Tool {

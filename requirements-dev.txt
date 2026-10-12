@@ -3,5 +3,5 @@ pyinstaller>=6.10
 pytest>=8.0
 # macOS: turns icon.ico into the .icns an app bundle needs
 pillow; sys_platform == "darwin"
-# Linux: the window is drawn by Qt WebEngine in the bundled build (see trackhound.spec)
+# Linux: the window is drawn by Qt WebEngine in the bundled build (see sonicache.spec)
 pywebview[qt]; sys_platform == "linux"

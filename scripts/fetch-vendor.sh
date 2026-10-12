@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The macOS and Linux counterpart of fetch-vendor.ps1: downloads ffmpeg and
-# deno into vendor/, where trackhound.spec picks them up.
+# deno into vendor/, where sonicache.spec picks them up.
 #
 #     scripts/fetch-vendor.sh
 #

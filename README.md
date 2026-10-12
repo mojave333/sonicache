@@ -2,21 +2,21 @@
 
 <img src="docs/logo.png" width="112" alt="">
 
-# Trackhound
+# Sonicache
 
 **Paste a link, get tagged music.**
 
 Albums, singles, playlists and single tracks from Spotify, Apple Music, Deezer, YouTube,
 SoundCloud, Last.fm and sites such as Bandcamp.
 
-[![Latest release](https://img.shields.io/github/v/release/mojave333/trackhound?label=release&color=8FBF3F)](https://github.com/mojave333/trackhound/releases/latest)
-[![Build](https://github.com/mojave333/trackhound/actions/workflows/ci.yml/badge.svg)](https://github.com/mojave333/trackhound/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/mojave333/sonicache?label=release&color=8FBF3F)](https://github.com/mojave333/sonicache/releases/latest)
+[![Build](https://github.com/mojave333/sonicache/actions/workflows/ci.yml/badge.svg)](https://github.com/mojave333/sonicache/actions/workflows/ci.yml)
 [![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-blue)](LICENSE)
 ![Windows, macOS, Linux](https://img.shields.io/badge/Windows%20%7C%20macOS%20%7C%20Linux-informational)
 
-### [⬇ Download for Windows, macOS or Linux](https://github.com/mojave333/trackhound/releases/latest)
+### [⬇ Download for Windows, macOS or Linux](https://github.com/mojave333/sonicache/releases/latest)
 
-<sub>Questions and ideas: [Discussions](https://github.com/mojave333/trackhound/discussions) · Bugs: [Issues](https://github.com/mojave333/trackhound/issues)</sub>
+<sub>Questions and ideas: [Discussions](https://github.com/mojave333/sonicache/discussions) · Bugs: [Issues](https://github.com/mojave333/sonicache/issues)</sub>
 
 <img src="docs/rumspringa.gif" width="880" alt="The name ear - Rumspringa is typed into the download field, and the album's ten tracks download one after another">
 
@@ -74,36 +74,49 @@ downloading, after which the files get their tags and cover art.
 
 ## Installing
 
-1. Download `Trackhound-vX.Y.Z-windows-x64-setup.exe` from the
-   [Releases](https://github.com/mojave333/trackhound/releases/latest) page.
+1. Download `Sonicache-vX.Y.Z-windows-x64-setup.exe` from the
+   [Releases](https://github.com/mojave333/sonicache/releases/latest) page.
 2. Run it. The installer asks where to put the program, offers tick boxes for a desktop
-   shortcut and for `Trackhound-cli` on the `PATH`, and finishes by offering to start it.
+   shortcut and for `Sonicache-cli` on the `PATH`, and finishes by offering to start it.
 
 No administrator rights are needed: by default the program is installed for you alone, in
-`%LOCALAPPDATA%\Programs\Trackhound`. An administrator is also offered the machine-wide
+`%LOCALAPPDATA%\Programs\Sonicache`. An administrator is also offered the machine-wide
 install. It uninstalls like any other program, through Settings → Apps, and asks on the way
 out whether to delete the settings and the log file. Downloaded music is left alone either
 way.
 
-If you would rather not use an installer, the `Trackhound-vX.Y.Z-windows-x64.zip` archive
-sits next to it: unpack it anywhere and run `Trackhound.exe`.
+If you would rather not use an installer, the `Sonicache-vX.Y.Z-windows-x64.zip` archive
+sits next to it: unpack it anywhere and run `Sonicache.exe`.
 
 With [Scoop](https://scoop.sh), the same archive installs and updates with it, and
-`trackhound` becomes the command line:
+`sonicache` becomes the command line:
 
 ```powershell
-scoop bucket add trackhound https://github.com/mojave333/trackhound
-scoop install trackhound/trackhound
+scoop bucket add sonicache https://github.com/mojave333/sonicache
+scoop install sonicache/sonicache
 ```
 
-Installed this way the program does not update itself; `scoop update trackhound` does.
+Installed this way the program does not update itself; `scoop update sonicache` does.
 
 Nothing else has to be installed: Python, ffmpeg and Deno are already inside. Windows 10 or
 11, 64-bit; the installed folder takes about 320 MB because of the bundled ffmpeg and Deno.
 For macOS and Linux there are builds of their own (see [macOS and Linux](#macos-and-linux)).
 
-`Trackhound-cli.exe --check` prints the version and the paths to the ffmpeg and Deno it
+`Sonicache-cli.exe --check` prints the version and the paths to the ffmpeg and Deno it
 found.
+
+### If you had Trackhound
+
+Until version 3.0 the program was called Trackhound. Installing Sonicache over it replaces
+it: the installer removes the old program and its shortcuts from the folder it finds, and
+the first start copies the settings, the playlists, the listens and the queue from the old
+files. Albums downloaded as Trackhound keep everything the library knows about them. Three
+things change by hand:
+
+- the command line is `Sonicache-cli` (or `sonicache`) where it was `Trackhound-cli`;
+- with Scoop or Homebrew, uninstall `trackhound` and install `sonicache` as above;
+- with pip, `pip uninstall trackhound` and `pip install sonicache`: the package is imported
+  as `sonicache` now.
 
 ### Three notes about the first run
 
@@ -117,16 +130,16 @@ found.
 > year, and EV costs more but starts with a reputation.
 
 > [!WARNING]
-> **Antivirus.** Windows Defender sometimes flags `Trackhound.exe` as
+> **Antivirus.** Windows Defender sometimes flags `Sonicache.exe` as
 > `Trojan:Win32/Sabsik.EN.D!ml`. The `!ml` suffix means the file matched no known virus
 > signature; a machine-learning model flagged it on circumstantial evidence. For this build
 > the evidence is an unsigned exe that unpacks a bundled Python of several hundred files as
 > it starts, and nearly everything built with PyInstaller gets caught the same way. It is a
 > false positive, but while the file sits in quarantine the archive will not finish
-> unpacking, and `Trackhound.exe` disappears from the folder right after extraction.
+> unpacking, and `Sonicache.exe` disappears from the folder right after extraction.
 >
 > To fix it, open Windows Security → Virus & threat protection → Protection history, find
-> the Trackhound entry, expand it, choose "Allow on device", then unpack the archive again.
+> the Sonicache entry, expand it, choose "Allow on device", then unpack the archive again.
 > If you would rather check the program than allow it, upload the archive to
 > [VirusTotal](https://www.virustotal.com/), where the other engines stay quiet, and compare
 > its SHA-256 with the one printed in the release notes using `Get-FileHash <file>`. The
@@ -239,7 +252,7 @@ colour, as in Now playing. Only the tracklist scrolls; the title and the buttons
 the page takes the cover's main colour, a pastel in the light theme and a deep shade in the
 dark one. For an
 album this program downloaded, the tracks that never arrived are listed too, greyed out,
-since the `.trackhound.json` file in the album's folder keeps the link and the whole
+since the `.sonicache.json` file in the album's folder keeps the link and the whole
 tracklist. From the page the album can be opened in the file manager, completed ("Fetch what
 is missing" downloads the same link again and skips what is on disk) or watched for new
 tracks. The same button sits on the album's row, in its right-click menu and above the list,
@@ -338,7 +351,7 @@ genre, year, number, cover or, with lyrics on, lyrics, or an album folder withou
 `cover.jpg`. An album tidied up once is not offered again until its files change, even when
 no catalogue knew its genre or its lyrics.
 
-Each album is looked up again: by the link in its `.trackhound.json` when this program
+Each album is looked up again: by the link in its `.sonicache.json` when this program
 downloaded it, otherwise by the album and artist in its files' tags or, failing those, in its
 folder's name. Each file is matched to a track of the release by its title and length, or by
 its number and length when the title says nothing ("Track 01"). A release found by name is
@@ -446,7 +459,7 @@ against the SHA-256 GitHub publishes beside it, closes, and lets the installer r
 files and open the new version. Nothing is downloaded until the button is pressed, and
 nothing is run if the hash disagrees. The installer waits for the program to exit before it
 touches a file and closes any copy still running from its folder, so an update cannot stop
-halfway. Settings live in `%USERPROFILE%\.trackhound.json`.
+halfway. Settings live in `%USERPROFILE%\.sonicache.json`.
 
 YouTube serves age-restricted tracks only to a signed-in account. Usually the program takes
 such a song from another source, but if there is no other, choose in the settings the
@@ -455,19 +468,19 @@ cookie file open. Firefox's cookies are read the most reliably.
 
 ## Command line
 
-`Trackhound-cli.exe` is the same program for a terminal: it prints the progress and opens no
+`Sonicache-cli.exe` is the same program for a terminal: it prints the progress and opens no
 window.
 
 ```bat
-Trackhound-cli.exe https://open.spotify.com/album/2noRn2Aes5aoNVsU6iWThc
-Trackhound-cli.exe "Daft Punk - Discovery"
-Trackhound-cli.exe LINK1 LINK2 -f mp3 -o D:\Music -t 4
-Trackhound-cli.exe --dry-run LINK
+Sonicache-cli.exe https://open.spotify.com/album/2noRn2Aes5aoNVsU6iWThc
+Sonicache-cli.exe "Daft Punk - Discovery"
+Sonicache-cli.exe LINK1 LINK2 -f mp3 -o D:\Music -t 4
+Sonicache-cli.exe --dry-run LINK
 ```
 
 | Option | Meaning |
 |---|---|
-| `-o`, `--output` | folder (default `%USERPROFILE%\Music\Trackhound`) |
+| `-o`, `--output` | folder (default `%USERPROFILE%\Music\Sonicache`) |
 | `-f`, `--format` | `mp3` (default), `m4a`, `opus` |
 | `-t`, `--threads` | how many tracks to download at once, default 3 |
 | `--dry-run` | only show what was matched |
@@ -518,12 +531,12 @@ file…". More on blocked networks in [Where services are blocked](#where-servic
 ## Where the files go
 
 ```
-Trackhound\
+Sonicache\
   Daft Punk - Discovery (2001)\
     01. One More Time.m4a
     02. Aerodynamic.m4a
     cover.jpg
-    .trackhound.json
+    .sonicache.json
   Rick Astley - Never Gonna Give You Up.m4a     (a link to a single track)
 ```
 
@@ -539,7 +552,7 @@ again.
 ## Formats and quality
 
 YouTube keeps two versions of every track: AAC at 128 kbit/s, cut off above 16 kHz, and
-Opus at 130 to 160 kbit/s, which reaches 20 kHz. Trackhound starts from the Opus for every
+Opus at 130 to 160 kbit/s, which reaches 20 kHz. Sonicache starts from the Opus for every
 format except a Premium account's AAC 256, which is kept as it is.
 
 - `mp3`, the default, is a constant 320 kbit/s at 44.1 kHz. It plays anywhere, car
@@ -584,7 +597,7 @@ The program talks to Spotify, YouTube and SoundCloud from your own computer, not
 server abroad, so it sees what your network lets through. Settings → Network →
 "Check" says what that is: whether Spotify's player opens or only its preview pages, whether
 YouTube and SoundCloud open, and whether a VPN client runs a proxy on this computer.
-`trackhound --check` prints the same.
+`sonicache --check` prints the same.
 
 - **A VPN in TUN or "system proxy" mode** is used by the program by itself, with nothing to
   set.
@@ -604,9 +617,9 @@ YouTube and SoundCloud open, and whether a VPN client runs a proxy on this compu
 ## When something breaks
 
 - **Download errors from YouTube.** YouTube changes often, and yt-dlp with it. Update to the
-  newest Trackhound release; running from source, run `install.bat` again. Settings → If
+  newest Sonicache release; running from source, run `install.bat` again. Settings → If
   something does not work shows how old the bundled yt-dlp is.
-- **"Spotify changed the shape of its page".** The parsing in `trackhound/engine/spotify.py` needs
+- **"Spotify changed the shape of its page".** The parsing in `sonicache/engine/spotify.py` needs
   fixing.
 - **"Spotify did not hand over … and answered “Page not found”".** Spotify will not show the
   release to this network, and its link-preview pages did not come either. A proxy helps, or
@@ -617,7 +630,7 @@ YouTube and SoundCloud open, and whether a VPN client runs a proxy on this compu
   computer. Otherwise write the address in Settings → Network → Proxy, or start with
   `--proxy socks5://127.0.0.1:10808`. `HTTP_PROXY`/`HTTPS_PROXY` work too.
 - **Anything else.** Settings → If something does not work → "Copy the report", and attach that to an
-  [issue](https://github.com/mojave333/trackhound/issues).
+  [issue](https://github.com/mojave333/sonicache/issues).
 
 ## macOS and Linux
 
@@ -626,37 +639,37 @@ for Intel, and one for 64-bit Linux. Both have ffmpeg and Deno inside, like the 
 program sits beside the window in the same folder. They do not update themselves: when a
 new version is out, the settings show a line about it with a link to the release page.
 
-**macOS.** Open `Trackhound-vX.Y.Z-macos-arm64.dmg` on a Mac with Apple Silicon, or
-`Trackhound-vX.Y.Z-macos-x64.dmg` on one with an Intel processor (Apple menu → About This Mac
-says which), and drag Trackhound to Applications.
+**macOS.** Open `Sonicache-vX.Y.Z-macos-arm64.dmg` on a Mac with Apple Silicon, or
+`Sonicache-vX.Y.Z-macos-x64.dmg` on one with an Intel processor (Apple menu → About This Mac
+says which), and drag Sonicache to Applications.
 The app is not signed with an Apple developer certificate, so the first launch is refused
 with "Apple could not verify…". Click "Done", open System Settings → Privacy & Security,
-scroll to the line about Trackhound and click "Open Anyway". The same can be done in a
+scroll to the line about Sonicache and click "Open Anyway". The same can be done in a
 terminal:
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/Trackhound.app
+xattr -dr com.apple.quarantine /Applications/Sonicache.app
 ```
 
-The command line is `/Applications/Trackhound.app/Contents/MacOS/Trackhound-cli`.
+The command line is `/Applications/Sonicache.app/Contents/MacOS/Sonicache-cli`.
 
 With [Homebrew](https://brew.sh) the right build for the Mac is chosen by itself, and
-`trackhound` becomes the command line (the first launch still needs the step above):
+`sonicache` becomes the command line (the first launch still needs the step above):
 
 ```sh
-brew tap mojave333/trackhound https://github.com/mojave333/trackhound
-brew install --cask mojave333/trackhound/trackhound
+brew tap mojave333/sonicache https://github.com/mojave333/sonicache
+brew install --cask mojave333/sonicache/sonicache
 ```
 
-**Linux.** Unpack `Trackhound-vX.Y.Z-linux-x64.tar.xz` anywhere and start `Trackhound` in the
-folder; `Trackhound-cli` is the command line. It needs glibc 2.35 or newer (Ubuntu 22.04,
+**Linux.** Unpack `Sonicache-vX.Y.Z-linux-x64.tar.xz` anywhere and start `Sonicache` in the
+folder; `Sonicache-cli` is the command line. It needs glibc 2.35 or newer (Ubuntu 22.04,
 Debian 12, Fedora 36 and later). The window is drawn by Qt WebEngine, which is inside, so
-nothing has to be installed. If the window does not open, start `./Trackhound` from a
+nothing has to be installed. If the window does not open, start `./Sonicache` from a
 terminal: it names the library it could not find.
 
 ```sh
-tar -xJf Trackhound-vX.Y.Z-linux-x64.tar.xz
-./Trackhound/Trackhound
+tar -xJf Sonicache-vX.Y.Z-linux-x64.tar.xz
+./Sonicache/Sonicache
 ```
 
 ### From source
@@ -675,8 +688,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 Either way, deleting from the library goes to the trash (Finder, `gio trash`, or
 `~/.local/share/Trash` per the freedesktop.org specification), "Show in the file manager"
 opens Finder or the desktop's file manager, and the theme follows the system. Settings live
-in `~/.trackhound.json`; the log and the history in `~/Library/Application Support/Trackhound`
-(macOS) or `$XDG_DATA_HOME/trackhound` (Linux).
+in `~/.sonicache.json`; the log and the history in `~/Library/Application Support/Sonicache`
+(macOS) or `$XDG_DATA_HOME/sonicache` (Linux).
 
 ## Python package
 
@@ -685,15 +698,15 @@ The engine and the command line are also a package on PyPI, for any system with 
 `PATH`.
 
 ```sh
-pip install trackhound          # the engine and the `trackhound` command
-pip install "trackhound[gui]"   # adds the window, started with `trackhound-gui`
+pip install sonicache          # the engine and the `sonicache` command
+pip install "sonicache[gui]"   # adds the window, started with `sonicache-gui`
 ```
 
-The `trackhound` command takes the same options as `Trackhound-cli.exe`. From Python:
+The `sonicache` command takes the same options as `Sonicache-cli.exe`. From Python:
 
 ```python
 from pathlib import Path
-from trackhound.engine import Downloader, Options, resolve
+from sonicache.engine import Downloader, Options, resolve
 
 release = resolve("https://www.deezer.com/album/302127")
 print(release.album.name, [track.title for track in release.tracks])
@@ -702,9 +715,9 @@ report = Downloader(Options(output_dir=Path("Music"))).download_link("https://ww
 print(report.summary())
 ```
 
-What `trackhound.engine` exports is the public interface and keeps working across minor
+What `sonicache.engine` exports is the public interface and keeps working across minor
 versions; the modules behind it may change in any release. The engine writes to the
-`trackhound` logger without setting up handlers, and speaks the system's language, Russian
+`sonicache` logger without setting up handlers, and speaks the system's language, Russian
 or English, until `set_language()` says otherwise. Errors carry a code beside the sentence,
 for a program to act on: `SourceError` and `DownloaderError` have `.code` and `.details`, and
 `report.failures` lists each failed track with its code. The codes stay the same in either
@@ -749,26 +762,26 @@ same tests on every push, on Windows, Linux and macOS.
 ```bat
 pip install -r requirements.txt -r requirements-dev.txt
 powershell -ExecutionPolicy Bypass -File scripts\fetch-vendor.ps1
-pyinstaller --noconfirm trackhound.spec
+pyinstaller --noconfirm sonicache.spec
 powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
 ```
 
 The last line is optional: it wraps the finished folder into
-`dist\Trackhound-X.Y.Z-windows-x64-setup.exe`.
+`dist\Sonicache-X.Y.Z-windows-x64-setup.exe`.
 [Inno Setup 6.3 or newer](https://jrsoftware.org/isdl.php) does the wrapping, following
-[`trackhound.iss`](trackhound.iss). When it is not installed, the script says which command
+[`sonicache.iss`](sonicache.iss). When it is not installed, the script says which command
 installs it (`winget install --id JRSoftware.InnoSetup`). The version comes from
-`trackhound/__init__.py`, so there is nothing to keep in step by hand.
+`sonicache/__init__.py`, so there is nothing to keep in step by hand.
 
-The finished folder is `dist\Trackhound`, holding two exes (`Trackhound.exe` and
-`Trackhound-cli.exe`) built from the same code: the first has no console, the second has
+The finished folder is `dist\Sonicache`, holding two exes (`Sonicache.exe` and
+`Sonicache-cli.exe`) built from the same code: the first has no console, the second has
 one. Everything else lives in `_internal`, including `bin\ffmpeg.exe` and `bin\deno.exe`
 from `vendor\`. The program looks there first and only then in `PATH`.
 
 Building without `vendor\` works too and produces a lighter variant that takes ffmpeg and
 Deno from the system.
 
-On macOS and Linux the same spec file makes `dist/Trackhound.app` or `dist/Trackhound`, and
+On macOS and Linux the same spec file makes `dist/Sonicache.app` or `dist/Sonicache`, and
 a script does the rest: it fetches ffmpeg and Deno, builds, checks that the command line
 and the window start, and packs a `.dmg` or a `.tar.xz`. The Linux build needs
 `pip install "pywebview[qt]"` (it is in `requirements-dev.txt`) and, for the check, `xvfb`.
@@ -783,7 +796,7 @@ scripts/build-unix.sh v1.2.3
 
 Releases are made on GitHub, with nothing to do locally. Open
 **Actions → Release → Run workflow** and type the version (`1.2.3`).
-[`release.yml`](.github/workflows/release.yml) writes it into `trackhound/__init__.py`,
+[`release.yml`](.github/workflows/release.yml) writes it into `sonicache/__init__.py`,
 commits it, tags the commit, runs the tests, builds the exe and the installer, and publishes
 the release with both files and their SHA-256. The macOS and Linux builds are attached to
 the same release a few minutes later, and the Python package goes to PyPI.
@@ -794,41 +807,41 @@ version that has already been released is refused before anything is built.
 
 ## How it is put together
 
-Everything that turns a link into tagged files lives in `trackhound/engine/`, which knows
+Everything that turns a link into tagged files lives in `sonicache/engine/`, which knows
 nothing about the window or the command line; `tests/test_engine.py` keeps it that way.
-The rest of `trackhound/` is the program built on top of it.
+The rest of `sonicache/` is the program built on top of it.
 
 | File | What it does |
 |---|---|
-| `trackhound/engine/__init__.py` | the engine's public interface, the part a script imports |
-| `trackhound/engine/sources.py` | parsing the links of every service, and finding a release by name |
-| `trackhound/engine/spotify.py` | Spotify metadata |
-| `trackhound/engine/models.py`, `trackhound/engine/net.py` | shared data structures and HTTP |
-| `trackhound/engine/matcher.py` | searching and picking a match on YouTube Music, SoundCloud and YouTube |
-| `trackhound/engine/downloader.py` | downloading (yt-dlp), converting (ffmpeg), tagging (mutagen) |
-| `trackhound/engine/loudness.py` | measuring the loudness and writing ReplayGain tags |
-| `trackhound/engine/lyrics.py` | looking up lyrics in LRCLIB |
-| `trackhound/engine/catalog.py` | the catalogue search behind the Search view |
-| `trackhound/engine/folders.py` | which files and which picture belong to an album folder |
-| `trackhound/engine/tidy.py` | filling in the tags older files lack, without downloading them again |
-| `trackhound/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
-| `trackhound/engine/i18n.py`, `trackhound/i18n.py`, `trackhound/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
-| `trackhound/logs.py` | the log file and the report |
-| `trackhound/watch.py` | the list of watched playlists |
-| `trackhound/gui.py` | the window (pywebview) and the bridge to the downloader |
-| `trackhound/tray.py` | the icon by the clock and the notifications (Win32 through ctypes) |
-| `trackhound/thumbbar.py` | the player's buttons under the window's picture on the taskbar (Win32 through ctypes) |
-| `trackhound/presence.py` | what plays, on the Discord profile (Discord's local Rich Presence pipe) |
-| `trackhound/mediacontrols.py` | the track in Windows' own media controls, and the media keys (WinRT through ctypes) |
-| `trackhound/playlists.py` | playlists of one's own, `.m3u8` both ways, and the listens behind "Most played" |
-| `trackhound/scrobble.py` | listens sent to Last.fm and ListenBrainz, and kept while they cannot be |
-| `trackhound/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
-| `trackhound/web/art/`, `trackhound/web/fonts/` | the logo as it was drawn, and the fonts the names can be set in |
-| `trackhound/cli.py`, `main.py` | the command line and the entry point |
+| `sonicache/engine/__init__.py` | the engine's public interface, the part a script imports |
+| `sonicache/engine/sources.py` | parsing the links of every service, and finding a release by name |
+| `sonicache/engine/spotify.py` | Spotify metadata |
+| `sonicache/engine/models.py`, `sonicache/engine/net.py` | shared data structures and HTTP |
+| `sonicache/engine/matcher.py` | searching and picking a match on YouTube Music, SoundCloud and YouTube |
+| `sonicache/engine/downloader.py` | downloading (yt-dlp), converting (ffmpeg), tagging (mutagen) |
+| `sonicache/engine/loudness.py` | measuring the loudness and writing ReplayGain tags |
+| `sonicache/engine/lyrics.py` | looking up lyrics in LRCLIB |
+| `sonicache/engine/catalog.py` | the catalogue search behind the Search view |
+| `sonicache/engine/folders.py` | which files and which picture belong to an album folder |
+| `sonicache/engine/tidy.py` | filling in the tags older files lack, without downloading them again |
+| `sonicache/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
+| `sonicache/engine/i18n.py`, `sonicache/i18n.py`, `sonicache/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
+| `sonicache/logs.py` | the log file and the report |
+| `sonicache/watch.py` | the list of watched playlists |
+| `sonicache/gui.py` | the window (pywebview) and the bridge to the downloader |
+| `sonicache/tray.py` | the icon by the clock and the notifications (Win32 through ctypes) |
+| `sonicache/thumbbar.py` | the player's buttons under the window's picture on the taskbar (Win32 through ctypes) |
+| `sonicache/presence.py` | what plays, on the Discord profile (Discord's local Rich Presence pipe) |
+| `sonicache/mediacontrols.py` | the track in Windows' own media controls, and the media keys (WinRT through ctypes) |
+| `sonicache/playlists.py` | playlists of one's own, `.m3u8` both ways, and the listens behind "Most played" |
+| `sonicache/scrobble.py` | listens sent to Last.fm and ListenBrainz, and kept while they cannot be |
+| `sonicache/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
+| `sonicache/web/art/`, `sonicache/web/fonts/` | the logo as it was drawn, and the fonts the names can be set in |
+| `sonicache/cli.py`, `main.py` | the command line and the entry point |
 | `tests/` | offline tests of the link parsing, the matching and the file names |
-| `trackhound.spec`, `scripts/fetch-vendor.ps1` | building the exe |
+| `sonicache.spec`, `scripts/fetch-vendor.ps1` | building the exe |
 | `scripts/fetch-vendor.sh`, `scripts/build-unix.sh` | building for macOS and Linux |
-| `trackhound.iss`, `scripts/build-installer.ps1` | building the installer |
+| `sonicache.iss`, `scripts/build-installer.ps1` | building the installer |
 | `pyproject.toml`, `docs/pypi.md` | the Python package and its page on PyPI |
 
 ## Licence
@@ -840,17 +853,17 @@ Other dependencies: yt-dlp and yt-dlp-ejs are under the Unlicense, ytmusicapi un
 pywebview under BSD-3-Clause. The window writes its names and headings in a font of your
 choosing: Source Serif 4, Literata, PT Serif, Lora or Onest. These, Caveat for the handwriting
 of the hand-drawn look and the treble clef's outline from Noto Music travel with the program in
-`trackhound/web/fonts/` under the SIL Open Font License; the licence text sits beside the files.
+`sonicache/web/fonts/` under the SIL Open Font License; the licence text sits beside the files.
 
 The release builds carry two separate programs, each under its own licence: ffmpeg (GPL,
 sources at [ffmpeg.org](https://ffmpeg.org/download.html)) and Deno from
 [denoland/deno](https://github.com/denoland/deno) (MIT). ffmpeg comes from the
 [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) builds on Windows and Linux and
-from [Martin Riedl's builds](https://ffmpeg.martin-riedl.de/) on macOS. Trackhound runs both
+from [Martin Riedl's builds](https://ffmpeg.martin-riedl.de/) on macOS. Sonicache runs both
 as external processes.
 
 The Linux build also contains Qt (LGPL-3.0) and PyQt6 (GPL-3.0), which draw its window.
-Because PyQt6 is GPL-3.0 and Trackhound allows any later version of the GPL, the Linux
+Because PyQt6 is GPL-3.0 and Sonicache allows any later version of the GPL, the Linux
 build as a whole is distributed under GPL-3.0.
 
 > [!IMPORTANT]

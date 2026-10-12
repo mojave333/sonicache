@@ -10,8 +10,8 @@ import urllib.parse
 import pytest
 from mutagen import File as MutagenFile
 
-from trackhound.engine import downloader, lyrics
-from trackhound.engine.models import Album, Track
+from sonicache.engine import downloader, lyrics
+from sonicache.engine.models import Album, Track
 
 FFMPEG = downloader.find_tool("ffmpeg")
 CODECS = {"m4a": ["-c:a", "aac", "-b:a", "96k"], "mp3": ["-c:a", "libmp3lame", "-b:a", "128k"],

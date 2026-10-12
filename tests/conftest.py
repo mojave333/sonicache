@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from trackhound.engine import sources
+from sonicache.engine import sources
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +31,7 @@ def own_data_dir(tmp_path_factory, monkeypatch):
 @pytest.fixture(autouse=True)
 def russian():
     """The tests read Russian messages; a runner with an English locale must not change that."""
-    from trackhound.engine.i18n import set_language
+    from sonicache.engine.i18n import set_language
 
     set_language("ru")
     yield

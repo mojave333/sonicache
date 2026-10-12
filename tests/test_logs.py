@@ -4,8 +4,8 @@ import logging
 
 import pytest
 
-from trackhound import logs
-from trackhound.engine.logs import YtdlpLogger
+from sonicache import logs
+from sonicache.engine.logs import YtdlpLogger
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ class TestSetup:
 
     def test_the_startup_line_names_the_version(self, log_dir):
         logs.setup()
-        assert "Trackhound" in logs.log_file().read_text(encoding="utf-8")
+        assert "Sonicache" in logs.log_file().read_text(encoding="utf-8")
 
     def test_setting_up_twice_does_not_double_the_handlers(self, log_dir):
         logs.setup()
@@ -64,7 +64,7 @@ class TestReport:
         text = logs.report({"format": "mp3", "threads": 4, "cookies_browser": "firefox",
                             "folder": "D:\\Music"},
                            ["Не найден ffmpeg"], {"ffmpeg": "", "deno": "C:\\deno.exe"})
-        assert "Trackhound" in text
+        assert "Sonicache" in text
         assert "yt-dlp" in text
         assert "ffmpeg: не найден" in text
         assert "deno: C:\\deno.exe" in text
@@ -78,13 +78,13 @@ class TestReport:
         assert "что-то сломалось" in logs.report()
 
     def test_works_before_anything_was_logged(self, log_dir):
-        assert "Trackhound" in logs.report()
+        assert "Sonicache" in logs.report()
 
 
 class TestYtdlpLogger:
     def test_chatter_lands_in_the_log_as_debug(self, log_dir, caplog):
         logs.setup()
-        with caplog.at_level(logging.DEBUG, logger="trackhound.yt-dlp"):
+        with caplog.at_level(logging.DEBUG, logger="sonicache.yt-dlp"):
             caplog.clear()
             YtdlpLogger().debug("[download] 12%")
             YtdlpLogger().info("[info] something")
@@ -92,7 +92,7 @@ class TestYtdlpLogger:
 
     def test_warnings_and_errors_keep_their_level(self, log_dir, caplog):
         logs.setup()
-        with caplog.at_level(logging.DEBUG, logger="trackhound.yt-dlp"):
+        with caplog.at_level(logging.DEBUG, logger="sonicache.yt-dlp"):
             caplog.clear()
             YtdlpLogger().warning("nothing to worry about")
             YtdlpLogger().error("ERROR: it broke")

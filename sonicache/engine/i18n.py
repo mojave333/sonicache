@@ -18,7 +18,7 @@ LANGUAGES = ("system", "ru", "en")
 _current = "ru"
 
 # Russian → English, for what the engine says. The program adds its own lines
-# to this table in trackhound/i18n.py.
+# to this table in sonicache/i18n.py.
 ENGLISH = {
     # Network and services
     "{service} не нашёл страницу: {url}": "{service} has no such page: {url}",

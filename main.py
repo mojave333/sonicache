@@ -3,8 +3,8 @@
     python main.py
     python main.py https://open.spotify.com/album/... -f mp3 -o D:\\Music
 
-The build (trackhound.spec) makes two exe files out of this one script:
-Trackhound.exe opens the window, Trackhound-cli.exe always talks to the
+The build (sonicache.spec) makes two exe files out of this one script:
+Sonicache.exe opens the window, Sonicache-cli.exe always talks to the
 console, so that a double click never flashes a terminal and a terminal run
 never opens a window without output.
 """
@@ -21,14 +21,14 @@ def wants_cli() -> bool:
 
 def main() -> None:
     if wants_cli():
-        from trackhound.cli import main as cli_main
+        from sonicache.cli import main as cli_main
         sys.exit(cli_main(sys.argv[1:] or ["--check"]))
     try:
-        from trackhound.gui import main as gui_main
+        from sonicache.gui import main as gui_main
     except ImportError as e:
         # a window build has no console, so show the problem in a dialog
         from tkinter import messagebox
-        messagebox.showerror("Trackhound",
+        messagebox.showerror("Sonicache",
                              f"Не установлены зависимости ({e}).\n\nЗапустите install.bat")
         sys.exit(1)
     gui_main()

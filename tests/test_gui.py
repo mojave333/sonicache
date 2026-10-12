@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from trackhound import gui
-from trackhound.engine.downloader import DEFAULT_OUTPUT_DIR
+from sonicache import gui
+from sonicache.engine.downloader import DEFAULT_OUTPUT_DIR
 
 
 class TestNormalize:
@@ -130,10 +130,10 @@ class TestSpeedAndProxy:
         assert gui._normalize({"relay": given})["relay"] == expected
 
     def test_an_empty_relay_setting_means_the_programs_own(self, monkeypatch):
-        import trackhound
+        import sonicache
 
-        monkeypatch.setattr(trackhound, "SPOTIFY_RELAY", "https://own.test")
-        assert [trackhound.relay_for(value) for value in ("", "off", "https://mine.test")] == [
+        monkeypatch.setattr(sonicache, "SPOTIFY_RELAY", "https://own.test")
+        assert [sonicache.relay_for(value) for value in ("", "off", "https://mine.test")] == [
             "https://own.test", "", "https://mine.test"]
 
 
@@ -182,24 +182,64 @@ class TestProxyEnvironment:
 
 class TestSettingsFile:
     def test_a_broken_file_does_not_stop_the_window(self, tmp_path, monkeypatch):
-        broken = tmp_path / ".trackhound.json"
+        broken = tmp_path / ".sonicache.json"
         broken.write_text("{ not json", encoding="utf-8")
         monkeypatch.setattr(gui, "SETTINGS_FILE", broken)
         assert gui._load_settings()["format"] == "mp3"
 
     def test_check_only_is_never_remembered(self, tmp_path, monkeypatch):
-        path = tmp_path / ".trackhound.json"
+        path = tmp_path / ".sonicache.json"
         monkeypatch.setattr(gui, "SETTINGS_FILE", path)
         gui._save_settings(gui._normalize({"dry_run": True, "format": "mp3"}))
         saved = json.loads(path.read_text(encoding="utf-8"))
         assert "dry_run" not in saved and saved["format"] == "mp3"
 
     def test_a_saved_file_is_read_back(self, tmp_path, monkeypatch):
-        path = tmp_path / ".trackhound.json"
+        path = tmp_path / ".sonicache.json"
         monkeypatch.setattr(gui, "SETTINGS_FILE", path)
         gui._save_settings(gui._normalize({"threads": 6, "theme": "dark"}))
         assert gui._load_settings()["threads"] == 6
         assert gui._load_settings()["theme"] == "dark"
+
+
+class TestFormerSettings:
+    """Until 3.0 the program was called Trackhound and kept its settings in a file of that name."""
+
+    @pytest.fixture
+    def files(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".sonicache.json")
+        monkeypatch.setattr(gui, "FORMER_SETTINGS_FILE", tmp_path / ".trackhound.json")
+        return tmp_path / ".sonicache.json", tmp_path / ".trackhound.json"
+
+    def test_the_first_start_takes_them_over(self, files):
+        new, old = files
+        old.write_text(json.dumps({"threads": 6, "theme": "dark"}), encoding="utf-8")
+        gui._adopt_former_settings()
+        assert gui._load_settings()["threads"] == 6 and gui._load_settings()["theme"] == "dark"
+        assert old.is_file()  # a copy: an older version beside this one still reads its own
+
+    def test_settings_of_its_own_are_left_alone(self, files):
+        new, old = files
+        old.write_text(json.dumps({"threads": 6}), encoding="utf-8")
+        new.write_text(json.dumps({"threads": 2}), encoding="utf-8")
+        gui._adopt_former_settings()
+        assert gui._load_settings()["threads"] == 2
+
+    def test_with_none_to_take_over_the_program_is_still_new(self, files):
+        new, _ = files
+        gui._adopt_former_settings()
+        assert not new.exists()  # which is what shows the welcome
+
+    def test_a_file_that_cannot_be_copied_does_not_stop_the_window(self, files, monkeypatch):
+        new, old = files
+        old.write_text("{}", encoding="utf-8")
+
+        def refuse(*args, **kwargs):
+            raise OSError("read-only")
+
+        monkeypatch.setattr(gui.shutil, "copyfile", refuse)
+        gui._adopt_former_settings()
+        assert gui._load_settings()["format"] == "mp3"
 
 
 class TestNewer:
@@ -262,7 +302,7 @@ class TestHistory:
         forever (it never gets back a reply to re-enable itself)."""
         import threading
 
-        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".trackhound.json")
+        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".sonicache.json")
         api = gui.Api()
         monkeypatch.setattr(api, "_work", lambda: None)  # no real network search here
 
@@ -368,7 +408,7 @@ class TestLibrary:
 
     def test_an_album_remembers_the_link_it_came_from(self, tmp_path):
         folder = self.album(tmp_path, "Daft Punk - Discovery (2001)")
-        (folder / ".trackhound.json").write_text(
+        (folder / ".sonicache.json").write_text(
             json.dumps({"link": "https://open.spotify.com/album/x", "tracks": 14}),
             encoding="utf-8")
         item = gui.Api().library(str(tmp_path))[0]
@@ -380,14 +420,23 @@ class TestLibrary:
         item = gui.Api().library(str(tmp_path))[0]
         assert item["link"] == "" and item["expected"] == 0
 
+    def test_an_album_downloaded_under_the_former_name_keeps_its_link(self, tmp_path):
+        folder = self.album(tmp_path, "Daft Punk - Discovery (2001)")
+        (folder / ".trackhound.json").write_text(
+            json.dumps({"link": "https://open.spotify.com/album/x", "tracks": 14}),
+            encoding="utf-8")
+        item = gui.Api().library(str(tmp_path))[0]
+        assert item["link"] == "https://open.spotify.com/album/x"
+        assert item["expected"] == 14 and item["tracks"] == 2  # and its marker is no track either
+
     def test_a_broken_marker_is_ignored(self, tmp_path):
         folder = self.album(tmp_path, "A - B (2020)")
-        (folder / ".trackhound.json").write_text("{ not json", encoding="utf-8")
+        (folder / ".sonicache.json").write_text("{ not json", encoding="utf-8")
         assert gui.Api().library(str(tmp_path))[0]["link"] == ""
 
     def test_the_marker_is_not_counted_as_a_track(self, tmp_path):
         folder = self.album(tmp_path, "A - B (2020)")
-        (folder / ".trackhound.json").write_text("{}", encoding="utf-8")
+        (folder / ".sonicache.json").write_text("{}", encoding="utf-8")
         assert gui.Api().library(str(tmp_path))[0]["tracks"] == 2
 
     @pytest.mark.parametrize("name, audio", [
@@ -508,9 +557,9 @@ class TestUpdateInstaller:
         return [api._events.get_nowait() for _ in range(api._events.qsize())]
 
     @pytest.mark.parametrize("url", [
-        "http://github.com/mojave333/trackhound/releases/download/v9/x-setup.exe",  # not TLS
-        "https://github.com.evil.test/mojave333/trackhound/releases/download/v9/x-setup.exe",
-        "https://example.com/mojave333/trackhound/releases/download/v9/x-setup.exe",
+        "http://github.com/mojave333/sonicache/releases/download/v9/x-setup.exe",  # not TLS
+        "https://github.com.evil.test/mojave333/sonicache/releases/download/v9/x-setup.exe",
+        "https://example.com/mojave333/sonicache/releases/download/v9/x-setup.exe",
         "https://github.com/someone/else/releases/download/v9/x-setup.exe",
         "",
     ])
@@ -531,7 +580,7 @@ class TestUpdateInstaller:
 
             def read(self):
                 return json.dumps({"tag_name": "v99.0.0", "html_url": "https://github.test/release",
-                                   "assets": [{"name": "Trackhound-v99.0.0-windows-x64-setup.exe",
+                                   "assets": [{"name": "Sonicache-v99.0.0-windows-x64-setup.exe",
                                                "browser_download_url": "https://github.test/setup.exe",
                                                "size": 1, "digest": "sha256:00"}]}).encode()
 
@@ -630,8 +679,8 @@ class TestInstallerCommand:
     window, decides when files are safe to replace."""
 
     def test_it_waits_for_this_process_and_reopens_the_program(self):
-        command = gui.installer_command(Path("C:/Temp/Trackhound-9.9.9-setup.exe"), 4321)
-        assert command[0].endswith("Trackhound-9.9.9-setup.exe")
+        command = gui.installer_command(Path("C:/Temp/Sonicache-9.9.9-setup.exe"), 4321)
+        assert command[0].endswith("Sonicache-9.9.9-setup.exe")
         assert "/WAITPID=4321" in command and "/UPDATE=1" in command
 
     def test_it_runs_without_a_wizard_or_questions(self):
@@ -753,7 +802,7 @@ class TestTidy:
         raise AssertionError("the tidy-up never finished")
 
     def test_the_counts_add_up_and_a_miss_is_named(self, monkeypatch, tmp_path):
-        from trackhound.engine.tidy import Outcome
+        from sonicache.engine.tidy import Outcome
         api, asked, done = self.run(monkeypatch, {
             "One": Outcome(found=True, files=3, tags=9, cover=True, lyrics=2),
             "Two": Outcome(found=False),
@@ -847,10 +896,10 @@ class TestBackground:
 
 
 @pytest.mark.parametrize("executable, manager", [
-    (r"C:\Users\me\scoop\apps\trackhound\current\Trackhound.exe", "scoop"),
-    ("/opt/trackhound/Trackhound", "aur"),
-    (r"C:\Users\me\AppData\Local\Programs\Trackhound\Trackhound.exe", ""),
-    ("/Applications/Trackhound.app/Contents/MacOS/Trackhound", ""),
+    (r"C:\Users\me\scoop\apps\sonicache\current\Sonicache.exe", "scoop"),
+    ("/opt/sonicache/Sonicache", "aur"),
+    (r"C:\Users\me\AppData\Local\Programs\Sonicache\Sonicache.exe", ""),
+    ("/Applications/Sonicache.app/Contents/MacOS/Sonicache", ""),
 ])
 def test_a_package_managers_install_is_left_to_it_to_update(executable, manager):
     assert gui._package_manager(executable) == manager

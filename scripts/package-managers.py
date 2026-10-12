@@ -7,9 +7,9 @@ hashes are the ones GitHub computed for the files as uploaded, read from its
 API, so nothing is downloaded here. The release workflow runs this once all
 the files are up, and commits the result:
 
-  bucket/trackhound.json                  Scoop: scoop bucket add trackhound <repo>
-  Casks/trackhound.rb                     Homebrew: brew tap mojave333/trackhound <repo>
-  packaging/aur/PKGBUILD, .SRCINFO        the AUR package trackhound-bin
+  bucket/sonicache.json                   Scoop: scoop bucket add sonicache <repo>
+  Casks/sonicache.rb                      Homebrew: brew tap mojave333/sonicache <repo>
+  packaging/aur/PKGBUILD, .SRCINFO        the AUR package sonicache-bin
   packaging/winget/<version>/*.yaml       winget, sent to microsoft/winget-pkgs
 
 Scoop and Homebrew read the first two straight from this repository. The AUR
@@ -24,21 +24,21 @@ import sys
 import urllib.request
 from pathlib import Path
 
-REPO = "mojave333/trackhound"
+REPO = "mojave333/sonicache"
 HOMEPAGE = f"https://github.com/{REPO}"
 ROOT = Path(__file__).resolve().parent.parent
 SUMMARY = "Music downloader, library and player"
 DESCRIPTION = ("Downloads albums, playlists and tracks from Spotify, Apple Music, Deezer, YouTube, "
                "SoundCloud and Bandcamp links, or by name, with tags, covers and lyrics; "
                "also a library and player for the whole collection")
-WINGET_ID = "mojave333.Trackhound"
-INNO_GUID = "{FA88A291-13E9-40D1-9496-B10A55139A16}"  # AppGuid in trackhound.iss
+WINGET_ID = "mojave333.Sonicache"
+INNO_GUID = "{FA88A291-13E9-40D1-9496-B10A55139A16}"  # AppGuid in sonicache.iss
 
 
 def digests(version: str) -> dict[str, str]:
     """The SHA-256 of every file of the release, by the kind of file."""
     request = urllib.request.Request(f"https://api.github.com/repos/{REPO}/releases/tags/v{version}",
-                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "trackhound"})
+                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "sonicache"})
     with urllib.request.urlopen(request, timeout=30) as response:
         assets = json.loads(response.read())["assets"]
     found = {}
@@ -46,7 +46,7 @@ def digests(version: str) -> dict[str, str]:
         digest = str(asset.get("digest") or "")
         if digest.startswith("sha256:"):
             for kind, ending in KINDS.items():
-                if asset["name"] == f"Trackhound-v{version}-{ending}":
+                if asset["name"] == f"Sonicache-v{version}-{ending}":
                     found[kind] = digest.removeprefix("sha256:")
     missing = set(KINDS) - set(found)
     if missing:
@@ -59,7 +59,7 @@ KINDS = {"zip": "windows-x64.zip", "setup": "windows-x64-setup.exe", "arm64": "m
 
 
 def download(version: str, kind: str) -> str:
-    return f"{HOMEPAGE}/releases/download/v{version}/Trackhound-v{version}-{KINDS[kind]}"
+    return f"{HOMEPAGE}/releases/download/v{version}/Sonicache-v{version}-{KINDS[kind]}"
 
 
 def scoop(version: str, sums: dict[str, str]) -> str:
@@ -69,26 +69,26 @@ def scoop(version: str, sums: dict[str, str]) -> str:
         "homepage": HOMEPAGE,
         "license": "GPL-2.0-or-later",
         "notes": "The program updates itself only when installed from its own installer; "
-                 "here, run: scoop update trackhound",
+                 "here, run: scoop update sonicache",
         "architecture": {"64bit": {"url": download(version, "zip"), "hash": sums["zip"]}},
-        "bin": [["Trackhound-cli.exe", "trackhound"]],
-        "shortcuts": [["Trackhound.exe", "Trackhound"]],
+        "bin": [["Sonicache-cli.exe", "sonicache"]],
+        "shortcuts": [["Sonicache.exe", "Sonicache"]],
         "checkver": {"github": HOMEPAGE},
         "autoupdate": {"architecture": {"64bit": {
-            "url": f"{HOMEPAGE}/releases/download/v$version/Trackhound-v$version-windows-x64.zip"}}},
+            "url": f"{HOMEPAGE}/releases/download/v$version/Sonicache-v$version-windows-x64.zip"}}},
     }, indent=4) + "\n"
 
 
 def cask(version: str, sums: dict[str, str]) -> str:
-    return f'''cask "trackhound" do
+    return f'''cask "sonicache" do
   arch arm: "arm64", intel: "x64"
 
   version "{version}"
   sha256 arm:   "{sums["arm64"]}",
          intel: "{sums["x64"]}"
 
-  url "{HOMEPAGE}/releases/download/v#{{version}}/Trackhound-v#{{version}}-macos-#{{arch}}.dmg"
-  name "Trackhound"
+  url "{HOMEPAGE}/releases/download/v#{{version}}/Sonicache-v#{{version}}-macos-#{{arch}}.dmg"
+  name "Sonicache"
   desc "{SUMMARY}"
   homepage "{HOMEPAGE}"
 
@@ -97,18 +97,20 @@ def cask(version: str, sums: dict[str, str]) -> str:
     strategy :github_latest
   end
 
-  app "Trackhound.app"
-  binary "#{{appdir}}/Trackhound.app/Contents/MacOS/Trackhound-cli", target: "trackhound"
+  app "Sonicache.app"
+  binary "#{{appdir}}/Sonicache.app/Contents/MacOS/Sonicache-cli", target: "sonicache"
 
   zap trash: [
+    "~/.sonicache.json",
     "~/.trackhound.json",
+    "~/Library/Application Support/Sonicache",
     "~/Library/Application Support/Trackhound",
   ]
 
   caveats <<~EOS
-    Trackhound is not signed by Apple, so macOS refuses to open it the first time.
-    Either right-click Trackhound in Applications and choose Open, or run:
-      xattr -dr com.apple.quarantine /Applications/Trackhound.app
+    Sonicache is not signed by Apple, so macOS refuses to open it the first time.
+    Either right-click Sonicache in Applications and choose Open, or run:
+      xattr -dr com.apple.quarantine /Applications/Sonicache.app
   EOS
 end
 '''
@@ -127,36 +129,36 @@ LOGO_SHA256 = hashlib.sha256((ROOT / "docs" / "logo.png").read_bytes()).hexdiges
 def pkgbuild(version: str, sums: dict[str, str]) -> str:
     depends = " ".join(f"'{name}'" for name in AUR_DEPENDS)
     return f'''# Maintainer: mojave333 <https://github.com/mojave333>
-pkgname=trackhound-bin
+pkgname=sonicache-bin
 pkgver={version}
 pkgrel=1
 pkgdesc="{SUMMARY}: albums, playlists and tracks by link or by name, with tags, covers and lyrics"
 arch=('x86_64')
 url="{HOMEPAGE}"
 license=('GPL-2.0-or-later')
-provides=('trackhound')
-conflicts=('trackhound')
+provides=('sonicache')
+conflicts=('sonicache')
 depends=({depends})
 options=('!strip' '!debug')
-source=("Trackhound-v${{pkgver}}-linux-x64.tar.xz::${{url}}/releases/download/v${{pkgver}}/Trackhound-v${{pkgver}}-linux-x64.tar.xz"
-        "trackhound.png::https://raw.githubusercontent.com/{REPO}/v${{pkgver}}/docs/logo.png")
+source=("Sonicache-v${{pkgver}}-linux-x64.tar.xz::${{url}}/releases/download/v${{pkgver}}/Sonicache-v${{pkgver}}-linux-x64.tar.xz"
+        "sonicache.png::https://raw.githubusercontent.com/{REPO}/v${{pkgver}}/docs/logo.png")
 sha256sums=('{sums["linux"]}'
             '{LOGO_SHA256}')
 
 package() {{
   install -d "$pkgdir/opt"
-  cp -a Trackhound "$pkgdir/opt/trackhound"
+  cp -a Sonicache "$pkgdir/opt/sonicache"
   install -d "$pkgdir/usr/bin"
-  ln -s /opt/trackhound/Trackhound-cli "$pkgdir/usr/bin/trackhound"
-  ln -s /opt/trackhound/Trackhound "$pkgdir/usr/bin/trackhound-window"
-  install -Dm644 trackhound.png "$pkgdir/usr/share/pixmaps/trackhound.png"
-  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/trackhound.desktop" <<END
+  ln -s /opt/sonicache/Sonicache-cli "$pkgdir/usr/bin/sonicache"
+  ln -s /opt/sonicache/Sonicache "$pkgdir/usr/bin/sonicache-window"
+  install -Dm644 sonicache.png "$pkgdir/usr/share/pixmaps/sonicache.png"
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/sonicache.desktop" <<END
 [Desktop Entry]
 Type=Application
-Name=Trackhound
+Name=Sonicache
 Comment={SUMMARY}
-Exec=/opt/trackhound/Trackhound
-Icon=trackhound
+Exec=/opt/sonicache/Sonicache
+Icon=sonicache
 Categories=AudioVideo;Audio;Player;Network;
 Terminal=false
 END
@@ -166,7 +168,7 @@ END
 
 def srcinfo(version: str, sums: dict[str, str]) -> str:
     lines = [
-        "pkgbase = trackhound-bin",
+        "pkgbase = sonicache-bin",
         f"\tpkgdesc = {SUMMARY}: albums, playlists and tracks by link or by name, with tags, covers and lyrics",
         f"\tpkgver = {version}",
         "\tpkgrel = 1",
@@ -174,16 +176,16 @@ def srcinfo(version: str, sums: dict[str, str]) -> str:
         "\tarch = x86_64",
         "\tlicense = GPL-2.0-or-later",
         *(f"\tdepends = {name}" for name in AUR_DEPENDS),
-        "\tprovides = trackhound",
-        "\tconflicts = trackhound",
+        "\tprovides = sonicache",
+        "\tconflicts = sonicache",
         "\toptions = !strip",
         "\toptions = !debug",
-        f"\tsource = Trackhound-v{version}-linux-x64.tar.xz::{download(version, 'linux')}",
-        f"\tsource = trackhound.png::https://raw.githubusercontent.com/{REPO}/v{version}/docs/logo.png",
+        f"\tsource = Sonicache-v{version}-linux-x64.tar.xz::{download(version, 'linux')}",
+        f"\tsource = sonicache.png::https://raw.githubusercontent.com/{REPO}/v{version}/docs/logo.png",
         f"\tsha256sums = {sums['linux']}",
         f"\tsha256sums = {LOGO_SHA256}",
         "",
-        "pkgname = trackhound-bin",
+        "pkgname = sonicache-bin",
         "",
     ]
     return "\n".join(lines)
@@ -216,7 +218,7 @@ def winget(version: str, sums: dict[str, str]) -> dict[str, str]:
             "Publisher: mojave333\n"
             f"PublisherUrl: https://github.com/mojave333\n"
             f"PublisherSupportUrl: {HOMEPAGE}/issues\n"
-            "PackageName: Trackhound\n"
+            "PackageName: Sonicache\n"
             f"PackageUrl: {HOMEPAGE}\n"
             "License: GPL-2.0-or-later\n"
             f"LicenseUrl: {HOMEPAGE}/blob/main/LICENSE\n"
@@ -235,8 +237,8 @@ def main() -> None:
         raise SystemExit(__doc__)
     sums = digests(version)
     files = {
-        ROOT / "bucket" / "trackhound.json": scoop(version, sums),
-        ROOT / "Casks" / "trackhound.rb": cask(version, sums),
+        ROOT / "bucket" / "sonicache.json": scoop(version, sums),
+        ROOT / "Casks" / "sonicache.rb": cask(version, sums),
         ROOT / "packaging" / "aur" / "PKGBUILD": pkgbuild(version, sums),
         ROOT / "packaging" / "aur" / ".SRCINFO": srcinfo(version, sums),
     }

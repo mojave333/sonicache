@@ -10,7 +10,7 @@ import urllib.request
 
 import pytest
 
-from trackhound.engine import network
+from sonicache.engine import network
 
 EMBED = f"https://open.spotify.com/embed/album/{network.PROBE_ALBUM}"
 PREVIEW = f"https://open.spotify.com/album/{network.PROBE_ALBUM}"

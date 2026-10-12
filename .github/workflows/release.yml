@@ -62,7 +62,7 @@ jobs:
           if (git ls-remote --tags origin "refs/tags/$env:tag") {
             throw "$env:tag already exists. Pick a version that has not been released."
           }
-          $init = "trackhound/__init__.py"
+          $init = "sonicache/__init__.py"
           $text = Get-Content $init -Raw
           $updated = [regex]::Replace($text, '__version__ = "[^"]+"', "__version__ = `"$env:version`"")
           if ($updated -ne $text) {
@@ -85,10 +85,10 @@ jobs:
         if: github.event_name == 'push'
         shell: pwsh
         run: |
-          $source = (Select-String -Path trackhound/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          $source = (Select-String -Path sonicache/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
           Write-Output "tag $env:version, __version__ $source"
           if ($source -ne $env:version) {
-            throw "Tag $env:version does not match __version__ $source in trackhound/__init__.py"
+            throw "Tag $env:version does not match __version__ $source in sonicache/__init__.py"
           }
 
       - name: Install dependencies
@@ -105,15 +105,15 @@ jobs:
         run: ./scripts/fetch-vendor.ps1
 
       - name: Build
-        run: pyinstaller --noconfirm trackhound.spec
+        run: pyinstaller --noconfirm sonicache.spec
 
       - name: Check the build starts
         shell: pwsh
         run: |
-          $out = & ./dist/Trackhound/Trackhound-cli.exe --help
-          if ($LASTEXITCODE -ne 0) { throw "Trackhound-cli.exe --help exited with $LASTEXITCODE" }
-          foreach ($file in "dist/Trackhound/Trackhound.exe", "dist/Trackhound/_internal/trackhound/web/index.html",
-                            "dist/Trackhound/_internal/bin/ffmpeg.exe", "dist/Trackhound/_internal/bin/deno.exe") {
+          $out = & ./dist/Sonicache/Sonicache-cli.exe --help
+          if ($LASTEXITCODE -ne 0) { throw "Sonicache-cli.exe --help exited with $LASTEXITCODE" }
+          foreach ($file in "dist/Sonicache/Sonicache.exe", "dist/Sonicache/_internal/sonicache/web/index.html",
+                            "dist/Sonicache/_internal/bin/ffmpeg.exe", "dist/Sonicache/_internal/bin/deno.exe") {
             if (-not (Test-Path $file)) { throw "missing from the build: $file" }
           }
 
@@ -129,21 +129,21 @@ jobs:
       - name: Pack
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/Trackhound/* -DestinationPath "Trackhound-$env:tag-windows-x64.zip"
-          $setup = Get-ChildItem dist/Trackhound-*-windows-x64-setup.exe | Select-Object -First 1
-          Move-Item $setup.FullName "Trackhound-$env:tag-windows-x64-setup.exe"
-          "archive=Trackhound-$env:tag-windows-x64.zip" >> $env:GITHUB_ENV
-          "installer=Trackhound-$env:tag-windows-x64-setup.exe" >> $env:GITHUB_ENV
+          Compress-Archive -Path dist/Sonicache/* -DestinationPath "Sonicache-$env:tag-windows-x64.zip"
+          $setup = Get-ChildItem dist/Sonicache-*-windows-x64-setup.exe | Select-Object -First 1
+          Move-Item $setup.FullName "Sonicache-$env:tag-windows-x64-setup.exe"
+          "archive=Sonicache-$env:tag-windows-x64.zip" >> $env:GITHUB_ENV
+          "installer=Sonicache-$env:tag-windows-x64-setup.exe" >> $env:GITHUB_ENV
           # Published in the release notes: the build is unsigned, so the hash is
           # the only way a reader can tell a download apart from someone's reupload.
-          foreach ($pair in @{ sha256 = "Trackhound-$env:tag-windows-x64.zip"
-                               installer_sha256 = "Trackhound-$env:tag-windows-x64-setup.exe" }.GetEnumerator()) {
+          foreach ($pair in @{ sha256 = "Sonicache-$env:tag-windows-x64.zip"
+                               installer_sha256 = "Sonicache-$env:tag-windows-x64-setup.exe" }.GetEnumerator()) {
             "$($pair.Key)=$((Get-FileHash $pair.Value -Algorithm SHA256).Hash.ToLower())" >> $env:GITHUB_ENV
           }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Trackhound-windows-x64
+          name: Sonicache-windows-x64
           path: |
             ${{ env.archive }}
             ${{ env.installer }}
@@ -184,24 +184,24 @@ jobs:
             Download `${{ env.installer }}` and run it. The installer asks where to put
             the program, offers a desktop shortcut, and starts it for you at the end.
             No administrator rights are needed: by default it installs for you alone,
-            into `%LOCALAPPDATA%\Programs\Trackhound`, and uninstalls through
+            into `%LOCALAPPDATA%\Programs\Sonicache`, and uninstalls through
             Settings → Apps like any other program.
 
             If you would rather not use an installer, `${{ env.archive }}` sits beside
-            it: unpack it anywhere and run `Trackhound.exe`.
+            it: unpack it anywhere and run `Sonicache.exe`.
 
             Nothing else has to be installed: ffmpeg and Deno are inside.
-            `Trackhound-cli.exe` is the same program for a terminal.
+            `Sonicache-cli.exe` is the same program for a terminal.
 
-            For macOS there is `Trackhound-${{ env.tag }}-macos-arm64.dmg` (Apple Silicon)
-            and `Trackhound-${{ env.tag }}-macos-x64.dmg` (Intel), and for 64-bit Linux `Trackhound-${{ env.tag }}-linux-x64.tar.xz`; they are
+            For macOS there is `Sonicache-${{ env.tag }}-macos-arm64.dmg` (Apple Silicon)
+            and `Sonicache-${{ env.tag }}-macos-x64.dmg` (Intel), and for 64-bit Linux `Sonicache-${{ env.tag }}-linux-x64.tar.xz`; they are
             added a few minutes after this page appears. How to start them is in
-            [macOS and Linux](https://github.com/mojave333/trackhound#macos-and-linux).
+            [macOS and Linux](https://github.com/mojave333/sonicache#macos-and-linux).
 
             Windows Defender may call this unsigned build `Trojan:Win32/Sabsik.EN.D!ml`.
             That is a false positive its machine learning raises against almost anything
             built with PyInstaller; what to do about it is in
-            [Installing](https://github.com/mojave333/trackhound#installing).
+            [Installing](https://github.com/mojave333/sonicache#installing).
 
             SHA-256 — installer `${{ env.installer_sha256 }}`,
             archive `${{ env.sha256 }}`. Check your copy with `Get-FileHash <file>`.
@@ -290,14 +290,14 @@ jobs:
         run: gh release upload "${{ needs.windows.outputs.tag }}" "$package" --clobber
 
   # PyPI trusts this workflow through Trusted Publishing, so no token is stored
-  # anywhere. The publisher is set up once on pypi.org: project trackhound,
-  # owner mojave333, repository trackhound, workflow release.yml, environment pypi.
+  # anywhere. The publisher is set up once on pypi.org: project sonicache,
+  # owner mojave333, repository sonicache, workflow release.yml, environment pypi.
   pypi:
     needs: windows
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/trackhound/
+      url: https://pypi.org/project/sonicache/
     permissions:
       contents: read
       id-token: write
@@ -316,12 +316,12 @@ jobs:
           python -m build
           twine check dist/*
 
-      # The version comes from trackhound/__init__.py; the tag already had to
+      # The version comes from sonicache/__init__.py; the tag already had to
       # agree with it, so a mismatch here means the wrong commit was checked out.
       - name: Check the version
         run: |
           tag="${{ needs.windows.outputs.tag }}"
-          ls "dist/trackhound-${tag#v}-py3-none-any.whl"
+          ls "dist/sonicache-${tag#v}-py3-none-any.whl"
 
       - uses: pypa/gh-action-pypi-publish@release/v1
 
@@ -365,7 +365,7 @@ jobs:
         if: env.WINGET_TOKEN != ''
         uses: vedantmgoyal9/winget-releaser@v2
         with:
-          identifier: mojave333.Trackhound
+          identifier: mojave333.Sonicache
           release-tag: ${{ needs.windows.outputs.tag }}
           installers-regex: '-windows-x64-setup\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}

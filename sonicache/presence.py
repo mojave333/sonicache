@@ -33,9 +33,9 @@ from typing import Callable
 
 from .logs import log
 
-CLIENT_ID = "1552340155522875503"  # the Trackhound application on Discord
-HOMEPAGE = "https://github.com/mojave333/trackhound"
-LOGO = "https://raw.githubusercontent.com/mojave333/trackhound/main/docs/logo.png"
+CLIENT_ID = "1552340155522875503"  # the Sonicache application on Discord
+HOMEPAGE = "https://github.com/mojave333/sonicache"
+LOGO = "https://raw.githubusercontent.com/mojave333/sonicache/main/docs/logo.png"
 
 _HANDSHAKE, _FRAME, _CLOSE, _PING, _PONG = 0, 1, 2, 3, 4
 _LISTENING = 2  # the activity's type: "Listening to", as music players have it
@@ -125,13 +125,13 @@ class Presence:
 def activity(track: dict, cover: str = "") -> dict:
     """The activity Discord shows for a track: its title, artist and album,
     the cover or the logo, and its start and end for the moving bar."""
-    title = _text(track.get("title")) or "Trackhound"
+    title = _text(track.get("title")) or "Sonicache"
     shown = {
         "type": _LISTENING,
         "status_display_type": _SHOW_STATE,
         "details": title,
         "assets": {"large_image": cover or LOGO},
-        "buttons": [{"label": "Trackhound", "url": HOMEPAGE}],
+        "buttons": [{"label": "Sonicache", "url": HOMEPAGE}],
     }
     artists = _text(track.get("artists") or track.get("album_artist"))
     if artists:

@@ -42,8 +42,23 @@ TRACK_NAMES = ("auto", "artist", "title")
 # How the album folder itself is named, inside the music folder
 FOLDER_NAMES = ("flat", "nested", "album")
 # Written into every album folder: where the album came from
-MARKER_NAME = ".trackhound.json"
-DEFAULT_OUTPUT_DIR = Path.home() / "Music" / "Trackhound"
+MARKER_NAME = ".sonicache.json"
+# What it was called while the program was Trackhound. Albums downloaded then
+# still carry it: it is read where the new one is missing, and gives way to the
+# new one when the album is downloaded again
+FORMER_MARKER_NAME = ".trackhound.json"
+MARKER_NAMES = (MARKER_NAME, FORMER_MARKER_NAME)
+
+
+def _default_output_dir() -> Path:
+    """~/Music/Sonicache, or the folder under the program's former name for
+    whoever has music in it already and no folder under the new one."""
+    music = Path.home() / "Music"
+    former = music / "Trackhound"
+    return former if former.is_dir() and not (music / "Sonicache").exists() else music / "Sonicache"
+
+
+DEFAULT_OUTPUT_DIR = _default_output_dir()
 # A 1000x1000 cover is about a megabyte; past this it is not artwork any more
 MAX_COVER_BYTES = 8 * 1024 * 1024
 KINDS = {"album": "альбом", "single": "сингл", "ep": "EP", "compilation": "сборник", "playlist": "плейлист"}
@@ -63,7 +78,7 @@ class DownloaderError(_CodedError):
 def tool_dirs() -> list[Path]:
     """Where a copy of ffmpeg or deno shipped with the program would sit.
 
-    A build made with trackhound.spec keeps them in _internal\\bin; a copy the
+    A build made with sonicache.spec keeps them in _internal\\bin; a copy the
     user drops next to the exe wins over it, and a checkout uses vendor\\ so
     that running from source behaves the same way.
     """
@@ -72,7 +87,7 @@ def tool_dirs() -> list[Path]:
         roots.append(Path(sys.executable).parent)
         roots.append(Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)))
     else:
-        roots.append(Path(__file__).resolve().parents[2] / "vendor")  # trackhound/engine/ -> checkout
+        roots.append(Path(__file__).resolve().parents[2] / "vendor")  # sonicache/engine/ -> checkout
     return [folder for root in roots for folder in (root / "bin", root)]
 
 
@@ -758,11 +773,14 @@ def _cookie_options(options: Options, source: str) -> dict:
 
 def read_marker(folder: Path) -> dict:
     """What _write_marker left in an album folder; {} where there is none to read."""
-    try:
-        data = json.loads((folder / MARKER_NAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
+    for name in MARKER_NAMES:
+        try:
+            data = json.loads((folder / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            return data
+    return {}
 
 
 def _write_marker(folder: Path, album: Album, link: str) -> None:
@@ -790,6 +808,7 @@ def _write_marker(folder: Path, album: Album, link: str) -> None:
     try:
         (folder / MARKER_NAME).write_text(json.dumps(marker, ensure_ascii=False, indent=2),
                                           encoding="utf-8")
+        (folder / FORMER_MARKER_NAME).unlink(missing_ok=True)  # one marker to a folder
     except OSError as e:
         log.getChild("download").warning("не записал %s: %s", MARKER_NAME, e)
 

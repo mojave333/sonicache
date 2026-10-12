@@ -7,11 +7,11 @@ import threading
 import pytest
 from mutagen import File as MutagenFile
 
-from trackhound.engine import downloader
-from trackhound.engine.downloader import (DownloaderError, Options, Report, _check_duration, _clear_partials,
+from sonicache.engine import downloader
+from sonicache.engine.downloader import (DownloaderError, Options, Report, _check_duration, _clear_partials,
                                    _cookie_options, _direct_match, _error_text, _file_stem, _legacy_stem,
                                    _mmss, _safe_name)
-from trackhound.engine.models import Album, Release, Track
+from sonicache.engine.models import Album, Release, Track
 
 
 def album(artist="Daft Punk", name="Discovery", discs=1):
@@ -257,6 +257,41 @@ class TestMarker:
         downloader._write_marker(tmp_path, album(), "https://x.test/a")  # must not raise
 
 
+class TestFormerName:
+    """Until 3.0 the program was called Trackhound: the albums it downloaded
+    then carry a marker of that name, and its music may sit in that folder."""
+
+    def test_a_marker_of_the_former_name_is_still_read(self, tmp_path):
+        (tmp_path / ".trackhound.json").write_text(json.dumps({"link": "https://x.test/a"}), encoding="utf-8")
+        assert downloader.read_marker(tmp_path)["link"] == "https://x.test/a"
+
+    def test_the_new_marker_is_read_before_the_former(self, tmp_path):
+        (tmp_path / ".trackhound.json").write_text(json.dumps({"link": "https://x.test/old"}), encoding="utf-8")
+        (tmp_path / ".sonicache.json").write_text(json.dumps({"link": "https://x.test/new"}), encoding="utf-8")
+        assert downloader.read_marker(tmp_path)["link"] == "https://x.test/new"
+
+    def test_a_broken_new_marker_leaves_the_former_to_answer(self, tmp_path):
+        (tmp_path / ".trackhound.json").write_text(json.dumps({"link": "https://x.test/old"}), encoding="utf-8")
+        (tmp_path / ".sonicache.json").write_text("{ not json", encoding="utf-8")
+        assert downloader.read_marker(tmp_path)["link"] == "https://x.test/old"
+
+    def test_downloading_again_leaves_one_marker(self, tmp_path):
+        (tmp_path / ".trackhound.json").write_text("{}", encoding="utf-8")
+        downloader._write_marker(tmp_path, album(), "https://x.test/a")
+        assert sorted(path.name for path in tmp_path.iterdir()) == [".sonicache.json"]
+
+    def test_music_goes_to_a_folder_of_the_new_name(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("pathlib.Path.home", staticmethod(lambda: tmp_path))
+        assert downloader._default_output_dir() == tmp_path / "Music" / "Sonicache"
+
+    def test_a_folder_of_the_former_name_with_music_in_it_stays_the_default(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("pathlib.Path.home", staticmethod(lambda: tmp_path))
+        (tmp_path / "Music" / "Trackhound").mkdir(parents=True)
+        assert downloader._default_output_dir() == tmp_path / "Music" / "Trackhound"
+        (tmp_path / "Music" / "Sonicache").mkdir()
+        assert downloader._default_output_dir() == tmp_path / "Music" / "Sonicache"
+
+
 class TestDirectMatch:
     def test_a_track_that_streams_openly_needs_no_search(self):
         track = Track(id="1", title="X", artists="Y", duration=10, track_number=1,
@@ -320,7 +355,7 @@ class TestCover:
         assert downloader.Downloader(Options(tmp_path))._fetch_cover("") is None
 
     def test_the_reason_is_said_in_the_language_set(self, monkeypatch, tmp_path):
-        from trackhound.engine import set_language
+        from sonicache.engine import set_language
         set_language("en")  # the tests' own fixture puts Russian back afterwards
         huge = b"\xff\xd8\xff" + b"x" * downloader.MAX_COVER_BYTES
         assert self.fetch(monkeypatch, tmp_path, huge)[1] == [

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from trackhound.engine import sources
-from trackhound.engine.models import Album, SourceError
+from sonicache.engine import sources
+from sonicache.engine.models import Album, SourceError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

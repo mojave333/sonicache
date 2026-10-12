@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from trackhound.engine import spotify
-from trackhound.engine.models import SourceError
+from sonicache.engine import spotify
+from sonicache.engine.models import SourceError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

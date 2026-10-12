@@ -5,7 +5,7 @@ import string
 
 import pytest
 
-from trackhound import i18n
+from sonicache import i18n
 
 PLACEHOLDER = re.compile(r"\{(\w+)\}")
 

@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from trackhound import gui, playlists
+from sonicache import gui, playlists
 
 
 def song(path, title="Song", artists="Band", album="Record", duration=200):

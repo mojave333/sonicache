@@ -2,30 +2,30 @@
 ;
 ;     powershell -File scripts\build-installer.ps1
 ;
-; It expects the folder PyInstaller leaves in dist\Trackhound, so build that
-; first: pyinstaller --noconfirm trackhound.spec
+; It expects the folder PyInstaller leaves in dist\Sonicache, so build that
+; first: pyinstaller --noconfirm sonicache.spec
 ;
 ; The installer asks for no administrator rights. It installs into
-; %LOCALAPPDATA%\Programs\Trackhound for the person running it, and only
+; %LOCALAPPDATA%\Programs\Sonicache for the person running it, and only
 ; offers the machine-wide Program Files when that person is an administrator
 ; anyway — an unsigned installer that opens a UAC prompt saying "unknown
 ; publisher" is exactly what the README asks people not to be scared by, so
 ; the default avoids the prompt entirely.
 
-#define AppName "Trackhound"
+#define AppName "Sonicache"
 #define AppPublisher "mojave333"
-#define AppUrl "https://github.com/mojave333/trackhound"
+#define AppUrl "https://github.com/mojave333/sonicache"
 
 #ifndef SourceFolder
-  #define SourceFolder "dist\Trackhound"
+  #define SourceFolder "dist\Sonicache"
 #endif
-#define AppExe SourceFolder + "\Trackhound.exe"
+#define AppExe SourceFolder + "\Sonicache.exe"
 
 #if !FileExists(AppExe)
-  #error Build the program first: pyinstaller --noconfirm trackhound.spec
+  #error Build the program first: pyinstaller --noconfirm sonicache.spec
 #endif
 
-; build-installer.ps1 passes the version from trackhound/__init__.py, which is
+; build-installer.ps1 passes the version from sonicache/__init__.py, which is
 ; the single source of truth. On its own the script falls back to the resource
 ; the spec file stamps into the exe, which says the same thing with a ".0" on
 ; the end.
@@ -49,7 +49,7 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppUrl}
 AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases/latest
-; The same reasoning as the version resource in trackhound.spec: an unsigned
+; The same reasoning as the version resource in sonicache.spec: an unsigned
 ; installer with no metadata at all is what the scanners like least, and
 ; filling this in costs nothing.
 VersionInfoVersion={#AppVersion}
@@ -59,12 +59,18 @@ VersionInfoDescription={#AppName} {#AppVersion} setup
 VersionInfoCopyright=GPL-2.0-or-later
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
-UninstallDisplayIcon={app}\Trackhound.exe
+; Until 3.0 the program was called Trackhound, and this installer updates a
+; copy installed under that name (same AppId). It stays in the folder it finds,
+; whatever that is called, but its Start menu group is made anew: with the old
+; group remembered, the new shortcut would sit in a folder named Trackhound.
+; What the old copy leaves behind is listed under [InstallDelete].
+UsePreviousGroup=no
+UninstallDisplayIcon={app}\Sonicache.exe
 UninstallDisplayName={#AppName}
 LicenseFile=LICENSE
 OutputDir=dist
 OutputBaseFilename={#AppName}-{#AppVersion}-windows-x64-setup
-SetupIconFile=trackhound\web\icon.ico
+SetupIconFile=sonicache\web\icon.ico
 WizardStyle=modern
 Compression=lzma2/max
 SolidCompression=yes
@@ -78,7 +84,7 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog commandline
 ; A running copy is closed by PrepareToInstall below, which knows which
 ; processes are this program's. Restart Manager was not enough on its own: a
-; copy that did not close in time left Trackhound.exe locked, and an update
+; copy that did not close in time left Sonicache.exe locked, and an update
 ; stopped halfway with the new files beside the old program.
 CloseApplications=no
 RestartApplications=no
@@ -98,20 +104,29 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 ; mark Inno Setup reads the script as ANSI and the Russian below turns to
 ; mojibake in the wizard.
 [CustomMessages]
-russian.CloseRunning=Trackhound сейчас запущен, а его файлы нужно заменить. Закрыть программу и продолжить установку?%n%nЗагрузки, которые идут прямо сейчас, остановятся; при следующем запуске их можно будет продолжить.
-russian.StillRunning=Trackhound всё ещё запущен. Закройте его и запустите установку снова — ни один файл не изменён.
-english.CloseRunning=Trackhound is running, and its files need to be replaced. Close it and go on with the installation?%n%nDownloads in progress will stop; they can be picked up again the next time it starts.
-english.StillRunning=Trackhound is still running. Close it and start the installation again — no file has been changed.
-russian.AddToPath=Добавить Trackhound-cli в переменную PATH
+russian.CloseRunning=Sonicache сейчас запущен, а его файлы нужно заменить. Закрыть программу и продолжить установку?%n%nЗагрузки, которые идут прямо сейчас, остановятся; при следующем запуске их можно будет продолжить.
+russian.StillRunning=Sonicache всё ещё запущен. Закройте его и запустите установку снова — ни один файл не изменён.
+english.CloseRunning=Sonicache is running, and its files need to be replaced. Close it and go on with the installation?%n%nDownloads in progress will stop; they can be picked up again the next time it starts.
+english.StillRunning=Sonicache is still running. Close it and start the installation again — no file has been changed.
+russian.AddToPath=Добавить Sonicache-cli в переменную PATH
 russian.AddToPathInfo=Дополнительно:
-russian.RemoveSettings=Удалить настройки Trackhound и журнал работы?%n%nСкачанная музыка не будет затронута — она останется в папке, которую вы выбрали в программе.
-english.AddToPath=Add Trackhound-cli to the PATH variable
+russian.RemoveSettings=Удалить настройки Sonicache и журнал работы?%n%nСкачанная музыка не будет затронута — она останется в папке, которую вы выбрали в программе.
+english.AddToPath=Add Sonicache-cli to the PATH variable
 english.AddToPathInfo=Additional options:
-english.RemoveSettings=Delete the Trackhound settings and log file?%n%nDownloaded music is left alone: it stays in the folder you chose in the program.
+english.RemoveSettings=Delete the Sonicache settings and log file?%n%nDownloaded music is left alone: it stays in the folder you chose in the program.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 Name: "addtopath"; Description: "{cm:AddToPath}"; GroupDescription: "{cm:AddToPathInfo}"; Flags: unchecked
+
+[InstallDelete]
+; A copy installed as Trackhound: its two programs, the folder its window was
+; read from, and its shortcuts. Nothing here exists on a fresh installation.
+Type: files; Name: "{app}\Trackhound.exe"
+Type: files; Name: "{app}\Trackhound-cli.exe"
+Type: filesandordirs; Name: "{app}\_internal\trackhound"
+Type: filesandordirs; Name: "{autoprograms}\Trackhound"
+Type: files; Name: "{autodesktop}\Trackhound.lnk"
 
 [Files]
 Source: "{#SourceFolder}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -119,20 +134,20 @@ Source: "{#SourceFolder}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\Trackhound.exe"
+Name: "{group}\{#AppName}"; Filename: "{app}\Sonicache.exe"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Trackhound.exe"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Sonicache.exe"; Tasks: desktopicon
 
 [Registry]
 Root: HKA; Subkey: "{code:EnvironmentKey}"; ValueType: expandsz; ValueName: "Path"; \
     ValueData: "{code:PathWithApp}"; Tasks: addtopath; Check: NotAlreadyOnPath
 
 [Run]
-Filename: "{app}\Trackhound.exe"; Description: "{cm:LaunchProgram,{#AppName}}"; \
+Filename: "{app}\Sonicache.exe"; Description: "{cm:LaunchProgram,{#AppName}}"; \
     Flags: nowait postinstall skipifsilent
 ; An update started from inside the program runs silently and opens the new
 ; version when it is done, as the person who pressed the button expects.
-Filename: "{app}\Trackhound.exe"; Flags: nowait; Check: IsUpdateFromProgram
+Filename: "{app}\Sonicache.exe"; Flags: nowait; Check: IsUpdateFromProgram
 
 [Code]
 { The updater inside the program passes /UPDATE=1 and its own process id. }
@@ -174,9 +189,10 @@ begin
 end;
 
 { Every copy of the program running from the folder about to be written,
-  Trackhound.exe or Trackhound-cli.exe, whatever version started it. An
-  updater from an older release passes no process id to wait for, so this is
-  what keeps its update from stopping halfway. }
+  Sonicache.exe or Sonicache-cli.exe, whatever version started it, and under
+  the name it had before 3.0 as well: that is the copy an update from
+  Trackhound finds running. An updater from an older release passes no process
+  id to wait for, so this is what keeps its update from stopping halfway. }
 function RunningCopies(Terminate: Boolean): Integer;
 var
   Locator, Service, Found, Item: Variant;
@@ -189,7 +205,8 @@ begin
     Locator := CreateOleObject('WbemScripting.SWbemLocator');
     Service := Locator.ConnectServer('.', 'root\CIMV2');
     Found := Service.ExecQuery('SELECT ProcessId, ExecutablePath FROM Win32_Process ' +
-      'WHERE Name = ''Trackhound.exe'' OR Name = ''Trackhound-cli.exe''');
+      'WHERE Name = ''Sonicache.exe'' OR Name = ''Sonicache-cli.exe'' ' +
+      'OR Name = ''Trackhound.exe'' OR Name = ''Trackhound-cli.exe''');
     for I := 0 to Found.Count - 1 do
     begin
       Item := Found.ItemIndex(I);
@@ -218,7 +235,7 @@ begin
   Result := '';
   if RunningCopies(False) = 0 then
     Exit;
-  Log('Trackhound is running from the target folder');
+  Log('Sonicache is running from the target folder');
   if SuppressibleMsgBox(CustomMessage('CloseRunning'), mbConfirmation, MB_OKCANCEL, IDOK) <> IDOK then
   begin
     Result := CustomMessage('StillRunning');
@@ -254,7 +271,7 @@ begin
 end;
 
 { Matching on ";value;" keeps a folder whose name merely ends the same way
-  (say ...\Trackhound-dev) from passing for one that is already listed. }
+  (say ...\Sonicache-dev) from passing for one that is already listed. }
 function IsListed(const Path, Folder: string): Boolean;
 begin
   Result := Pos(';' + Uppercase(Folder) + ';', ';' + Uppercase(Path) + ';') > 0;
@@ -295,8 +312,12 @@ begin
   RegWriteExpandStringValue(HKEY_AUTO, EnvironmentKey(''), 'Path', Path);
 end;
 
+{ The files of the former name go too: the program copied them over on its
+  first start as Sonicache and has had no use for them since. }
 procedure RemoveSettings;
 begin
+  DeleteFile(ExpandConstant('{%USERPROFILE}\.sonicache.json'));
+  DelTree(ExpandConstant('{localappdata}\Sonicache'), True, True, True);
   DeleteFile(ExpandConstant('{%USERPROFILE}\.trackhound.json'));
   DelTree(ExpandConstant('{localappdata}\Trackhound'), True, True, True);
 end;

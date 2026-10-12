@@ -9,9 +9,9 @@ import pytest
 from mutagen import File as MutagenFile
 from mutagen.id3 import ID3, TIT2, TXXX
 
-from trackhound.engine import downloader, tidy
-from trackhound.engine.lyrics import Lyrics
-from trackhound.engine.models import Album, Release, Track
+from sonicache.engine import downloader, tidy
+from sonicache.engine.lyrics import Lyrics
+from sonicache.engine.models import Album, Release, Track
 
 FFMPEG = downloader.find_tool("ffmpeg")
 CODECS = {"m4a": ["-c:a", "aac", "-b:a", "96k"], "mp3": ["-c:a", "libmp3lame", "-b:a", "128k"],

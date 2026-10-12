@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from trackhound import gui, watch
+from sonicache import gui, watch
 
 SETTINGS = {"folder": "D:/Music", "format": "mp3", "track_name": "artist", "folder_name": "nested",
             "theme": "dark", "proxy": ""}

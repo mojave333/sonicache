@@ -1,8 +1,8 @@
 # The Python package on PyPI: the engine and the command line, with the window
 # as an extra. The Windows build does not use this file; it is made by
-# trackhound.spec from requirements.txt.
+# sonicache.spec from requirements.txt.
 #
-#     python -m build          # dist/trackhound-X.Y.Z.tar.gz and the wheel
+#     python -m build          # dist/sonicache-X.Y.Z.tar.gz and the wheel
 #
 # release.yml builds and publishes it together with the exe.
 
@@ -11,7 +11,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "trackhound"
+name = "sonicache"
 dynamic = ["version"]
 description = "Download albums, playlists and tracks by link from Spotify, Apple Music, Deezer, YouTube and SoundCloud, tagged and with cover art"
 readme = "docs/pypi.md"
@@ -41,21 +41,21 @@ dependencies = [
 gui = ["pywebview"]
 
 [project.scripts]
-trackhound = "trackhound.cli:main"
+sonicache = "sonicache.cli:main"
 
 [project.gui-scripts]
-trackhound-gui = "trackhound.gui:main"
+sonicache-gui = "sonicache.gui:main"
 
 [project.urls]
-Homepage = "https://github.com/mojave333/trackhound"
-Issues = "https://github.com/mojave333/trackhound/issues"
-Releases = "https://github.com/mojave333/trackhound/releases"
+Homepage = "https://github.com/mojave333/sonicache"
+Issues = "https://github.com/mojave333/sonicache/issues"
+Releases = "https://github.com/mojave333/sonicache/releases"
 
 [tool.setuptools]
-packages = ["trackhound", "trackhound.engine"]
+packages = ["sonicache", "sonicache.engine"]
 
 [tool.setuptools.package-data]
-trackhound = ["web/*", "web/art/*", "web/fonts/*"]
+sonicache = ["web/*", "web/art/*", "web/fonts/*"]
 
 [tool.setuptools.dynamic]
-version = { attr = "trackhound.__version__" }
+version = { attr = "sonicache.__version__" }

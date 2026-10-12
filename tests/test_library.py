@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 from mutagen import File as MutagenFile
 
-from trackhound import gui
-from trackhound.engine import downloader, sources
-from trackhound.engine.models import Album, SourceError, Track
+from sonicache import gui
+from sonicache.engine import downloader, sources
+from sonicache.engine.models import Album, SourceError, Track
 
 FFMPEG = downloader.find_tool("ffmpeg")
 CODECS = {"m4a": ["-c:a", "aac", "-b:a", "96k"], "mp3": ["-c:a", "libmp3lame", "-b:a", "128k"],
@@ -294,7 +294,7 @@ class TestMusicBrainz:
 
     def test_the_three_most_voted_genres_of_the_right_album(self, answers):
         assert sources.musicbrainz_genres("Radiohead", "In Rainbows") == ["Alternative Rock", "Rock", "Art Rock"]
-        assert all("Trackhound" in agent for _, agent in answers)  # MusicBrainz wants to know who asks
+        assert all("Sonicache" in agent for _, agent in answers)  # MusicBrainz wants to know who asks
         assert answers[1][0].startswith("https://musicbrainz.org/ws/2/release-group/right?inc=genres")
 
     def test_a_genre_far_behind_the_first_is_left_out(self, answers, monkeypatch):
@@ -370,7 +370,7 @@ class TestLibraryScan:
 
     def test_the_tags_speak_before_the_folder_names(self, tmp_path):
         """Downloads kept in a folder of their own inside the collection keep their own artist."""
-        song(tmp_path / "Trackhound" / "Charli xcx - BRAT (2024)", "01. 360", album="BRAT", artist="Charli xcx",
+        song(tmp_path / "Sonicache" / "Charli xcx - BRAT (2024)", "01. 360", album="BRAT", artist="Charli xcx",
              year="2024")
         [item] = gui.Api.library(None, str(tmp_path))
         assert (item["title"], item["artist"], item["year"]) == ("BRAT", "Charli xcx", "2024")

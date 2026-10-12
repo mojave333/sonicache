@@ -11,7 +11,7 @@ import urllib.request
 import pytest
 import requests
 
-from trackhound.engine import use_proxy
+from sonicache.engine import use_proxy
 
 
 class _Page(http.server.BaseHTTPRequestHandler):

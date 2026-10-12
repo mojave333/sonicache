@@ -1,4 +1,4 @@
-// Trackhound's Spotify relay, a Cloudflare Worker.
+// Sonicache's Spotify relay, a Cloudflare Worker.
 //
 // Spotify keeps the pages of its releases from the countries it does not work
 // in, Russia among them: the program there gets "not currently available"

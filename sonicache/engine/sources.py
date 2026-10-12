@@ -41,7 +41,7 @@ _VIDEO_TYPES = {"MUSIC_VIDEO_TYPE_UGC", "MUSIC_VIDEO_TYPE_OMV", "MUSIC_VIDEO_TYP
 _YTDLP_OPTS = {"quiet": True, "no_warnings": True, "skip_download": True, "logger": YtdlpLogger("sources")}
 _SERVICE_NAMES = {"soundcloud": "SoundCloud", "bandcamp": "Bandcamp", "mixcloud": "Mixcloud"}
 # MusicBrainz asks every program to name itself and to send one request a second
-_MUSICBRAINZ_UA = "Trackhound ( https://github.com/mojave333/trackhound )"
+_MUSICBRAINZ_UA = "Sonicache ( https://github.com/mojave333/sonicache )"
 _MUSICBRAINZ_LOCK = threading.Lock()
 _musicbrainz_last = 0.0
 GENRE_LIMIT = 3  # the most voted genres written into the tags

@@ -1,15 +1,15 @@
 """Where the engine writes what went on, for whoever cares to keep it.
 
-Everything goes to the "trackhound" logger and its children. The engine never
+Everything goes to the "sonicache" logger and its children. The engine never
 sets up handlers of its own: the program points the logger at a file
-(trackhound/logs.py), and a script using the engine can do what it likes.
+(sonicache/logs.py), and a script using the engine can do what it likes.
 """
 
 from __future__ import annotations
 
 import logging
 
-log = logging.getLogger("trackhound")
+log = logging.getLogger("sonicache")
 
 
 class YtdlpLogger:

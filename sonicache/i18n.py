@@ -1,6 +1,6 @@
 """The lines the window and the command line say, added to the engine's table.
 
-The lookup itself and the engine's own lines live in trackhound.engine.i18n;
+The lookup itself and the engine's own lines live in sonicache.engine.i18n;
 importing this module is what teaches that table the rest of the program.
 """
 
@@ -116,10 +116,10 @@ ENGLISH.update({
     "\n--- {path} (последние {lines} строк) ---": "\n--- {path} (last {lines} lines) ---",
 
     # The notification area and its notices
-    "Открыть Trackhound": "Open Trackhound",
+    "Открыть Sonicache": "Open Sonicache",
     "Проверить слежение сейчас": "Check the watched ones now",
     "Выход": "Quit",
-    "Trackhound работает в фоне": "Trackhound keeps running",
+    "Sonicache работает в фоне": "Sonicache keeps running",
     "Загрузки и слежение продолжаются. Открыть окно или выйти — через значок у часов":
         "Downloads and watching go on. The icon by the clock opens the window or quits",
     "скачано: {count}": "downloaded: {count}",

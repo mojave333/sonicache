@@ -8,9 +8,9 @@ import urllib.parse
 
 import pytest
 
-from trackhound.engine import sources
-from trackhound.engine.matcher import ISRC_SCORE, Matcher
-from trackhound.engine.models import Album, Track
+from sonicache.engine import sources
+from sonicache.engine.matcher import ISRC_SCORE, Matcher
+from sonicache.engine.models import Album, Track
 
 
 def track(title="Fuel", artists="Metallica", duration=269.0, isrc=""):
@@ -128,8 +128,8 @@ class TestDeezer:
 
 class TestDownload:
     def run(self, tmp_path, monkeypatch, lookup):
-        from trackhound.engine import downloader
-        from trackhound.engine.downloader import Match, Options
+        from sonicache.engine import downloader
+        from sonicache.engine.downloader import Match, Options
         events, looked = [], []
         monkeypatch.setattr(downloader.sources, "track_isrc", lambda t: looked.append(t.title) or lookup(t))
         loader = downloader.Downloader(Options(tmp_path, dry_run=True), log=lambda message: None,

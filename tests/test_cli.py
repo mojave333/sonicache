@@ -4,12 +4,12 @@ import argparse
 
 import pytest
 
-from trackhound.cli import _rate
+from sonicache.cli import _rate
 
 
 @pytest.fixture
 def parser():
-    return argparse.ArgumentParser(prog="trackhound")
+    return argparse.ArgumentParser(prog="sonicache")
 
 
 class TestRate:

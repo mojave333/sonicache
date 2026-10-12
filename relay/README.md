@@ -1,7 +1,7 @@
 # Spotify relay
 
 Spotify keeps the pages of its releases from the countries it does not work in, Russia
-among them. It goes by where the request comes from, so a Trackhound there gets "Sorry,
+among them. It goes by where the request comes from, so a Sonicache there gets "Sorry,
 that's not currently available" for a link that opens fine for everyone else. The relay
 reads the same public pages from abroad and hands the program back only what it uses, as
 a small JSON. It is one file, [`worker.js`](worker.js), for a free Cloudflare Worker.
@@ -33,12 +33,12 @@ already set: `npx wrangler deploy`.
 ## Pointing the program at it
 
 - **For everyone who installs the program:** put the address into `SPOTIFY_RELAY` in
-  `trackhound/__init__.py` and release. An empty "Spotify relay" setting means this one.
+  `sonicache/__init__.py` and release. An empty "Spotify relay" setting means this one.
 - **For one computer:** Settings → Spotify relay, or `--relay <address>` on the command
   line. `off` turns the relay off.
 
 Settings → Diagnostics → "Check" says whether the relay answers, and so does
-`trackhound --check`.
+`sonicache --check`.
 
 ## Where Cloudflare itself is slowed down
 

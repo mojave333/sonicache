@@ -53,8 +53,8 @@ jobs:
           python -m venv /tmp/clean
           /tmp/clean/bin/pip install dist/*.whl
           cd /tmp
-          /tmp/clean/bin/trackhound --help
-          /tmp/clean/bin/python -c "import sys, trackhound.engine; assert 'webview' not in sys.modules"
+          /tmp/clean/bin/sonicache --help
+          /tmp/clean/bin/python -c "import sys, sonicache.engine; assert 'webview' not in sys.modules"
 
   # The same builds the release makes for macOS (Apple Silicon and Intel) and Linux,
   # each started once to see that the window opens
@@ -147,25 +147,25 @@ jobs:
         run: pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Compile every module
-        run: python -m compileall -q trackhound main.py
+        run: python -m compileall -q sonicache main.py
 
       - name: Tests
         run: python -m pytest -q
 
       - name: Build
-        run: pyinstaller --noconfirm trackhound.spec
+        run: pyinstaller --noconfirm sonicache.spec
 
       - name: Check the build starts
         shell: pwsh
         run: |
-          $out = & ./dist/Trackhound/Trackhound-cli.exe --help
-          if ($LASTEXITCODE -ne 0) { throw "Trackhound-cli.exe --help exited with $LASTEXITCODE" }
-          foreach ($file in "dist/Trackhound/Trackhound.exe", "dist/Trackhound/_internal/trackhound/web/index.html",
-                            "dist/Trackhound/_internal/trackhound/web/app.js", "dist/Trackhound/_internal/trackhound/web/style.css") {
+          $out = & ./dist/Sonicache/Sonicache-cli.exe --help
+          if ($LASTEXITCODE -ne 0) { throw "Sonicache-cli.exe --help exited with $LASTEXITCODE" }
+          foreach ($file in "dist/Sonicache/Sonicache.exe", "dist/Sonicache/_internal/sonicache/web/index.html",
+                            "dist/Sonicache/_internal/sonicache/web/app.js", "dist/Sonicache/_internal/sonicache/web/style.css") {
             if (-not (Test-Path $file)) { throw "missing from the build: $file" }
           }
 
-      # So that a broken trackhound.iss shows up here and not on release day
+      # So that a broken sonicache.iss shows up here and not on release day
       - name: Build the installer
         shell: pwsh
         run: |

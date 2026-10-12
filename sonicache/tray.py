@@ -173,10 +173,10 @@ class Tray:
             taskbar_created = _user32.RegisterWindowMessageW("TaskbarCreated")
             self._procedure = _WNDPROC(lambda *args: self._message(taskbar_created, *args))
             window_class = _WndClass(lpfnWndProc=self._procedure, hInstance=instance,
-                                     lpszClassName="TrackhoundTray")
+                                     lpszClassName="SonicacheTray")
             if not _user32.RegisterClassW(ctypes.byref(window_class)):
                 raise OSError(ctypes.get_last_error(), "RegisterClassW")
-            hwnd = _user32.CreateWindowExW(0, "TrackhoundTray", "Trackhound", 0, 0, 0, 0, 0,
+            hwnd = _user32.CreateWindowExW(0, "SonicacheTray", "Sonicache", 0, 0, 0, 0, 0,
                                            None, None, instance, None)
             if not hwnd:
                 raise OSError(ctypes.get_last_error(), "CreateWindowExW")
@@ -202,7 +202,7 @@ class Tray:
             _user32.TranslateMessage(ctypes.byref(message))
             _user32.DispatchMessageW(ctypes.byref(message))
         # The class points at this thread's procedure: gone with it, before a later show() makes another
-        _user32.UnregisterClassW("TrackhoundTray", instance)
+        _user32.UnregisterClassW("SonicacheTray", instance)
         self._ready.clear()  # closed: show() may put it back with a new thread
         self._thread = None
 
@@ -257,7 +257,7 @@ def notify_elsewhere(title: str, text: str) -> bool:
         script = f"display notification {_applescript(text)} with title {_applescript(title)}"
         command = ["osascript", "-e", script]
     elif shutil.which("notify-send"):
-        command = ["notify-send", "--app-name=Trackhound", title, text]
+        command = ["notify-send", "--app-name=Sonicache", title, text]
     else:
         return False
     try:

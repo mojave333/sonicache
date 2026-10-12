@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     # The language is settled before argparse builds its help
     set_language(_language(argv))
     parser = argparse.ArgumentParser(
-        prog="trackhound",
+        prog="sonicache",
         description=t("Скачивание альбомов, синглов и треков по ссылке из Spotify, Apple Music, "
                       "Deezer, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp."),
     )
@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     downloader = Downloader(options, log=lambda message: print(message, flush=True))
 
     if args.check:
-        print(f"Trackhound {__version__}")
+        print(f"Sonicache {__version__}")
         print(f"ffmpeg: {downloader.ffmpeg or t('не найден')}")
         for name in ("deno", "node"):
             print(f"{name}: {downloader.js_runtimes.get(name, {}).get('path', t('не найден'))}")
