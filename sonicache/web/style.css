@@ -584,6 +584,12 @@ p { margin: 0; }
   align-content: start; padding: 18px 18px 28px;
 }
 .card { min-width: 0; border-radius: 8px; cursor: pointer; outline: none; }
+/* The home page: a heading and one row of covers under it, as many as the
+   width takes; the rest of a row is cut off, the library has them all */
+.home { padding: 10px 0 24px; }
+.home-heading { margin: 16px 18px 0; font: 600 20px var(--font-display); }
+.home-cards { grid-template-rows: auto; grid-auto-rows: 0; row-gap: 0; overflow: hidden; padding: 12px 18px 0; margin-bottom: 6px; }
+.home-empty { position: static; min-height: 70vh; }
 .card .card-cover {
   width: 100%; height: auto; aspect-ratio: 1; border-radius: 6px;
   transition: transform var(--settle) var(--ease), box-shadow var(--settle) var(--ease);

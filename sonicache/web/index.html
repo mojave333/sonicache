@@ -12,6 +12,7 @@
     <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></symbol>
     <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1.5"/><path d="M16 5h1.5A2.5 2.5 0 0 1 20 7.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-11A2.5 2.5 0 0 1 6.5 5H8"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><g class="drop"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/></g><path d="M5 20h14"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.2 12 4l8 7.2V19a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></symbol>
     <symbol id="i-library" viewBox="0 0 24 24"><path d="M5 4v16M9.5 4v16"/><path d="m14 4.5 4.5 15"/></symbol>
     <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
@@ -74,6 +75,10 @@
         <span class="logo" aria-hidden="true"><img src="art/logo.webp" alt=""></span>
         <span class="brand-name">Sonicache</span>
       </div>
+      <button type="button" class="nav-item" data-view="home" title="Главная" aria-label="Главная">
+        <svg class="icon" aria-hidden="true"><use href="#i-home"/></svg>
+        <span class="nav-label">Главная</span>
+      </button>
       <button type="button" class="nav-item" data-view="download" title="Загрузка (Ctrl+1)" aria-label="Загрузка">
         <span id="download-ring" class="nav-ring" aria-hidden="true" hidden></span>
         <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
@@ -101,7 +106,29 @@
     </nav>
 
     <div class="main">
-      <section id="view-download" class="view" aria-label="Загрузка">
+      <section id="view-home" class="view" aria-label="Главная" hidden>
+        <div class="home list-scroll">
+          <section class="home-row" data-row="added" hidden>
+            <h2 class="home-heading">Недавно добавлено</h2>
+            <div class="cards home-cards"></div>
+          </section>
+          <section class="home-row" data-row="recent" hidden>
+            <h2 class="home-heading">Недавно слушали</h2>
+            <div class="cards home-cards"></div>
+          </section>
+          <section class="home-row" data-row="top" hidden>
+            <h2 class="home-heading">Часто слушаю</h2>
+            <div class="cards home-cards"></div>
+          </section>
+          <div class="empty home-empty" hidden>
+            <div class="scene" data-scene="turntable" aria-hidden="true"><pre class="ascii"></pre><span class="crayon"></span></div>
+            <p class="empty-title">Музыки пока нет</p>
+            <p class="empty-text">Скачайте альбом в разделе «Загрузка» или добавьте папку в «Библиотеке»</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-download" class="view" aria-label="Загрузка" hidden>
         <form id="form" class="toolbar" novalidate>
           <div class="field">
             <svg class="icon sm" aria-hidden="true"><use href="#i-link"/></svg>

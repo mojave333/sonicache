@@ -284,7 +284,7 @@ async function init() {
   bindUi();
   state.seen = new Set(data.seen || []);
   restoreHistory(data.history || []);
-  showView("download");
+  showView("home");
   restorePlayer();
   renderChrome();
   setInterval(renderStatus, 1000);
@@ -935,6 +935,7 @@ function bindUi() {
   $("#library").addEventListener("click", onLibraryClick);
   $("#library").addEventListener("keydown", onLibraryKey);
   $("#library").addEventListener("contextmenu", onLibraryContextMenu);
+  $("#view-home").addEventListener("click", onHomeClick);
   $("#library-cards").addEventListener("click", onCardsClick);
   $("#library-cards").addEventListener("keydown", onCardsKey);
   $("#library-cards").addEventListener("contextmenu", onCardsContextMenu);
@@ -1064,6 +1065,54 @@ function onLibraryShortcut(event) {
   }
 }
 
+// The home page: three rows of albums out of what the library and the listens
+// already know. Tracks played are shown as the albums they belong to.
+function albumOf(path) {
+  return state.library.items.find((item) => item.path === path
+    || (item.album && (path.startsWith(`${item.path}\\`) || path.startsWith(`${item.path}/`))));
+}
+function albumsOf(tracks) {
+  const found = new Set();
+  for (const track of tracks || []) {
+    const item = albumOf(track.path);
+    if (item) found.add(item);
+  }
+  return [...found];
+}
+let homeToken = 0;
+async function renderHome() {
+  const token = ++homeToken;
+  const items = state.library.items;
+  const lists = await Promise.all(["recent", "top"].map((kind) => api().playlist(kind).catch(() => null)));
+  if (token !== homeToken) return;
+  const rows = {
+    added: [...items].sort((a, b) => (b.modified || 0) - (a.modified || 0)),
+    recent: albumsOf(lists[0]?.tracks),
+    top: albumsOf(lists[1]?.tracks),
+  };
+  let shown = 0;
+  for (const section of $$("#view-home .home-row")) {
+    const row = rows[section.dataset.row].slice(0, 16);
+    section.hidden = !row.length;
+    shown += row.length;
+    $(".cards", section).replaceChildren(...row.map((item, index) => createCard(item, index)));
+  }
+  $(".home-empty").hidden = shown > 0 || state.library.loading;
+  drawAscii();
+}
+function onHomeClick(event) {
+  const card = event.target.closest(".card");
+  const item = card && itemByPath(card.dataset.path);
+  if (!item) return;
+  if (event.target.closest(".play-btn")) {
+    playItem(item);
+    $(".cover-mark.new", card)?.remove();
+    return;
+  }
+  showView("library");
+  openAlbum(item);
+}
+
 function showView(name) {
   state.view = name;
   for (const button of $$("[data-view]")) {
@@ -1090,6 +1139,10 @@ function showView(name) {
     $("#search-input").focus();
     // The search marks what the library holds: it is read, if it was not yet
     if (state.library.stale && !state.library.loading) loadLibrary();
+  }
+  if (name === "home") {
+    if (state.library.stale && !state.library.loading) loadLibrary();
+    renderHome();
   }
   if (name === "library") {
     requestAnimationFrame(() => placeTabInk(false)); // the tabs have no size until the view shows
@@ -2323,6 +2376,7 @@ async function loadLibrary() {
       Object.assign(library, { items: cached, folder });
       library.artists = null;
       renderLibrary({ enter: true });
+      if (state.view === "home") renderHome();
       prefetchCovers(cached);
       early = true;
     }
@@ -2339,6 +2393,7 @@ async function loadLibrary() {
   for (const [id, job] of library.pending) if (!ACTIVE.has(job.state)) library.pending.delete(id);
   library.artists = null;
   renderLibrary({ enter: !early });
+  if (state.view === "home") renderHome();
   markInLibrary();
   prefetchCovers(items);
   if (library.tab === "tracks") loadTracks();
