@@ -13,7 +13,7 @@
   --border-strong: #6D6A7C;
   --text: #23212C;
   --text-muted: #4B485B;
-  --text-subtle: #6E6A81;
+  --text-subtle: #625E75;
   /* The accent is the red of the logo. Filled, it carries cream text
      (--on-accent); drawn as text or a line it is a shade darker (--accent-fg),
      and --accent-edge is the rim of a filled button. */
@@ -72,10 +72,10 @@
   --bg: #23212C;
   --chrome: #15131B;
   --inset: var(--chrome);
-  --field: #2E2C3A;
+  --field: #322F40;
   --hover: rgb(233 232 237 / 0.05);
   --selected: rgb(233 232 237 / 0.09);
-  --divider: #34313F;
+  --divider: #3B3847;
   --border: #77738C;
   --border-strong: #9592A5;
   --text: #E9E8ED;
