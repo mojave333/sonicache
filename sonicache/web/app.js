@@ -3931,6 +3931,7 @@ function renderSearch({ enter = false } = {}) {
   const any = renderSearchLibrary() + found.albums.length + found.tracks.length + found.artists.length;
   const empty = $("#search-empty");
   empty.hidden = Boolean(any);
+  $(".scene", empty).hidden = loading; // no picture while the answer is still on its way
   $(".empty-title", empty).textContent = !query ? t("Найдите, что скачать")
     : loading ? t("Ищем…")
     : results?.error ? t("Поиск не удался") : t("Ничего не найдено");
