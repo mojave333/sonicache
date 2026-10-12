@@ -239,6 +239,14 @@ p { margin: 0; }
   position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
   border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--chrome);
 }
+/* A narrow window drops the name, so the search field keeps its room: the mark stays */
+@media (max-width: 860px) {
+  .topbar { padding: 0 16px; }
+  .brand { margin-right: 8px; }
+  .brand-name { display: none; }
+  .nav-item { padding: 0 12px; }
+  .nav-item[aria-current="page"]::after, .nav-ring { left: 12px; right: 12px; }
+}
 
 /* Columns react to the content width, which a widened side panel narrows */
 .main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0;
@@ -1322,7 +1330,9 @@ button.lyric-line:hover { opacity: 1; }
   .col-size { display: none; }
 }
 @container content (max-width: 796px) {
-  .library-search { flex-basis: 180px; }
+  .library-search { flex-basis: 140px; }
+  .tabs button { padding: 0 8px; }
+  #library-sort-label { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #library-folder span { display: none; }
   #library-folder { flex: none; }
   .cards { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px 16px; padding: 16px; }
