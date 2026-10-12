@@ -9,7 +9,7 @@
 Albums, singles, playlists and single tracks from Spotify, Apple Music, Deezer, YouTube,
 SoundCloud, Last.fm and sites such as Bandcamp.
 
-[![Latest release](https://img.shields.io/github/v/release/mojave333/sonicache?label=release&color=8FBF3F)](https://github.com/mojave333/sonicache/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/mojave333/sonicache?label=release&color=BE3237)](https://github.com/mojave333/sonicache/releases/latest)
 [![Build](https://github.com/mojave333/sonicache/actions/workflows/ci.yml/badge.svg)](https://github.com/mojave333/sonicache/actions/workflows/ci.yml)
 [![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-blue)](LICENSE)
 ![Windows, macOS, Linux](https://img.shields.io/badge/Windows%20%7C%20macOS%20%7C%20Linux-informational)
@@ -190,7 +190,7 @@ once; the first estimates are rough and settle after a track or two.
 
 ### Search
 
-<img src="docs/search.webp" width="880" alt="A search for Sonic Youth: their artist cards, and albums with a lime In the library mark on the ones already in the collection">
+<img src="docs/search.webp" width="880" alt="A search for Sonic Youth: their artist cards, and albums with an In the library mark on the ones already in the collection">
 
 For when there is no link at hand. Type an artist, an album or a track, and the catalogue
 answers as the typing pauses: artists with their photos, albums as a grid of covers, and
@@ -202,7 +202,7 @@ The arrow on a cover or a track puts it into the queue at once and turns into a 
 view stays, so more can be picked. A click on an album opens its page with the tracklist,
 where the whole album or any one track can be queued. Whatever is chosen downloads exactly
 as its link pasted by hand would, with the same matching, tags and folders. What the
-library holds already carries a lime "In the library" mark, found by the link it was
+library holds already carries an "In the library" mark, found by the link it was
 downloaded from or by its artist and title, editions and remasters aside; its page offers
 the library's own page of it, and downloading it again only as the second choice.
 

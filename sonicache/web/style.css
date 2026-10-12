@@ -1,30 +1,28 @@
 :root {
   color-scheme: light;
   /* The paper stays vanilla, but the lines and the ink belong to the same
-     violet-neutral family as the dark theme, so lime is the only green here. */
+     violet-neutral family as the dark theme; the accent is the logo's red. */
   --bg: #F6F0DE;
   --chrome: #EDE5CD;
   --inset: #F0E9D3;
   --field: #FCF8EC;
   --hover: rgb(35 33 44 / 0.06);
-  --selected: #E1EDB0;
+  --selected: rgb(246 174 27 / 0.24);
   --divider: #DFD6BB;
   --border: #8B8898;
   --border-strong: #6D6A7C;
   --text: #23212C;
   --text-muted: #4B485B;
   --text-subtle: #6E6A81;
-  /* A lime fill on near-white paper is only 1.37:1 against the page, so the
-     fill alone cannot say "button" — --accent-edge draws the rim that does.
-     Lime as *text* is hopeless on this background at any weight, so anything
-     drawn in the accent rather than filled with it uses --accent-fg, and the
-     progress fill, which sits on a light track, uses --bar-fill. */
-  --accent: #C3E85F;
-  --accent-hover: #B5DC4C;
-  --accent-edge: #7F942F;
-  --accent-fg: #55631F;
-  --bar-fill: #6B7C2A;
-  --on-accent: #23212C;
+  /* The accent is the red of the logo. Filled, it carries cream text
+     (--on-accent); drawn as text or a line it is a shade darker (--accent-fg),
+     and --accent-edge is the rim of a filled button. */
+  --accent: #BE3237;
+  --accent-hover: #A92B30;
+  --accent-edge: #8C2227;
+  --accent-fg: #A3282D;
+  --bar-fill: #BE3237;
+  --on-accent: #FFF8E6;
   --on-danger: #FFFFFF;
   --success: #396B2E;
   --warning: #A15C07;
@@ -33,7 +31,7 @@
   --danger-bg: #F8E2DA;
   --menu-shadow: 0 1px 2px rgb(35 33 44 / 0.08), 0 8px 24px rgb(35 33 44 / 0.16);
   --scrim: rgb(35 33 44 / 0.35);
-  --split-divider: #7F942F;
+  --split-divider: #8C2227;
   --scroll-thumb: #C8C0A8;
 
   --radius: 5px;
@@ -76,19 +74,19 @@
   --inset: #1C1A23;
   --field: #2E2C3A;
   --hover: rgb(233 232 237 / 0.05);
-  --selected: rgb(241 254 200 / 0.14);
+  --selected: rgb(242 193 74 / 0.16);
   --divider: #34313F;
   --border: #77738C;
   --border-strong: #9592A5;
   --text: #E9E8ED;
   --text-muted: #B3B0BF;
   --text-subtle: #9694A4;
-  --accent: #F1FEC8;
-  --accent-hover: #E1F896;
+  --accent: #E8736A;
+  --accent-hover: #EE8A82;
   --accent-edge: transparent;
-  --accent-fg: var(--accent);
+  --accent-fg: #EE8A82;
   --bar-fill: var(--accent);
-  --on-accent: #17151E;
+  --on-accent: #231612;
   --on-danger: #17151E;
   --success: #7FAE6B;
   --warning: #D9A441;
@@ -97,7 +95,7 @@
   --danger-bg: #2C1814;
   --menu-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
   --scrim: rgb(0 0 0 / 0.6);
-  --split-divider: rgb(0 0 0 / 0.18);
+  --split-divider: rgb(0 0 0 / 0.25);
   --scroll-thumb: var(--border-strong);
 }
 
@@ -901,20 +899,20 @@ p { margin: 0; }
 :root[data-theme="dark"] .theme-choice[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
 .theme-name { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
 .theme-preview, .theme-preview .half {
-  --p-bg: #F6F0DE; --p-side: #EDE5CD; --p-ink: #C2C0CC; --p-lime: #C3E85F;
+  --p-bg: #F6F0DE; --p-side: #EDE5CD; --p-ink: #C2C0CC; --p-accent: #BE3237;
   position: relative; display: block; height: 64px; overflow: hidden; border-radius: 6px; background: var(--p-bg);
 }
-.theme-preview.dark, .theme-preview .half.dark { --p-bg: #23212C; --p-side: #15131B; --p-ink: #4B485B; --p-lime: #F1FEC8; }
+.theme-preview.dark, .theme-preview .half.dark { --p-bg: #23212C; --p-side: #15131B; --p-ink: #4B485B; --p-accent: #E8736A; }
 .theme-preview { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08); }
 .theme-preview.system { display: grid; grid-template-columns: 1fr 1fr; }
 .theme-preview .half { height: 100%; border-radius: 0; }
-/* The panel, two lines of text and a lime button, as the window has them */
+/* The panel, two lines of text and a button in the accent, as the window has them */
 .theme-preview i { position: absolute; left: 0; top: 0; bottom: 0; width: 14px; background: var(--p-side); }
 .theme-preview b { position: absolute; left: 22px; height: 6px; border-radius: 3px; background: var(--p-ink); }
 .theme-preview b:first-of-type { top: 14px; width: 46%; }
 .theme-preview b:last-of-type { top: 26px; width: 30%; }
 .theme-preview::after, .theme-preview .half::after {
-  content: ""; position: absolute; left: 22px; bottom: 10px; width: 26px; height: 10px; border-radius: 4px; background: var(--p-lime);
+  content: ""; position: absolute; left: 22px; bottom: 10px; width: 26px; height: 10px; border-radius: 4px; background: var(--p-accent);
 }
 .theme-preview.system::after { display: none; }
 .theme-preview .half.dark b, .theme-preview .half.dark::after { left: 8px; }
@@ -1288,16 +1286,7 @@ button.lyric-line:hover { opacity: 1; }
 .confirm-field { height: 34px; margin-top: 6px; }
 
 /* The picture of an empty screen: a crayon drawing, ASCII or none, as the
-   settings say (Appearance). The drawings are in red crayon, and with them the
-   accent turns red: lime beside them jars. */
-:root[data-art="crayon"] {
-  --accent: #BE3237; --accent-hover: #A92B30; --accent-edge: #8C2227; --accent-fg: #A3282D; --bar-fill: #BE3237;
-  --on-accent: #FFF8E6; --selected: rgb(246 174 27 / 0.24); --split-divider: #8C2227;
-}
-:root[data-art="crayon"][data-theme="dark"] {
-  --accent: #E8736A; --accent-hover: #EE8A82; --accent-edge: transparent; --accent-fg: #EE8A82; --bar-fill: #E8736A;
-  --on-accent: #231612; --selected: rgb(242 193 74 / 0.16); --split-divider: rgb(0 0 0 / 0.25);
-}
+   settings say (Appearance) */
 .crayon { display: none; width: 100%; height: 100%; background: center / contain no-repeat; }
 [data-art="crayon"] .crayon { display: block; }
 [data-art="none"] :is(.scene, .settings-art) { display: none; }

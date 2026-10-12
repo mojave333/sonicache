@@ -1,5 +1,6 @@
 """Settings, the update check and the library listing behind the window."""
 
+import re
 import ctypes
 import json
 import os
@@ -82,6 +83,14 @@ class TestNormalize:
         # The first is the one the stylesheet falls back to, so it needs no rule of its own
         for font in gui.FONTS[1:]:
             assert f':root[data-font="{font}"]' in styles
+
+    def test_every_control_the_window_binds_at_start_is_on_the_page(self):
+        """One missing and the whole window fails to start."""
+        page = (gui.WEB_DIR / "index.html").read_text(encoding="utf-8")
+        script = (gui.WEB_DIR / "app.js").read_text(encoding="utf-8")
+        bound = re.findall(r'(?:radioGroup|bindSwitch|syncSwitch|syncRadios)\(\$\("#([\w-]+)"\)', script)
+        assert len(bound) > 10
+        assert [name for name in bound if f'id="{name}"' not in page] == []
 
     @pytest.mark.parametrize("given, expected", [("ascii", "ascii"), ("none", "none"), ("photo", "crayon"), (None, "crayon")])
     def test_only_known_pictures_survive(self, given, expected):
