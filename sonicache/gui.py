@@ -94,6 +94,10 @@ ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the h
 # as they stay so, the Fill in tags button does not offer them again, even
 # where a genre or lyrics could not be found
 TIDIED_FILE = "tidied.json"
+# The albums opened or played since they arrived: their covers no longer say "New".
+# The mark lasts a week at most (web/app.js), so older entries are dropped
+SEEN_FILE = "seen.json"
+SEEN_FOR = 8 * 24 * 3600
 # The tags read from the library's files, kept between runs so that opening
 # the library reads again only the files changed since
 LIBRARY_CACHE_FILE = "library-cache.json"
@@ -155,6 +159,7 @@ class Api:
         return {
             "version": __version__,
             "first_run": not SETTINGS_FILE.exists(),  # the welcome screen, once
+            "seen": sorted(_seen()),
             "tray": tray.SUPPORTED,  # whether the window can go on in the notification area
             "language": set_language(settings["language"]),  # "system" resolved to ru or en
             "settings": settings,
@@ -1007,6 +1012,12 @@ class Api:
 
     def play_counts(self) -> dict[str, int]:
         return playlists.counts()
+
+    def mark_seen(self, path: str) -> None:
+        """An album was opened or played: its cover stops saying "New"."""
+        seen = _seen()
+        seen[str(path)] = time.time()
+        logs.write_json(logs.data_dir() / SEEN_FILE, seen)
 
     def scrobble_accounts(self) -> dict:
         return self._scrobbler.accounts()
@@ -2155,6 +2166,13 @@ def _profiles(raw) -> list[dict]:
         if len(profiles) >= PROFILE_LIMIT:
             break
     return profiles
+
+
+def _seen() -> dict[str, float]:
+    """Path to when it was opened, for the albums opened lately."""
+    now = time.time()
+    return {path: when for path, when in logs.read_json(logs.data_dir() / SEEN_FILE).items()
+            if isinstance(when, (int, float)) and now - when < SEEN_FOR}
 
 
 def _load_settings() -> dict:

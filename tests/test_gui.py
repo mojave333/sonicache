@@ -211,6 +211,19 @@ class TestSettingsFile:
         assert gui._load_settings()["theme"] == "dark"
 
 
+class TestSeen:
+    """An album opened or played stops being marked as new."""
+
+    def test_an_opened_album_is_remembered(self):
+        gui.Api().mark_seen("C:/Music/A - B (2020)")
+        assert "C:/Music/A - B (2020)" in gui._seen()
+        assert "C:/Music/A - B (2020)" in gui.Api().init()["seen"]
+
+    def test_what_was_opened_long_ago_is_forgotten(self):
+        gui.logs.write_json(gui.logs.data_dir() / gui.SEEN_FILE, {"old": time.time() - gui.SEEN_FOR - 60, "bad": "x"})
+        assert gui._seen() == {}
+
+
 class TestFormerSettings:
     """Until 3.0 the program was called Trackhound and kept its settings in a file of that name."""
 

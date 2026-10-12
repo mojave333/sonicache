@@ -282,6 +282,7 @@ async function init() {
   renderProblems();
   renderSettings();
   bindUi();
+  state.seen = new Set(data.seen || []);
   restoreHistory(data.history || []);
   showView("download");
   restorePlayer();
@@ -2942,6 +2943,7 @@ function backLabel() {
 }
 
 async function openAlbum(item, source = null, highlight = "") {
+  markSeen(item);
   const library = state.library;
   const from = rectOf(source && $(".cover", source));
   library.pages.push({ kind: "album", item, source, from });
@@ -3201,7 +3203,7 @@ function finishClose(page) {
 const NEW_FOR = 7 * 24 * 3600;
 function markCover(card, item) {
   const cover = $(".card-cover", card);
-  if (item.modified && Date.now() / 1000 - item.modified < NEW_FOR) {
+  if (item.modified && Date.now() / 1000 - item.modified < NEW_FOR && !(state.seen && state.seen.has(item.path))) {
     const mark = document.createElement("span");
     mark.className = "cover-mark new";
     mark.textContent = t("Новое");
@@ -3215,6 +3217,16 @@ function markCover(card, item) {
     mark.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>';
     mark.append(String(missing));
     cover.append(mark);
+  }
+}
+
+// Opened or played, an album is new no longer, in this run and the next
+function markSeen(item) {
+  if (!item || !item.path || !state.seen || state.seen.has(item.path)) return;
+  state.seen.add(item.path);
+  api().mark_seen(item.path);
+  for (const card of $$("#library-cards .card")) {
+    if (card.dataset.path === item.path) $(".cover-mark.new", card)?.remove();
   }
 }
 
@@ -3235,6 +3247,7 @@ function createCard(item, index, download = null) {
 
 // A cover's own play button: the album from its first track, its page left closed
 async function playItem(item) {
+  markSeen(item);
   const tracks = (await itemsTracks([item])).filter((track) => track.path && !track.missing);
   if (!tracks.length) return;
   rememberTracks(tracks);
