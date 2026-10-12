@@ -199,9 +199,8 @@ p { margin: 0; }
   background: var(--chrome); border-bottom: 1px solid var(--divider);
 }
 .brand { display: flex; align-items: center; gap: 12px; margin-right: 24px; }
-.logo { display: grid; place-items: center; flex: none; color: var(--text); }
-:root[data-theme="dark"] .logo { color: #FFFFFF; }
-.logo img { width: 36px; height: 36px; }
+.logo { display: grid; place-items: center; flex: none; color: var(--accent); }
+.logo-mark { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .brand-name { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.02em; }
 .topnav { display: flex; align-items: stretch; align-self: stretch; gap: 4px; }
 /* The sections are words, and the one in use is told by a line under it; the line
