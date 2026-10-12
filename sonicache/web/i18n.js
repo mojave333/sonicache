@@ -593,7 +593,9 @@ const TRANSLATIONS = {
   "Им набраны заголовки, названия альбомов и вкладки. Мелкий текст остаётся системным, чтобы легко читался": "Headings, album titles and tabs are set in it. Small text stays in the system font, which reads easily",
   "Системный": "System",
   "Рисованные детали": "Hand-drawn details",
-  "Нотный стан, линии от руки и цветные карандаши вместо ровных рамок и одного акцента. На работу программы не влияет": "A staff, lines drawn by hand and coloured pencils in place of straight frames and the single accent. It changes nothing in how the program works",
+  "Три цветных карандаша вместо одного акцента и рисунки мелком: нотный стан над альбомами и на пустых экранах. На работу программы не влияет": "Three coloured pencils in place of the single accent, and pictures in crayon: a staff over the albums and on the empty screens. It changes nothing in how the program works",
+  "Продвинутые": "Advanced",
+  "Скорость, сеть и журнал: трогать, когда что-то не работает": "Speed, network and the log: for when something does not work",
   "Установлено через Scoop. Обновите командой scoop update sonicache": "Installed with Scoop. Update it with scoop update sonicache",
   "Установлено из AUR. Обновите пакет sonicache-bin, например командой yay -Syu sonicache-bin":
     "Installed from the AUR. Update the sonicache-bin package, for example with yay -Syu sonicache-bin",

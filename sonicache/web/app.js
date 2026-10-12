@@ -143,8 +143,117 @@ const artistObserver = new IntersectionObserver((entries) => {
   }
 }, { rootMargin: "200px" });
 
+// The pictures of the usual look are typed in ASCII, each with a part that
+// moves: a cassette's reels for the downloads, a turntable with no record for
+// the library, a radio that finds no station for a search, a mixer for the
+// settings. A scene is its lines and the cells drawn in the accent.
+const SPOKES = ["|", "/", "-", "\\"];
+const HISS = " .:'`,-";
+function asciiPut(lines, row, col, text, accents) {
+  const line = lines[row].padEnd(col + text.length);
+  lines[row] = line.slice(0, col) + text + line.slice(col + text.length);
+  if (accents) for (let i = 0; i < text.length; i++) accents.add(`${row}:${col + i}`);
+}
+const ASCII_SCENES = {
+  cassette(tick, accents) {
+    const lines = [
+      "   ______________________________   ",
+      "  /                              \\  ",
+      " |   __________________________   | ",
+      " |  |   .---.          .---.   |  | ",
+      " |  |  /     \\        /     \\  |  | ",
+      " |  |  \\     / ______ \\     /  |  | ",
+      " |  |   '---'  |____|  '---'   |  | ",
+      " |  |__________________________|  | ",
+      " |     ______________________     | ",
+      " |    /  o    [ ]  [ ]    o  \\    | ",
+      " |___/________________________\\___| ",
+    ];
+    const spoke = SPOKES[tick % 4];
+    asciiPut(lines, 4, 9, `(${spoke})`, accents);
+    asciiPut(lines, 4, 24, `(${spoke})`, accents);
+    asciiPut(lines, 4, 14, tick % 2 ? "~-~-~-~-" : "-~-~-~-~");
+    return lines;
+  },
+  turntable(tick, accents) {
+    const lines = [
+      " .----------------------------------. ",
+      " |      .-''''''''''-.              | ",
+      " |    .'     ____     '.      ||    | ",
+      " |   /     .'    '.     \\     ||    | ",
+      " |  |     |   ()   |     |    ||    | ",
+      " |   \\     '.____.'     /    //     | ",
+      " |    '.              .'    //      | ",
+      " |      '-..........-'     (o)      | ",
+      " '----------------------------------' ",
+    ];
+    // A mark riding round the empty platter
+    const angle = tick / 16 * 2 * Math.PI;
+    const row = Math.round(4.3 + Math.sin(angle) * 2.1), col = Math.round(13.5 + Math.cos(angle) * 7.2);
+    if (lines[row][col] === " ") asciiPut(lines, row, col, "*", accents);
+    asciiPut(lines, 4, 14, "()", accents);
+    return lines;
+  },
+  radio(tick, accents) {
+    const lines = [
+      " .------------------------------------. ",
+      " |  88    92    96    100   104   108 | ",
+      " |  |.....|.....|.....|.....|.....|   | ",
+      " |                                    | ",
+      " |  .------------.                    | ",
+      " |  |            |     ( )     ( )    | ",
+      " |  |            |                    | ",
+      " |  |            |     ~  ~  ~  ~     | ",
+      " |  '------------'                    | ",
+      " '------------------------------------' ",
+    ];
+    // The needle goes along the dial and back, and the speaker only hisses
+    const span = 30, step = Math.floor(tick / 2) % (span * 2);
+    asciiPut(lines, 3, 4 + (step < span ? step : span * 2 - step), "^", accents);
+    for (let row = 5; row <= 7; row++) {
+      let hiss = "";
+      for (let i = 0; i < 12; i++) hiss += HISS[Math.floor(Math.random() * HISS.length)];
+      asciiPut(lines, row, 5, hiss);
+    }
+    return lines;
+  },
+  mixer(tick, accents) {
+    const lines = [" .---------------------------. ", ...Array(6).fill(" |                           | "),
+                   " |   1    2    3    4    5   | ", " '---------------------------' "];
+    for (let fader = 0; fader < 5; fader++) {
+      const col = 5 + fader * 5;
+      for (let row = 1; row <= 6; row++) asciiPut(lines, row, col, "|");
+      asciiPut(lines, 1 + Math.round(2.5 + 2.5 * Math.sin(tick / 14 + fader * 1.7)), col - 1, "[=]", accents);
+    }
+    return lines;
+  },
+};
+let asciiTick = 0;
+// Draws the scenes on screen; the hand-drawn look shows crayon in their place
+function drawAscii() {
+  if (document.documentElement.classList.contains("sketchy")) return;
+  for (const node of document.querySelectorAll("[data-scene] > .ascii")) {
+    if (!node.offsetParent) continue;
+    const scene = ASCII_SCENES[node.parentElement.dataset.scene];
+    if (!scene) continue;
+    const accents = new Set();
+    node.innerHTML = scene(asciiTick, accents).map((line, row) => [...line].map((ch, col) => {
+      const safe = ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === "&" ? "&amp;" : ch;
+      return accents.has(`${row}:${col}`) && ch !== " " ? `<b>${safe}</b>` : safe;
+    }).join("")).join("\n");
+  }
+}
+// Eight frames a second; whoever asked the system for less motion gets the picture standing still
+if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  setInterval(() => {
+    if (document.hidden) return;
+    asciiTick++;
+    drawAscii();
+  }, 125);
+}
+
 // The faces the names can be set in; the first is the one a new installation has
-const FONTS = ["source-serif", "literata", "pt-serif", "lora", "onest", "system"];
+const FONTS = ["source-serif", "comic", "system"];
 applyTheme();
 
 let booted = false;
@@ -447,6 +556,7 @@ function applyTheme() {
   root.dataset.theme = dark ? "dark" : "light";
   root.dataset.font = FONTS.includes(settings.font) ? settings.font : FONTS[0];
   root.classList.toggle("sketchy", Boolean(settings.sketch));
+  drawAscii();
 }
 
 // The panel has two widths and a button at its foot to move between them: an
@@ -2307,25 +2417,26 @@ function renderLibrary({ enter = false } = {}) {
   let [title, text] = [t("Ничего не найдено"), query ? t("По запросу «{query}»", { query })
     : t("В жанре «{genre}»", { genre: $("#library-genre").selectedOptions[0]?.dataset.name || "" })];
   const loading = library.loading || (tab === "tracks" && library.trackList.loading);
-  // An empty crate for an empty folder, a lens with no note under it for a search
-  // that turned nothing up, and no picture while the folder is still being read
-  let scene = "#scene-nothing-found";
+  // A turntable with no record for an empty folder, a radio finding no station for
+  // a search that turned nothing up, and no picture while the folder is still being read
+  let scene = "radio";
   if (tab === "playlists") {
     if (!query) {
       const reading = state.playlists.loading && !state.playlists.items.length;
       [title, text] = reading ? [t("Читаем плейлисты…"), ""] : [t("Плейлистов пока нет"),
         t("Создайте свой или добавьте треки правым щелчком: «Добавить в плейлист». Плейлист .m3u8 из другого плеера тоже подойдёт")];
-      scene = reading ? "" : "#scene-empty-library";
+      scene = reading ? "" : "turntable";
     }
   } else if (!library.items.length || (tab === "tracks" && !library.trackList.items.length)) {
     [title, text] = loading ? [t("Читаем папку…"), ""] : [t("В папке пока нет музыки"), libraryFolders().join(", ")];
-    scene = loading ? "" : "#scene-empty-library";
+    scene = loading ? "" : "turntable";
   }
   $(".empty-title", empty).textContent = title;
   $(".empty-text", empty).textContent = text;
   const picture = $(".scene", empty);
   picture.hidden = !scene;
-  if (scene) $("use", picture).setAttribute("href", scene);
+  if (scene) picture.dataset.scene = scene;
+  drawAscii();
 }
 
 function libraryQuery() {

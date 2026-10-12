@@ -101,10 +101,10 @@
   --scroll-thumb: var(--border-strong);
 }
 
-/* Names and headings are set in the face chosen in the settings, one weight of
-   each; the rest of the window keeps the system's own face, which is what a
-   list of files should be read in. Caveat is the hand of the drawn look only.
-   All are under the SIL Open Font License, whose text sits beside the files in fonts/. */
+/* Names and headings are set in the face chosen in the settings: Source Serif,
+   which travels with the program under the SIL Open Font License (its text is
+   beside the files in fonts/), Comic Sans where the system has it, or the
+   system's own face, which the rest of the window is always read in. */
 @font-face {
   font-family: "Source Serif 4";
   font-style: normal;
@@ -121,90 +121,7 @@
   src: url("fonts/source-serif-600-latin.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-@font-face {
-  font-family: "Literata";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("fonts/literata-600-cyrillic.woff2") format("woff2");
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-@font-face {
-  font-family: "Literata";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("fonts/literata-600-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "PT Serif";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("fonts/pt-serif-700-cyrillic.woff2") format("woff2");
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-@font-face {
-  font-family: "PT Serif";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("fonts/pt-serif-700-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Lora";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("fonts/lora-600-cyrillic.woff2") format("woff2");
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-@font-face {
-  font-family: "Lora";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("fonts/lora-600-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Onest";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("fonts/onest-600-cyrillic.woff2") format("woff2");
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-@font-face {
-  font-family: "Onest";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("fonts/onest-600-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Caveat";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("fonts/caveat-500-cyrillic.woff2") format("woff2");
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-@font-face {
-  font-family: "Caveat";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("fonts/caveat-500-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-:root[data-font="literata"] { --font-display: "Literata", Georgia, serif; }
-:root[data-font="pt-serif"] { --font-display: "PT Serif", Georgia, serif; }
-:root[data-font="lora"] { --font-display: "Lora", Georgia, serif; }
-:root[data-font="onest"] { --font-display: "Onest", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+:root[data-font="comic"] { --font-display: "Comic Sans MS", "Comic Sans", "Comic Neue", "Chalkboard SE", cursive; }
 :root[data-font="system"] { --font-display: var(--font); }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -263,7 +180,7 @@ p { margin: 0; }
 .brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; }
 .logo { display: grid; place-items: center; flex: none; color: var(--text); }
 :root[data-theme="dark"] .logo { color: #FFFFFF; }
-.logo .icon { width: 34px; height: 34px; }
+.logo img { width: 40px; height: 40px; }
 .brand-name { display: none; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
 .nav-item {
   position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -884,18 +801,11 @@ p { margin: 0; }
   padding: 28px; text-align: center; color: var(--text-subtle);
 }
 .empty .icon { width: 26px; height: 26px; margin-bottom: 6px; stroke-width: 1.5; }
-/* An empty screen is drawn, not lettered, and in lines, so the picture takes
-   the theme's colours: thin lines for the staff, ink for what stands on it,
-   the accent for what is not there yet */
-.empty .scene { width: 284px; height: 160px; max-width: 100%; margin-bottom: 6px; }
-.sc-line, .sc-ink, .sc-a, .sc-b, .sc-c { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
-.sc-line { color: var(--scene-line); stroke-width: 1.3; }
-.sc-ink { color: var(--scene-ink); stroke-width: 2.4; }
-.sc-a { color: var(--red); stroke-width: 2.6; }
-.sc-b { color: var(--blue); stroke-width: 2.2; }
-.sc-c { color: var(--yellow); stroke-width: 2.8; }
-.sc-fill { fill: currentColor; stroke: none; }
-.sc-paper { fill: var(--bg); stroke: none; }
+/* An empty screen shows a picture, not only words */
+.empty .scene { display: grid; place-items: center; max-width: 100%; margin-bottom: 12px; }
+/* In the usual look the picture is typed: a thing in ASCII with a part that moves (app.js) */
+.ascii { margin: 0; color: var(--text-muted); font: 13px/1.18 "Cascadia Mono", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace; text-align: left; }
+.ascii b { color: var(--accent-fg); font-weight: 400; }
 .empty-title { color: var(--text-muted); font-weight: 600; }
 .empty-title:empty { display: none; }
 .empty-text { font-size: 13px; }
@@ -905,8 +815,8 @@ p { margin: 0; }
    listed beside them to jump to. On a narrow window the list runs across
    the top instead. Everything is saved as it changes. */
 .settings {
-  display: grid; grid-template-columns: 196px minmax(0, 760px); grid-template-areas: "hero hero" "update update" "nav cards";
-  column-gap: 32px; max-width: 1020px; padding: 22px 32px 40px;
+  display: grid; grid-template-columns: 196px minmax(0, 1fr); grid-template-areas: "hero hero" "update update" "nav cards";
+  column-gap: 32px; padding: 22px 32px 40px;
 }
 .settings-hero {
   grid-area: hero; display: flex; align-items: center; justify-content: space-between; gap: 20px;
@@ -916,7 +826,8 @@ p { margin: 0; }
 }
 .settings-title { margin: 0; font-family: var(--font-display); font-size: 26px; font-weight: 700; }
 .settings-lead { margin: 4px 0 0; color: var(--text-subtle); }
-.settings-art { flex: none; width: 176px; height: 96px; margin: -12px 0 -14px 0; }
+.settings-art { flex: none; margin: -12px 0 -14px 0; }
+.settings-art .ascii { font-size: 10px; }
 .settings-update {
   grid-area: update; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
   margin-bottom: 18px; padding: 14px 18px; border-radius: 12px; background: var(--selected);
@@ -950,7 +861,8 @@ p { margin: 0; }
   background: var(--selected); color: var(--accent-fg);
 }
 .card-icon .icon { width: 20px; height: 20px; }
-.card-icon.brand .icon { width: 26px; height: 26px; }
+.card-icon.brand { background: none; }
+.card-icon.brand img { width: 40px; height: 40px; }
 .setting-group { border-top: 1px solid var(--divider); }
 .setting { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; min-height: 56px; padding: 12px 18px; }
 .setting + .setting { border-top: 1px solid var(--divider); }
@@ -1374,117 +1286,49 @@ button.lyric-line:hover { opacity: 1; }
 .token-field { flex: none; width: 240px; padding-right: 10px; }
 .confirm-field { height: 34px; margin-top: 6px; }
 
-/* Drawn by hand: the optional look (Settings, Appearance). Three pencils take
-   the accent's place, lines stop being straight and the paper gets its dots
-   and its grain. Frames are drawn once as pictures and laid on as masks, cut
-   in nine so that the corners keep their size whatever the width; a grid of
-   two hundred covers then costs no more than it did, and only a few single
-   lines are shaken by a filter. Everything here is under :root.sketchy, and
-   with the switch off none of it is in force. */
-:root {
-  --red: var(--accent-fg); --blue: var(--text-subtle); --yellow: var(--accent);
-  --scene-line: var(--border); --scene-ink: var(--text-muted);
-  --font-hand: "Caveat", "Segoe Print", cursive;
-  --frame: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='60'%20height='60'%20viewBox='0%200%2060%2060'%3E%3Cpath%20d='M2.5%205.4%20C10%204.2%2015%204.9%2020%204.6%20L40%204.2%20C46%204.1%2052%205%2058%203.6%20M55.6%202%20C56.6%209%2055.4%2015%2055.8%2020%20L56.2%2040%20C56.4%2046%2055.2%2052%2056.4%2058.4%20M58%2055.2%20C52%2056.6%2046%2055.4%2040%2055.8%20L20%2056.2%20C14%2056.4%209%2055.2%201.8%2056.6%20M4.6%2058.2%20C3.4%2052%204.8%2046%204.4%2040%20L4%2020%20C3.8%2014%205%209%203.8%201.6'%20fill='none'%20stroke='black'%20stroke-width='3'%20stroke-linecap='round'/%3E%3C/svg%3E");
-  --circled: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%20preserveAspectRatio='none'%3E%3Cpath%20d='M52%204%20C24%202%204%2022%205%2050%20C6%2080%2028%2097%2052%2096%20C80%2095%2097%2074%2095%2048%20C93%2022%2076%206%2044%205'%20fill='none'%20stroke='black'%20stroke-width='3.2'%20vector-effect='non-scaling-stroke'%20stroke-linecap='round'/%3E%3C/svg%3E");
-  --squiggle: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%208'%20preserveAspectRatio='none'%3E%3Cpath%20d='M1%205%20C12%201%2020%207%2032%204%20S52%202%2064%205%20S86%206%2099%202'%20fill='none'%20stroke='black'%20stroke-width='2.6'%20vector-effect='non-scaling-stroke'%20stroke-linecap='round'/%3E%3C/svg%3E");
-  --clef: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='50%20-1334%20611%201732'%3E%3Cpath%20transform='scale%281%20-1%29'%20d='M314%20801Q300%20854%20291.0%20906.0Q282%20958%20282%201012Q282%201059%20288.5%201100.5Q295%201142%20307%201177Q320%201217%20341.0%201252.5Q362%201288%20385.5%201311.0Q409%201334%20427%201334Q451%201334%20493%201249Q514%201206%20524.0%201156.0Q534%201106%20534%201049Q534%20978%20515.0%20907.5Q496%20837%20459.5%20775.0Q423%20713%20372%20666L407%20498Q422%20500%20432.0%20501.0Q442%20502%20447%20502Q508%20502%20556.0%20467.5Q604%20433%20632.5%20377.0Q661%20321%20661%20254Q661%20177%20621.5%20115.5Q582%2054%20503%2025Q508%208%20532%20-117Q538%20-147%20541.0%20-164.5Q544%20-182%20545.0%20-195.0Q546%20-208%20546%20-225Q546%20-275%20521.5%20-314.5Q497%20-354%20455.5%20-376.0Q414%20-398%20363%20-398Q311%20-398%20271.0%20-378.5Q231%20-359%20208.0%20-324.5Q185%20-290%20185%20-245Q185%20-197%20211.5%20-165.0Q238%20-133%20287%20-133Q329%20-133%20355.5%20-163.5Q382%20-194%20382%20-236Q382%20-272%20357.0%20-299.0Q332%20-326%20292%20-326H282Q308%20-365%20364%20-365Q433%20-365%20472.0%20-320.0Q511%20-275%20511%20-205Q511%20-188%20507.0%20-159.5Q503%20-131%20493%20-91Q483%20-51%20477.5%20-25.0Q472%201%20470%2012Q436%202%20390%202Q304%202%20222%2052Q142%20102%2096.0%20184.0Q50%20266%2050%20361Q50%20451%2091%20530Q132%20609%20192.5%20675.0Q253%20741%20314%20801ZM341%20826Q364%20838%20390.0%20870.5Q416%20903%20440.0%20945.0Q464%20987%20479.0%201029.5Q494%201072%20494%201106Q494%201142%20483.0%201163.0Q472%201184%20445%201184Q421%201184%20398.5%201162.0Q376%201140%20358.5%201103.5Q341%201067%20331.0%201022.0Q321%20977%20321%20930Q321%20898%20327.5%20872.0Q334%20846%20341%20826ZM398%20379Q371%20373%20347.0%20353.5Q323%20334%20308.5%20306.5Q294%20279%20294%20248Q294%20223%20307.0%20196.5Q320%20170%20339%20154Q352%20142%20365%20136Q380%20129%20380%20123Q380%20120%20370%20117Q332%20126%20301.5%20151.0Q271%20176%20253.5%20211.5Q236%20247%20236%20287Q236%20330%20253.5%20370.0Q271%20410%20302.5%20442.0Q334%20474%20374%20490L345%20641Q229%20547%20174.5%20456.5Q120%20366%20120%20277Q120%20212%20154.0%20156.0Q188%20100%20247.0%2065.5Q306%2031%20380%2031Q400%2031%20420.5%2035.0Q441%2039%20464%2045ZM495%2055Q593%2097%20593%20227Q593%20270%20571.0%20305.5Q549%20341%20512.0%20362.0Q475%20383%20429%20383Z'/%3E%3C/svg%3E");
-}
+/* Drawn by hand: the optional look (Settings, Appearance). The window stays as
+   it is, plain and straight; three pencils take the accent's place, and the
+   pictures are drawn in wax crayon: a staff over the albums, the empty
+   screens, the line under the tab in use and the ring round a picked album.
+   The crayon is drawn once into art/ (light paper and dark), nothing is
+   filtered while the window runs. Everything here is under :root.sketchy. */
 :root.sketchy {
-  --red: #BE3237; --blue: #1F56A6; --yellow: #F6AE1B;
   --accent: #BE3237; --accent-hover: #A92B30; --accent-edge: #8C2227; --accent-fg: #A3282D; --bar-fill: #BE3237;
-  --on-accent: #FFF8E6; --selected: rgb(246 174 27 / 0.26); --split-divider: #8C2227;
-  --scene-line: var(--text); --scene-ink: var(--text);
-  --dots: rgb(35 33 44 / 0.15); --shade: rgb(35 33 44 / 0.12); --grain: 0.07;
+  --on-accent: #FFF8E6; --selected: rgb(246 174 27 / 0.24); --split-divider: #8C2227;
 }
 :root.sketchy[data-theme="dark"] {
-  --red: #E8736A; --blue: #8AA0F0; --yellow: #F2C14A;
   --accent: #E8736A; --accent-hover: #EE8A82; --accent-edge: transparent; --accent-fg: #EE8A82; --bar-fill: #E8736A;
   --on-accent: #231612; --selected: rgb(242 193 74 / 0.16); --split-divider: rgb(0 0 0 / 0.25);
-  --dots: rgb(233 232 237 / 0.09); --shade: rgb(0 0 0 / 0.4); --grain: 0.045;
 }
-.sketchy body {
-  background-image: radial-gradient(circle, var(--dots) 1.1px, transparent 1.7px);
-  background-size: 24px 24px; background-position: 12px 12px;
-}
-.sketchy body::after {
-  content: ""; position: fixed; inset: 0; z-index: 100; pointer-events: none; opacity: var(--grain);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .3 0 0 0 0 .25 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-/* Rows of text are read on clean paper: the dots stop where a list begins */
-.sketchy .rows { background-color: var(--bg); }
+.crayon { display: none; width: 100%; height: 100%; background: center / contain no-repeat; }
+.sketchy .ascii { display: none; }
+.sketchy .crayon { display: block; }
+[data-scene="cassette"] .crayon { background-image: url("art/crayon-downloads.webp"); }
+[data-scene="turntable"] .crayon { background-image: url("art/crayon-library.webp"); }
+[data-scene="radio"] .crayon { background-image: url("art/crayon-nothing.webp"); }
+[data-scene="mixer"] .crayon { background-image: url("art/crayon-settings.webp"); }
+[data-theme="dark"] [data-scene="cassette"] .crayon { background-image: url("art/crayon-downloads-dark.webp"); }
+[data-theme="dark"] [data-scene="turntable"] .crayon { background-image: url("art/crayon-library-dark.webp"); }
+[data-theme="dark"] [data-scene="radio"] .crayon { background-image: url("art/crayon-nothing-dark.webp"); }
+[data-theme="dark"] [data-scene="mixer"] .crayon { background-image: url("art/crayon-settings-dark.webp"); }
+.sketchy .empty .scene { width: 320px; height: 180px; }
+.sketchy .settings-art { width: 176px; height: 96px; }
 
-/* The mark and the pictures of the empty screens, in pencil */
-:root.sketchy .logo { color: var(--red); }
-.sketchy .logo .icon, .sketchy .card-icon.brand .icon { filter: url(#crayon); }
-.sketchy .scene, .sketchy .settings-art { filter: url(#pencil); }
-
-/* The section in use is marked with a highlighter, not boxed */
-.sketchy .nav-item { z-index: 0; }
-.sketchy .nav-item[aria-current="page"] { background: none; color: var(--text); }
-.sketchy .nav-item[aria-current="page"] .icon { color: var(--red); }
-.sketchy .nav-item[aria-current="page"]::before {
-  left: 5px; right: 5px; top: 8px; bottom: 6px; width: auto; z-index: -1; border-radius: 3px 9px 4px 10px;
-  background: var(--yellow); opacity: 0.5; transform: rotate(-1.2deg); filter: url(#crayon);
+/* The staff runs over the albums and scrolls away with them */
+.crayon-band { display: none; }
+.sketchy .crayon-band:has(+ .cards:not([hidden]):not(:empty)) {
+  display: block; height: 118px; margin: 6px 0 -6px;
+  background: url("art/crayon-band.webp") left center / auto 100% no-repeat;
 }
-/* On dark paper the same marker is thinner, or the icon drowns in it */
-:root.sketchy[data-theme="dark"] .nav-item[aria-current="page"]::before { opacity: 0.3; }
-/* and the tab in use is underlined in red pencil */
+.sketchy[data-theme="dark"] .crayon-band { background-image: url("art/crayon-band-dark.webp"); }
+
+/* The tab in use is underlined in crayon, and a picked album is ringed */
 .sketchy .tabs::after {
-  height: 8px; bottom: -5px; border-radius: 0; background: var(--red);
-  -webkit-mask: var(--squiggle) center / 100% 100% no-repeat; mask: var(--squiggle) center / 100% 100% no-repeat;
+  height: 9px; bottom: -5px; border-radius: 0; background: var(--accent);
+  -webkit-mask: url("art/crayon-line.webp") center / 100% 100% no-repeat; mask: url("art/crayon-line.webp") center / 100% 100% no-repeat;
 }
-
-/* Frames by hand: the real border steps aside for a drawn one */
-.sketchy :is(.tool-btn, .field, .btn-group, .segmented) { position: relative; border-color: transparent; border-radius: 3px; }
-.sketchy :is(.tool-btn, .field, .btn-group, .segmented)::before {
-  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: var(--text); opacity: 0.85;
-  -webkit-mask-box-image: var(--frame) 20 / 10px stretch; mask-border: var(--frame) 20 / 10px stretch;
-}
-.sketchy .btn-group .tool-btn::before { content: none; }
-.sketchy .tool-btn.danger::before, .sketchy .field.invalid::before { background: var(--danger); }
-.sketchy .tool-btn.on::before { background: var(--red); }
-.sketchy .field:focus-within { box-shadow: none; }
-.sketchy .field:focus-within::before { background: var(--red); opacity: 1; }
-
-/* Covers lie on the paper like prints: a drawn edge and a flat shadow */
-.sketchy .card .card-cover { border-radius: 3px; box-shadow: 4px 5px 0 var(--shade); }
-.sketchy .card:hover .card-cover { box-shadow: 6px 8px 0 var(--shade); }
-.sketchy .card .card-cover::before, .sketchy .player-cover::before {
-  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: var(--text);
-  -webkit-mask-box-image: var(--frame) 20 / 10px stretch; mask-border: var(--frame) 20 / 10px stretch;
-}
-.sketchy .player-cover { box-shadow: 3px 3px 0 var(--shade); border-radius: 3px; }
-/* A picked album is circled */
 .sketchy .card.is-selected .card-cover { outline: none; }
 .sketchy .card.is-selected .card-cover::after {
-  content: ""; position: absolute; inset: 3px; z-index: 3; pointer-events: none; background: var(--red); transform: rotate(-4deg);
-  -webkit-mask: var(--circled) center / 100% 100% no-repeat; mask: var(--circled) center / 100% 100% no-repeat;
+  content: ""; position: absolute; inset: -4px; z-index: 3; pointer-events: none; background: var(--accent);
+  -webkit-mask: url("art/crayon-ring.webp") center / 100% 100% no-repeat; mask: url("art/crayon-ring.webp") center / 100% 100% no-repeat;
 }
-
-/* The library's summary is written on a staff, after a treble clef */
-.sketchy .library-bar { position: relative; isolation: isolate; min-height: 66px; padding-left: 62px; border-bottom-color: transparent; }
-.sketchy .library-bar::before {
-  content: ""; position: absolute; left: 14px; right: 20px; top: 50%; height: 37.2px; margin-top: -18.6px; z-index: -1;
-  background: repeating-linear-gradient(to bottom, var(--text) 0 1.2px, transparent 1.2px 9px); opacity: 0.5; filter: url(#wobble);
-}
-.sketchy .library-bar::after {
-  content: ""; position: absolute; left: 22px; top: 50%; width: 23px; height: 65px; margin-top: -35px; z-index: -1; background: var(--red);
-  -webkit-mask: var(--clef) center / contain no-repeat; mask: var(--clef) center / contain no-repeat;
-}
-/* What is written on the staff has clean paper under it, and the choices on the
-   right stand shoulder to shoulder, so no stubs of the lines show between them */
-.sketchy .library-bar { column-gap: 0; }
-.sketchy .library-bar > :is(.library-summary, .pick) { background: var(--bg); border-radius: 6px; padding-inline: 9px; }
-.sketchy .library-bar > .pick .icon { right: 11px; }
-.sketchy .library-bar > .segmented { box-shadow: 0 0 0 9px var(--bg); margin-left: 9px; }
-.sketchy .library-summary { color: var(--text); font: 500 21px/1.3 var(--font-hand); }
-
-/* The player: what has played is red, and the knob is a note's head */
-.sketchy :is(.player, .eq-bands, .crossfade) input[type="range"]::-webkit-slider-thumb {
-  width: 15px; height: 11px; margin-top: -4px; border-radius: 50%; background: var(--blue); transform: rotate(-22deg);
-}
-.sketchy :is(.player, .eq-bands, .crossfade) input[type="range"]:hover::-webkit-slider-thumb,
-.sketchy :is(.player, .eq-bands, .crossfade) input[type="range"]:active::-webkit-slider-thumb { transform: rotate(-22deg) scale(1.25); }
-.sketchy .player-artist, .sketchy .player-time { font-family: var(--font-hand); font-weight: 500; font-size: 18px; line-height: 1.1; }
-.sketchy .player-artist { padding-right: 4px; }  /* the hand leans, and its last letter was cut */

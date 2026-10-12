@@ -850,10 +850,9 @@ The rest of `sonicache/` is the program built on top of it.
 linking rather than mere aggregation, so the copyleft covers the whole project.
 
 Other dependencies: yt-dlp and yt-dlp-ejs are under the Unlicense, ytmusicapi under MIT,
-pywebview under BSD-3-Clause. The window writes its names and headings in a font of your
-choosing: Source Serif 4, Literata, PT Serif, Lora or Onest. These, Caveat for the handwriting
-of the hand-drawn look and the treble clef's outline from Noto Music travel with the program in
-`sonicache/web/fonts/` under the SIL Open Font License; the licence text sits beside the files.
+pywebview under BSD-3-Clause. The window writes its names and headings in Source Serif 4 unless you choose
+Comic Sans or the system font; it travels with the program in `sonicache/web/fonts/` under the
+SIL Open Font License; the licence text sits beside the files.
 
 The release builds carry two separate programs, each under its own licence: ffmpeg (GPL,
 sources at [ffmpeg.org](https://ffmpeg.org/download.html)) and Deno from

@@ -1,14 +1,4 @@
-The fonts in this folder, each under the SIL Open Font License, Version 1.1:
-
 Source Serif 4: Copyright 2014 - 2023 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'. All Rights Reserved. Source is a trademark of Adobe in the United States and/or other countries.
-Literata: Copyright 2017 The Literata Project Authors (https://github.com/googlefonts/literata)
-PT Serif: Copyright (c) 2010, ParaType Ltd. (http://www.paratype.com/public), with Reserved Font Names "PT Sans", "PT Serif" and "ParaType".
-Lora: Copyright 2011 The Lora Project Authors (https://github.com/cyrealtype/Lora-Cyrillic), with Reserved Font Name "Lora".
-Onest: Copyright 2021 The Onest Project Authors (https://github.com/simpals/onest)
-Caveat: Copyright 2014 The Caveat Project Authors (https://github.com/googlefonts/caveat)
-
-The treble clef drawn in the window (index.html, style.css) is an outline of Noto Music:
-Noto Music: Copyright 2022 The Noto Project Authors (https://github.com/notofonts/music)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

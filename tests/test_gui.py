@@ -67,8 +67,8 @@ class TestNormalize:
     def test_only_known_themes_survive(self, given, expected):
         assert gui._normalize({"theme": given})["theme"] == expected
 
-    @pytest.mark.parametrize("given, expected", [("lora", "lora"), ("system", "system"),
-                                                 ("comic", "source-serif"), (None, "source-serif")])
+    @pytest.mark.parametrize("given, expected", [("comic", "comic"), ("system", "system"), ("lora", "source-serif"),
+                                                 (None, "source-serif")])
     def test_only_known_fonts_survive(self, given, expected):
         assert gui._normalize({"font": given})["font"] == expected
 
