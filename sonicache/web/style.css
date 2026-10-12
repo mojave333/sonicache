@@ -554,28 +554,40 @@ p { margin: 0; }
 }
 .tabs.ink-ready::after { transition: transform var(--settle) var(--ease), width var(--settle) var(--ease); }
 .library-search { flex: 0 1 280px; margin-left: auto; }
+/* The Playlists tab has two more buttons, one of them with words: the search gives way so the bar keeps to one line */
+@container content (max-width: 1100px) {
+  #view-library[data-tab="playlists"] .library-search { flex-basis: 180px; }
+}
 
 .library-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; flex: none; min-height: 40px; padding: 4px 16px;
   border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: 13px;
 }
 .library-summary { margin-right: auto; font-variant-numeric: tabular-nums; }
-.pick { position: relative; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+/* The genre and the order are pills, one step above the bar they stand in */
+.pick, .sort-button { height: 28px; border-radius: 14px; background: var(--selected); transition: background-color var(--press) ease-out; }
+.pick:hover, .sort-button:hover { background: color-mix(in srgb, var(--selected) 70%, var(--text) 12%); }
+.pick { position: relative; display: inline-flex; align-items: center; gap: 4px; padding-left: 12px; white-space: nowrap; }
 .pick select {
-  appearance: none; height: 26px; padding: 0 20px 0 6px; border: 0; border-radius: 4px; background: transparent;
+  appearance: none; height: 26px; padding: 0 22px 0 4px; border: 0; border-radius: 14px; background: transparent;
   color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
 }
-.pick select:hover { background: var(--hover); }
 .pick select option { background: var(--field); color: var(--text); font-weight: 400; }
 /* As wide as the genre picked, not as the longest of dozens */
 #library-genre { field-sizing: content; max-width: 220px; text-overflow: ellipsis; }
-.pick .icon { position: absolute; right: 2px; pointer-events: none; }
+.pick .icon { position: absolute; right: 6px; pointer-events: none; }
+.sort-wrap { position: relative; display: inline-flex; }
+.sort-button { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; color: var(--text); font-weight: 600; white-space: nowrap; }
+.sort-button .icon { color: var(--text-subtle); }
+/* The sorts are written in lower case after "by", so the menu begins them with a capital */
+.sort-menu { min-width: 230px; }
+.sort-menu .menu-name::first-letter, #library-sort-label::first-letter { text-transform: uppercase; }
 .segmented.small { height: 28px; }
 .segmented.small button { padding: 0 8px; }
 
 .library-body { position: relative; display: flex; flex: 1; min-height: 0; }
 /* Sorting and the view switch mean nothing on an album's page */
-.page-open .library-bar .pick, .page-open #library-view { visibility: hidden; }
+.page-open .library-bar .pick, .page-open .library-bar .sort-wrap, .page-open #library-view { visibility: hidden; }
 .library-panel { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 
 /* Cover grid */

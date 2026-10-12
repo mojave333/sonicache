@@ -961,6 +961,12 @@ function bindUi() {
     renderLibrary();
   });
   $("#library-order").addEventListener("change", onSortPick);
+  $("#library-sort-button").addEventListener("click", () => setSortMenuOpen($("#library-sort-menu").hidden));
+  $("#library-sort-menu").addEventListener("click", onSortMenuClick);
+  $("#library-sort-menu").addEventListener("keydown", onMenuKey);
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest(".sort-wrap")) setSortMenuOpen(false, false);
+  });
   $("#page-back").addEventListener("click", () => closePage());
   $("#album-page").addEventListener("click", onPageAction);
   // The mouse's back button, as in a browser
@@ -2831,6 +2837,51 @@ function renderSortPickers() {
   orderPick.replaceChildren(new Option(t(labels[sorts[key].dir]), String(sorts[key].dir)),
                             new Option(t(labels[-sorts[key].dir]), String(-sorts[key].dir)));
   orderPick.value = String(dir);
+  renderSortMenu(sorts, key, dir, labels);
+}
+
+// What the library is sorted by and which way, in one button; its menu lists the
+// sorts of the tab being shown and the two directions that go with the one chosen
+function renderSortMenu(sorts, key, dir, labels) {
+  $("#library-sort-label").textContent = `${t(sorts[key].label)} · ${t(labels[dir])}`;
+  const menu = $("#library-sort-menu");
+  const item = (attribute, value, text, checked) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("role", "menuitemradio");
+    button.setAttribute("aria-checked", String(checked));
+    button.dataset[attribute] = value;
+    button.innerHTML = '<svg class="icon sm check" aria-hidden="true"><use href="#i-check"/></svg><span class="menu-name"></span>';
+    $(".menu-name", button).textContent = text;
+    return button;
+  };
+  const label = (text) => Object.assign(document.createElement("p"), { className: "menu-label", textContent: t(text) });
+  const divider = Object.assign(document.createElement("div"), { className: "menu-divider" });
+  divider.setAttribute("role", "separator");
+  menu.replaceChildren(
+    label("Сортировка"),
+    ...Object.entries(sorts).map(([name, sort]) => item("sortKey", name, t(sort.label), name === key)),
+    divider,
+    label("Порядок"),
+    ...[sorts[key].dir, -sorts[key].dir].map((value) => item("sortDir", String(value), t(labels[value]), value === dir)));
+}
+
+function setSortMenuOpen(open, restoreFocus = true) {
+  const menu = $("#library-sort-menu");
+  const wasOpen = !menu.hidden;
+  menu.hidden = !open;
+  $("#library-sort-button").setAttribute("aria-expanded", String(open));
+  if (open) ($("[aria-checked=true]", menu) || $("button", menu)).focus();
+  else if (wasOpen && restoreFocus) $("#library-sort-button").focus();
+}
+
+function onSortMenuClick(event) {
+  const choice = event.target.closest("[data-sort-key], [data-sort-dir]");
+  if (!choice) return;
+  if (choice.dataset.sortKey) $("#library-sort").value = choice.dataset.sortKey;
+  else $("#library-order").value = choice.dataset.sortDir;
+  setSortMenuOpen(false);
+  onSortPick();
 }
 
 function sortLibraryBy(key) {
@@ -5550,6 +5601,7 @@ function onMenuKey(event) {
   if (event.key === "Escape") {
     event.preventDefault();
     if (menu.id === "library-menu") closeLibraryMenu();
+    else if (menu.id === "library-sort-menu") setSortMenuOpen(false);
     else closeMenu(menu);
     return;
   }
