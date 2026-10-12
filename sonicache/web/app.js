@@ -2986,7 +2986,7 @@ function showPage(kind) {
   }
 }
 
-// The arrow says where it goes back to in its tooltip, since it shows no words
+// The arrow says where it goes back to, in words and again in its tooltip
 function renderPageBack() {
   const back = $("#page-back");
   $("#page-back-label").textContent = backLabel();

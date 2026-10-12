@@ -724,26 +724,24 @@ p { margin: 0; }
   display: inline-flex; align-items: center; gap: 6px; height: 30px; margin: 0 0 14px -8px; padding: 0 12px;
   border-radius: var(--radius); color: var(--text-muted);
 }
-/* The library's own back button is the arrow alone: where it goes back to is a
-   long name often as not, and it said so right at the edge of the page */
-#page-back, .now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
-#page-back span { display: none; }
+/* The library's back button says where it goes back to, cut short when that is
+   a long name; Now playing's is the arrow alone */
+#page-back { max-width: min(320px, 100%); margin: 0 0 12px -8px; padding: 0 12px 0 8px; }
+#page-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
 .page-back:hover { background: var(--hover); color: var(--text); }
 .album-page { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; align-items: start; max-width: 1100px; }
 .album-page .album-cover { width: 240px; height: 240px; border-radius: 8px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
 /* The cover stays in sight while a long tracklist scrolls past it */
 .album-page .album-cover { position: sticky; top: 14px; }
 .album-side { display: contents; }
-/* An album opens as Harmonoid shows one: the rail and the library's bars step
-   aside, the cover sits on a panel in its own colour, and only the tracklist
-   scrolls, under the title and the buttons that stay in place */
-.album-full .app { grid-template-columns: minmax(0, 1fr); }
+/* An album opens over the library: the library's bars step aside, the cover
+   sits on a panel in its own colour, and only the tracklist scrolls, under the
+   title and the buttons that stay in place. The rail stays, so the way to
+   every other section is still one click away, as it is on an artist's page. */
 /* The grid is behind the page, so it is not drawn at all while the page is
-   open. Laying out a library of two hundred covers again for the rail
-   stepping aside cost 30 ms of the main thread, which the eye saw as a hitch
-   at the start of the animation; the grid keeps its place and its scroll. */
+   open: the grid keeps its place and its scroll, and is not laid out again. */
 .album-full #library-panel { content-visibility: hidden; }
-.album-full .sidebar { display: none; }
 .album-full #view-library > .toolbar, .album-full .library-bar { display: none; }
 .album-full #library-page { display: flex; flex-direction: column; padding: 16px 32px 24px; overflow-y: auto; }
 .album-full #library-page .page-band { display: none; }
