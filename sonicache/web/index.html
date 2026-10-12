@@ -245,6 +245,12 @@
           </div>
           <span id="search-service" class="search-service"></span>
         </div>
+        <div id="search-chips" class="chips" role="radiogroup" aria-label="Что показать" hidden>
+          <button type="button" role="radio" data-search-filter="all">Всё</button>
+          <button type="button" role="radio" data-search-filter="albums">Альбомы</button>
+          <button type="button" role="radio" data-search-filter="artists">Исполнители</button>
+          <button type="button" role="radio" data-search-filter="tracks">Треки</button>
+        </div>
         <div class="library-body">
           <div class="list-scroll" id="search-scroll">
             <div id="search-empty" class="empty">
@@ -252,9 +258,13 @@
               <p class="empty-title"></p>
               <p class="empty-text"></p>
             </div>
+            <section class="search-section" id="search-best-section" hidden>
+              <h3 class="search-head">Лучший результат</h3>
+              <div class="search-best" id="search-best"></div>
+            </section>
             <section class="search-section" id="search-library-section" hidden>
               <h3 class="search-head">В вашей библиотеке</h3>
-              <div class="cards home-cards" id="search-library"></div>
+              <div class="home-quick" id="search-library"></div>
             </section>
             <section class="search-section" id="search-artists-section" hidden>
               <h3 class="search-head">Исполнители</h3>

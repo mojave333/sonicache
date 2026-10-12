@@ -104,7 +104,7 @@ const state = {
     pending: new Map(),
   },
   // The catalogue search: what was asked last and what came back
-  search: { query: "", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null, pages: [] },
+  search: { query: "", filter: "all", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null, pages: [] },
   covers: new Map(),
   artistPhotos: new Map(),
   plays: new Map(), // path → how many times it was listened to
@@ -3218,9 +3218,14 @@ function renderSearchLibrary() {
     const text = `${item.title} ${item.artist || ""}`.toLocaleLowerCase();
     return words.every((word) => text.includes(word));
   }).slice(0, 16) : [];
-  $("#search-library-section").hidden = !found.length;
-  $("#search-library").replaceChildren(...found.map((item, index) => createCard(item, index)));
-  return found.length;
+  const shown = state.search.filter === "all" ? found.slice(0, 6) : [];
+  $("#search-library-section").hidden = !shown.length;
+  $("#search-library").replaceChildren(...shown.map((item, index) => {
+    const card = createCard(item, index);
+    card.classList.add("quick");
+    return card;
+  }));
+  return shown.length;
 }
 
 function fillAlbumPage(item) {
@@ -3870,6 +3875,11 @@ function bindSearch() {
     runSearch(input.value, true);
   });
   $("#search-scroll").addEventListener("click", onSearchClick);
+  radioGroup($("#search-chips"), "data-search-filter", (filter) => {
+    state.search.filter = filter;
+    renderSearch({ enter: true });
+    $("#search-scroll").scrollTop = 0;
+  });
   $("#search-scroll").addEventListener("keydown", (event) => {
     if ((event.key === "Enter" || event.key === " ") && event.target.matches(".search-card")) {
       event.preventDefault();
@@ -3917,9 +3927,33 @@ function renderSearch({ enter = false } = {}) {
     ? t("Исполнитель, альбом или трек — с обложками из каталога. Щелчок по альбому покажет его треки, стрелка сразу поставит в очередь")
     : loading ? "" : results?.error || t("По запросу «{query}»", { query });
   $("#search-service").textContent = results?.service ? t("Каталог: {service}", { service: results.service }) : "";
-  fillSearchSection("artists", found.artists.map(createSearchArtist), enter);
-  fillSearchSection("albums", found.albums.map(createSearchAlbum), enter);
-  fillSearchSection("tracks", found.tracks.map(createSearchTrack), false);
+  const { filter } = state.search;
+  $("#search-chips").hidden = !query || !(found.albums.length + found.tracks.length + found.artists.length);
+  syncRadios($("#search-chips"), "data-search-filter", filter);
+  const best = filter === "all" && !loading ? bestSearchResult(found, query) : null;
+  $("#search-best-section").hidden = !best;
+  $("#search-best").replaceChildren(...(best ? [best] : []));
+  const wanted = (kind) => filter === "all" || filter === kind;
+  fillSearchSection("artists", wanted("artists") ? found.artists.map(createSearchArtist) : [], enter);
+  fillSearchSection("albums", wanted("albums") ? found.albums.map(createSearchAlbum) : [], enter);
+  fillSearchSection("tracks", wanted("tracks") ? found.tracks.map(createSearchTrack) : [], false);
+}
+
+// The artist the words name, or else the first album the catalogue sent: made
+// as the cards below are, so a click on it does what a click on them does
+function bestSearchResult(found, query) {
+  const needle = (query || "").toLocaleLowerCase();
+  if (!needle) return null;
+  const named = (artist) => (artist.name || "").toLocaleLowerCase();
+  const artist = found.artists.find((entry) => named(entry) === needle) || found.artists.find((entry) => named(entry).startsWith(needle));
+  const card = artist ? createSearchArtist(artist, 0) : found.albums[0] ? createSearchAlbum(found.albums[0], 0)
+    : found.artists[0] ? createSearchArtist(found.artists[0], 0) : null;
+  if (!card) return null;
+  card.classList.add("best");
+  // What kind of answer it is, since it stands alone above the rest
+  const sub = $(".card-sub", card);
+  sub.textContent = [card.classList.contains("search-artist") ? t("Исполнитель") : "", sub.textContent].filter(Boolean).join(" · ");
+  return card;
 }
 
 function fillSearchSection(kind, nodes, enter) {
