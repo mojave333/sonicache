@@ -818,7 +818,15 @@ p { margin: 0; }
 .album-full #album-page .album-head { position: sticky; top: 0; z-index: 1; background: var(--field); }
 .setting-path { overflow-wrap: anywhere; user-select: text; }
 .album-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
-.album-title { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+/* The name of an album or an artist leads its page: set large, in the page's own
+   width, and at most two lines on an album's page, where the tracks scroll under it */
+.album-title, .artist-name {
+  margin: 0; font-size: clamp(30px, 5cqi, 52px); font-weight: 600; line-height: 1.08; letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.album-full .album-title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
 .album-sub { margin: 4px 0 16px; color: var(--text-subtle); }
 /* The artist's name leads to their page */
 .album-sub .link { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }

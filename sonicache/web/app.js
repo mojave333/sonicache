@@ -3179,6 +3179,7 @@ function fillAlbumPage(item) {
   $(".album-head .artists", page).textContent = t("Исполнители");
   $("use", $(".album-cover", page)).setAttribute("href", "#i-note");
   $(".album-title", page).textContent = item.title;
+  $(".album-title", page).title = item.title;
   page.dataset.path = item.path;
   fillAlbumSub(item, albumSubline(item));
   renderFavourite(item);
@@ -4039,6 +4040,7 @@ async function fillSearchAlbum(entry) {
   const { item } = entry;
   const page = $("#search-page");
   $(".album-title", page).textContent = item.title;
+  $(".album-title", page).title = item.title;
   $(".album-sub", page).textContent = [item.artist, t(RELEASE_KINDS[item.type] || "Альбом"), item.year]
     .filter(Boolean).join(" · ");
   const cover = $(".album-cover", page);
