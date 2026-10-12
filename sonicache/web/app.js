@@ -406,7 +406,6 @@ function renderSettings() {
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   $("#font").value = FONTS.includes(settings.font) ? settings.font : FONTS[0];
   $("#art").value = ARTS.includes(settings.art) ? settings.art : ARTS[0];
-  syncSwitch($("#sketch"), settings.sketch);
   syncSwitch($("#replaygain"), settings.replaygain);
   syncSwitch($("#lyrics"), settings.lyrics);
   syncSwitch($("#tray"), settings.tray);
@@ -550,7 +549,7 @@ function networkRow(tone, text) {
   return row;
 }
 
-// The theme, the face the names are set in and whether the window is drawn by hand
+// The theme, the face the names are set in and the pictures of the empty screens
 function applyTheme() {
   const settings = state.settings || {};
   const choice = settings.theme || "light";
@@ -559,7 +558,6 @@ function applyTheme() {
   root.dataset.theme = dark ? "dark" : "light";
   root.dataset.font = FONTS.includes(settings.font) ? settings.font : FONTS[0];
   root.dataset.art = ARTS.includes(settings.art) ? settings.art : ARTS[0];
-  root.classList.toggle("sketchy", Boolean(settings.sketch));
   drawAscii();
 }
 
@@ -864,7 +862,6 @@ function bindUi() {
     document.fonts.ready.then(() => placeTabInk(false));
   });
   $("#art").addEventListener("change", (event) => updateSettings({ art: event.target.value }));
-  bindSwitch($("#sketch"), (on) => updateSettings({ sketch: on }));
   bindSwitch($("#replaygain"), (on) => updateSettings({ replaygain: on }));
   bindSwitch($("#lyrics"), (on) => updateSettings({ lyrics: on }));
   bindSwitch($("#tray"), (on) => updateSettings({ tray: on }));

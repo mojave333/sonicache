@@ -24,7 +24,6 @@ class TestNormalize:
             "theme": "light",
             "font": "source-serif",
             "art": "crayon",
-            "sketch": False,
             "dry_run": False,
             "cookies_browser": "",
             "rate_limit": 0,
@@ -87,10 +86,6 @@ class TestNormalize:
     @pytest.mark.parametrize("given, expected", [("ascii", "ascii"), ("none", "none"), ("photo", "crayon"), (None, "crayon")])
     def test_only_known_pictures_survive(self, given, expected):
         assert gui._normalize({"art": given})["art"] == expected
-
-    def test_the_drawn_look_is_off_until_asked_for(self):
-        assert gui._normalize({"sketch": 1})["sketch"] is True
-        assert gui._normalize({"sketch": None})["sketch"] is False
 
     def test_only_supported_browsers_survive(self):
         assert gui._normalize({"cookies_browser": "firefox"})["cookies_browser"] == "firefox"

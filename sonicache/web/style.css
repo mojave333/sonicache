@@ -1287,21 +1287,17 @@ button.lyric-line:hover { opacity: 1; }
 .token-field { flex: none; width: 240px; padding-right: 10px; }
 .confirm-field { height: 34px; margin-top: 6px; }
 
-/* Drawn by hand: the optional look (Settings, Appearance). The window stays as
-   it is, plain and straight; three pencils take the accent's place, and the
-   line under the tab in use and the ring round a picked album are drawn in
-   wax crayon. The pictures of the empty screens are a setting of their own.
-   The crayon is drawn once into art/ (light paper and dark), nothing is
-   filtered while the window runs. Everything here is under :root.sketchy. */
-:root.sketchy {
+/* The picture of an empty screen: a crayon drawing, ASCII or none, as the
+   settings say (Appearance). The drawings are in red crayon, and with them the
+   accent turns red: lime beside them jars. */
+:root[data-art="crayon"] {
   --accent: #BE3237; --accent-hover: #A92B30; --accent-edge: #8C2227; --accent-fg: #A3282D; --bar-fill: #BE3237;
   --on-accent: #FFF8E6; --selected: rgb(246 174 27 / 0.24); --split-divider: #8C2227;
 }
-:root.sketchy[data-theme="dark"] {
+:root[data-art="crayon"][data-theme="dark"] {
   --accent: #E8736A; --accent-hover: #EE8A82; --accent-edge: transparent; --accent-fg: #EE8A82; --bar-fill: #E8736A;
   --on-accent: #231612; --selected: rgb(242 193 74 / 0.16); --split-divider: rgb(0 0 0 / 0.25);
 }
-/* The picture of an empty screen: crayon, ASCII or none, as the settings say */
 .crayon { display: none; width: 100%; height: 100%; background: center / contain no-repeat; }
 [data-art="crayon"] .crayon { display: block; }
 [data-art="none"] :is(.scene, .settings-art) { display: none; }
@@ -1316,14 +1312,3 @@ button.lyric-line:hover { opacity: 1; }
 [data-art="crayon"] .empty .scene { width: 320px; height: 180px; }
 /* In the settings the staff runs from the heading to the edge of the card */
 [data-art="crayon"] .settings-art { flex: 1; min-width: 176px; height: 104px; }
-
-/* The tab in use is underlined in crayon, and a picked album is ringed */
-.sketchy .tabs::after {
-  height: 9px; bottom: -5px; border-radius: 0; background: var(--accent);
-  -webkit-mask: url("art/crayon-line.webp") center / 100% 100% no-repeat; mask: url("art/crayon-line.webp") center / 100% 100% no-repeat;
-}
-.sketchy .card.is-selected .card-cover { outline: none; }
-.sketchy .card.is-selected .card-cover::after {
-  content: ""; position: absolute; inset: -4px; z-index: 3; pointer-events: none; background: var(--accent);
-  -webkit-mask: url("art/crayon-ring.webp") center / 100% 100% no-repeat; mask: url("art/crayon-ring.webp") center / 100% 100% no-repeat;
-}

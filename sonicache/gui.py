@@ -1852,8 +1852,6 @@ def _normalize(settings: dict) -> dict:
         "theme": settings.get("theme") if settings.get("theme") in THEMES else "light",
         "font": settings.get("font") if settings.get("font") in FONTS else FONTS[0],
         "art": settings.get("art") if settings.get("art") in ARTS else ARTS[0],
-        # Staff lines, wobbly frames and coloured pencils: off unless asked for
-        "sketch": bool(settings.get("sketch", False)),
         "dry_run": bool(settings.get("dry_run", False)),
         "cookies_browser": (settings.get("cookies_browser")
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),

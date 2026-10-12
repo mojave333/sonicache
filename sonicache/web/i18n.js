@@ -592,8 +592,6 @@ const TRANSLATIONS = {
   "Шрифт названий": "Font for titles",
   "Им набраны заголовки, названия альбомов и вкладки. Мелкий текст остаётся системным, чтобы легко читался": "Headings, album titles and tabs are set in it. Small text stays in the system font, which reads easily",
   "Системный": "System",
-  "Рисованные детали": "Hand-drawn details",
-  "Три цветных карандаша вместо одного акцента, вкладка подчёркнута мелком, выбранный альбом обведён. На работу программы не влияет": "Three coloured pencils in place of the single accent, the tab underlined in crayon, a picked album ringed. It changes nothing in how the program works",
   "Картинки на пустых экранах": "Pictures on empty screens",
   "Что показывать, пока список пуст: рисунок мелком, ASCII-арт с анимацией или только текст": "What to show while a list is empty: a crayon drawing, animated ASCII art or the words alone",
   "Рисунок": "Drawing",
