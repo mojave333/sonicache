@@ -43,6 +43,14 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-pill: 999px;
+  /* Controls stand 28 (compact: icon buttons, pills, the view switch), 34 (buttons,
+     fields, tabs, menu lines) or 38 high (the rail, the search field, play) */
+  --h-sm: 28px;
+  --h: 34px;
+  --h-lg: 38px;
+  /* Rows: 46 where a row carries a picture, 40 where it is words */
+  --row: 46px;
+  --row-sm: 40px;
   /* Type: 11 for labels, 12 for captions and table heads, 13 for what is
      secondary, 14 for the text itself, 15 for titles inside the interface, then
      18, 20, 24 and 28 for headings and the lyrics */
@@ -206,7 +214,7 @@ p { margin: 0; }
 .brand-name { display: none; font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.02em; }
 .nav-item {
   position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
-  flex: none; height: 38px; border-radius: var(--radius); color: var(--text-subtle);
+  flex: none; height: var(--h-lg); border-radius: var(--radius); color: var(--text-subtle);
 }
 .nav-item:hover { background: var(--hover); color: var(--text); }
 .nav-item[aria-current="page"] { background: var(--selected); color: var(--accent-fg); }
@@ -258,7 +266,7 @@ p { margin: 0; }
   border-bottom: 1px solid var(--divider);
 }
 .field {
-  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 120px; height: 34px; padding: 0 4px 0 12px;
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 120px; height: var(--h); padding: 0 4px 0 12px;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--field); color: var(--text-subtle);
 }
 .field:hover { border-color: var(--border-strong); }
@@ -272,13 +280,13 @@ p { margin: 0; }
 .field input::-webkit-search-cancel-button { display: none; }
 
 .icon-btn {
-  display: grid; place-items: center; flex: none; width: 28px; height: 28px;
+  display: grid; place-items: center; flex: none; width: var(--h-sm); height: var(--h-sm);
   border-radius: var(--radius); color: var(--text-subtle);
 }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
 
 .segmented {
-  display: inline-flex; flex: none; height: 34px; overflow: hidden;
+  display: inline-flex; flex: none; height: var(--h); overflow: hidden;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--field);
 }
 .segmented button {
@@ -294,7 +302,7 @@ p { margin: 0; }
 .segmented [aria-checked="true"] .count { color: inherit; opacity: 0.75; }
 
 .tool-btn {
-  display: inline-flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 260px; height: 34px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 260px; height: var(--h); padding: 0 12px;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--field); color: var(--text-muted);
 }
 .tool-btn:hover { border-color: var(--border-strong); color: var(--text); }
@@ -306,7 +314,7 @@ p { margin: 0; }
 .tool-btn:disabled:hover { border-color: var(--border); color: var(--text-muted); }
 
 .btn-group {
-  display: inline-flex; flex: 0 1 auto; min-width: 0; height: 34px; overflow: hidden;
+  display: inline-flex; flex: 0 1 auto; min-width: 0; height: var(--h); overflow: hidden;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--field);
 }
 .btn-group:hover { border-color: var(--border-strong); }
@@ -317,7 +325,7 @@ p { margin: 0; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: none;
-  height: 34px; padding: 0 16px; border-radius: var(--radius); white-space: nowrap;
+  height: var(--h); padding: 0 16px; border-radius: var(--radius); white-space: nowrap;
 }
 /* Feedback belongs to the press, not the release */
 .btn, .tool-btn, .icon-btn, .nav-item, .segmented button, .stepper button, .menu button {
@@ -330,7 +338,7 @@ p { margin: 0; }
 .btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
 .btn.danger { background: var(--danger); color: var(--on-danger); font-weight: 600; }
 .btn.danger:hover:not(:disabled) { filter: brightness(1.1); }
-.btn.ghost { height: 28px; padding: 0 8px; color: var(--text-muted); }
+.btn.ghost { height: var(--h-sm); padding: 0 8px; color: var(--text-muted); }
 .btn.ghost:hover { background: var(--hover); color: var(--text); }
 .btn.stop:hover { color: var(--danger); }
 
@@ -345,7 +353,7 @@ p { margin: 0; }
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--field); box-shadow: var(--menu-shadow);
 }
 .menu button {
-  display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 12px 0 12px;
+  display: flex; align-items: center; gap: 8px; width: 100%; height: var(--h); padding: 0 12px 0 12px;
   border-radius: var(--radius); text-align: left; white-space: nowrap;
 }
 .menu button:hover, .menu button:focus-visible { background: var(--hover); outline: none; }
@@ -365,7 +373,7 @@ p { margin: 0; }
 /* What the catalogue finds for a name typed in the link field, right under it */
 #view-download .field { position: relative; }
 .suggest { left: 0; right: 0; min-width: 0; max-height: min(60vh, 440px); overflow-y: auto; color: var(--text); }
-.menu .suggest-item { height: 46px; gap: 12px; }
+.menu .suggest-item { height: var(--row); gap: 12px; }
 .menu .suggest-item.is-active { background: var(--hover); }
 .suggest-item .cover { width: 34px; height: 34px; }
 .suggest-item[data-kind="artist"] .cover { border-radius: 50%; }
@@ -455,7 +463,7 @@ p { margin: 0; }
 .rows { margin: 0; padding: 0; list-style: none; }
 
 .row {
-  display: grid; align-items: center; gap: 0 16px; min-height: 46px; padding: 6px 16px;
+  display: grid; align-items: center; gap: 0 16px; min-height: var(--row); padding: 6px 16px;
   border-bottom: 1px solid var(--divider);
 }
 .row:hover { background: var(--hover); }
@@ -476,7 +484,7 @@ p { margin: 0; }
 /* A VPN client's proxy found on a card Spotify refused, one click from use */
 .offer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 4px; color: var(--text-muted); font-size: var(--fs-sm); }
 .offer[hidden] { display: none; }
-.offer .tool-btn { height: 26px; padding: 0 8px; color: var(--accent-fg); font-size: var(--fs-sm); }
+.offer .tool-btn { height: var(--h-sm); padding: 0 8px; color: var(--accent-fg); font-size: var(--fs-sm); }
 .tag {
   justify-self: start; padding: 1px 6px; border-radius: var(--radius);
   background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-edge); color: var(--on-accent);
@@ -551,7 +559,7 @@ p { margin: 0; }
 /* The fold itself is animated by the script (foldTracks), which knows how much
    of the list is on screen; overflow clips the rows while the height moves. */
 .tracks { margin: 0; padding: 0; list-style: none; background: var(--inset); overflow: hidden; }
-.track { grid-template-columns: 24px 34px minmax(0, 1fr) 140px 52px 260px 72px; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
+.track { grid-template-columns: 24px 34px minmax(0, 1fr) 140px 52px 260px 72px; min-height: var(--row-sm); padding-top: 4px; padding-bottom: 4px; }
 .track::before { content: ""; }
 .track .num { color: var(--text-subtle); font-size: var(--fs-sm); }
 .track .cell-release { display: none; }
@@ -565,7 +573,7 @@ p { margin: 0; }
 
 /* Library tabs: the line under the chosen one slides to the next, the way a
    Material tab strip moves. The script places it through --ink-x and --ink-w. */
-.tabs { position: relative; display: flex; flex: none; gap: 4px; height: 34px; }
+.tabs { position: relative; display: flex; flex: none; gap: 4px; height: var(--h); }
 .tabs button {
   padding: 0 12px; border-radius: var(--radius); color: var(--text-subtle); font-size: var(--fs-md); white-space: nowrap;
 }
@@ -583,16 +591,16 @@ p { margin: 0; }
 }
 
 .library-bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; flex: none; min-height: 40px; padding: 4px 16px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; flex: none; min-height: var(--row-sm); padding: 4px 16px;
   border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: var(--fs-sm);
 }
 .library-summary { margin-right: auto; font-variant-numeric: tabular-nums; }
 /* The genre and the order are pills, one step above the bar they stand in */
-.pick, .sort-button { height: 28px; border-radius: var(--radius); background: var(--selected); transition: background-color var(--press) ease-out; }
+.pick, .sort-button { height: var(--h-sm); border-radius: var(--radius); background: var(--selected); transition: background-color var(--press) ease-out; }
 .pick:hover, .sort-button:hover { background: color-mix(in srgb, var(--selected) 70%, var(--text) 12%); }
 .pick { position: relative; display: inline-flex; align-items: center; gap: 4px; padding-left: 12px; white-space: nowrap; }
 .pick select {
-  appearance: none; height: 26px; padding: 0 22px 0 4px; border: 0; border-radius: var(--radius); background: transparent;
+  appearance: none; height: 100%; padding: 0 22px 0 4px; border: 0; border-radius: var(--radius); background: transparent;
   color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
 }
 .pick select option { background: var(--field); color: var(--text); font-weight: 400; }
@@ -605,7 +613,7 @@ p { margin: 0; }
 /* The sorts are written in lower case after "by", so the menu begins them with a capital */
 .sort-menu { min-width: 230px; }
 .sort-menu .menu-name::first-letter, #library-sort-label::first-letter { text-transform: uppercase; }
-.segmented.small { height: 28px; }
+.segmented.small { height: var(--h-sm); }
 .segmented.small button { padding: 0 8px; }
 
 .library-body { position: relative; display: flex; flex: 1; min-height: 0; }
@@ -692,7 +700,7 @@ p { margin: 0; }
 @keyframes img-in { from { opacity: 0; } }
 
 /* Search */
-.search-field { flex: 1 1 320px; max-width: 640px; height: 38px; }
+.search-field { flex: 1 1 320px; max-width: 640px; height: var(--h-lg); }
 .search-field input { font-size: var(--fs-md); }
 .search-service { margin-left: auto; color: var(--text-subtle); font-size: var(--fs-xs); }
 .search-section + .search-section { border-top: 1px solid var(--divider); }
@@ -700,7 +708,7 @@ p { margin: 0; }
 /* What to show of the answer: all of it, or only the albums, the artists or the tracks */
 .chips { display: flex; flex: none; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--divider); }
 .chips button {
-  height: 30px; padding: 0 14px; border-radius: var(--radius); background: var(--selected); color: var(--text); font-weight: 600;
+  height: var(--h-sm); padding: 0 14px; border-radius: var(--radius); background: var(--selected); color: var(--text); font-weight: 600;
   transition: background-color var(--press) ease-out, color var(--press) ease-out;
 }
 .chips button:hover { background: color-mix(in srgb, var(--selected) 70%, var(--text) 12%); }
@@ -726,7 +734,7 @@ p { margin: 0; }
 .search-card .card-cover { position: relative; overflow: hidden; }
 .search-card .card-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .search-card .queue-btn {
-  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 36px; height: 36px;
+  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg);
   border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
   opacity: 0; transform: translateY(6px);
   transition: opacity var(--quick) ease-out, transform var(--settle) var(--ease);
@@ -737,7 +745,7 @@ p { margin: 0; }
 .search-card .queue-btn:active { transform: scale(0.92); }
 /* The library's covers play at once, as the search's download: the page is for more than that */
 .card .play-btn {
-  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 36px; height: 36px;
+  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg);
   border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
   opacity: 0; transform: translateY(6px);
   transition: opacity var(--quick) ease-out, transform var(--settle) var(--ease);
@@ -804,7 +812,7 @@ p { margin: 0; }
 /* The right padding is the scrollbar's width, so the columns stand over the rows' */
 .tracks-head { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 52px 32px; gap: 0 16px; padding: 4px 28px 4px 16px; }
 /* The same menu as the right button gives, one click away at the end of a row */
-.row-more { width: 28px; height: 28px; justify-self: end; opacity: 0; transition: opacity var(--quick) ease-out; }
+.row-more { width: var(--h-sm); height: var(--h-sm); justify-self: end; opacity: 0; transition: opacity var(--quick) ease-out; }
 .row-more .icon { stroke-width: 3.2; }
 .album-track:hover .row-more, .track-item:hover .row-more, .row-more:focus-visible, .row-more[aria-expanded="true"] { opacity: 1; }
 
@@ -826,7 +834,7 @@ p { margin: 0; }
 .tinting .page-band { transition: --band 520ms var(--ease); }
 .artist-open .page-band { height: 133px; }
 .page-back {
-  display: inline-flex; align-items: center; gap: 6px; height: 30px; margin: 0 0 14px -8px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 6px; height: var(--h); margin: 0 0 14px -8px; padding: 0 12px;
   border-radius: var(--radius); color: var(--text-muted);
 }
 /* The library's back button says where it goes back to, cut short when that is
@@ -912,11 +920,11 @@ p { margin: 0; }
 .album-actions .tool-btn[aria-pressed="true"] { border-color: var(--accent-edge); background: var(--selected); color: var(--accent-fg); }
 .album-track {
   display: grid; grid-template-columns: 34px minmax(0, 1.6fr) minmax(0, 1fr) 56px 32px; gap: 12px; align-items: center;
-  min-height: 38px; padding: 6px 12px; border-bottom: 1px solid var(--divider);
+  min-height: var(--row-sm); padding: 6px 12px; border-bottom: 1px solid var(--divider);
 }
 .album-track > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .album-list .album-track:hover { background: var(--hover); }
-.album-head { min-height: 30px; color: var(--text-subtle); font-size: var(--fs-xs); }
+.album-head { min-height: var(--h-sm); color: var(--text-subtle); font-size: var(--fs-xs); }
 .album-track .n, .album-track .num { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 .album-track .artists { color: var(--text-subtle); }
 /* An album by one artist does not say so on every line */
@@ -992,7 +1000,7 @@ p { margin: 0; }
   grid-area: nav; position: sticky; top: 16px; align-self: start; display: grid; gap: 2px;
 }
 .settings-nav a {
-  display: flex; align-items: center; gap: 12px; min-height: 34px; padding: 6px 12px; border-radius: var(--radius);
+  display: flex; align-items: center; gap: 12px; min-height: var(--h); padding: 6px 12px; border-radius: var(--radius);
   color: var(--text-muted); font-size: var(--fs-sm); text-decoration: none;
   transition: background-color var(--press) ease-out, color var(--press) ease-out;
 }
@@ -1008,7 +1016,7 @@ p { margin: 0; }
 .card-head h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); font-weight: 700; }
 .card-head p { margin: 2px 0 0; color: var(--text-subtle); font-size: var(--fs-sm); }
 .card-icon {
-  display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: var(--radius-md);
+  display: grid; place-items: center; flex: none; width: var(--h-lg); height: var(--h-lg); border-radius: var(--radius-md);
   background: var(--selected); color: var(--text-muted);
 }
 .card-icon .icon { width: 20px; height: 20px; }
@@ -1082,7 +1090,7 @@ p { margin: 0; }
     top: 0; z-index: 2; display: flex; gap: 6px; margin: 0 -20px 14px; padding: 8px 20px;
     overflow-x: auto; scrollbar-width: none; background: var(--bg); box-shadow: 0 1px 0 var(--divider);
   }
-  .settings-nav a { flex: none; min-height: 30px; padding: 4px 12px; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--divider); }
+  .settings-nav a { flex: none; min-height: var(--h-sm); padding: 4px 12px; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--divider); }
 }
 @container content (max-width: 560px) {
   .theme-choices { grid-template-columns: minmax(0, 1fr); }
@@ -1106,13 +1114,13 @@ p { margin: 0; }
 #env-icon.warn { color: var(--warning); }
 .setting-desc.warn { color: var(--warning); }
 .select {
-  height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius);
+  height: var(--h); padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--field); color: var(--text);
 }
 .select:hover { border-color: var(--border-strong); }
 .proxy-field { flex: none; width: 240px; padding-right: 12px; }
 .stepper {
-  display: inline-flex; align-items: center; height: 32px; overflow: hidden;
+  display: inline-flex; align-items: center; height: var(--h); overflow: hidden;
   border: 1px solid var(--border); border-radius: var(--radius);
 }
 .stepper button { width: 32px; height: 100%; color: var(--text-muted); font-size: var(--fs-lg); }
@@ -1141,20 +1149,20 @@ p { margin: 0; }
 .player-centre { display: grid; justify-items: center; gap: 2px; min-width: 0; }
 .player-controls { display: flex; align-items: center; gap: 12px; }
 .player-play {
-  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg); border-radius: 50%;
   background: var(--accent); color: var(--on-accent); transition: transform var(--press) var(--ease);
 }
 .player-play:active { transform: scale(0.92); }
 /* Material Icons, as in Harmonoid, leave a margin inside their square: drawn
    a little larger than the outlined ones to look the same size */
 .player-play .icon { width: 24px; height: 24px; }
-.player-controls .icon-btn { width: 32px; height: 32px; }
+.player-controls .icon-btn { width: var(--h); height: var(--h); }
 .player-controls .icon-btn .icon { width: 22px; height: 22px; }
 .player-seek { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 560px; min-width: 0; }
 .player-seek input { flex: 1; min-width: 60px; }
 .player-time { color: var(--text-subtle); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; min-width: 34px; text-align: center; }
 .player-extra { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
-.player-extra .icon-btn { width: 32px; height: 32px; }
+.player-extra .icon-btn { width: var(--h); height: var(--h); }
 .player-extra .icon-btn .icon { width: 20px; height: 20px; }
 /* The volume stands apart from the panels: a gap before the mute button */
 #player-mute { margin-left: 10px; }
@@ -1390,7 +1398,7 @@ button.lyric-line:hover { opacity: 1; }
 .queue-list { flex: 1; min-height: 0; margin: 0; padding: 4px; overflow-y: auto; list-style: none; }
 .queue-row {
   display: grid; grid-template-columns: 16px minmax(0, 1fr) auto 28px; gap: 8px; align-items: center;
-  min-height: 44px; padding: 3px 4px 3px 6px; border-radius: var(--radius); cursor: pointer;
+  min-height: var(--row); padding: 3px 4px 3px 6px; border-radius: var(--radius); cursor: pointer;
 }
 .queue-row:hover { background: var(--hover); }
 .queue-row.played { opacity: 0.5; }
@@ -1458,7 +1466,7 @@ button.lyric-line:hover { opacity: 1; }
 .crossfade input { width: 180px; }
 .crossfade output { min-width: 32px; color: var(--text-subtle); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .token-field { flex: none; width: 240px; padding-right: 12px; }
-.confirm-field { height: 34px; margin-top: 6px; }
+.confirm-field { height: var(--h); margin-top: 6px; }
 
 /* The picture of an empty screen: a crayon drawing, ASCII or none, as the
    settings say (Appearance) */
