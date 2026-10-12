@@ -217,10 +217,6 @@ p { margin: 0; }
   .nav-item { justify-content: flex-start; padding: 0 12px; }
   .nav-label { display: block; flex: 1; }
   .nav-dot { position: static; flex: none; }
-  /* A dot at the far end of the section in use; the settings' own dot, when shown, stands there instead */
-  .nav-item[aria-current="page"]:not(:has(.nav-dot:not([hidden])))::after {
-    content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-fg);
-  }
   .nav-ring { left: 21px; }
 }
 
