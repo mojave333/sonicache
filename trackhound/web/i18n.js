@@ -589,6 +589,11 @@ const TRANSLATIONS = {
   "По числу прослушиваний": "Most played first",
   "Недавно играло": "Recently played",
   "Часто слушаю": "Most played",
+  "Шрифт названий": "Font for titles",
+  "Им набраны заголовки, названия альбомов и вкладки. Мелкий текст остаётся системным, чтобы легко читался": "Headings, album titles and tabs are set in it. Small text stays in the system font, which reads easily",
+  "Системный": "System",
+  "Рисованные детали": "Hand-drawn details",
+  "Нотный стан, линии от руки и цветные карандаши вместо ровных рамок и одного акцента. На работу программы не влияет": "A staff, lines drawn by hand and coloured pencils in place of straight frames and the single accent. It changes nothing in how the program works",
   "Установлено через Scoop. Обновите командой scoop update trackhound": "Installed with Scoop. Update it with scoop update trackhound",
   "Установлено из AUR. Обновите пакет trackhound-bin, например командой yay -Syu trackhound-bin":
     "Installed from the AUR. Update the trackhound-bin package, for example with yay -Syu trackhound-bin",

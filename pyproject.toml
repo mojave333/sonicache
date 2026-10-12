@@ -55,7 +55,7 @@ Releases = "https://github.com/mojave333/trackhound/releases"
 packages = ["trackhound", "trackhound.engine"]
 
 [tool.setuptools.package-data]
-trackhound = ["web/*"]
+trackhound = ["web/*", "web/art/*", "web/fonts/*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "trackhound.__version__" }

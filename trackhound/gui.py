@@ -54,6 +54,8 @@ REPO = "mojave333/trackhound"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 THEMES = ("system", "light", "dark")
+# The faces the names can be set in (web/style.css); the first is a new installation's
+FONTS = ("source-serif", "literata", "pt-serif", "lora", "onest", "system")
 # Browsers yt-dlp can read cookies from; "" means it takes none
 COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera", "vivaldi")
 # Speeds offered in the settings, bytes per second; 0 is no limit
@@ -1840,7 +1842,11 @@ def _normalize(settings: dict) -> dict:
         "folder": str(settings.get("folder") or DEFAULT_OUTPUT_DIR),
         "format": settings.get("format") if settings.get("format") in FORMATS else "mp3",
         "threads": threads,
-        "theme": settings.get("theme") if settings.get("theme") in THEMES else "system",
+        # A new installation opens on paper; the dark theme and the system's are a choice
+        "theme": settings.get("theme") if settings.get("theme") in THEMES else "light",
+        "font": settings.get("font") if settings.get("font") in FONTS else FONTS[0],
+        # Staff lines, wobbly frames and coloured pencils: off unless asked for
+        "sketch": bool(settings.get("sketch", False)),
         "dry_run": bool(settings.get("dry_run", False)),
         "cookies_browser": (settings.get("cookies_browser")
                             if settings.get("cookies_browser") in COOKIE_BROWSERS else ""),
@@ -2370,7 +2376,7 @@ def main() -> None:
         height=800,  # the size the window returns to when it is un-maximized
         min_size=(720, 520),
         maximized=True,
-        background_color="#23212C" if dark else "#FDFDF6",  # matches --bg, so no flash before CSS loads
+        background_color="#23212C" if dark else "#F6F0DE",  # matches --bg, so no flash before CSS loads
         text_select=True,
     )
     api._window.events.closing += api._on_closing

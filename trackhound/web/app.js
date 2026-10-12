@@ -143,6 +143,8 @@ const artistObserver = new IntersectionObserver((entries) => {
   }
 }, { rootMargin: "200px" });
 
+// The faces the names can be set in; the first is the one a new installation has
+const FONTS = ["source-serif", "literata", "pt-serif", "lora", "onest", "system"];
 applyTheme();
 
 let booted = false;
@@ -291,6 +293,8 @@ function renderSettings() {
   applyTheme();
   applySidebar(settings.sidebar);
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
+  $("#font").value = FONTS.includes(settings.font) ? settings.font : FONTS[0];
+  syncSwitch($("#sketch"), settings.sketch);
   syncSwitch($("#replaygain"), settings.replaygain);
   syncSwitch($("#lyrics"), settings.lyrics);
   syncSwitch($("#tray"), settings.tray);
@@ -434,10 +438,15 @@ function networkRow(tone, text) {
   return row;
 }
 
+// The theme, the face the names are set in and whether the window is drawn by hand
 function applyTheme() {
-  const choice = state.settings ? state.settings.theme : "system";
+  const settings = state.settings || {};
+  const choice = settings.theme || "light";
   const dark = choice === "dark" || (choice === "system" && darkMedia.matches);
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  const root = document.documentElement;
+  root.dataset.theme = dark ? "dark" : "light";
+  root.dataset.font = FONTS.includes(settings.font) ? settings.font : FONTS[0];
+  root.classList.toggle("sketchy", Boolean(settings.sketch));
 }
 
 // The panel has two widths and a button at its foot to move between them: an
@@ -735,6 +744,12 @@ function bindUi() {
   bindWatch();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
+  $("#font").addEventListener("change", (event) => {
+    updateSettings({ font: event.target.value });
+    // Another face is another width: the line under the tab is measured again once it has loaded
+    document.fonts.ready.then(() => placeTabInk(false));
+  });
+  bindSwitch($("#sketch"), (on) => updateSettings({ sketch: on }));
   bindSwitch($("#replaygain"), (on) => updateSettings({ replaygain: on }));
   bindSwitch($("#lyrics"), (on) => updateSettings({ lyrics: on }));
   bindSwitch($("#tray"), (on) => updateSettings({ tray: on }));
@@ -2292,25 +2307,25 @@ function renderLibrary({ enter = false } = {}) {
   let [title, text] = [t("Ничего не найдено"), query ? t("По запросу «{query}»", { query })
     : t("В жанре «{genre}»", { genre: $("#library-genre").selectedOptions[0]?.dataset.name || "" })];
   const loading = library.loading || (tab === "tracks" && library.trackList.loading);
-  // The aardvark by an empty crate for an empty folder, among dug-up holes for a
-  // search that turned nothing up, and nowhere while the folder is still being read
-  let scene = "art/nothing-found.webp";
+  // An empty crate for an empty folder, a lens with no note under it for a search
+  // that turned nothing up, and no picture while the folder is still being read
+  let scene = "#scene-nothing-found";
   if (tab === "playlists") {
     if (!query) {
       const reading = state.playlists.loading && !state.playlists.items.length;
       [title, text] = reading ? [t("Читаем плейлисты…"), ""] : [t("Плейлистов пока нет"),
         t("Создайте свой или добавьте треки правым щелчком: «Добавить в плейлист». Плейлист .m3u8 из другого плеера тоже подойдёт")];
-      scene = reading ? "" : "art/empty-library.webp";
+      scene = reading ? "" : "#scene-empty-library";
     }
   } else if (!library.items.length || (tab === "tracks" && !library.trackList.items.length)) {
     [title, text] = loading ? [t("Читаем папку…"), ""] : [t("В папке пока нет музыки"), libraryFolders().join(", ")];
-    scene = loading ? "" : "art/empty-library.webp";
+    scene = loading ? "" : "#scene-empty-library";
   }
   $(".empty-title", empty).textContent = title;
   $(".empty-text", empty).textContent = text;
   const picture = $(".scene", empty);
   picture.hidden = !scene;
-  if (scene && picture.getAttribute("src") !== scene) picture.setAttribute("src", scene);
+  if (scene) $("use", picture).setAttribute("href", scene);
 }
 
 function libraryQuery() {

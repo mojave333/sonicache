@@ -18,6 +18,7 @@ and winget files are what gets published there, by hand or by the workflow.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import urllib.request
@@ -118,7 +119,9 @@ end
 AUR_DEPENDS = ("alsa-lib", "libglvnd", "libxcomposite", "libxdamage", "libxkbcommon-x11", "libxkbfile",
                "libxrandr", "libxtst", "nss", "xcb-util-cursor", "xcb-util-image", "xcb-util-keysyms",
                "xcb-util-renderutil", "xcb-util-wm")
-LOGO_SHA256 = "2bebe0ae274a0841e879f234699cbdc86f2f44edef51c163c7b44dfe19c8060d"  # docs/logo.png
+# The package's icon is the logo as the release's tag has it; read from the file
+# here, which the tag was cut from, so a redrawn logo needs no hash copied by hand
+LOGO_SHA256 = hashlib.sha256((ROOT / "docs" / "logo.png").read_bytes()).hexdigest()
 
 
 def pkgbuild(version: str, sums: dict[str, str]) -> str:
