@@ -33,7 +33,6 @@ class TestNormalize:
             "language": gui.resolve("system"),  # settled on load, never left as "system"
             "track_name": "auto",
             "folder_name": "flat",
-            "sidebar": 64,
             "replaygain": False,
             "lyrics": True,
             "tray": True,
@@ -100,10 +99,8 @@ class TestNormalize:
         assert gui._normalize({"cookies_browser": "firefox"})["cookies_browser"] == "firefox"
         assert gui._normalize({"cookies_browser": "netscape"})["cookies_browser"] == ""
 
-    @pytest.mark.parametrize("given, expected", [(30, 64), (64, 64), (208, 208), (900, 320),
-                                                 ("x", 64)])
-    def test_the_side_panel_width_is_clamped(self, given, expected):
-        assert gui._normalize({"sidebar": given})["sidebar"] == expected
+    def test_a_width_left_by_the_old_side_panel_is_dropped(self):
+        assert "sidebar" not in gui._normalize({"sidebar": 208})
 
 
 class TestSpeedAndProxy:

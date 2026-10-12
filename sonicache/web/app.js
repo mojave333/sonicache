@@ -9,7 +9,7 @@ const FORMAT_HINTS = {
   opus: "opus — дорожка YouTube как есть, без перекодирования. Понимают его не все плееры",
 };
 
-const VIEWS = ["download", "search", "library", "settings"]; // Ctrl+1…4, in the order of the panel; Ctrl+K too
+const VIEWS = ["download", "search", "library", "settings"]; // Ctrl+1…4, in the order of the bar; Ctrl+K too
 
 // What the backend accepts as a proxy; anything else is refused there anyway
 const PROXY_RE = /^(?:https?|socks4|socks5h?):\/\/[^\s/]+$/i;
@@ -292,8 +292,6 @@ async function init() {
   pollLoop();
   checkForUpdate();
   loadDiagnostics();
-  // Only now, so the saved panel width is in place before it can be animated
-  setTimeout(() => document.documentElement.classList.add("motion-ready"), 0);
   // Notices about finished downloads are for when the window is not in use
   window.addEventListener("focus", () => {
     api().focus(true);
@@ -404,7 +402,6 @@ function renderSettingsDot() {
 function renderSettings() {
   const settings = state.settings;
   applyTheme();
-  applySidebar(settings.sidebar);
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
   $("#font").value = FONTS.includes(settings.font) ? settings.font : FONTS[0];
   $("#art").value = ARTS.includes(settings.art) ? settings.art : ARTS[0];
@@ -561,34 +558,6 @@ function applyTheme() {
   root.dataset.font = FONTS.includes(settings.font) ? settings.font : FONTS[0];
   root.dataset.art = ARTS.includes(settings.art) ? settings.art : ARTS[0];
   drawAscii();
-}
-
-// The panel has two widths and a button at its foot to move between them: an
-// icon rail and a labelled column. The setting is still a width in pixels, so
-// a file written when the panel was dragged opens at whichever of the two it
-// was left nearer.
-const SIDEBAR_RAIL = 64;
-const SIDEBAR_WIDE = 208;
-const SIDEBAR_SNAP = 110;
-
-function applySidebar(width) {
-  const size = Math.round(width) >= SIDEBAR_SNAP ? SIDEBAR_WIDE : SIDEBAR_RAIL;
-  document.documentElement.style.setProperty("--sidebar", `${size}px`);
-  const toggle = $("#sidebar-toggle");
-  const label = t(size === SIDEBAR_WIDE ? "Свернуть панель" : "Развернуть панель");
-  toggle.setAttribute("aria-expanded", String(size === SIDEBAR_WIDE));
-  toggle.setAttribute("aria-label", label);
-  toggle.title = `${label} (Ctrl+B)`;
-  return size;
-}
-
-function toggleSidebar() {
-  const wide = $("#sidebar-toggle").getAttribute("aria-expanded") === "true";
-  updateSettings({ sidebar: applySidebar(wide ? SIDEBAR_RAIL : SIDEBAR_WIDE) });
-}
-
-function bindSidebarToggle() {
-  $("#sidebar-toggle").addEventListener("click", toggleSidebar);
 }
 
 /* Watching: albums and playlists checked again now and then for new tracks */
@@ -853,7 +822,6 @@ function bindUi() {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
   bindToast();
-  bindSidebarToggle();
   bindProfiles();
   bindWatch();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
@@ -1036,9 +1004,6 @@ function onShortcut(event) {
     closeNowPlaying();
   } else if (event.key === "Escape" && state.view === "search" && !$("#search-page").hidden) {
     closeSearchPage();
-  } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyB") {
-    event.preventDefault();
-    toggleSidebar();
   } else if (event.ctrlKey && !event.altKey && event.code === "KeyF") {
     // the library search box is not focused automatically, so give it a shortcut
     event.preventDefault();
@@ -1204,9 +1169,9 @@ function showView(name) {
   $("#player-lyrics")?.setAttribute("aria-pressed", String(name === "now"));
   // Now playing covers the whole window; any way out of it gives the window back
   document.documentElement.classList.toggle("now-mode", name === "now");
-  // An open album takes the whole window only while the library is on screen:
-  // "Fetch what is missing" on its page, a shortcut or the rail itself lead
-  // elsewhere with the page still open behind, and the rail has to come back
+  // An open album takes the whole window below the top bar only while the library is
+  // on screen: "Fetch what is missing" on its page or a shortcut lead elsewhere with
+  // the page still open behind, and the library's own bars have to come back
   document.documentElement.classList.toggle("album-full", albumFillsWindow());
   if (name !== "now" && player.fullscreen) toggleFullscreen();
   if (name === "settings") {
@@ -2269,7 +2234,7 @@ function renderChrome() {
   if (!active && state.paused) setPaused(false); // nothing left to hold back
   $("#clear").hidden = !jobs.some((job) => !ACTIVE.has(job.state));
 
-  // How many tracks are under way, said by the panel's button; its ring shows how far (reportProgress)
+  // How many tracks are under way, said by the bar's button; its line shows how far (reportProgress)
   const underWay = state.tracks.filter((track) => TRACK_ACTIVE.has(track.state)).length;
   const button = $('.nav-item[data-view="download"]');
   const count = underWay ? t("в работе: {count}", { count: underWay }) : "";
@@ -3146,8 +3111,8 @@ async function openAlbum(item, source = null, highlight = "") {
   const info = $(".album-info", $("#album-page"));
   riseIn([$("#page-back"), ...info.children]);
   // The cover appears where it stands. It used to fly there from the card it
-  // was opened from, but the page fills the window: the rail and the bars step
-  // aside as it opens, and the cover ended up crossing to the rail's own place.
+  // was opened from, but the page fills the window: the library's bars step
+  // aside as it opens, and the cover ended up crossing to where they were.
   if (!reduceMotion()) {
     cover.animate([{ opacity: 0, transform: "scale(0.92)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: EMPHASIZED });
   }
@@ -3424,7 +3389,7 @@ async function closePage({ instant = false } = {}) {
   const below = library.pages[library.pages.length - 1];
   const fly = top.kind !== "artist" ? $(".album-cover", $("#album-page")) : $(".artist-photo", $("#artist-page"));
   const sourcePicture = top.source && $(top.kind !== "artist" ? ".cover" : ".artist-photo", top.source);
-  // An artist's photo flies back to its card, so the rail has to be back
+  // An artist's photo flies back to its card, so the library's bars have to be back
   // before it goes. An album's page fades out whole and gives the window back
   // afterwards (finishClose), so the layout is not rebuilt mid-animation.
   const flies = top.kind === "artist";

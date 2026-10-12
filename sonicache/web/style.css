@@ -80,7 +80,6 @@
      shade under light text, so the title stays readable on any cover */
   --band-l: 89%;
   --band-s-max: 70%;
-  --sidebar: 64px; /* the script overrides this as the panel is dragged */
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
 
@@ -90,13 +89,6 @@
   --press: 90ms;
   --quick: 140ms;
   --settle: 220ms;
-}
-
-/* Registered so the panel width can be animated when it is not being dragged */
-@property --sidebar {
-  syntax: "<length>";
-  inherits: true;
-  initial-value: 64px;
 }
 
 /* The album page's band in its cover's colour, registered so it can fade */
@@ -199,67 +191,54 @@ p { margin: 0; }
 .icon.sm { width: 16px; height: 16px; stroke-width: 2; }
 
 /* Frame */
-/* The single row is capped at the window height, so long lists scroll inside
-   .list-scroll instead of stretching the whole frame past the bottom edge. */
-.app { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100vh; }
-.sidebar {
-  position: relative; display: flex; flex-direction: column; gap: 4px; padding: 12px 8px;
-  background: var(--chrome); border-right: 1px solid var(--divider);
-  container: sidebar / inline-size; /* labels appear once dragged wide enough */
+/* The top bar, then the single row capped at the window height, so long lists
+   scroll inside .list-scroll instead of stretching the whole frame past the bottom edge. */
+.app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 100vh; }
+.topbar {
+  position: relative; display: flex; align-items: center; gap: 4px; height: 56px; padding: 0 24px;
+  background: var(--chrome); border-bottom: 1px solid var(--divider);
 }
-/* The panel glides between its two widths. Registered as a <length> above, so
-   the custom property itself can be animated; motion-ready is added after the
-   saved width is in place, which keeps the first paint from sliding. */
-:root.motion-ready { transition: --sidebar var(--settle) var(--ease); }
-
-/* Points the way the click will take the panel: right to open, left to close */
-.nav-toggle { margin-top: 4px; color: var(--text-subtle); }
-.nav-toggle .icon { transition: transform var(--settle) var(--ease); }
-.nav-toggle[aria-expanded="true"] .icon { transform: rotate(180deg); }
-
-.brand { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: 24px; }
 .logo { display: grid; place-items: center; flex: none; color: var(--text); }
 :root[data-theme="dark"] .logo { color: #FFFFFF; }
-.logo img { width: 46px; height: 46px; }
-.brand-name { display: none; font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.02em; }
+.logo img { width: 36px; height: 36px; }
+.brand-name { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.02em; }
+.topnav { display: flex; align-items: stretch; align-self: stretch; gap: 4px; }
+/* The sections are words, and the one in use is told by a line under it; the line
+   sits on the bar's own edge, so the bar and the page below it share it */
 .nav-item {
-  position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
-  flex: none; height: var(--h-lg); border-radius: var(--radius); color: var(--text-subtle);
+  position: relative; display: flex; align-items: center; justify-content: center; flex: none;
+  padding: 0 16px; color: var(--text-subtle); font-size: var(--fs-md); font-weight: 500;
 }
-.nav-item:hover { background: var(--hover); color: var(--text); }
-.nav-item[aria-current="page"] { background: var(--selected); color: var(--accent-fg); }
-.nav-item[aria-current="page"]::before {
-  content: ""; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px;
-  border-radius: var(--radius-pill); background: var(--accent-fg);
+.nav-item:hover { color: var(--text); }
+.nav-item[aria-current="page"] { color: var(--text); font-weight: 600; }
+.nav-item[aria-current="page"]::after {
+  content: ""; position: absolute; left: 16px; right: 16px; bottom: -1px; height: 3px;
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: var(--accent-fg);
 }
-/* text-align because a button centres its text, which left the labels floating
-   in the middle of the open panel instead of sitting against their icons */
-.nav-label { display: none; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* How far the downloads have come, round the Download icon, seen from any section;
-   yellow on pause, red once something failed, a turning quarter before the count */
+.nav-label { text-align: left; white-space: nowrap; }
+/* The settings are an icon at the far end */
+.nav-icon { width: var(--h-lg); height: var(--h-lg); padding: 0; border-radius: var(--radius); }
+.nav-icon:hover { background: var(--hover); }
+.nav-icon[aria-current="page"] { background: var(--selected); }
+.nav-icon[aria-current="page"]::after { display: none; }
+/* How far the downloads have come, a line under the word Download, seen from any
+   section; yellow on pause, red once something failed, a sliding piece before the count */
 .nav-ring {
-  position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
-  background: conic-gradient(var(--ring, var(--bar-fill)) calc(var(--p, 0) * 360deg), var(--divider) 0);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
-  pointer-events: none;
+  position: absolute; left: 16px; right: 16px; bottom: 10px; height: 3px; overflow: hidden;
+  border-radius: var(--radius-pill); background: var(--divider); pointer-events: none;
+}
+.nav-ring::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--p, 0) * 100%);
+  border-radius: inherit; background: var(--ring, var(--bar-fill)); transition: width var(--settle) var(--ease);
 }
 .nav-ring[data-state="paused"] { --ring: var(--warning); }
 .nav-ring[data-state="error"] { --ring: var(--danger); }
-.nav-ring[data-state="indeterminate"] { animation: spin 1.2s linear infinite; }
+.nav-ring[data-state="indeterminate"]::after { width: 30%; animation: slide 1.2s var(--ease) infinite; }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 .nav-dot {
-  position: absolute; top: 9px; right: 11px; width: 8px; height: 8px;
+  position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
   border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--chrome);
-}
-
-/* Dragged past this width, the rail becomes a labelled column */
-@container sidebar (min-width: 150px) {
-  .brand { flex-direction: row; padding-left: 8px; gap: 12px; }
-  .brand-name { display: block; flex: 1; }
-  .nav-item { justify-content: flex-start; padding: 0 12px; }
-  .nav-label { display: block; flex: 1; }
-  .nav-dot { position: static; flex: none; }
-  .nav-ring { left: 21px; }
 }
 
 /* Columns react to the content width, which a widened side panel narrows */

@@ -80,6 +80,8 @@ PROFILE_LIMIT = 12
 UPDATE_HOST = "github.com"
 # The page's background in each theme (--bg in web/style.css): the window and its title bar take it
 PAGE_LIGHT, PAGE_DARK = "#F6F0DE", "#23212C"
+# The top bar, which the title bar is painted to join (--chrome)
+CHROME_LIGHT, CHROME_DARK = "#EDE5CD", "#15131B"
 LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thousands of lines
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
@@ -198,8 +200,8 @@ class Api:
             self._presence.show(self._now if self._discord else None)
 
     def _tint_title(self, theme: str | None = None) -> None:
-        """Paints the window's title bar the colour of the page, so it is one
-        sheet with it and not a white strip above. Windows 11 takes the colour;
+        """Paints the window's title bar the colour of the top bar, so the two are one
+        band and not a white strip above. Windows 11 takes the colour;
         Windows 10 only goes dark or light; elsewhere the system keeps its own."""
         if sys.platform != "win32" or self._window is None:
             return
@@ -209,7 +211,7 @@ class Api:
             hwnd = self._window.native.Handle.ToInt64()
             set_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
             for attribute, value in ((20, int(dark)),  # DWMWA_USE_IMMERSIVE_DARK_MODE
-                                     (35, _colorref(PAGE_DARK if dark else PAGE_LIGHT)),  # DWMWA_CAPTION_COLOR
+                                     (35, _colorref(CHROME_DARK if dark else CHROME_LIGHT)),  # DWMWA_CAPTION_COLOR
                                      (36, _colorref("#EDEBF2" if dark else "#1F1D26"))):  # DWMWA_TEXT_COLOR
                 set_attribute(wintypes.HWND(hwnd), attribute, ctypes.byref(ctypes.c_int(value)), 4)
         except Exception:
@@ -1863,10 +1865,6 @@ def _normalize(settings: dict) -> dict:
         threads = min(8, max(1, int(settings.get("threads", 3))))
     except (TypeError, ValueError):
         threads = 3
-    try:  # older versions stored a boolean here
-        sidebar = min(320, max(64, int(settings.get("sidebar", 64))))
-    except (TypeError, ValueError):
-        sidebar = 64
     try:  # the player's volume, from silent to as loud as the file is
         volume = min(1.0, max(0.0, float(settings.get("volume", 0.8))))
     except (TypeError, ValueError):
@@ -1912,11 +1910,6 @@ def _normalize(settings: dict) -> dict:
                        if settings.get("track_name") in TRACK_NAMES else "auto"),
         "folder_name": (settings.get("folder_name")
                         if settings.get("folder_name") in FOLDER_NAMES else "flat"),
-        # Width of the side panel in pixels. The window uses two of them, 64 for
-        # the icon rail and 208 for the labelled column, and reads anything in
-        # between — a file left by the build where the panel was dragged — as
-        # whichever of the two it sits nearer.
-        "sidebar": sidebar,
         "replaygain": bool(settings.get("replaygain", False)),
         # Lyrics from LRCLIB into the tags, synced ones into an .lrc beside the track
         "lyrics": bool(settings.get("lyrics", True)),
