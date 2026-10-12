@@ -44,6 +44,14 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-pill: 999px;
+  /* Five heights above the page: a badge on a cover, a round button on a cover, a
+     cover or a lifted card, a hero cover or a panel, and the player's dock.
+     Menus and floating panels have their own (--menu-shadow). */
+  --shadow-xs: 0 2px 8px rgb(0 0 0 / 0.25);
+  --shadow-sm: 0 4px 12px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 10px 28px rgb(0 0 0 / 0.24);
+  --shadow-lg: 0 20px 48px rgb(0 0 0 / 0.28);
+  --shadow-dock: 0 6px 20px rgb(0 0 0 / 0.10);
   /* Controls stand 28 (compact: icon buttons, pills, the view switch), 34 (buttons,
      fields, tabs, menu lines) or 38 high (the rail, the search field, play) */
   --h-sm: 28px;
@@ -646,7 +654,7 @@ p { margin: 0; }
 }
 .home-feature-cover {
   position: relative; width: 168px; height: 168px; overflow: hidden; border-radius: var(--radius-md);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+  box-shadow: var(--shadow-md);
 }
 .home-feature-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .home-feature-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
@@ -680,7 +688,7 @@ p { margin: 0; }
   transition: transform var(--settle) var(--ease), box-shadow var(--settle) var(--ease);
 }
 .card-cover .icon { width: 30px; height: 30px; stroke-width: 1.5; }
-.card:hover .card-cover { transform: translateY(-3px); box-shadow: 0 8px 20px rgb(0 0 0 / 0.22); }
+.card:hover .card-cover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .card:active .card-cover { transform: translateY(-1px) scale(0.985); transition-duration: var(--press); }
 .card:focus-visible .card-cover { outline: 2px solid var(--accent-fg); outline-offset: 3px; }
 .card.is-selected .card-cover { outline: 3px solid var(--text); outline-offset: 3px; }
@@ -737,7 +745,7 @@ p { margin: 0; }
 .search-card .card-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .search-card .queue-btn {
   position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg);
-  border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+  border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-sm);
   opacity: 0; transform: translateY(6px);
   transition: opacity var(--quick) ease-out, transform var(--settle) var(--ease);
 }
@@ -748,7 +756,7 @@ p { margin: 0; }
 /* The library's covers play at once, as the search's download: the page is for more than that */
 .card .play-btn {
   position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg);
-  border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+  border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-sm);
   opacity: 0; transform: translateY(6px);
   transition: opacity var(--quick) ease-out, transform var(--settle) var(--ease);
 }
@@ -759,13 +767,13 @@ p { margin: 0; }
 .in-library {
   position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 4px;
   padding: 2px 8px 2px 4px; border-radius: var(--radius); background: var(--accent); color: var(--on-accent);
-  box-shadow: inset 0 0 0 1px var(--accent-edge), 0 2px 8px rgb(0 0 0 / 0.25); font-size: var(--fs-2xs); font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--accent-edge), var(--shadow-xs); font-size: var(--fs-2xs); font-weight: 600;
 }
 .in-library .icon { width: 13px; height: 13px; stroke-width: 2.5; }
 /* On a cover in the library: downloaded within the week, or with tracks still missing */
 .cover-mark {
   position: absolute; top: 8px; z-index: 1; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
-  border-radius: var(--radius); font-size: var(--fs-2xs); font-weight: 600; box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+  border-radius: var(--radius); font-size: var(--fs-2xs); font-weight: 600; box-shadow: var(--shadow-xs);
 }
 .cover-mark.new { left: 8px; background: var(--field); color: var(--text); }
 .cover-mark.gap { right: 8px; padding-left: 4px; background: var(--field); color: var(--text); }
@@ -805,7 +813,7 @@ p { margin: 0; }
 .artist-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .artist-photo img:not([hidden]) { animation: img-in 260ms ease-out; }
 .artist-photo .initials { font-size: var(--fs-2xl); font-weight: 600; letter-spacing: 0.02em; }
-.artist-card:hover .artist-photo { transform: translateY(-3px); box-shadow: 0 8px 20px rgb(0 0 0 / 0.22); }
+.artist-card:hover .artist-photo { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .artist-card:focus-visible .artist-photo { outline: 2px solid var(--accent-fg); outline-offset: 3px; }
 
 /* Tracks */
@@ -846,7 +854,7 @@ p { margin: 0; }
 .now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
 .page-back:hover { background: var(--hover); color: var(--text); }
 .album-page { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; align-items: start; max-width: 1100px; }
-.album-page .album-cover { width: 240px; height: 240px; border-radius: var(--radius-md); box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
+.album-page .album-cover { width: 240px; height: 240px; border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
 /* The cover stays in sight while a long tracklist scrolls past it */
 .album-page .album-cover { position: sticky; top: 14px; }
 .album-side { display: contents; }
@@ -863,7 +871,7 @@ p { margin: 0; }
 .album-full #album-page {
   flex: 1; min-height: 0; max-width: none; gap: 0; align-items: stretch;
   grid-template-columns: minmax(240px, 40%) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
-  border-radius: var(--radius-lg); overflow: hidden; background: var(--field); box-shadow: 0 16px 40px rgb(0 0 0 / 0.2);
+  border-radius: var(--radius-lg); overflow: hidden; background: var(--field); box-shadow: var(--shadow-lg);
 }
 /* The panel under the cover takes the cover's own colours, as Now playing does:
    a blur of the picture itself under two soft pools of its main colour */
@@ -889,7 +897,7 @@ p { margin: 0; }
 :root[data-theme="dark"].album-full .album-backdrop { filter: blur(60px) saturate(1.6) brightness(0.62); opacity: var(--backdrop-a, 0.6); }
 .album-full #album-page .album-cover {
   position: relative; width: min(100%, 460px, 62vh); height: auto; aspect-ratio: 1;
-  border-radius: var(--radius-md); box-shadow: 0 20px 50px rgb(0 0 0 / 0.3); /* rounded as on every other page */
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg); /* rounded as on every other page */
 }
 .album-full #album-page .album-info { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 32px 28px 0; }
 .album-full #album-page .album-tracks { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -28px; padding: 0 28px 16px; }
@@ -939,7 +947,7 @@ p { margin: 0; }
 .disc-head { padding: 16px 12px 8px; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 600; }
 .album-note { padding: 12px; color: var(--text-subtle); font-size: var(--fs-sm); }
 .artist-head { display: flex; align-items: center; gap: 24px; max-width: 1100px; margin-bottom: 8px; }
-.artist-head .artist-photo { width: 150px; flex: none; box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
+.artist-head .artist-photo { width: 150px; flex: none; box-shadow: var(--shadow-md); }
 .artist-head .artist-photo .initials { font-size: 44px; }
 .artist-albums { padding: 20px 0 0; }
 @container page (max-width: 640px) {
@@ -1137,7 +1145,7 @@ p { margin: 0; }
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 1.5fr) minmax(0, 1fr); gap: 20px;
   align-items: center; height: 76px; padding: 0 16px; background: var(--chrome);
   /* A plate of its own, clear of the window's edges, not a strip across the bottom */
-  margin: 0 12px 12px; border: 1px solid var(--divider); border-radius: var(--radius-lg); box-shadow: 0 6px 20px rgb(0 0 0 / 0.10);
+  margin: 0 12px 12px; border: 1px solid var(--divider); border-radius: var(--radius-lg); box-shadow: var(--shadow-dock);
 }
 .player-track { display: flex; align-items: center; gap: 16px; min-width: 0; text-align: left; border-radius: var(--radius); }
 .player-track:hover .player-title { text-decoration: underline; }
@@ -1246,7 +1254,7 @@ p { margin: 0; }
 /* As large as the column allows and the height leaves room for, never squashed */
 .now-cover {
   position: relative; flex: none; width: min(100%, 50vh); height: auto; aspect-ratio: 1; overflow: hidden;
-  border-radius: var(--radius-md); box-shadow: 0 20px 50px rgb(0 0 0 / 0.3);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
 }
 .now-cover .icon { width: 56px; height: 56px; stroke-width: 1.2; }
 .now-names { min-width: 0; }
@@ -1457,7 +1465,7 @@ button.lyric-line:hover { opacity: 1; }
 .playlist-card.smart .card-cover img:not([hidden]) ~ .icon {
   position: absolute; right: 8px; bottom: 8px; z-index: 1; width: 30px; height: 30px; padding: 8px;
   border-radius: 50%; background: var(--accent); color: var(--on-accent); stroke-width: 2;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+  box-shadow: var(--shadow-xs);
 }
 /* Filling in tags is the albums' business */
 #view-library[data-tab="playlists"] #library-tidy { display: none; }
