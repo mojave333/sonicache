@@ -99,6 +99,19 @@ class TestNormalize:
         assert gui._normalize({"cookies_browser": "firefox"})["cookies_browser"] == "firefox"
         assert gui._normalize({"cookies_browser": "netscape"})["cookies_browser"] == ""
 
+    def test_the_page_is_told_whether_to_draw_the_windows_buttons_and_edges(self):
+        assert gui.Api().init()["frameless"] is gui.FRAMELESS
+
+    def test_the_window_calls_are_harmless_with_no_window(self):
+        """The page asks before the window exists, and on a system with a frame of its own."""
+        api = gui.Api()
+        api.window_minimize()
+        api.window_drag()
+        api.window_resize("se")
+        api.window_close()
+        assert api.window_maximize() is False
+        assert api.window_state() is False
+
     def test_a_width_left_by_the_old_side_panel_is_dropped(self):
         assert "sidebar" not in gui._normalize({"sidebar": 208})
 

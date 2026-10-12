@@ -36,7 +36,7 @@ from mutagen.id3 import Frames
 from mutagen.mp3 import MP3
 from mutagen.flac import Picture
 
-from . import __version__, logs, mediacontrols, playlists, presence, relay_for, scrobble, thumbbar, tray, watch
+from . import __version__, logs, mediacontrols, playlists, presence, relay_for, scrobble, thumbbar, tray, watch, winframe
 from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch, catalog, folders, loudness, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
@@ -78,10 +78,14 @@ TASKBAR_STATES = {"none": 0, "indeterminate": 1, "normal": 2, "error": 4, "pause
 PROFILE_KEYS = ("folder", "format", "track_name", "folder_name")
 PROFILE_LIMIT = 12
 UPDATE_HOST = "github.com"
-# The page's background in each theme (--bg in web/style.css): the window and its title bar take it
+# The page's background in each theme (--bg in web/style.css): the window takes it before the page is drawn
 PAGE_LIGHT, PAGE_DARK = "#F6F0DE", "#23212C"
-# The top bar, which the title bar is painted to join (--chrome)
+# The top bar's (--chrome), which a system title bar is painted to join
 CHROME_LIGHT, CHROME_DARK = "#EDE5CD", "#15131B"
+# On Windows the window has no frame of its own: the top bar is its title bar and the page draws the
+# buttons and the edges to size it by. SONICACHE_SYSTEM_FRAME=1 brings the system's frame back.
+FRAMELESS = sys.platform == "win32" and not os.environ.get("SONICACHE_SYSTEM_FRAME")
+MIN_SIZE = (720, 520)
 LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thousands of lines
 # Album folders are named by the downloader as "Artist - Album (Year)", single tracks as "Artist - Title"
 _ALBUM_NAME = re.compile(r"^(?P<artist>.+?) - (?P<title>.+?)(?: \((?P<year>\d{4})\))?$")
@@ -169,6 +173,7 @@ class Api:
             "seen": sorted(_seen()),
             "favourites": _favourites(),
             "tray": tray.SUPPORTED,  # whether the window can go on in the notification area
+            "frameless": FRAMELESS,  # the page draws the window's buttons and edges
             "language": set_language(settings["language"]),  # "system" resolved to ru or en
             "settings": settings,
             "problems": Downloader(Options(DEFAULT_OUTPUT_DIR)).environment_problems(),
@@ -203,7 +208,7 @@ class Api:
         """Paints the window's title bar the colour of the top bar, so the two are one
         band and not a white strip above. Windows 11 takes the colour;
         Windows 10 only goes dark or light; elsewhere the system keeps its own."""
-        if sys.platform != "win32" or self._window is None:
+        if sys.platform != "win32" or FRAMELESS or self._window is None:
             return
         theme = theme or _load_settings()["theme"]
         dark = theme == "dark" or (theme == "system" and _system_dark())
@@ -1196,6 +1201,82 @@ class Api:
         """Now playing asks for the whole screen, and gives it back."""
         if self._window is not None:
             self._window.toggle_fullscreen()
+
+    # The window's own buttons and edges, for a window without a frame (FRAMELESS):
+    # the page draws them and reports a press here
+
+    def _handle(self) -> int:
+        return self._window.native.Handle.ToInt64() if self._window is not None and self._window.native else 0
+
+    def window_state(self) -> bool:
+        """Whether the window fills the screen."""
+        return winframe.is_maximized(self._handle()) if FRAMELESS else False
+
+    def window_minimize(self) -> None:
+        if self._window is not None:
+            self._window.minimize()
+
+    def window_maximize(self) -> bool:
+        """Fills the screen, or gives the window back its size; answers whether it fills it now."""
+        form = self._window.native if self._window is not None else None
+        if form is None:
+            return False
+        try:
+            from System import Func, Type
+            from System.Windows.Forms import FormWindowState, Screen
+
+            def toggle():
+                if form.WindowState == FormWindowState.Maximized:
+                    form.WindowState = FormWindowState.Normal
+                else:
+                    # Without a frame the system would fill the whole screen, the taskbar's strip too
+                    form.MaximizedBounds = Screen.FromControl(form).WorkingArea
+                    form.WindowState = FormWindowState.Maximized
+
+            form.Invoke(Func[Type](toggle))
+        except Exception:
+            logs.log.debug("окно: развернуть не вышло", exc_info=True)
+        return self.window_state()
+
+    def window_close(self) -> None:
+        """What the system's close button did: into the tray while there is work, else the end."""
+        form = self._window.native if self._window is not None else None
+        if form is None:
+            return
+        try:
+            from System import Func, Type
+            form.Invoke(Func[Type](form.Close))
+        except Exception:
+            logs.log.debug("окно: закрыть не вышло", exc_info=True)
+            self._window.destroy()
+
+    def window_drag(self) -> None:
+        """The top bar was pressed: the window follows the cursor until the button is let go."""
+        if FRAMELESS and self._handle():
+            winframe.in_background(winframe.drag, self._handle())
+
+    def window_resize(self, edge: str) -> None:
+        """An edge or a corner was pressed: the window is sized by it until the button is let go."""
+        if FRAMELESS and self._handle():
+            winframe.in_background(winframe.resize, self._handle(), edge, MIN_SIZE)
+
+    def _keep_taskbar_buttons(self) -> None:
+        """Once the window is up: the taskbar's button and the system menu work on it as on any window."""
+        if FRAMELESS and self._handle():
+            try:
+                winframe.keep_system_buttons(self._handle())
+            except Exception:
+                logs.log.debug("окно: кнопки панели задач не возвращены", exc_info=True)
+
+    def _fit_maximized(self) -> None:
+        """Before the window shows: maximized, it stops above the taskbar rather than under it."""
+        if not FRAMELESS or self._window is None or self._window.native is None:
+            return
+        try:
+            from System.Windows.Forms import Screen
+            self._window.native.MaximizedBounds = Screen.PrimaryScreen.WorkingArea
+        except Exception:
+            logs.log.debug("окно: границы развёрнутого не заданы", exc_info=True)
 
     def lyrics(self, path: str) -> dict:
         """The words of a track: synced ones from the .lrc beside it, plain ones
@@ -2446,12 +2527,16 @@ def main() -> None:
         js_api=api,
         width=1160,
         height=800,  # the size the window returns to when it is un-maximized
-        min_size=(720, 520),
+        min_size=MIN_SIZE,
+        frameless=FRAMELESS,
+        easy_drag=False,  # the program moves the window itself (winframe), without the lag of a call per step
         maximized=True,
         background_color=PAGE_DARK if dark else PAGE_LIGHT,  # matches --bg, so no flash before CSS loads
         text_select=True,
     )
     api._window.events.closing += api._on_closing
+    api._window.events.before_show += api._fit_maximized
+    api._window.events.shown += api._keep_taskbar_buttons
     api._window.events.shown += api._tint_title
     api._sync_tray(_load_settings())
     webview.start(http_server=True)

@@ -240,6 +240,29 @@ p { margin: 0; }
   position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
   border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--chrome);
 }
+/* The window's own buttons and edges, drawn when the program has no system frame (Windows).
+   They stand over every view, Now playing included, and the bar leaves them room. */
+.window-controls {
+  position: fixed; top: 0; right: 0; z-index: 60; display: flex; align-items: center; gap: 4px;
+  height: 56px; padding-right: 12px;
+}
+.window-controls::before { content: ""; width: 1px; height: 20px; margin-right: 8px; background: var(--divider); }
+.win-btn { display: grid; place-items: center; width: var(--h); height: var(--h); border-radius: var(--radius); color: var(--text-subtle); }
+.win-btn:hover { background: var(--hover); color: var(--text); }
+.win-close:hover { background: var(--danger); color: var(--on-danger); }
+html.frameless .topbar { padding-right: 148px; }
+.win-edge { position: fixed; z-index: 70; }
+.win-edge[data-edge="n"] { top: 0; left: 8px; right: 8px; height: 4px; cursor: ns-resize; }
+.win-edge[data-edge="s"] { bottom: 0; left: 8px; right: 8px; height: 4px; cursor: ns-resize; }
+.win-edge[data-edge="w"] { left: 0; top: 8px; bottom: 8px; width: 4px; cursor: ew-resize; }
+.win-edge[data-edge="e"] { right: 0; top: 8px; bottom: 8px; width: 4px; cursor: ew-resize; }
+.win-edge[data-edge="nw"] { top: 0; left: 0; width: 8px; height: 8px; cursor: nwse-resize; }
+.win-edge[data-edge="se"] { bottom: 0; right: 0; width: 8px; height: 8px; cursor: nwse-resize; }
+.win-edge[data-edge="ne"] { top: 0; right: 0; width: 8px; height: 8px; cursor: nesw-resize; }
+.win-edge[data-edge="sw"] { bottom: 0; left: 0; width: 8px; height: 8px; cursor: nesw-resize; }
+/* Filling the screen or the whole of it for Now playing, there is nothing to size by and no room for the buttons */
+html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-controls { display: none; }
+html.window-full .topbar { padding-right: 24px; }
 /* A narrow window drops the name, so the search field keeps its room: the mark stays */
 @media (max-width: 860px) {
   .topbar { padding: 0 16px; }

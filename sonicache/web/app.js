@@ -278,6 +278,7 @@ async function init() {
   state.problems = data.problems;
   state.watched = data.watched || [];
   setLanguage(data.language); // translates the markup before anything is drawn
+  bindWindowFrame(Boolean(data.frameless));
   $("#version").textContent = `v${data.version}`;
   renderProblems();
   renderSettings();
@@ -558,6 +559,66 @@ function applyTheme() {
   root.dataset.font = FONTS.includes(settings.font) ? settings.font : FONTS[0];
   root.dataset.art = ARTS.includes(settings.art) ? settings.art : ARTS[0];
   drawAscii();
+}
+
+/* The window's own frame: with no system title bar the top bar is the way to move the window,
+   its edges the way to size it, and its three buttons are drawn here */
+
+const FRAME_EDGES = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+
+function setMaximized(on) {
+  document.documentElement.classList.toggle("maximized", on);
+  const button = $("#win-max");
+  $("use", button).setAttribute("href", on ? "#i-win-restore" : "#i-win-max");
+  button.title = t(on ? "Восстановить" : "Развернуть");
+  button.setAttribute("aria-label", button.title);
+}
+
+function refreshMaximized() {
+  Promise.resolve(api().window_state()).then((on) => setMaximized(Boolean(on))).catch(() => {});
+}
+
+function toggleMaximized() {
+  Promise.resolve(api().window_maximize()).then((on) => setMaximized(Boolean(on))).catch(() => {});
+}
+
+// A press on bare ground in the top bar (or the top of Now playing) takes the window by it; a second one fills the screen
+function onFrameDown(event) {
+  if (event.button !== 0 || event.clientY > 56) return;
+  if (!event.target.closest(".topbar, .now-view")) return;
+  if (event.target.closest("button, input, select, textarea, a, label, [role=button], [role=radio], .field")) return;
+  if (event.detail === 2) {
+    toggleMaximized();
+    return;
+  }
+  api().window_drag();
+}
+
+function bindWindowFrame(frameless) {
+  if (!frameless) return;
+  document.documentElement.classList.add("frameless");
+  $("#window-controls").hidden = false;
+  $("#win-min").addEventListener("click", () => api().window_minimize());
+  $("#win-max").addEventListener("click", toggleMaximized);
+  $("#win-close").addEventListener("click", () => api().window_close());
+  for (const edge of FRAME_EDGES) {
+    const handle = document.createElement("div");
+    handle.className = "win-edge";
+    handle.dataset.edge = edge;
+    handle.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      api().window_resize(edge);
+    });
+    document.body.append(handle);
+  }
+  document.addEventListener("mousedown", onFrameDown);
+  let settle = 0;
+  window.addEventListener("resize", () => {
+    clearTimeout(settle);
+    settle = setTimeout(refreshMaximized, 120);
+  });
+  refreshMaximized();
 }
 
 /* Watching: albums and playlists checked again now and then for new tracks */
@@ -6199,6 +6260,7 @@ function toggleNowPlaying() {
 
 function toggleFullscreen() {
   player.fullscreen = !player.fullscreen;
+  document.documentElement.classList.toggle("window-full", player.fullscreen);
   api().fullscreen();
   const button = $("#player-full");
   $("use", button).setAttribute("href", player.fullscreen ? "#i-mi-full-exit" : "#i-mi-full");
