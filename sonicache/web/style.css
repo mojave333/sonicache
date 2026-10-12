@@ -852,8 +852,11 @@ p { margin: 0; }
   display: block; position: absolute; inset: -60px; width: calc(100% + 120px); height: calc(100% + 120px);
   object-fit: cover; filter: blur(60px) saturate(1.3); opacity: 0.4; pointer-events: none;
 }
-/* On a light page the blur only darkens the colours it is laid over */
+/* On a light page the blur only darkens the colours it is laid over; on a dark
+   one a pale cover would lay a grey fog over the panel, so it is dimmed first
+   and left to carry the colour that is in it */
 :root[data-theme="light"] .album-backdrop { mix-blend-mode: multiply; opacity: 0.5; }
+:root[data-theme="dark"].album-full .album-backdrop { filter: blur(60px) saturate(1.6) brightness(0.62); opacity: var(--backdrop-a, 0.6); }
 .album-full #album-page .album-cover {
   position: relative; width: min(100%, 460px, 62vh); height: auto; aspect-ratio: 1;
   border-radius: 10px; box-shadow: 0 20px 50px rgb(0 0 0 / 0.3); /* rounded as on every other page */
@@ -1204,8 +1207,9 @@ p { margin: 0; }
   position: absolute; inset: -80px; width: calc(100% + 160px); height: calc(100% + 160px); object-fit: cover;
   filter: blur(70px) saturate(1.3); opacity: 0.35; pointer-events: none;
 }
-/* On a light page the blur only darkens the colours it is laid over */
+/* On a light page the blur only darkens the colours it is laid over; on a dark one a pale cover is dimmed first */
 :root[data-theme="light"] .now-backdrop { mix-blend-mode: multiply; opacity: 0.45; }
+:root[data-theme="dark"] .now-backdrop { filter: blur(70px) saturate(1.6) brightness(0.62); opacity: var(--backdrop-a, 0.55); }
 .now-view > :not(.now-backdrop) { position: relative; }
 .now-close { grid-column: 1 / -1; justify-self: start; margin: 0 0 14px -8px; }
 .now-side { display: flex; flex-direction: column; min-width: 0; }

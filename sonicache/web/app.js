@@ -3026,8 +3026,10 @@ async function pictureTint(src) {
       context.drawImage(image, 0, 0, size, size);
       const { data } = context.getImageData(0, 0, size, size);
       const buckets = Array.from({ length: 36 }, () => ({ weight: 0, x: 0, y: 0, saturation: 0 }));
+      let lightSum = 0;
       for (let index = 0; index < data.length; index += 4) {
         const [hue, saturation, lightness] = toHsl(data[index], data[index + 1], data[index + 2]);
+        lightSum += lightness;
         if (saturation < 0.18 || lightness < 0.1 || lightness > 0.94) continue;
         // Vivid mid-tones speak for the picture more than washed-out corners do
         const weight = saturation * (1 - Math.abs(lightness - 0.5));
@@ -3044,10 +3046,12 @@ async function pictureTint(src) {
         if (!best || joined > best.joined) best = { joined, bucket };
       });
       const pixels = size * size;
-      if (!best || best.bucket.weight < pixels * 0.015) return { hue: 0, saturation: 0 };
+      // A pale sleeve with a small coloured thing on it still gives that colour
+      const lightness = Math.round((lightSum / pixels) * 100) / 100; // how pale the whole picture is
+      if (!best || best.bucket.weight < pixels * 0.006) return { hue: 0, saturation: 0, lightness };
       const { bucket } = best;
       const hue = ((Math.atan2(bucket.y, bucket.x) * 180) / Math.PI + 360) % 360;
-      return { hue: Math.round(hue), saturation: Math.round((bucket.saturation / bucket.weight) * 100) };
+      return { hue: Math.round(hue), saturation: Math.round((bucket.saturation / bucket.weight) * 100), lightness };
     })().catch(() => null));
   }
   return state.tints.get(src);
@@ -3078,6 +3082,13 @@ async function tintPage(src, owner) {
   if (!tint) return;
   page.style.setProperty("--tint-h", tint.hue);
   page.style.setProperty("--tint-s", `${tint.saturation}%`);
+  page.style.setProperty("--backdrop-a", backdropAlpha(tint));
+}
+
+// How much of the blurred cover shows on a dark page: the paler the picture, the
+// less of it, or a white sleeve lays a grey fog where a dark one gives colour
+function backdropAlpha(tint) {
+  return Math.min(0.6, Math.max(0.16, 0.6 - Math.max(0, (tint?.lightness ?? 0.4) - 0.4) * 1.1)).toFixed(2);
 }
 
 function fadeBand(page) {
@@ -6250,6 +6261,7 @@ function renderNowPlaying() {
       view.style.setProperty("--tint-a", "1");
       view.style.setProperty("--tint-h", tint ? tint.hue : 0);
       view.style.setProperty("--tint-s", tint ? `${tint.saturation}%` : "0%");
+      view.style.setProperty("--backdrop-a", backdropAlpha(tint));
     });
   }
 }
