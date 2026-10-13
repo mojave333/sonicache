@@ -61,9 +61,9 @@ Everything runs on your own machine. There are no accounts and no API keys.
 The window and the terminal version are the same program. The interface is in Russian and
 English, in a light theme on cream paper or a dark one.
 
-<p align="center"><img src="docs/download.webp" width="100%" alt="A name typed into the Download field, and the album arriving track by track"></p>
-<p align="center"><sub>A name typed into the Download field, and the album arriving. The start and the finish of one
-real download, shown at the pace it ran; the two minutes between them are cut out.</sub></p>
+<p align="center"><img src="docs/download.webp" width="100%" alt="A name typed into the Download field, and the album opened to its tracks, each with its own progress, until all are done"></p>
+<p align="center"><sub>A name typed into the Download field, and the album arriving track by track. The start and
+the finish of one real download, shown at the pace it ran; the minute and a half between them is skipped with a dissolve.</sub></p>
 
 <p align="center"><img src="docs/library.webp" width="100%" alt="The library: the albums as a grid, with the sections and the playlists on the left"></p>
 
