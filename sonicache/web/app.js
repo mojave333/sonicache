@@ -4102,6 +4102,7 @@ function renderSearch({ enter = false } = {}) {
     ? t("Исполнитель, альбом или трек — с обложками из каталога. Щелчок по альбому покажет его треки, стрелка сразу поставит в очередь")
     : loading ? "" : results?.error || t("По запросу «{query}»", { query });
   $("#search-service").textContent = results?.service ? t("Каталог: {service}", { service: results.service }) : "";
+  if (results?.service) $("#search-scope-name").textContent = results.service;
   const { filter } = state.search;
   $("#search-bar").hidden = !query || !(found.albums.length + found.tracks.length + found.artists.length);
   syncRadios($("#search-chips"), "data-search-filter", filter);

@@ -599,6 +599,7 @@ const TRANSLATIONS = {
   "Ничего": "Nothing",
   "Продвинутые": "Advanced",
   "Избранное": "Favourites",
+  "Поиск в каталоге Deezer: найденное можно скачать (Ctrl+2)": "Search the Deezer catalogue: what is found can be downloaded (Ctrl+2)",
   "Жанры": "Genres",
   "Избранного пока нет": "No favourites yet",
   "Откройте альбом и нажмите на сердечко: он появится здесь": "Open an album and press its heart: it will appear here",

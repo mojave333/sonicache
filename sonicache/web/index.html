@@ -81,6 +81,7 @@
 
   <div class="app">
     <header class="topbar">
+      <div class="topbar-left">
       <div class="brand">
         <span class="logo" aria-hidden="true"><img src="art/logo.webp" alt=""></span>
         <span class="brand-name">Sonicache</span>
@@ -97,17 +98,19 @@
           <span class="nav-label">Библиотека</span>
         </button>
       </nav>
-      <span class="spacer"></span>
-      <div class="field topbar-search" role="search" title="Поиск (Ctrl+2)">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
+      </div>
+      <!-- The catalogue's search, for finding music to download: it says which catalogue, so it is not taken for the library's filter -->
+      <div class="field topbar-search" role="search" title="Поиск в каталоге Deezer: найденное можно скачать (Ctrl+2)">
+        <span class="search-scope"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span id="search-scope-name">Deezer</span></span>
         <input id="search-input" type="search" autocomplete="off" spellcheck="false"
                placeholder="Исполнитель, альбом или трек" aria-label="Что найти">
       </div>
-      <span class="spacer"></span>
-      <button type="button" class="nav-item nav-icon" data-view="settings" title="Настройки (Ctrl+4)" aria-label="Настройки">
-        <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
-        <span id="settings-dot" class="nav-dot" hidden></span>
-      </button>
+      <div class="topbar-right">
+        <button type="button" class="nav-item nav-icon" data-view="settings" title="Настройки (Ctrl+4)" aria-label="Настройки">
+          <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+          <span id="settings-dot" class="nav-dot" hidden></span>
+        </button>
+      </div>
     </header>
 
     <div class="main">
