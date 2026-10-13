@@ -19,6 +19,7 @@ import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from . import __version__
 from .engine.logs import log
 from .i18n import t
 
@@ -124,7 +125,7 @@ def setup(console: bool = False) -> Path | None:
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(logging.Formatter(_FORMAT))
     log.addHandler(handler)
-    log.info("— запуск: Sonicache %s, %s, Python %s —", _version(), platform.platform(),
+    log.info("— запуск: Sonicache %s, %s, Python %s —", __version__, platform.platform(),
              platform.python_version())
     if adopted:
         log.info("данные прежней версии скопированы из %s", _folder_of(FORMER_NAME))
@@ -144,7 +145,7 @@ def report(settings: dict | None = None, problems: list[str] | None = None,
            tools: dict[str, str] | None = None) -> str:
     """Everything worth pasting into an issue, as plain text."""
     parts = [
-        f"Sonicache {_version()}",
+        f"Sonicache {__version__}",
         f"{platform.platform()}, Python {platform.python_version()}, "
         f"{t('сборка') if getattr(sys, 'frozen', False) else t('из исходников')}",
         f"yt-dlp {package_version('yt_dlp')}, ytmusicapi {package_version('ytmusicapi')}",
@@ -174,10 +175,4 @@ def package_version(name: str) -> str:
     except Exception:
         module = sys.modules.get(name)
         return getattr(module, "__version__", t("не установлен"))
-
-
-def _version() -> str:
-    from . import __version__
-
-    return __version__
 

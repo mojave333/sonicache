@@ -688,13 +688,9 @@ def _file_stem(album: Album, track: Track, single: bool, style: str = "auto") ->
     number = f"{track.track_number:02d}"
     if album.total_discs > 1:
         number = f"{track.disc_number}-{number}"
-    if style == "title":
-        return f"{number}. {track.title}"
     # Guests are named: on an album by one artist only their own tracks go unlabelled
-    own = not track.artists or track.artists.casefold() == album.artist.casefold()
-    if style == "auto" and own:
-        return f"{number}. {track.title}"
-    if not track.artists:
+    own = track.artists.casefold() == album.artist.casefold()
+    if style == "title" or not track.artists or (style == "auto" and own):
         return f"{number}. {track.title}"
     return f"{number}. {track.artists} - {track.title}"
 

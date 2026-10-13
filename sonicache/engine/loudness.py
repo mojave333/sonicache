@@ -246,9 +246,9 @@ def _write(path: Path, track: Loudness | None = None, album: Loudness | None = N
         if loudness is None:
             continue
         if ext == ".opus":
-            fields[f"R128_{scope}_GAIN"] = str(_q78(OPUS_REFERENCE - loudness.lufs))
+            fields[f"R128_{scope}_GAIN"] = gain_text(path, loudness)
         else:
-            fields[f"REPLAYGAIN_{scope}_GAIN"] = f"{REFERENCE - loudness.lufs:.2f} dB"
+            fields[f"REPLAYGAIN_{scope}_GAIN"] = gain_text(path, loudness)
             fields[f"REPLAYGAIN_{scope}_PEAK"] = f"{loudness.peak:.6f}"
     if not fields:
         return
