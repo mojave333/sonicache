@@ -67,8 +67,8 @@ English, in a light theme on cream paper or a dark one.
 ## Install
 
 > [!NOTE]
-> No build is attached to the Releases page yet: the first release under this name is in
-> preparation. Until then the program runs from source (see [Running from source](#running-from-source)).
+> There are no builds on the Releases page at the moment. Until there are, the program runs
+> from source (see [Running from source](#running-from-source)).
 
 **Windows 10 and 11, 64-bit.** Download `Sonicache-vX.Y.Z-windows-x64-setup.exe` from
 [Releases](https://github.com/mojave333/sonicache/releases) and run it. The installer asks where to
