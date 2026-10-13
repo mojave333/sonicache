@@ -264,27 +264,15 @@ html.frameless .topbar-right { padding-right: 150px; }
 /* Filling the screen or the whole of it for Now playing, there is nothing to size by and no room for the buttons */
 html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-controls { display: none; }
 html.window-full .topbar-right { padding-right: 24px; }
-/* The search field stands in the middle of the window when there is room for the sections on its left (389 px
-   with the mark, 520 with the name too) to have as much on its right: the field gives up width to it, to 280
-   px at the narrowest, and the name waits for a window 1500 wide. Narrower than that the field follows the
-   sections instead, and under 860 px the sections and the field are tightened so that both fit. */
-@media (min-width: 1080px) {
-  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, calc(100vw - 800px), 380px) minmax(0, 1fr); }
-  .topbar > .topbar-search { margin: 0; width: 100%; flex: none; }
-}
-@media (max-width: 1499px) {
-  .brand-name { display: none; }
-  .brand { margin-right: 12px; }
-}
+/* A narrow window drops the name and tightens the sections, so the four of them fit beside the
+   window's buttons: the mark stays */
 @media (max-width: 860px) {
   .topbar-left { padding-left: 16px; }
   .topbar-right { padding-right: 16px; }
   .brand { margin-right: 8px; }
+  .brand-name { display: none; }
   .nav-item { padding: 0 12px; }
   .nav-item[aria-current="page"]::after, .nav-ring { left: 12px; right: 12px; }
-  .topbar > .topbar-search { min-width: 120px; }
-  #search-scope-name { display: none; }
-  .search-scope { padding: 0 6px; }
 }
 
 /* Columns react to the content width, which a widened side panel narrows */
@@ -802,26 +790,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 @keyframes img-in { from { opacity: 0; } }
 
 /* Search */
-/* The search field is in the top bar, between the sections and the settings */
-.topbar-search { flex: 0 1 380px; min-width: 160px; height: var(--h-lg); margin: 0 12px 0 16px; padding: 0 6px 0 5px; border-color: var(--border-strong); }
-.topbar-search input { padding-left: 10px; font-size: var(--fs-md); }
-.topbar-search.is-active { border-color: var(--text-subtle); }
-/* In the Catalogue the field is the section in use: the line the sections have, on the bar's lower edge */
-.topbar-search { position: relative; }
-.topbar-search.is-active::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 3px;
-  border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: var(--accent-fg);
-}
-/* The name stands where a hint would: the field is the way in to the Catalogue as much as a place to type */
-.topbar-search input::placeholder { color: var(--text-muted); font-weight: 600; }
-/* Which catalogue the field asks, and that what it finds is for downloading: the chip, not a magnifier,
-   is what tells it from the library's filter */
-.search-scope {
-  display: inline-flex; flex: none; align-items: center; gap: 6px; height: var(--h-sm); padding: 0 10px 0 8px;
-  border-radius: var(--radius-sm); background: var(--selected); color: var(--text-muted);
-  font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.02em;
-}
-.search-scope .icon { color: var(--accent-fg); }
+/* The Catalogue's field is in its own bar, at the head of its page */
 .search-service { margin-left: auto; color: var(--text-subtle); font-size: var(--fs-xs); }
 .search-section + .search-section { border-top: 1px solid var(--divider); }
 .search-head { margin: 0; padding: 20px 20px 0; font: 600 var(--fs-xl)/1.3 var(--font-display); }
@@ -1462,6 +1431,8 @@ button.lyric-line:hover { opacity: 1; }
   #library-folder span { display: none; }
   #library-folder { flex: none; }
   .cards { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px 16px; padding: 16px; }
+  /* A single row stays a single row: with a gap and a foot under it, the tops of the next covers showed */
+  .home-cards { row-gap: 0; padding: 12px 20px 0; }
   .track-item, .tracks-head { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) 52px 32px; }
   .track-item .cell-album, .tracks-head .h-album { display: none; }
   .segmented button { padding: 0 12px; }

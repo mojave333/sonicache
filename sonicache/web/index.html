@@ -94,16 +94,13 @@
           <span class="nav-label">Загрузка</span>
           <span id="download-ring" class="nav-ring" aria-hidden="true" hidden></span>
         </button>
+        <button type="button" class="nav-item" data-view="search" title="Каталог (Ctrl+2)" aria-label="Каталог">
+          <span class="nav-label">Каталог</span>
+        </button>
         <button type="button" class="nav-item" data-view="library" title="Библиотека (Ctrl+3)" aria-label="Библиотека">
           <span class="nav-label">Библиотека</span>
         </button>
       </nav>
-      </div>
-      <!-- The catalogue's search, for finding music to download: it says which catalogue, so it is not taken for the library's filter -->
-      <div class="field topbar-search" role="search" title="Каталог: поиск, новинки и чарт Deezer, найденное можно скачать (Ctrl+2)">
-        <span class="search-scope"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span id="search-scope-name">Deezer</span></span>
-        <input id="search-input" type="search" autocomplete="off" spellcheck="false"
-               placeholder="Каталог" aria-label="Каталог: найти исполнителя, альбом или трек">
       </div>
       <div class="topbar-right">
         <button type="button" class="nav-item nav-icon" data-view="settings" title="Настройки (Ctrl+4)" aria-label="Настройки">
@@ -242,6 +239,17 @@
       </section>
 
       <section id="view-search" class="view" aria-label="Каталог" hidden>
+        <!-- The Catalogue's own field, as the Download has its link and the Library its filter -->
+        <div class="toolbar">
+          <div class="field" role="search">
+            <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="search-input" type="search" autocomplete="off" spellcheck="false"
+                   placeholder="Исполнитель, альбом или трек" aria-label="Поиск в каталоге">
+          </div>
+          <button type="button" id="search-refresh" class="tool-btn icon-only" title="Обновить (F5)" aria-label="Обновить">
+            <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg>
+          </button>
+        </div>
         <div id="search-bar" class="search-bar" hidden>
           <div id="search-chips" class="chips" role="radiogroup" aria-label="Что показать">
             <button type="button" role="radio" data-search-filter="all">Всё</button>

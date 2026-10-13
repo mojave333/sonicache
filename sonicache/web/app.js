@@ -1062,6 +1062,7 @@ function onShortcut(event) {
   } else if (event.key === "F5" || (event.ctrlKey && event.code === "KeyR")) {
     event.preventDefault(); // reloading the page would lose the download list
     if (state.view === "library") loadLibrary();
+    if (state.view === "search") refreshCatalogue();
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyK") {
     event.preventDefault();
     showView("search");
@@ -1229,7 +1230,6 @@ function showView(name) {
     else button.removeAttribute("aria-current");
   }
   for (const view of $$(".view")) view.hidden = view.id !== `view-${name}`;
-  $(".topbar-search").classList.toggle("is-active", name === "search");
   setMenuOpen(false, false);
   if (name === "download") $("#link").focus();
   $("#player-lyrics")?.setAttribute("aria-pressed", String(name === "now"));
@@ -4028,7 +4028,6 @@ async function onPageAction(event) {
 function bindSearch() {
   const input = $("#search-input");
   input.addEventListener("input", () => {
-    if (state.view !== "search") showView("search");
     clearTimeout(state.search.timer);
     state.search.timer = setTimeout(() => runSearch(input.value), 450);
   });
@@ -4036,10 +4035,6 @@ function bindSearch() {
     if (event.key !== "Enter") return;
     clearTimeout(state.search.timer);
     runSearch(input.value, true);
-  });
-  // The field is in the bar over every view: reaching for it brings the results up
-  input.addEventListener("focus", () => {
-    if (state.view !== "search") showView("search");
   });
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
@@ -4050,6 +4045,7 @@ function bindSearch() {
       input.blur();
     }
   });
+  $("#search-refresh").addEventListener("click", refreshCatalogue);
   $("#search-scroll").addEventListener("click", onSearchClick);
   $("#catalogue-home").addEventListener("click", (event) => {
     const more = event.target.closest("[data-more]");
@@ -4114,10 +4110,9 @@ function renderSearch({ enter = false } = {}) {
     : loading ? t("Ищем…")
     : results?.error ? t("Поиск не удался") : t("Ничего не найдено");
   $(".empty-text", empty).textContent = !query
-    ? (home.loading ? "" : home.data?.error || t("Исполнитель, альбом или трек — с обложками из каталога. Щелчок по альбому покажет его треки, стрелка сразу поставит в очередь"))
+    ? (home.loading ? "" : home.data?.error || "")
     : loading ? "" : results?.error || t("По запросу «{query}»", { query });
   $("#search-service").textContent = results?.service ? t("Каталог: {service}", { service: results.service }) : "";
-  if (results?.service) $("#search-scope-name").textContent = results.service;
   const { filter } = state.search;
   $("#search-bar").hidden = !query || !(found.albums.length + found.tracks.length + found.artists.length);
   syncRadios($("#search-chips"), "data-search-filter", filter);
@@ -4157,15 +4152,28 @@ async function loadCatalogueHome({ force = false } = {}) {
   if (state.view === "search") renderSearch();
 }
 
+// What is on the page asked for again: the answer to what is typed, or else the first screen, past what is kept
+function refreshCatalogue() {
+  clearTimeout(state.search.timer);
+  const text = $("#search-input").value;
+  if (text.trim()) runSearch(text, true);
+  else loadCatalogueHome({ force: true });
+}
+
 // The rows are cards like the search's own, so a click on one does what a click there does; what the
-// library holds already is left out of what is new
+// library holds already is left out of what is new. Under a cover here only whose it is and the year:
+// the kind and the tracks are on the album's page
 function renderCatalogueHome() {
   const data = state.search.home.data;
   const rows = { fresh: (data?.fresh || []).filter((item) => !inLibrary(item)), popular: data?.popular || [] };
   let shown = 0;
   for (const [kind, items] of Object.entries(rows)) {
     $(`#home-${kind}-section`).hidden = !items.length;
-    $(`#home-${kind}`).replaceChildren(...items.map((item, index) => createSearchAlbum(item, index)));
+    $(`#home-${kind}`).replaceChildren(...items.map((item, index) => {
+      const card = createSearchAlbum(item, index);
+      $(".card-sub", card).textContent = [item.artist, item.year].filter(Boolean).join(" · ");
+      return card;
+    }));
     shown += items.length;
   }
   return shown;
@@ -4360,7 +4368,7 @@ function drawSearchPage() {
     return;
   }
   const below = pages[pages.length - 2];
-  $("#search-back-label").textContent = below ? (below.item.name || below.item.title) : t("Поиск");
+  $("#search-back-label").textContent = below ? (below.item.name || below.item.title) : t(state.search.query ? "Поиск" : "Каталог");
   $(".album-page", page).hidden = top.kind !== "album";
   $(".search-artist-page", page).hidden = top.kind !== "artist";
   page.hidden = false;
