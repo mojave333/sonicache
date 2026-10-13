@@ -84,6 +84,8 @@ const state = {
   library: {
     items: [], folder: null, stale: true, loading: false, token: 0,
     tab: "albums", view: "grid",
+    favouritesOnly: false, // the albums that are favourites, shown as a view of their own in the side list
+    genresOpen: undefined, // the side list's genres, open or shut; left to the genre picked while undecided
     genre: "", // the genre the tabs are narrowed to, by its lower-case name; "" for all
     sorts: { // newest first, the way the folder itself is read
       albums: { key: "modified", dir: -1 },
@@ -981,8 +983,9 @@ function bindUi() {
   });
   $("#library-tracks").addEventListener("keydown", onTracksKey);
   for (const tab of $$("#library-tabs [role=tab]")) {
-    tab.addEventListener("click", () => showLibraryTab(tab.dataset.tab));
+    tab.addEventListener("click", () => chooseLibraryView(tab.dataset.tab));
   }
+  bindLibrarySide();
   radioGroup($("#library-view"), "data-library-view", setLibraryView);
   $("#library-sort").addEventListener("change", onSortPick);
   $("#library-genre").addEventListener("change", (event) => {
@@ -1253,6 +1256,7 @@ function showView(name) {
   if (name === "library") {
     requestAnimationFrame(() => placeTabInk(false)); // the tabs have no size until the view shows
     if (state.library.stale || state.library.folder !== libraryFolders().join("\n")) loadLibrary();
+    if (state.playlists.stale && !state.playlists.loading) loadPlaylists();
   } else {
     clearSelection();
   }
@@ -2449,9 +2453,10 @@ function librarySummary() {
     return [t("{tracks} {trackWord}", { tracks: list.length, trackWord: plural(list.length, "трек", "трека", "треков") }),
       formatLength(seconds)].join(" · ");
   }
-  const albums = items.filter((item) => item.album).length;
-  const tracks = items.reduce((total, item) => total + item.tracks, 0);
-  const size = items.reduce((total, item) => total + item.size, 0);
+  const held = state.library.favouritesOnly ? items.filter(isFavourite) : items;
+  const albums = held.filter((item) => item.album).length;
+  const tracks = held.reduce((total, item) => total + item.tracks, 0);
+  const size = held.reduce((total, item) => total + item.size, 0);
   const parts = albums ? [t("{albums} {albumWord}",
     { albums, albumWord: plural(albums, "альбом", "альбома", "альбомов") })] : [];
   parts.push(t("{tracks} {trackWord}",
@@ -2575,12 +2580,16 @@ function renderLibrary({ enter = false } = {}) {
   const shownCount = tab === "albums" ? renderAlbums(grid, enter)
     : tab === "tracks" ? renderTracks(enter) : tab === "playlists" ? renderPlaylists(enter) : renderArtists(enter);
   renderSelection(); // and with it the bar above the list
+  renderLibrarySide();
 
   const empty = $("#library-empty");
   empty.hidden = shownCount > 0;
   const query = $("#library-filter").value.trim();
   let [title, text] = [t("Ничего не найдено"), query ? t("По запросу «{query}»", { query })
     : t("В жанре «{genre}»", { genre: $("#library-genre").selectedOptions[0]?.dataset.name || "" })];
+  if (library.favouritesOnly && tab === "albums" && !query && !library.genre) {
+    [title, text] = [t("Избранного пока нет"), t("Откройте альбом и нажмите на сердечко: он появится здесь")];
+  }
   const loading = library.loading || (tab === "tracks" && library.trackList.loading);
   // A turntable with no record for an empty folder, a radio finding no station for
   // a search that turned nothing up, and no picture while the folder is still being read
@@ -2666,7 +2675,8 @@ function renderAlbums(grid, enter) {
   const library = state.library;
   const needle = libraryQuery();
   const matches = (artist, title) => !needle || `${artist} ${title}`.toLocaleLowerCase().includes(needle);
-  const found = library.items.filter((item) => inGenre(item.genre) && matches(item.artist, item.title));
+  const found = library.items.filter((item) => inGenre(item.genre) && matches(item.artist, item.title)
+    && (!library.favouritesOnly || isFavourite(item)));
   const shown = sortBy(found, LIBRARY_SORTS, library.sorts.albums, (a, b) => COLLATOR.compare(a.title, b.title));
   library.shown = shown.map((item) => item.path);
   // Something the filter hides must not stay selected: a batch delete would
@@ -2682,7 +2692,7 @@ function renderAlbums(grid, enter) {
     const present = new Set(library.items.map((item) => pathKey(item.path)));
     for (const job of library.pending.values()) {
       if (!job.single && present.has(pathKey(job.folder))) downloading.set(pathKey(job.folder), job);
-      else if (!library.genre && matches(job.artist, job.title)) fresh.push(job);
+      else if (!library.genre && !library.favouritesOnly && matches(job.artist, job.title)) fresh.push(job);
     }
   }
   const downloadOf = (item) => (downloading.size ? downloading.get(pathKey(item.path)) : undefined);
@@ -2965,6 +2975,116 @@ function fadeThrough(change) {
   }, 90);
 }
 
+/* The library's list at the side: the views, the genres and the playlists, chosen here as well as by the tabs in the bar */
+
+// One of the library's views: a tab of its own, or the albums that are favourites
+async function chooseLibraryView(tab, favourites = false) {
+  const library = state.library;
+  while (!$("#library-page").hidden) await closePage({ instant: true });
+  const changed = library.favouritesOnly !== favourites;
+  library.favouritesOnly = favourites;
+  if (tab !== library.tab) showLibraryTab(tab);
+  else if (changed) renderLibrary({ enter: true });
+  else renderLibrarySide();
+}
+
+function renderLibrarySide() {
+  const library = state.library;
+  const side = $("#library-side");
+  const top = library.pages[library.pages.length - 1];
+  const view = top?.kind === "playlist" ? "" : library.favouritesOnly && library.tab === "albums" ? "favourites" : library.tab;
+  const counts = {
+    albums: library.items.filter((item) => item.album).length,
+    favourites: library.items.filter(isFavourite).length,
+    tracks: library.items.reduce((total, item) => total + item.tracks, 0),
+    artists: libraryArtists().length,
+  };
+  for (const entry of $$("[data-side]", side)) {
+    const on = entry.dataset.side === view;
+    if (on) entry.setAttribute("aria-current", "page");
+    else entry.removeAttribute("aria-current");
+    const number = $(".side-n", entry);
+    if (number) number.textContent = counts[entry.dataset.side] || "";
+  }
+  const genres = libraryGenres();
+  const open = (library.genresOpen ?? Boolean(library.genre)) && genres.length > 0;
+  const group = $("#side-genres");
+  group.hidden = !genres.length;
+  group.setAttribute("aria-expanded", String(open));
+  $(".side-n", group).textContent = genres.length || "";
+  const list = $("#side-genre-list");
+  list.hidden = !open;
+  if (open) {
+    list.replaceChildren(...genres.map((genre) => sideItem({
+      icon: "", name: genre.name, count: genre.count,
+      attributes: { "data-genre": genre.key, "aria-pressed": String(library.genre === genre.key) },
+    })));
+  }
+  const entries = state.playlists.items || [];
+  const rows = [...entries.filter((entry) => entry.smart && entry.count),
+    ...entries.filter((entry) => !entry.smart).sort((a, b) => COLLATOR.compare(a.name, b.name))];
+  $("#side-playlists").replaceChildren(...rows.map((entry) => sideItem({
+    icon: entry.id === "recent" ? "i-history" : entry.id === "top" ? "i-trend" : "i-playlist",
+    name: playlistName(entry), count: entry.smart ? 0 : entry.count,
+    attributes: { "data-playlist": entry.id, ...(top?.kind === "playlist" && top.id === entry.id ? { "aria-current": "page" } : {}) },
+  })));
+}
+
+function sideItem({ icon, name, count, attributes }) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "side-item";
+  for (const [key, value] of Object.entries(attributes)) button.setAttribute(key, value);
+  if (icon) button.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#${icon}"/></svg>`;
+  const label = document.createElement("span");
+  label.className = "side-name";
+  label.textContent = name;
+  const number = document.createElement("span");
+  number.className = "side-n";
+  number.textContent = count || "";
+  button.append(label, number);
+  return button;
+}
+
+function bindLibrarySide() {
+  const side = $("#library-side");
+  side.addEventListener("click", async (event) => {
+    const library = state.library;
+    const target = event.target;
+    const genre = target.closest("[data-genre]");
+    if (genre) {
+      while (!$("#library-page").hidden) await closePage({ instant: true });
+      if (library.tab === "playlists") await chooseLibraryView("albums");
+      library.genre = library.genre === genre.dataset.genre ? "" : genre.dataset.genre;
+      renderLibrary({ enter: true });
+      return;
+    }
+    if (target.closest("#side-genres")) {
+      library.genresOpen = !(library.genresOpen ?? Boolean(library.genre));
+      renderLibrarySide();
+      return;
+    }
+    const playlist = target.closest("[data-playlist]");
+    if (playlist) {
+      while (!$("#library-page").hidden) await closePage({ instant: true });
+      openPlaylist(playlist.dataset.playlist);
+      return;
+    }
+    if (target.closest("#side-playlist-new")) {
+      $("#playlist-new").click();
+      return;
+    }
+    const view = target.closest("[data-side]");
+    if (view) chooseLibraryView(view.dataset.side === "favourites" ? "albums" : view.dataset.side, view.dataset.side === "favourites");
+  });
+  // The playlists' heading is a link to all of them, and answers the keys of a button
+  $(".side-link", side).addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.currentTarget.click();
+  });
+}
+
 function showLibraryTab(tab) {
   const library = state.library;
   if (tab === library.tab && $("#library-page").hidden) return;
@@ -3147,6 +3267,7 @@ function showPage(kind) {
 
 // The arrow says where it goes back to, in words and again in its tooltip
 function renderPageBack() {
+  renderLibrarySide();
   const back = $("#page-back");
   $("#page-back-label").textContent = backLabel();
   back.title = t("Назад: {where}", { where: backLabel() });
@@ -3509,6 +3630,7 @@ function finishClose(page) {
   page.getAnimations().forEach((animation) => animation.cancel());
   for (const element of $$("*", page)) element.getAnimations().forEach((animation) => animation.cancel());
   page.hidden = true;
+  renderLibrarySide();
   $("#library-panel").inert = false;
   $("#view-library").classList.remove("page-open");
   document.documentElement.classList.remove("album-full");
@@ -5802,6 +5924,7 @@ async function loadPlaylists(force = false) {
   if (token !== list.token) return list.items;
   Object.assign(list, { items, stale: false, loading: false });
   if (state.view === "library" && state.library.tab === "playlists") renderLibrary();
+  else if (state.view === "library") renderLibrarySide();
   return items;
 }
 

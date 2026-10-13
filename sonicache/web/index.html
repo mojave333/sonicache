@@ -314,6 +314,20 @@
       </section>
 
       <section id="view-library" class="view" aria-label="Библиотека" hidden>
+        <!-- The library's own list, beside it in a wide window: its views, its genres and its playlists.
+             Narrower, the tabs in the bar are what is left. -->
+        <nav id="library-side" class="lib-side" aria-label="Библиотека">
+          <h4 class="side-head">Библиотека</h4>
+          <button type="button" class="side-item" data-side="albums"><svg class="icon sm" aria-hidden="true"><use href="#i-grid"/></svg><span class="side-name">Альбомы</span><span class="side-n"></span></button>
+          <button type="button" class="side-item" data-side="favourites"><svg class="icon sm" aria-hidden="true"><use href="#i-heart"/></svg><span class="side-name">Избранное</span><span class="side-n"></span></button>
+          <button type="button" class="side-item" data-side="tracks"><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg><span class="side-name">Треки</span><span class="side-n"></span></button>
+          <button type="button" class="side-item" data-side="artists"><svg class="icon sm" aria-hidden="true"><use href="#i-headphones"/></svg><span class="side-name">Исполнители</span><span class="side-n"></span></button>
+          <button type="button" class="side-item" id="side-genres" aria-expanded="false" aria-controls="side-genre-list"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span class="side-name">Жанры</span><span class="side-n"></span><svg class="icon sm side-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+          <div id="side-genre-list" class="side-sub" hidden></div>
+          <h4 class="side-head side-link" data-side="playlists" role="button" tabindex="0">Плейлисты</h4>
+          <div id="side-playlists"></div>
+          <button type="button" class="side-item side-add" id="side-playlist-new"><svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span class="side-name">Новый плейлист</span></button>
+        </nav>
         <div class="library-head">
         <div class="toolbar">
           <div id="library-tabs" class="tabs" role="tablist" aria-label="Библиотека">
