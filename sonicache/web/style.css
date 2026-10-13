@@ -211,6 +211,8 @@ p { margin: 0; }
   padding: 0 16px; color: var(--text-subtle); font-size: var(--fs-md); font-weight: 500;
 }
 .nav-item:hover { color: var(--text); }
+/* The ring sits inside the bar: drawn outside it, it is a box as tall as the bar and cut off at the window's top edge */
+.topnav .nav-item:focus-visible { border-radius: var(--radius); outline-offset: -8px; }
 .nav-item[aria-current="page"] { color: var(--text); font-weight: 600; }
 .nav-item[aria-current="page"]::after {
   content: ""; position: absolute; left: 16px; right: 16px; bottom: -1px; height: 3px;
@@ -339,7 +341,7 @@ html.window-full .topbar { padding-right: 24px; }
 }
 .btn-group:hover { border-color: var(--border-strong); }
 .btn-group .tool-btn { height: 100%; border: 0; border-radius: 0; }
-.btn-group .tool-btn + .tool-btn { border-left: 1px solid var(--border); }
+.btn-group .tool-btn:not([hidden]) ~ .tool-btn:not([hidden]) { border-left: 1px solid var(--border); }
 .btn-group .tool-btn:hover { background: var(--hover); }
 .btn-group .tool-btn:focus-visible { outline-offset: -3px; }
 
@@ -597,11 +599,19 @@ html.window-full .topbar { padding-right: 24px; }
 .tabs button {
   padding: 0 12px; border-radius: var(--radius); color: var(--text-subtle); font-size: var(--fs-md); white-space: nowrap;
 }
+/* In the library the tabs fill the bar down to its divider, as the sections fill the top bar, so the line
+   under the chosen one lies on the divider instead of hanging above it; the other controls keep their
+   place through a margin, and a bar that wraps still has 48 px to a line */
+.library-head { flex: none; }
+.library-head > .toolbar { padding-block: 0; row-gap: 0; }
+.library-head > .toolbar > :not(.tabs) { margin-block: 7px; }
+#view-library .tabs { height: 48px; }
+#view-library .tabs button { border-radius: var(--radius) var(--radius) 0 0; }
 .tabs button:hover { background: var(--hover); color: var(--text); }
 .tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; }
 .tabs::after {
-  content: ""; position: absolute; left: 0; bottom: -1px; width: var(--ink-w, 0); height: 2px;
-  border-radius: var(--radius-pill); background: var(--accent-fg); transform: translateX(var(--ink-x, 0));
+  content: ""; position: absolute; left: 0; bottom: -1px; width: var(--ink-w, 0); height: 3px;
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: var(--accent-fg); transform: translateX(var(--ink-x, 0));
 }
 .tabs.ink-ready::after { transition: transform var(--settle) var(--ease), width var(--settle) var(--ease); }
 .library-search { flex: 0 1 280px; margin-left: auto; }
@@ -611,13 +621,17 @@ html.window-full .topbar { padding-right: 24px; }
 }
 
 .library-bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; flex: none; min-height: var(--row-sm); padding: 4px 16px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; flex: none; padding: 7px 16px;
   border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: var(--fs-sm);
 }
 .library-summary { margin-right: auto; font-variant-numeric: tabular-nums; }
-/* The genre and the order are pills, one step above the bar they stand in */
-.pick, .sort-button { height: var(--h-sm); border-radius: var(--radius); background: var(--selected); transition: background-color var(--press) ease-out; }
-.pick:hover, .sort-button:hover { background: var(--selected-hover); }
+/* What the library's bars hold is one kind of control: 34 high, a rim, the field's paper.
+   (The genre pick is also the equalizer's preset in the settings, which keeps its own look.) */
+.library-bar .pick, .library-bar .sort-button, #library-view {
+  height: var(--h); border: 1px solid var(--border); border-radius: var(--radius); background: var(--field);
+  transition: border-color var(--press) ease-out;
+}
+.library-bar .pick:hover, .library-bar .sort-button:hover, #library-view:hover { border-color: var(--border-strong); }
 .pick { position: relative; display: inline-flex; align-items: center; gap: 4px; padding-left: 12px; white-space: nowrap; }
 .pick select {
   appearance: none; height: 100%; padding: 0 24px 0 4px; border: 0; border-radius: var(--radius); background: transparent;
@@ -635,6 +649,31 @@ html.window-full .topbar { padding-right: 24px; }
 .sort-menu .menu-name::first-letter, #library-sort-label::first-letter { text-transform: uppercase; }
 .segmented.small { height: var(--h-sm); }
 .segmented.small button { padding: 0 8px; }
+/* The view switch is told by a shade, not a black block that outweighs the red line of the tabs */
+#view-library #library-view button { padding: 0 10px; }
+#library-view button[aria-checked="true"] { background: var(--selected-hover); color: var(--text); }
+#library-view button[aria-checked="true"]:focus-visible { outline-color: var(--accent-fg); }
+
+/* Wide enough, the bars are one: the tabs, then what the library holds, the genre, the order and the view,
+   the filter and the buttons. The summary takes what is left and gives way first. Under it the toolbar
+   and the bar stay two lines. */
+@container content (min-width: 1480px) {
+  #view-library > .library-head {
+    display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--divider);
+  }
+  .library-head > .toolbar, .library-head > .library-bar { display: contents; }
+  .library-head > .toolbar > :not(.tabs) { margin-block: 0; }
+  .library-head .tabs { order: 0; }
+  .library-summary {
+    order: 1; flex: 1 1 0; min-width: 0; margin: 0 0 0 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .library-head .tool-btn { order: 2; }
+  .library-head .pick { order: 3; }
+  .library-head .sort-wrap { order: 4; }
+  .library-head #library-view { order: 5; }
+  .library-head .library-search { order: 6; flex-basis: 170px; margin-left: 0; }
+  .library-head .btn-group { order: 7; }
+}
 
 .library-body { position: relative; display: flex; flex: 1; min-height: 0; }
 /* Sorting and the view switch mean nothing on an album's page */
@@ -879,7 +918,7 @@ html.window-full .topbar { padding-right: 24px; }
 /* The grid is behind the page, so it is not drawn at all while the page is
    open: the grid keeps its place and its scroll, and is not laid out again. */
 .album-full #library-panel { content-visibility: hidden; }
-.album-full #view-library > .toolbar, .album-full .library-bar { display: none; }
+.album-full #view-library > .library-head { display: none; }
 .album-full #library-page { display: flex; flex-direction: column; padding: 16px 32px 24px; overflow-y: auto; }
 .album-full #library-page .page-band { display: none; }
 .album-full #album-page {

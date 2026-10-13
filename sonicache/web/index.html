@@ -314,6 +314,7 @@
       </section>
 
       <section id="view-library" class="view" aria-label="Библиотека" hidden>
+        <div class="library-head">
         <div class="toolbar">
           <div id="library-tabs" class="tabs" role="tablist" aria-label="Библиотека">
             <button type="button" role="tab" data-tab="albums" aria-selected="true">Альбомы</button>
@@ -340,10 +341,10 @@
           <button type="button" id="playlist-import" class="tool-btn icon-only" hidden title="Открыть плейлист .m3u8 из другого плеера" aria-label="Открыть плейлист .m3u8">
             <svg class="icon sm" aria-hidden="true"><use href="#i-file-in"/></svg>
           </button>
-          <button type="button" id="library-shuffle" class="tool-btn icon-only" title="Слушать всю библиотеку вперемешку" aria-label="Слушать всю библиотеку вперемешку" hidden>
-            <svg class="icon sm" aria-hidden="true"><use href="#i-mi-shuffle"/></svg>
-          </button>
           <div class="btn-group">
+            <button type="button" id="library-shuffle" class="tool-btn icon-only" title="Слушать всю библиотеку вперемешку" aria-label="Слушать всю библиотеку вперемешку" hidden>
+              <svg class="icon sm" aria-hidden="true"><use href="#i-mi-shuffle"/></svg>
+            </button>
             <button type="button" id="library-folder" class="tool-btn icon-only" title="Открыть папку в проводнике" aria-label="Открыть папку">
               <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>
             </button>
@@ -369,6 +370,7 @@
             <button type="button" role="radio" data-library-view="grid" title="Сетка обложек" aria-label="Сетка обложек"><svg class="icon sm" aria-hidden="true"><use href="#i-grid"/></svg></button>
             <button type="button" role="radio" data-library-view="list" title="Список" aria-label="Список"><svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg></button>
           </div>
+        </div>
         </div>
         <div class="library-body">
           <div id="library-panel" class="library-panel">
