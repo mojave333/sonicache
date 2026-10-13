@@ -3276,9 +3276,14 @@ function toHsl(red, green, blue) {
 
 // The band fades from what it showed to the new colour; null lets it fade away
 async function tintPage(src, owner) {
-  const page = $("#library-page");
+  return tintElement($("#library-page"), src, () => owner === state.library.pageToken);
+}
+
+// What a page takes of its cover's colours, set on the page itself: the hue and the saturation the panel's wash
+// and the band are drawn in. `current` says whether the page is still the one that was asked for.
+async function tintElement(page, src, current) {
   const tint = src ? await pictureTint(src) : null;
-  if (owner !== state.library.pageToken) return; // another page has been opened since
+  if (!current()) return; // another page has been opened since
   fadeBand(page);
   page.style.setProperty("--tint-a", tint ? "1" : "0");
   if (!tint) return;
@@ -3300,6 +3305,8 @@ function fadeBand(page) {
 }
 
 function albumFillsWindow() {
+  // The Catalogue's album page is the same panel, below its field
+  if (state.view === "search") return state.search.page?.kind === "album" && !$("#search-page").hidden;
   const pages = state.library.pages;
   return state.view === "library" && ["album", "playlist"].includes(pages[pages.length - 1]?.kind) && !$("#library-page").hidden;
 }
@@ -4216,14 +4223,19 @@ function refreshCatalogue() {
 }
 
 // The rows are cards like the search's own, so a click on one does what a click there does; what the
-// library holds already is left out of what is new
+// library holds already is left out of what is new. Under a cover here only whose it is and the year:
+// the kind and the tracks are on the album's page
 function renderCatalogueHome() {
   const data = state.search.home.data;
   const rows = { fresh: (data?.fresh || []).filter((item) => !inLibrary(item)), popular: data?.popular || [] };
   let shown = 0;
   for (const [kind, items] of Object.entries(rows)) {
     $(`#home-${kind}-section`).hidden = !items.length;
-    $(`#home-${kind}`).replaceChildren(...items.map((item, index) => createSearchAlbum(item, index)));
+    $(`#home-${kind}`).replaceChildren(...items.map((item, index) => {
+      const card = createSearchAlbum(item, index);
+      $(".card-sub", card).textContent = [item.artist, item.year].filter(Boolean).join(" · ");
+      return card;
+    }));
     shown += items.length;
   }
   return shown;
@@ -4242,11 +4254,6 @@ function bestSearchResult(found, query) {
   card.classList.add("best");
   // What kind of answer it is, since it stands alone above the rest
   const sub = $(".card-sub", card);
-  const meta = $(".card-meta", card); // alone above the rest it has room for it all on one line
-  if (meta) {
-    sub.textContent = [sub.textContent, meta.textContent].filter(Boolean).join(" · ");
-    meta.remove();
-  }
   sub.textContent = [card.classList.contains("search-artist") ? t("Исполнитель") : "", sub.textContent].filter(Boolean).join(" · ");
   return card;
 }
@@ -4316,8 +4323,8 @@ function createSearchAlbum(item, index) {
   $(".card-title", card).title = item.title;
   const tracks = item.tracks
     ? t("{tracks} {trackWord}", { tracks: item.tracks, trackWord: plural(item.tracks, "трек", "трека", "треков") }) : "";
-  $(".card-sub", card).textContent = [item.artist, item.year].filter(Boolean).join(" · ");
-  $(".card-meta", card).textContent = [t(RELEASE_KINDS[item.type] || "Альбом"), tracks].filter(Boolean).join(" · ");
+  $(".card-sub", card).textContent = [item.artist, t(RELEASE_KINDS[item.type] || "Альбом"), item.year, tracks]
+    .filter(Boolean).join(" · ");
   loadCover($(".card-cover", card), item.cover);
   markQueued($(".queue-btn", card), item.link);
   $(".in-library", card).hidden = !inLibrary(item);
@@ -4419,6 +4426,7 @@ function drawSearchPage() {
   state.search.page = top;
   if (!top) {
     page.hidden = true;
+    document.documentElement.classList.toggle("album-full", albumFillsWindow());
     $("#search-input").focus({ preventScroll: true });
     return;
   }
@@ -4427,6 +4435,7 @@ function drawSearchPage() {
   $(".album-page", page).hidden = top.kind !== "album";
   $(".search-artist-page", page).hidden = top.kind !== "artist";
   page.hidden = false;
+  document.documentElement.classList.toggle("album-full", albumFillsWindow());
   page.scrollTop = 0;
   $("#search-back").focus({ preventScroll: true });
   if (top.kind === "album") fillSearchAlbum(top);
@@ -4436,18 +4445,27 @@ function drawSearchPage() {
 async function fillSearchAlbum(entry) {
   const { item } = entry;
   const page = $("#search-page");
-  $(".album-title", page).textContent = item.title;
-  $(".album-title", page).title = item.title;
-  $(".album-sub", page).textContent = [item.artist, t(RELEASE_KINDS[item.type] || "Альбом"), item.year]
-    .filter(Boolean).join(" · ");
-  const cover = $(".album-cover", page);
+  // The artist's page stands first in the markup, with a title and a subtitle of its own: this one is asked for
+  // by its own box, or the album's name would be written there, out of sight, and the page left without one
+  const view = $(".album-page", page);
+  const kind = (value) => t(RELEASE_KINDS[value] || "Альбом");
+  $(".album-title", view).textContent = item.title;
+  $(".album-title", view).title = item.title;
+  $(".album-sub", view).textContent = [item.artist, kind(item.type), item.year].filter(Boolean).join(" · ");
+  $(".album-stats", view).textContent = "";
+  $(".album-tracks", view).classList.remove("no-artists");
+  const cover = $(".album-cover", view);
   $("img", cover).hidden = true;
   $("img", cover).removeAttribute("src");
-  loadCover(cover, item.cover.replace("/250x250-", "/500x500-"));
+  // The panel shows it large, so the larger picture is asked for; the wash behind it takes its colours
+  const src = (item.cover || "").replace("/250x250-", "/1000x1000-");
+  loadCover(cover, src);
+  showBackdrop(view, src);
+  tintElement(page, src, () => state.search.page === entry);
   renderSearchPageButton();
-  riseIn([...$(".album-info", page).children]);
+  riseIn([...$(".album-info", view).children]);
   if (!entry.data) {
-    $(".album-list", page).replaceChildren(searchNote(t("Читаем список треков…")));
+    $(".album-list", view).replaceChildren(searchNote(t("Читаем список треков…")));
     try {
       entry.data = await api().release(item.link);
     } catch (error) {
@@ -4457,14 +4475,19 @@ async function fillSearchAlbum(entry) {
   if (state.search.page !== entry) return; // another page was opened meanwhile
   const data = entry.data;
   if (data.error) {
-    $(".album-list", page).replaceChildren(searchNote(data.error));
+    $(".album-list", view).replaceChildren(searchNote(data.error));
     return;
   }
+  // Under the title who and when, as in the library; how many and how long stand under the tracks
   const count = data.tracks.length;
-  $(".album-sub", page).textContent = [data.artist, t(RELEASE_KINDS[data.kind] || "Альбом"), data.year,
-    t("{tracks} {trackWord}", { tracks: count, trackWord: plural(count, "трек", "трека", "треков") })]
-    .filter(Boolean).join(" · ");
-  $(".album-list", page).replaceChildren(...data.tracks.map((track) => {
+  const length = data.tracks.reduce((sum, track) => sum + (Number(track.duration) || 0), 0);
+  $(".album-sub", view).textContent = [data.artist, kind(data.kind), data.year].filter(Boolean).join(" · ");
+  $(".album-stats", view).textContent = [
+    t("{tracks} {trackWord}", { tracks: count, trackWord: plural(count, "трек", "трека", "треков") }),
+    length ? formatLength(length) : "", data.service].filter(Boolean).join(" · ");
+  // As in the library, the column of artists is left out where it would only say the album's artist over again
+  $(".album-tracks", view).classList.toggle("no-artists", data.tracks.every((track) => !track.artists || track.artists === data.artist));
+  $(".album-list", view).replaceChildren(...data.tracks.map((track) => {
     const row = createAlbumTrack(track, { artist: data.artist });
     row.classList.add("search-album-track");
     const button = $("#search-track-template").content.querySelector(".queue-btn").cloneNode(true);

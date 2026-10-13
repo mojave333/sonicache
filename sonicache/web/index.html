@@ -324,8 +324,13 @@
               </div>
               <div class="artist-releases"></div>
             </div>
-            <div class="album-page">
-              <div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
+            <!-- The same panel as an album of the library has: the cover on a wash of its own colours, and the tracklist
+                 scrolling under the title and the buttons -->
+            <div class="album-page album-panel">
+              <div class="album-side">
+                <img class="album-backdrop" alt="" aria-hidden="true" hidden>
+                <div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
+              </div>
               <div class="album-info">
                 <h2 class="album-title"></h2>
                 <p class="album-sub"></p>
@@ -336,6 +341,7 @@
                 <div class="album-tracks" role="table" aria-label="Треки альбома">
                   <div class="album-track search-album-track album-head" role="row"><span role="columnheader" class="n">#</span><span role="columnheader">Трек</span><span role="columnheader" class="artists">Исполнители</span><span role="columnheader" class="num">Время</span><span></span></div>
                   <div class="album-list"></div>
+                  <p class="album-stats"></p>
                 </div>
               </div>
             </div>
@@ -443,7 +449,7 @@
             <button type="button" class="page-back" id="page-back">
               <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span id="page-back-label">Альбомы</span>
             </button>
-            <div id="album-page" class="album-page">
+            <div id="album-page" class="album-page album-panel">
               <div class="album-side">
                 <img class="album-backdrop" alt="" aria-hidden="true" hidden>
                 <div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg>
@@ -1106,7 +1112,6 @@
       </div>
       <p class="card-title"></p>
       <p class="card-sub"></p>
-      <p class="card-meta"></p>
     </div>
   </template>
 

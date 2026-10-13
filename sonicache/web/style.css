@@ -892,32 +892,20 @@ html.window-full .topbar-right { padding-right: 24px; }
 .search-best .best:hover .card-cover, .search-best .best:hover .artist-photo { transform: none; box-shadow: none; }
 .search-best .best .card-title { align-self: end; margin: 0; font-size: var(--fs-xl); line-height: 1.2; white-space: normal; }
 .search-best .best .card-sub { align-self: start; margin-top: 4px; white-space: normal; }
-.search-best .best .queue-btn { width: var(--h-lg); height: var(--h-lg); background: var(--accent); color: var(--on-accent); }
+.search-best .best .queue-btn { opacity: 1; transform: none; }
 .search-section .cards { padding-top: 12px; }
 .search-section .home-quick { margin: 12px 20px 4px; }
 .search-artists { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
-/* The Catalogue's albums are tiles: the cover, who made it and what kind of release it is, on a plate of their
-   own, so that a row of them is not covers floating on a page */
-.search-card:not(.best) {
-  padding: 10px 10px 12px; border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--field);
-  transition: background-color var(--quick) ease-out, border-color var(--quick) ease-out;
-}
-.search-card:not(.best):hover { border-color: var(--border-strong); background: var(--selected); }
-.search-card:hover .card-cover { transform: none; box-shadow: none; }
-.search-card:not(.best) .card-title { margin-top: 10px; }
-.card-meta { margin-top: 2px; color: var(--text-subtle); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card-meta:empty { display: none; }
 .search-card .card-cover { position: relative; overflow: hidden; }
 .search-card .card-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-/* The arrow is on every cover, not only under the pointer: this is where music is taken from. It is quiet
-   until the pointer comes, and the colour of the program then. */
 .search-card .queue-btn {
-  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h); height: var(--h);
-  border-radius: 50%; background: color-mix(in srgb, #000 58%, transparent); color: #fff; backdrop-filter: blur(6px);
-  transition: background-color var(--quick) ease-out, color var(--quick) ease-out;
+  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg);
+  border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-sm);
+  opacity: 0; transform: translateY(6px);
+  transition: opacity var(--quick) ease-out, transform var(--settle) var(--ease);
 }
-.search-card:hover .queue-btn, .search-card:focus-within .queue-btn {
-  background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-sm);
+.search-card:hover .queue-btn, .search-card:focus-within .queue-btn, .search-card .queue-btn.is-queued {
+  opacity: 1; transform: none;
 }
 .search-card .queue-btn:active, .card .play-btn:active, .player-play:active { filter: brightness(0.9); }
 /* The library's covers play at once, as the search's download: the page is for more than that */
@@ -961,6 +949,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .queue-btn.is-queued { color: var(--accent-fg); }
 .search-card .queue-btn.is-queued { background: var(--field); color: var(--accent-fg); }
 .album-track.search-album-track { grid-template-columns: 34px minmax(0, 1.6fr) minmax(0, 1fr) 56px 34px; }
+.album-tracks.no-artists .album-track.search-album-track { grid-template-columns: 34px minmax(0, 1fr) 56px 34px; }
 .search-page .album-cover { position: relative; overflow: hidden; }
 .search-artist-page .artist-head { flex-wrap: wrap; margin-bottom: 8px; }
 .search-artist-page .artist-info { flex: 1 1 260px; min-width: 0; }
@@ -1015,8 +1004,8 @@ html.window-full .topbar-right { padding-right: 24px; }
 }
 /* The library's back button says where it goes back to, cut short when that is
    a long name; Now playing's is the arrow alone */
-#page-back { max-width: min(320px, 100%); margin: 0 0 12px -8px; padding: 0 12px 0 8px; }
-#page-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#page-back, #search-back { max-width: min(320px, 100%); margin: 0 0 12px -8px; padding: 0 12px 0 8px; }
+#page-back span, #search-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
 .page-back:hover { background: var(--hover); color: var(--text); }
 .album-page { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; align-items: start; max-width: 1100px; }
@@ -1032,9 +1021,9 @@ html.window-full .topbar-right { padding-right: 24px; }
    open: the grid keeps its place and its scroll, and is not laid out again. */
 .album-full #library-panel { content-visibility: hidden; }
 .album-full #view-library > .library-head { display: none; }
-.album-full #library-page { display: flex; flex-direction: column; padding: 16px 32px 24px; overflow-y: auto; }
-.album-full #library-page .page-band { display: none; }
-.album-full #album-page {
+.album-full .library-page { display: flex; flex-direction: column; padding: 16px 32px 24px; overflow-y: auto; }
+.album-full .library-page .page-band { display: none; }
+.album-full .album-panel {
   flex: 1; min-height: 0; max-width: none; gap: 0; align-items: stretch;
   grid-template-columns: minmax(240px, 40%) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
   border-radius: var(--radius-lg); overflow: hidden; background: var(--field); box-shadow: var(--shadow-lg);
@@ -1061,13 +1050,13 @@ html.window-full .topbar-right { padding-right: 24px; }
    and left to carry the colour that is in it */
 :root[data-theme="light"] .album-backdrop { mix-blend-mode: multiply; opacity: 0.5; }
 :root[data-theme="dark"].album-full .album-backdrop { filter: blur(60px) saturate(1.6) brightness(0.62); opacity: var(--backdrop-a, 0.6); }
-.album-full #album-page .album-cover {
+.album-full .album-panel .album-cover {
   position: relative; width: min(100%, 460px, 62vh); height: auto; aspect-ratio: 1;
   border-radius: var(--radius-md); box-shadow: var(--shadow-lg); /* rounded as on every other page */
 }
-.album-full #album-page .album-info { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 32px 28px 0; }
-.album-full #album-page .album-tracks { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -28px; padding: 0 28px 16px; }
-.album-full #album-page .album-head { position: sticky; top: 0; z-index: 1; background: var(--field); }
+.album-full .album-panel .album-info { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 32px 28px 0; }
+.album-full .album-panel .album-tracks { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -28px; padding: 0 28px 16px; }
+.album-full .album-panel .album-head { position: sticky; top: 0; z-index: 1; background: var(--field); }
 .setting-path { overflow-wrap: anywhere; user-select: text; }
 .album-cover .icon { width: 44px; height: 44px; --icon-weight: 0px; }
 /* On a playlist's page the cover is the way to change it, as it is in Spotify: a click asks for a picture */
@@ -1131,12 +1120,13 @@ html.window-full .topbar-right { padding-right: 24px; }
   .page-band { height: 148px; }
   .album-page .album-cover { position: static; width: 180px; height: 180px; }
   /* A narrow window stacks the cover over the tracks, and the page scrolls as a whole */
-  .album-full #album-page { display: block; overflow: visible; box-shadow: none; background: none; }
+  .album-full .album-panel { display: block; overflow: visible; box-shadow: none; background: none; }
   .album-full .album-side { display: block; padding: 20px 0; }
-  .album-full #album-page .album-cover { width: 180px; }
-  .album-full #album-page .album-info { padding: 0; }
-  .album-full #album-page .album-tracks { overflow: visible; margin: 0; padding: 0; }
+  .album-full .album-panel .album-cover { width: 180px; }
+  .album-full .album-panel .album-info { padding: 0; }
+  .album-full .album-panel .album-tracks { overflow: visible; margin: 0; padding: 0; }
   .album-track, .album-tracks.no-artists .album-track { grid-template-columns: 28px minmax(0, 1fr) 48px 32px; }
+  .album-track.search-album-track, .album-tracks.no-artists .album-track.search-album-track { grid-template-columns: 28px minmax(0, 1fr) 48px 32px; }
   .album-track .artists { display: none; }
 }
 
