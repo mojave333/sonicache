@@ -14,6 +14,7 @@ link is also what a discography download and a watch for new releases start from
 
 from __future__ import annotations
 
+import datetime
 import difflib
 import json
 import re
@@ -28,6 +29,11 @@ from .models import SourceError
 from .net import BROWSER_UA, fetch_json
 
 LIMITS = {"album": 24, "track": 20, "artist": 8}
+# The Catalogue before anything is asked: the albums in a row, how many of the library's artists
+# are looked up for what is new from them, and how far back "new" goes
+HOME_ALBUMS = 24
+HOME_ARTISTS = 12
+FRESH_DAYS = 365
 _KINDS = {"album": "album", "single": "single", "ep": "ep", "compile": "compilation", "compilation": "compilation"}
 _log = log.getChild("search")
 # The kinds of release a discography download takes: singles are mostly songs
@@ -56,6 +62,50 @@ def search(query: str) -> dict:
     except Exception as e:  # ytmusicapi raises whatever its parsing meets
         raise SourceError.of("offline", "Поиск не удался: ни Deezer, ни YouTube Music не ответили ({error})",
                              error=e) from e
+
+
+def home(artists: list[str], known: dict[str, str] | None = None, today: datetime.date | None = None) -> dict:
+    """What the Catalogue shows before a word is typed: the albums Deezer's chart lists, and
+    the newest releases of the artists the library has, the ones it does not hold yet.
+
+    `known` maps an artist's name, as _norm writes it, to the id Deezer gave it; it is
+    filled in here as artists are found, so the caller can keep it and not ask again.
+    Where Deezer does not answer at all there is nothing to show, and the answer says so.
+    The chart is the one Deezer draws for the country the request comes from.
+    """
+    known = known if known is not None else {}
+    today = today or datetime.date.today()
+    names = list(dict.fromkeys(str(name).strip() for name in artists if str(name).strip()))[:HOME_ARTISTS]
+    try:
+        popular = [_deezer_album(item) for item in _deezer("chart/0/albums", limit=HOME_ALBUMS)]
+    except (OSError, ValueError) as e:
+        _log.warning("Deezer не отдал чарт: %s", e)
+        popular = None
+    cutoff = (today - datetime.timedelta(days=FRESH_DAYS)).isoformat()
+    ceiling = (today + datetime.timedelta(days=7)).isoformat()  # an album announced for next week is news too
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        found = list(pool.map(lambda name: _fresh_of(name, known, cutoff, ceiling), names))
+    fresh = _newest_first([release for releases in found for release in releases])[:HOME_ALBUMS]
+    if popular is None and not fresh:
+        raise SourceError.of("offline", "Каталог не открылся: Deezer не ответил")
+    return {"service": "Deezer", "popular": popular or [], "fresh": fresh}
+
+
+def _fresh_of(name: str, known: dict[str, str], cutoff: str, ceiling: str) -> list[dict]:
+    """One artist's releases between two dates, each as a card with its date; none where
+    Deezer does not know the artist or does not answer."""
+    key = _norm(name)
+    try:
+        artist_id = known.get(key) or _deezer_artist_id(name)
+        known[key] = artist_id
+        items = _deezer(f"artist/{artist_id}/albums", limit=100)
+    except (OSError, ValueError, SourceError) as e:
+        _log.info("Deezer: у «%s» новинок не нашлось: %s", name, e)
+        return []
+    return [{**_deezer_album({**item, "artist": {"name": name}}), "date": item["release_date"]}
+            for item in items
+            if cutoff <= (item.get("release_date") or "") <= ceiling
+            and (item.get("record_type") or "album") in ("album", "ep", "single")]
 
 
 def _deezer_search(query: str) -> dict:

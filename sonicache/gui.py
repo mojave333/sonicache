@@ -100,6 +100,10 @@ PLAYER_QUEUE_FILE, PLAYER_PLACE_FILE = "player-queue.json", "player-place.json"
 CROSSFADE_MAX = 12
 EQ_BANDS, EQ_LIMIT = 10, 12  # 31 Hz to 16 kHz an octave apart, each up or down 12 dB
 ARTISTS_FILE = "artists.json"  # names already looked up on Deezer, beside the history
+# The Catalogue's first screen and the Deezer ids found for it: kept for a while, so that opening it
+# is not a run of requests each time, and shown as it was when Deezer does not answer
+CATALOGUE_FILE = "catalogue.json"
+CATALOGUE_FOR = 6 * 3600
 # Library entries tidied up, with their files as they were after it: as long
 # as they stay so, the Fill in tags button does not offer them again, even
 # where a genre or lyrics could not be found
@@ -485,6 +489,31 @@ class Api:
             return catalog.search(query)
         except SourceError as e:
             return {"error": str(e), "service": "", "albums": [], "tracks": [], "artists": []}
+
+    def catalogue_home(self, artists: list[str], refresh: bool = False) -> dict:
+        """The Catalogue before anything is asked: the chart, and what is new from `artists`.
+
+        Kept for six hours; an answer older than that is shown still, marked, when
+        Deezer cannot be reached.
+        """
+        names = [str(name) for name in artists or [] if str(name).strip()][:catalog.HOME_ARTISTS]
+        key = "|".join(name.casefold() for name in names)
+        path = logs.data_dir() / CATALOGUE_FILE
+        with _ARTIST_LOCK:
+            kept = logs.read_json(path)
+        home = kept.get("home") if isinstance(kept.get("home"), dict) else {}
+        if home.get("key") == key and not refresh and time.time() - home.get("at", 0) < CATALOGUE_FOR:
+            return home["data"]
+        known = dict(kept.get("ids") or {})
+        try:
+            data = catalog.home(names, known)
+        except SourceError as e:
+            if home.get("data"):
+                return {**home["data"], "stale": True}
+            return {"error": str(e), "service": "", "popular": [], "fresh": []}
+        with _ARTIST_LOCK:
+            logs.write_json(path, {"ids": known, "home": {"key": key, "at": time.time(), "data": data}})
+        return data
 
     def release(self, link: str) -> dict:
         """A found album's tracklist, for its page in Search, before anything is downloaded."""

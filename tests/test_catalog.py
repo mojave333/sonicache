@@ -1,6 +1,7 @@
 """The catalogue search behind the Search view: Deezer first, YouTube Music where it does not answer."""
 
 import contextlib
+import datetime
 import io
 import json
 import urllib.error
@@ -150,3 +151,129 @@ def test_an_album_that_does_not_open_says_why(monkeypatch):
 
     monkeypatch.setattr(gui.sources, "resolve", refuse)
     assert gui.Api.release(None, "https://www.deezer.com/album/1") == {"error": "Deezer не нашёл альбом 1"}
+
+
+class TestHome:
+    """The Catalogue's first screen: the chart, and what is new from the library's artists."""
+
+    TODAY = datetime.date(2026, 10, 14)
+
+    CHART = {"data": [{"id": 1, "title": "Chart One", "link": "https://www.deezer.com/album/1", "cover": "c",
+                       "record_type": "album", "artist": {"name": "Somebody"}},
+                      {"id": 2, "title": "Chart Two", "link": "https://www.deezer.com/album/2",
+                       "record_type": "album", "artist": {"name": "Another"}}]}
+
+    @staticmethod
+    def releases(*items):
+        return {"data": [{"id": number, "title": title, "link": f"https://www.deezer.com/album/{number}",
+                          "release_date": date, "record_type": kind, "cover_medium": "https://cdn.test/c.jpg"}
+                         for number, title, date, kind in items]}
+
+    @pytest.fixture
+    def answered(self, deezer):
+        answers, asked = deezer
+        answers["chart/0/albums"] = self.CHART
+        answers["search/artist"] = lambda name: {"data": [
+            {"id": 399, "name": name, "link": "x", "nb_fan": 10}]}
+        answers["artist/399/albums"] = self.releases(
+            (10, "This Year", "2026-03-01", "album"),
+            (11, "Last Year", "2025-12-24", "ep"),
+            (12, "Long Ago", "2019-01-01", "album"),
+            (13, "Next Week", "2026-10-18", "single"),
+            (14, "Far Future", "2027-05-01", "album"),
+            (15, "Someone Else's Mix", "2026-02-02", "compile"))
+        return answers, asked
+
+    def test_the_chart_comes_first_in_the_order_deezer_gives(self, answered):
+        popular = catalog.home([], today=self.TODAY)["popular"]
+        assert [album["title"] for album in popular] == ["Chart One", "Chart Two"]
+        assert popular[0]["artist"] == "Somebody"
+
+    def test_what_is_new_is_the_last_year_up_to_next_week_newest_first(self, answered):
+        fresh = catalog.home(["Radiohead"], today=self.TODAY)["fresh"]
+        assert [album["title"] for album in fresh] == ["Next Week", "This Year", "Last Year"]
+        assert {album["artist"] for album in fresh} == {"Radiohead"}  # the library's spelling, not Deezer's
+
+    def test_a_compilation_is_not_new_music(self, answered):
+        fresh = catalog.home(["Radiohead"], today=self.TODAY)["fresh"]
+        assert "Someone Else's Mix" not in [album["title"] for album in fresh]
+
+    def test_an_artist_found_is_remembered_and_not_looked_up_again(self, answered):
+        _, asked = answered
+        known = {}
+        catalog.home(["Radiohead"], known, today=self.TODAY)
+        assert known == {"radiohead": "399"}
+        before = sum(1 for path, _ in asked if path == "search/artist")
+        catalog.home(["Radiohead"], known, today=self.TODAY)
+        assert sum(1 for path, _ in asked if path == "search/artist") == before
+
+    def test_an_artist_deezer_does_not_know_is_left_out_and_the_rest_still_shown(self, answered):
+        answers, _ = answered
+        answers["search/artist"] = lambda name: {"data": ([{"id": 399, "name": name, "nb_fan": 1}]
+                                                          if name == "Radiohead" else [])}
+        home = catalog.home(["Nobody Known", "Radiohead"], today=self.TODAY)
+        assert len(home["fresh"]) == 3 and home["popular"]
+
+    def test_only_the_first_dozen_of_artists_are_asked_about(self, answered):
+        _, asked = answered
+        catalog.home([f"Artist {number}" for number in range(30)], today=self.TODAY)
+        assert sum(1 for path, _ in asked if path == "search/artist") == catalog.HOME_ARTISTS
+
+    def test_with_the_chart_down_what_is_new_is_still_shown(self, answered):
+        answers, _ = answered
+        answers["chart/0/albums"] = urllib.error.URLError("down")
+        home = catalog.home(["Radiohead"], today=self.TODAY)
+        assert home["popular"] == [] and len(home["fresh"]) == 3
+
+    def test_with_nothing_at_all_the_answer_is_an_error_not_an_empty_page(self, answered):
+        answers, _ = answered
+        answers["chart/0/albums"] = urllib.error.URLError("down")
+        with pytest.raises(SourceError):
+            catalog.home([], today=self.TODAY)
+
+
+class TestCatalogueHomeApi:
+    @pytest.fixture
+    def api(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(gui.logs, "data_dir", lambda: tmp_path)
+        return gui.Api()
+
+    def test_a_second_opening_within_hours_asks_nobody(self, api, monkeypatch):
+        calls = []
+        monkeypatch.setattr(gui.catalog, "home", lambda names, known: calls.append(names) or
+                            {"service": "Deezer", "popular": [{"title": "A"}], "fresh": []})
+        first = api.catalogue_home(["Radiohead"])
+        assert api.catalogue_home(["Radiohead"]) == first and len(calls) == 1
+
+    def test_other_artists_or_a_refresh_ask_again(self, api, monkeypatch):
+        calls = []
+        monkeypatch.setattr(gui.catalog, "home", lambda names, known: calls.append(names) or
+                            {"service": "Deezer", "popular": [], "fresh": []})
+        api.catalogue_home(["Radiohead"])
+        api.catalogue_home(["Boris"])
+        api.catalogue_home(["Boris"], refresh=True)
+        assert len(calls) == 3
+
+    def test_when_deezer_is_down_what_was_shown_last_is_shown_marked(self, api, monkeypatch):
+        monkeypatch.setattr(gui.catalog, "home", lambda names, known: {"service": "Deezer", "popular": [{"title": "A"}], "fresh": []})
+        api.catalogue_home(["Radiohead"])
+        monkeypatch.setattr(gui.time, "time", lambda: 10 ** 10)  # long after
+        monkeypatch.setattr(gui.catalog, "home", lambda names, known: (_ for _ in ()).throw(SourceError.of("offline", "x")))
+        shown = api.catalogue_home(["Radiohead"])
+        assert shown["stale"] is True and shown["popular"] == [{"title": "A"}]
+
+    def test_with_nothing_kept_and_deezer_down_the_page_gets_an_error(self, api, monkeypatch):
+        monkeypatch.setattr(gui.catalog, "home", lambda names, known: (_ for _ in ()).throw(SourceError.of("offline", "x")))
+        assert api.catalogue_home([])["error"]
+
+    def test_the_ids_found_are_kept_for_next_time(self, api, monkeypatch):
+        def home(names, known):
+            known["boris"] = "77"
+            return {"service": "Deezer", "popular": [], "fresh": []}
+        monkeypatch.setattr(gui.catalog, "home", home)
+        api.catalogue_home(["Boris"])
+        seen = {}
+        monkeypatch.setattr(gui.catalog, "home", lambda names, known: seen.update(known) or
+                            {"service": "Deezer", "popular": [], "fresh": []})
+        api.catalogue_home(["Boris"], refresh=True)
+        assert seen == {"boris": "77"}
