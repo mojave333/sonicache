@@ -250,7 +250,7 @@ class TestSeen:
 
 
 class TestFormerSettings:
-    """Until 3.0 the program was called Trackhound and kept its settings in a file of that name."""
+    """Until 3.0 the program had another name and kept its settings in a file of that name."""
 
     @pytest.fixture
     def files(self, tmp_path, monkeypatch):

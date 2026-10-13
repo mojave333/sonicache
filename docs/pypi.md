@@ -1,18 +1,20 @@
-# Sonicache
+# sonicache
 
-Paste a link, get tagged music. Sonicache downloads albums, singles, playlists and
-single tracks by link from Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm and
-sites such as Bandcamp. A name works too: `"Daft Punk - Discovery"`.
+Find it, tag it, keep it, play it.
 
-Titles, artists, track numbers, the year and the cover are read from the page behind the
-link, with no accounts or API keys. When the service streams the audio openly (YouTube,
-SoundCloud, Bandcamp), the track is taken from there; otherwise the same track is looked
-for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp downloads it, and
+Sonicache reads a link or a name from a music service for what the release is (the titles,
+the artists, the year, the cover), finds the audio in open sources, and saves it tagged, with
+the cover, the genre and the lyrics. A name works too: `"Daft Punk - Discovery"`. It runs on
+your own machine, with no accounts and no API keys.
+
+The service's page only says what the release is. When a service streams its audio openly
+(YouTube, SoundCloud, Bandcamp), the track is taken from there; otherwise the same track is
+looked for on YouTube Music, SoundCloud and among YouTube videos. yt-dlp fetches it, and
 mutagen writes the tags and the cover art.
 
-This package is the engine and the command line. Windows users who want the program with
-its window and everything bundled should take the installer from
-[Releases](https://github.com/mojave333/sonicache/releases/latest) instead.
+This package is the engine and the command line. Windows users who want the program with its
+window and everything bundled should take the installer from
+[Releases](https://github.com/mojave333/sonicache/releases) instead.
 
 ## Installing
 
@@ -21,14 +23,14 @@ pip install sonicache          # the engine and the `sonicache` command
 pip install "sonicache[gui]"   # adds the window, started with `sonicache-gui`
 ```
 
-ffmpeg and a JavaScript runtime (Deno, or Node.js 22+) have to be on `PATH`. yt-dlp needs
-the runtime to get audio from YouTube, and ffmpeg is needed for mp3, opus and ReplayGain.
+ffmpeg and a JavaScript runtime (Deno, or Node.js 22+) have to be on `PATH`. yt-dlp needs the
+runtime to get audio from YouTube, and ffmpeg is needed for mp3, opus and ReplayGain.
 `sonicache --check` says what it found.
 
 ## Command line
 
 ```sh
-sonicache https://open.spotify.com/album/2noRn2Aes5aoNVsU6iWThc
+sonicache https://www.deezer.com/album/302127
 sonicache "Daft Punk - Discovery" -f mp3 -o ~/Music
 sonicache --dry-run https://www.deezer.com/playlist/908622995
 sonicache --help
@@ -48,17 +50,17 @@ report = downloader.download_link("https://www.deezer.com/album/302127")
 print(report.summary())
 ```
 
-The names importable from `sonicache.engine` are the public interface and keep working
-across minor versions; the modules behind it may change. Messages come in the system's
-language, Russian or English; `set_language("en")` fixes it. The engine writes to the
-`sonicache` logger and sets up no handlers of its own. Where Spotify refuses its pages to
-the network, `use_relay(address)` reads them through a relay abroad; the one-file relay is
+The names importable from `sonicache.engine` are the public interface and keep working across
+minor versions; the modules behind it may change. Messages come in the system's language,
+Russian or English; `set_language("en")` fixes it. The engine writes to the `sonicache` logger
+and sets up no handlers of its own. Where a network keeps back a service's pages,
+`use_relay(address)` reads them through a relay abroad; the one-file relay is
 [in the repository](https://github.com/mojave333/sonicache/tree/main/relay).
 
 ### Errors
 
-A message is for a person and may be reworded in any release. A program should look at the
-code instead, which is the same in either language and across minor versions:
+A message is for a person and may be reworded in any release. A program should look at the code
+instead, which is the same in either language and across minor versions:
 
 ```python
 from sonicache.engine import SourceError
@@ -96,12 +98,12 @@ for failure in report.failures:  # the tracks that did not arrive
 | `cookies_locked` | the browser's cookies could not be copied while it is open |
 | `cookies_unreadable` | the browser's cookies could not be decrypted |
 | `no_cookies` | the browser holds no YouTube cookies |
-| `preview_only` | only a preview of the track could be downloaded |
-| `wrong_file` | the download did not end in a file of the format asked for |
-| `download_failed` | the download failed for any other reason |
+| `preview_only` | only a preview of the track could be fetched |
+| `wrong_file` | the transfer did not end in a file of the format asked for |
+| `download_failed` | the transfer failed for any other reason |
 | `unknown` | an error raised without a code |
 
 ## Licence
 
-GPL-2.0-or-later. Use it for music you have the rights to, and respect copyright law and
-the terms of service of the services involved.
+GPL-2.0-or-later. Use it for music you have the rights to, and respect copyright law and the
+terms of service of the services involved.

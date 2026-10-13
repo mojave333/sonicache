@@ -53,7 +53,7 @@ def _folder_of(name: str) -> Path:
 
 
 def adopt_former_data() -> bool:
-    """Brings over what the program kept while it was called Trackhound:
+    """Brings over what the program kept under its former name:
     playlists, listens, the queue, what is watched. True when it did.
 
     Once, on the first start under the new name, and as a copy: an older

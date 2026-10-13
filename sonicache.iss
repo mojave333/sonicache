@@ -59,10 +59,10 @@ VersionInfoDescription={#AppName} {#AppVersion} setup
 VersionInfoCopyright=GPL-2.0-or-later
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
-; Until 3.0 the program was called Trackhound, and this installer updates a
-; copy installed under that name (same AppId). It stays in the folder it finds,
-; whatever that is called, but its Start menu group is made anew: with the old
-; group remembered, the new shortcut would sit in a folder named Trackhound.
+; Until 3.0 the program had another name, and this installer updates a copy
+; installed under it (same AppId). It stays in the folder it finds, whatever
+; that is called, but its Start menu group is made anew: with the old group
+; remembered, the new shortcut would sit in a folder of the old name.
 ; What the old copy leaves behind is listed under [InstallDelete].
 UsePreviousGroup=no
 UninstallDisplayIcon={app}\Sonicache.exe
@@ -120,8 +120,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "addtopath"; Description: "{cm:AddToPath}"; GroupDescription: "{cm:AddToPathInfo}"; Flags: unchecked
 
 [InstallDelete]
-; A copy installed as Trackhound: its two programs, the folder its window was
-; read from, and its shortcuts. Nothing here exists on a fresh installation.
+; A copy installed under the former name: its two programs, the folder its
+; window was read from, and its shortcuts. Nothing here exists on a fresh
+; installation.
 Type: files; Name: "{app}\Trackhound.exe"
 Type: files; Name: "{app}\Trackhound-cli.exe"
 Type: filesandordirs; Name: "{app}\_internal\trackhound"
@@ -190,8 +191,8 @@ end;
 
 { Every copy of the program running from the folder about to be written,
   Sonicache.exe or Sonicache-cli.exe, whatever version started it, and under
-  the name it had before 3.0 as well: that is the copy an update from
-  Trackhound finds running. An updater from an older release passes no process
+  the name it had before 3.0 as well: that is the copy an update from an
+  older version finds running. An updater from an older release passes no process
   id to wait for, so this is what keeps its update from stopping halfway. }
 function RunningCopies(Terminate: Boolean): Integer;
 var

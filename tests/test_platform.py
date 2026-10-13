@@ -42,8 +42,8 @@ class TestDataDir:
 
 
 class TestFormerData:
-    """Until 3.0 the program was called Trackhound: what it kept under that
-    name is taken over on the first start under the new one."""
+    """Until 3.0 the program had another name: what it kept under that name is
+    taken over on the first start under the new one."""
 
     @pytest.fixture
     def former(self):

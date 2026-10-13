@@ -13,13 +13,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sonicache"
 dynamic = ["version"]
-description = "Download albums, playlists and tracks by link from Spotify, Apple Music, Deezer, YouTube and SoundCloud, tagged and with cover art"
+description = "Reads a link or a name from a music service, finds the audio in open sources and saves it tagged, with cover art and lyrics"
 readme = "docs/pypi.md"
 license = "GPL-2.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [{ name = "mojave333" }]
-keywords = ["music", "downloader", "spotify", "deezer", "apple-music", "youtube-music", "soundcloud", "yt-dlp", "tags"]
+keywords = ["music", "library", "tags", "cover-art", "lyrics", "replaygain", "yt-dlp"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",

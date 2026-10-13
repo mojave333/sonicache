@@ -258,8 +258,8 @@ class TestMarker:
 
 
 class TestFormerName:
-    """Until 3.0 the program was called Trackhound: the albums it downloaded
-    then carry a marker of that name, and its music may sit in that folder."""
+    """Until 3.0 the program had another name: the albums it downloaded then carry
+    a marker of that name, and its music may sit in a folder of that name."""
 
     def test_a_marker_of_the_former_name_is_still_read(self, tmp_path):
         (tmp_path / ".trackhound.json").write_text(json.dumps({"link": "https://x.test/a"}), encoding="utf-8")

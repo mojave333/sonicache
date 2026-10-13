@@ -43,7 +43,7 @@ TRACK_NAMES = ("auto", "artist", "title")
 FOLDER_NAMES = ("flat", "nested", "album")
 # Written into every album folder: where the album came from
 MARKER_NAME = ".sonicache.json"
-# What it was called while the program was Trackhound. Albums downloaded then
+# What it was called under the program's former name. Albums downloaded then
 # still carry it: it is read where the new one is missing, and gives way to the
 # new one when the album is downloaded again
 FORMER_MARKER_NAME = ".trackhound.json"

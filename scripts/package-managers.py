@@ -102,9 +102,7 @@ def cask(version: str, sums: dict[str, str]) -> str:
 
   zap trash: [
     "~/.sonicache.json",
-    "~/.trackhound.json",
     "~/Library/Application Support/Sonicache",
-    "~/Library/Application Support/Trackhound",
   ]
 
   caveats <<~EOS

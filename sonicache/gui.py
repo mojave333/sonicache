@@ -46,8 +46,8 @@ from .engine.tidy import tidy as tidy_up
 TITLE = "Sonicache"
 WEB_DIR = Path(__file__).with_name("web")
 SETTINGS_FILE = Path.home() / ".sonicache.json"
-# The settings as the program wrote them while it was called Trackhound, before
-# 3.0: the first start under the new name takes them over (_adopt_former_settings)
+# The settings as the program wrote them under its former name, before 3.0:
+# the first start under the new name takes them over (_adopt_former_settings)
 FORMER_SETTINGS_FILE = Path.home() / ".trackhound.json"
 HISTORY_LIMIT = 100  # releases remembered between runs
 # Track states that mean "not finished": a job that ends while a track is in
