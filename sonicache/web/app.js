@@ -2418,7 +2418,17 @@ function currentSort(tab = state.library.tab) {
 // else what it holds. A folder being read or holding nothing says so in the
 // middle of the view instead.
 function renderLibrarySummary() {
+  $("#library-title").textContent = libraryTitle();
   $("#library-summary").textContent = libraryNote() || librarySummary();
+}
+
+// The name of what the library shows, as the side list has it: the view, or the genre the albums are narrowed to
+function libraryTitle() {
+  const { tab, genre, favouritesOnly } = state.library;
+  const named = tab === "albums" && genre ? libraryGenres().find((entry) => entry.key === genre)?.name : "";
+  if (named) return named;
+  if (tab === "albums" && favouritesOnly) return t("Избранное");
+  return t({ albums: "Альбомы", tracks: "Треки", artists: "Исполнители", playlists: "Плейлисты" }[tab]);
 }
 
 function libraryNote() {

@@ -395,7 +395,11 @@
           </div>
         </div>
         <div class="library-bar">
-          <span id="library-summary" class="library-summary"></span>
+          <!-- What is on the screen and how much of it: the name shows where the side list stands in for the tabs -->
+          <div class="library-what">
+            <h2 id="library-title" class="library-title"></h2>
+            <span id="library-summary" class="library-summary"></span>
+          </div>
           <label class="pick" hidden>Жанр: <select id="library-genre" aria-label="Жанр"></select><svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg></label>
           <!-- One button for how the list is ordered: its menu offers what to sort by and which way.
                The two selects stay, hidden, as what the script reads and sets. -->
