@@ -224,7 +224,9 @@ p { margin: 0; }
 .nav-item:hover { color: var(--text); }
 /* The ring sits inside the bar: drawn outside it, it is a box as tall as the bar and cut off at the window's top edge */
 .topnav .nav-item:focus-visible { border-radius: var(--radius); outline-offset: -8px; }
-.nav-item[aria-current="page"] { color: var(--text); font-weight: 600; }
+/* The one in use is told by its colour and the line, never by a heavier word: that is wider, and the sections
+   beside it would move over when it is pressed */
+.nav-item[aria-current="page"] { color: var(--text); }
 /* One line for the whole bar: it slides to the section chosen (the script measures the word and sets --ink-x
    and --ink-w), and fades where the view is none of the sections */
 .topnav::after {
@@ -365,16 +367,18 @@ html.window-full .topbar-right { padding-right: 24px; }
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: none;
   height: var(--h); padding: 0 16px; border-radius: var(--radius); white-space: nowrap;
 }
-/* Feedback belongs to the press, not the release */
+/* Feedback belongs to the press, not the release. It is a shade, not a smaller button: a scaled button redraws
+   its words at another sub-pixel position, and that is what read as a twitch. */
 .btn, .tool-btn, .icon-btn, .nav-item, .segmented button, .stepper button, .menu button, .side-item, .page-back {
-  transition: background-color var(--press) ease-out, color var(--press) ease-out,
-              border-color var(--press) ease-out, transform var(--press) var(--ease);
+  transition: background-color var(--press) ease-out, color var(--press) ease-out, border-color var(--press) ease-out;
 }
-.btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
-.nav-item:active, .stepper button:active, .chips button:active, .sort-button:active,
-.library-title:not(:disabled):active, .genre-chip:active, .page-back:active { transform: scale(0.97); }
-/* A row as wide as the list gives less: the same press would read as a jump */
-.side-item:active { transform: scale(0.985); }
+.tool-btn:active, .icon-btn:active, .btn.ghost:active, .stepper button:active, .sort-button:active, .page-back:active,
+.library-title:not(:disabled):active, .genre-chip:active, .side-item:active, .menu button:active,
+.segmented button:not([aria-checked="true"]):active, .chips button:not([aria-checked="true"]):active,
+.library-head .tool-btn.icon-only:active, .library-head > .tool-btn:active { background: var(--selected); }
+.nav-item:active { color: var(--text); }
+.nav-icon:active { background: var(--selected-hover); }
+.btn.primary:active:not(:disabled), .btn.danger:active:not(:disabled) { filter: brightness(0.92); }
 .btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; box-shadow: inset 0 0 0 1px var(--accent-edge); }
 .btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
 .btn.danger { background: var(--danger); color: var(--on-danger); font-weight: 600; }
@@ -410,7 +414,8 @@ html.window-full .topbar-right { padding-right: 24px; }
 .menu button:hover, .menu button:focus-visible { background: var(--hover); outline: none; }
 .menu .check { visibility: hidden; color: var(--text); }
 /* Opened where the pointer is, so it needs neither an anchor nor a width */
-.context-menu { position: fixed; top: 0; right: auto; min-width: 220px; transform-origin: top left; }
+/* Over Now playing too (z-index 40), where the queue's rows have this menu */
+.context-menu { position: fixed; top: 0; right: auto; z-index: 50; min-width: 220px; transform-origin: top left; }
 .context-menu .danger-item { color: var(--danger); }
 .menu [aria-checked="true"] .check { visibility: visible; }
 /* A profile line carries its name and, quieter, what it sets */
@@ -648,7 +653,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   display: inline-flex; flex: none; align-items: center; gap: 6px; max-width: 280px; height: var(--h);
   margin-left: -8px; padding: 0 6px 0 8px; border-radius: var(--radius); color: var(--text);
   font: 600 var(--fs-xl)/1.3 var(--font-display); letter-spacing: -0.01em;
-  transition: background-color var(--press) ease-out, transform var(--press) var(--ease);
+  transition: background-color var(--press) ease-out;
 }
 .library-title:not(:disabled):hover, .library-title[aria-expanded="true"] { background: var(--hover); }
 .library-title:disabled { opacity: 1; cursor: default; }
@@ -664,7 +669,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .genre-chip {
   display: inline-flex; flex: 0 1 auto; align-items: center; gap: 4px; min-width: 0; height: var(--h-sm); padding: 0 6px 0 10px;
   border-radius: var(--radius); background: var(--selected); color: var(--text); font-size: var(--fs-sm); font-weight: 500;
-  transition: background-color var(--press) ease-out, transform var(--press) var(--ease);
+  transition: background-color var(--press) ease-out;
 }
 .genre-chip:hover { background: var(--selected-hover); }
 .genre-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -683,7 +688,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .sort-button {
   display: inline-flex; align-items: center; gap: 8px; min-width: 0; height: var(--h); padding: 0 10px;
   border-radius: var(--radius); color: var(--text-muted); font-size: var(--fs-sm); font-weight: 500; white-space: nowrap;
-  transition: background-color var(--press) ease-out, color var(--press) ease-out, transform var(--press) var(--ease);
+  transition: background-color var(--press) ease-out, color var(--press) ease-out;
 }
 .sort-button:hover { background: var(--hover); color: var(--text); }
 .sort-button[aria-expanded="true"] { background: var(--selected); color: var(--text); }
@@ -728,8 +733,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .side-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-n { margin-left: auto; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 400; font-variant-numeric: tabular-nums; }
 .side-n:empty { display: none; }
-.side-chevron { margin-left: auto; transition: transform var(--settle) var(--ease); }
-.side-n:not(:empty) + .side-chevron { margin-left: 0; }
+.side-chevron { margin-left: -4px; transition: transform var(--settle) var(--ease); }
 #side-genres[aria-expanded="true"] .side-chevron { transform: rotate(180deg); }
 /* A long list of genres scrolls in its own box, so the playlists below it stay in sight */
 .side-sub { margin: 2px 0 4px 17px; padding-left: 8px; border-left: 1px solid var(--divider); max-height: 224px; overflow-y: auto; }
@@ -835,7 +839,6 @@ html.window-full .topbar-right { padding-right: 24px; }
 }
 .card-cover .icon { width: 30px; height: 30px; --icon-weight: 0px; }
 .card:hover .card-cover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-.card:active .card-cover { transform: translateY(-1px) scale(0.985); transition-duration: var(--press); }
 .card:focus-visible .card-cover { outline: 2px solid var(--accent-fg); outline-offset: 3px; }
 .card.is-selected .card-cover { outline: 3px solid var(--text); outline-offset: 3px; }
 .card-title { margin-top: 8px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -871,7 +874,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .chips { display: flex; gap: 8px; }
 .chips button {
   height: var(--h-sm); padding: 0 16px; border-radius: var(--radius); background: var(--selected); color: var(--text); font-weight: 600;
-  transition: background-color var(--press) ease-out, color var(--press) ease-out, transform var(--press) var(--ease);
+  transition: background-color var(--press) ease-out, color var(--press) ease-out;
 }
 .chips button:hover { background: var(--selected-hover); }
 .chips button[aria-checked="true"] { background: var(--text); color: var(--bg); }
@@ -889,22 +892,34 @@ html.window-full .topbar-right { padding-right: 24px; }
 .search-best .best:hover .card-cover, .search-best .best:hover .artist-photo { transform: none; box-shadow: none; }
 .search-best .best .card-title { align-self: end; margin: 0; font-size: var(--fs-xl); line-height: 1.2; white-space: normal; }
 .search-best .best .card-sub { align-self: start; margin-top: 4px; white-space: normal; }
-.search-best .best .queue-btn { opacity: 1; transform: none; }
+.search-best .best .queue-btn { width: var(--h-lg); height: var(--h-lg); background: var(--accent); color: var(--on-accent); }
 .search-section .cards { padding-top: 12px; }
 .search-section .home-quick { margin: 12px 20px 4px; }
 .search-artists { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+/* The Catalogue's albums are tiles: the cover, who made it and what kind of release it is, on a plate of their
+   own, so that a row of them is not covers floating on a page */
+.search-card:not(.best) {
+  padding: 10px 10px 12px; border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--field);
+  transition: background-color var(--quick) ease-out, border-color var(--quick) ease-out;
+}
+.search-card:not(.best):hover { border-color: var(--border-strong); background: var(--selected); }
+.search-card:hover .card-cover { transform: none; box-shadow: none; }
+.search-card:not(.best) .card-title { margin-top: 10px; }
+.card-meta { margin-top: 2px; color: var(--text-subtle); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-meta:empty { display: none; }
 .search-card .card-cover { position: relative; overflow: hidden; }
 .search-card .card-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The arrow is on every cover, not only under the pointer: this is where music is taken from. It is quiet
+   until the pointer comes, and the colour of the program then. */
 .search-card .queue-btn {
-  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg);
-  border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-sm);
-  opacity: 0; transform: translateY(6px);
-  transition: opacity var(--quick) ease-out, transform var(--settle) var(--ease);
+  position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h); height: var(--h);
+  border-radius: 50%; background: color-mix(in srgb, #000 58%, transparent); color: #fff; backdrop-filter: blur(6px);
+  transition: background-color var(--quick) ease-out, color var(--quick) ease-out;
 }
-.search-card:hover .queue-btn, .search-card:focus-within .queue-btn, .search-card .queue-btn.is-queued {
-  opacity: 1; transform: none;
+.search-card:hover .queue-btn, .search-card:focus-within .queue-btn {
+  background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-sm);
 }
-.search-card .queue-btn:active { transform: scale(0.92); }
+.search-card .queue-btn:active, .card .play-btn:active, .player-play:active { filter: brightness(0.9); }
 /* The library's covers play at once, as the search's download: the page is for more than that */
 .card .play-btn {
   position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg);
@@ -913,7 +928,6 @@ html.window-full .topbar-right { padding-right: 24px; }
   transition: opacity var(--quick) ease-out, transform var(--settle) var(--ease);
 }
 .card:hover .play-btn, .card:focus-within .play-btn { opacity: 1; transform: none; }
-.card .play-btn:active { transform: scale(0.92); }
 .playlist-card .play-btn, .card.is-downloading .play-btn { display: none; }
 /* What the library holds already, so it is not downloaded twice by mistake */
 .in-library {
@@ -1056,6 +1070,16 @@ html.window-full .topbar-right { padding-right: 24px; }
 .album-full #album-page .album-head { position: sticky; top: 0; z-index: 1; background: var(--field); }
 .setting-path { overflow-wrap: anywhere; user-select: text; }
 .album-cover .icon { width: 44px; height: 44px; --icon-weight: 0px; }
+/* On a playlist's page the cover is the way to change it, as it is in Spotify: a click asks for a picture */
+.cover-edit {
+  position: absolute; inset: 0; z-index: 2; display: none; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; background: rgb(0 0 0 / 0.55); color: #fff; font-size: var(--fs-sm); font-weight: 600; opacity: 0;
+  transition: opacity var(--quick) ease-out;
+}
+.album-cover .cover-edit .icon { width: 28px; height: 28px; --icon-weight: 4px; }
+#album-page[data-kind="playlist"] .cover-edit { display: flex; }
+.album-cover:hover .cover-edit, .cover-edit:focus-visible { opacity: 1; }
+.cover-edit:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: -4px; }
 /* The name of an album or an artist leads its page: set large, in the page's own
    width, and at most two lines on an album's page, where the tracks scroll under it */
 .album-title, .artist-name {
@@ -1315,9 +1339,8 @@ html.window-full .topbar-right { padding-right: 24px; }
 .player-controls { display: flex; align-items: center; gap: 12px; }
 .player-play {
   display: grid; place-items: center; width: var(--h-lg); height: var(--h-lg); border-radius: 50%;
-  background: var(--accent); color: var(--on-accent); transition: transform var(--press) var(--ease);
+  background: var(--accent); color: var(--on-accent);
 }
-.player-play:active { transform: scale(0.92); }
 /* Material Icons, as in Harmonoid, leave a margin inside their square: drawn
    a little larger than the outlined ones to look the same size */
 .player-play .icon { width: 24px; height: 24px; }
@@ -1530,9 +1553,6 @@ button.lyric-line:hover { opacity: 1; }
   *, *::before, *::after { transition-duration: 1ms !important; }
   .status-icon[data-icon="search"], .status-icon[data-icon="level"] path { animation: none; }
   .job, .view, .now-mode #view-now { animation: fade-in var(--quick) ease-out; }
-  .btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
-  .nav-item:active, .stepper button:active, .chips button:active, .sort-button:active,
-  .library-title:active, .genre-chip:active, .page-back:active, .side-item:active { transform: none; }
   /* What opens over the page still fades, but does not grow or slide */
   .menu[hidden], .float-panel[hidden], .toast[hidden], .player[hidden], .confirm, .lib-side { transform: none; }
   .expander[aria-expanded="true"] .icon { transition: none; }
@@ -1543,7 +1563,7 @@ button.lyric-line:hover { opacity: 1; }
 
 /* The queue and the equaliser: panels that float over the page, just above the player */
 .float-panel {
-  position: fixed; right: 16px; bottom: 80px; z-index: 20; display: flex; flex-direction: column;
+  position: fixed; right: 16px; bottom: 80px; z-index: 45; display: flex; flex-direction: column;
   width: min(380px, calc(100vw - 32px)); max-height: min(72vh, 600px); overflow: hidden;
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--field); box-shadow: var(--menu-shadow);
 }
@@ -1552,7 +1572,7 @@ button.lyric-line:hover { opacity: 1; }
 @starting-style { .float-panel:not([hidden]), .toast:not([hidden]) { opacity: 0; transform: translateY(10px); } }
 /* A word from the program wherever the window is, just above the player */
 .toast {
-  position: fixed; right: 16px; bottom: 12px; z-index: 30; display: flex; align-items: center; gap: 12px;
+  position: fixed; right: 16px; bottom: 12px; z-index: 46; display: flex; align-items: center; gap: 12px;
   max-width: min(480px, calc(100vw - 32px)); padding: 8px 8px 8px 16px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--field); box-shadow: var(--menu-shadow);
 }
@@ -1617,7 +1637,7 @@ button.lyric-line:hover { opacity: 1; }
 #album-page[data-kind="playlist"] :is([data-page-action="open"], [data-page-action="again"],
   [data-page-action="tidy"], [data-page-action="watch"]),
 #album-page:not([data-kind="playlist"]) :is([data-page-action="shuffle"], [data-page-action="rename"],
-  [data-page-action="keep"], [data-page-action="export"], [data-page-action="delete"]) { display: none; }
+  [data-page-action="keep"], [data-page-action="export"], [data-page-action="delete"], [data-page-action="uncover"]) { display: none; }
 .album-actions .tool-btn:disabled, .album-actions .btn:disabled { opacity: 0.5; pointer-events: none; }
 /* What was listened to, told apart from one's own lists by its colour */
 .playlist-card.smart .card-cover { background: var(--selected); color: var(--accent-fg); }

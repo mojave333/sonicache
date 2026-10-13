@@ -2417,13 +2417,14 @@ const EMPHASIZED = "cubic-bezier(0.2, 0, 0, 1)";
 // What arrives is off the mark at once and slow to land: the stylesheet's --ease-out
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
-// A sign that turns into another under the pointer does not blink: the new one grows into its place
+// A sign that turns into another under the pointer does not blink: the new one fades in over the old place.
+// It does not move or grow, so that a button that was pressed stays where it is.
 function swapIcon(use, href) {
   if (use.getAttribute("href") === href) return;
   use.setAttribute("href", href);
   const icon = use.ownerSVGElement;
   if (reduceMotion() || !icon.getClientRects().length) return; // nobody sees it change
-  icon.animate([{ opacity: 0.2, transform: "scale(0.6)" }, { opacity: 1, transform: "none" }], { duration: 200, easing: EASE_OUT });
+  icon.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
 }
 const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -4215,19 +4216,14 @@ function refreshCatalogue() {
 }
 
 // The rows are cards like the search's own, so a click on one does what a click there does; what the
-// library holds already is left out of what is new. Under a cover here only whose it is and the year:
-// the kind and the tracks are on the album's page
+// library holds already is left out of what is new
 function renderCatalogueHome() {
   const data = state.search.home.data;
   const rows = { fresh: (data?.fresh || []).filter((item) => !inLibrary(item)), popular: data?.popular || [] };
   let shown = 0;
   for (const [kind, items] of Object.entries(rows)) {
     $(`#home-${kind}-section`).hidden = !items.length;
-    $(`#home-${kind}`).replaceChildren(...items.map((item, index) => {
-      const card = createSearchAlbum(item, index);
-      $(".card-sub", card).textContent = [item.artist, item.year].filter(Boolean).join(" · ");
-      return card;
-    }));
+    $(`#home-${kind}`).replaceChildren(...items.map((item, index) => createSearchAlbum(item, index)));
     shown += items.length;
   }
   return shown;
@@ -4246,6 +4242,11 @@ function bestSearchResult(found, query) {
   card.classList.add("best");
   // What kind of answer it is, since it stands alone above the rest
   const sub = $(".card-sub", card);
+  const meta = $(".card-meta", card); // alone above the rest it has room for it all on one line
+  if (meta) {
+    sub.textContent = [sub.textContent, meta.textContent].filter(Boolean).join(" · ");
+    meta.remove();
+  }
   sub.textContent = [card.classList.contains("search-artist") ? t("Исполнитель") : "", sub.textContent].filter(Boolean).join(" · ");
   return card;
 }
@@ -4315,8 +4316,8 @@ function createSearchAlbum(item, index) {
   $(".card-title", card).title = item.title;
   const tracks = item.tracks
     ? t("{tracks} {trackWord}", { tracks: item.tracks, trackWord: plural(item.tracks, "трек", "трека", "треков") }) : "";
-  $(".card-sub", card).textContent = [item.artist, t(RELEASE_KINDS[item.type] || "Альбом"), item.year, tracks]
-    .filter(Boolean).join(" · ");
+  $(".card-sub", card).textContent = [item.artist, item.year].filter(Boolean).join(" · ");
+  $(".card-meta", card).textContent = [t(RELEASE_KINDS[item.type] || "Альбом"), tracks].filter(Boolean).join(" · ");
   loadCover($(".card-cover", card), item.cover);
   markQueued($(".queue-btn", card), item.link);
   $(".in-library", card).hidden = !inLibrary(item);
@@ -5565,9 +5566,15 @@ function bindToast() {
   box.addEventListener("mouseleave", () => holdToast(false));
 }
 
+// Above the player wherever it stands: a plate at the foot of the window, or the dock that floats over Now playing
 function placeFloat(panel) {
   const bar = $("#player");
-  panel.style.bottom = `${(bar.hidden ? 0 : bar.offsetHeight) + 12}px`;
+  let edge = 0;
+  if (!bar.hidden) {
+    const style = getComputedStyle(bar);
+    edge = (style.position === "fixed" ? parseFloat(style.bottom) : parseFloat(style.marginBottom)) + bar.offsetHeight;
+  }
+  panel.style.bottom = `${edge + 8}px`;
 }
 
 /* Handing over from one track to the next */
@@ -6208,6 +6215,8 @@ function fillPlaylistPage(data) {
   const playable = data.tracks.some((track) => !track.missing);
   for (const action of ["play", "shuffle", "export"]) $(`[data-page-action=${action}]`, page).disabled = !playable;
   $("[data-page-action=rename]", page).hidden = data.smart;
+  $(".cover-edit", page).hidden = data.smart; // what is made from the listens has the cover of its first track
+  $("[data-page-action=uncover]", page).hidden = !data.custom;
   $("[data-page-action=delete]", page).hidden = data.smart;
   $("[data-page-action=keep]", page).hidden = !data.smart || !data.tracks.length;
   $(".album-head .artists", page).textContent = t("Исполнитель · альбом");
@@ -6236,7 +6245,7 @@ function fillPlaylistPage(data) {
 
 async function savePlaylist(data) {
   const saved = await api().save_playlist(data.id, data.name, data.tracks);
-  Object.assign(data, { count: saved.count, duration: saved.duration, cover: saved.cover });
+  Object.assign(data, { count: saved.count, duration: saved.duration, cover: saved.cover, custom: saved.custom });
   state.playlists.stale = true;
   loadPlaylists(true);
   if ($("#album-page").playlist === data) fillPlaylistPage(data);
@@ -6265,11 +6274,27 @@ function playPlaylistPage(start, shuffled = false) {
   playQueue(tracks.map((track) => track.path), index, "playlist", trackArtists(tracks));
 }
 
+// A picture of one's own for the playlist, asked for in the system's dialog, or the tracks' cover again
+async function changePlaylistCover(data, reset) {
+  const result = await (reset ? api().reset_playlist_cover(data.id) : api().set_playlist_cover(data.id));
+  if (!result) return; // nothing was chosen
+  if (result.error) {
+    showToast(result.error);
+    return;
+  }
+  Object.assign(data, { cover: result.cover, custom: result.custom });
+  state.playlists.stale = true;
+  loadPlaylists(true);
+  if ($("#album-page").playlist === data) fillPlaylistPage(data); // unless the page has been closed meanwhile
+  announce(t(reset ? "Обложка плейлиста возвращена" : "Обложка плейлиста изменена"));
+}
+
 async function onPlaylistAction(action) {
   const data = $("#album-page").playlist;
   if (!data) return;
   if (action === "play") playPlaylistPage(null);
   else if (action === "shuffle") playPlaylistPage(null, true);
+  else if (action === "cover" || action === "uncover") changePlaylistCover(data, action === "uncover");
   else if (action === "export") {
     const path = await api().export_playlist(data.id);
     if (path) announce(t("Сохранено: {path}", { path }));

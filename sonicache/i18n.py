@@ -138,4 +138,7 @@ ENGLISH.update({
     "Часто слушаю": "Most played",
     "Плейлисты (*.m3u8)": "Playlists (*.m3u8)",
     "Плейлисты (*.m3u8;*.m3u)": "Playlists (*.m3u8;*.m3u)",
+    "Картинки (*.jpg;*.jpeg;*.png;*.webp)": "Pictures (*.jpg;*.jpeg;*.png;*.webp)",
+    "Нужна картинка JPEG, PNG или WebP не больше 8 МБ": "A JPEG, PNG or WebP picture of up to 8 MB is needed",
+    "Плейлиста уже нет": "The playlist is gone",
 })

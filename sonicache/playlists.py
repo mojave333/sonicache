@@ -5,7 +5,9 @@ its row shows (title, artists, album, length), so a playlist opens without
 reading a hundred files' tags, and a file that has since gone is still named.
 They are kept in playlists.json beside the library's cache, and go out to other
 players as .m3u8, the list of paths every player reads; one comes back in the
-same way.
+same way. A cover chosen for a playlist is copied into playlist-covers/ beside
+it, so the picture stays when the original is moved; a playlist with none shows
+the cover of its first track that has one.
 
 What was listened to goes into plays.jsonl, a line a track, once the player has
 played enough of it to count (the rule Last.fm and ListenBrainz use: half the
@@ -30,6 +32,8 @@ NAME_LIMIT = 120
 TRACKS_LIMIT = 20_000
 SMART = ("recent", "top")  # the playlists made from the plays themselves
 SMART_SIZE = 100
+COVER_BYTES = 8 * 1024 * 1024  # a picture chosen for a playlist is read whole: more than this is not one to keep
+PICTURES = (b"\x89PNG\r\n\x1a\n", ".png"), (b"\xff\xd8\xff", ".jpg")
 
 _lock = threading.Lock()
 
@@ -105,6 +109,67 @@ def add(playlist_id: str, tracks: list[dict]) -> dict | None:
 def delete(playlist_id: str) -> None:
     with _lock:
         _save([entry for entry in load() if entry["id"] != playlist_id])
+        _forget_cover(playlist_id)
+
+
+# The cover chosen for a playlist
+
+def covers_dir() -> Path:
+    return logs.data_dir() / "playlist-covers"
+
+
+def picture_suffix(data: bytes) -> str | None:
+    """The file ending for a PNG, JPEG or WebP picture, or None for anything else."""
+    for signature, suffix in PICTURES:
+        if data.startswith(signature):
+            return suffix
+    return ".webp" if data[:4] == b"RIFF" and data[8:12] == b"WEBP" else None
+
+
+def cover_file(playlist_id: str) -> Path | None:
+    """The picture chosen for a playlist, or None when it has none."""
+    if not playlist_id.isalnum():  # the ids are hex; nothing else names a file here
+        return None
+    for suffix in (".jpg", ".png", ".webp"):
+        path = covers_dir() / f"{playlist_id}{suffix}"
+        if path.is_file():
+            return path
+    return None
+
+
+def _forget_cover(playlist_id: str) -> None:
+    while (path := cover_file(playlist_id)) is not None:
+        try:
+            path.unlink()
+        except OSError:
+            return
+
+
+def set_cover(playlist_id: str, data: bytes) -> bool:
+    """Keeps a picture as a playlist's cover; False when the playlist is gone or
+    the bytes are not a picture of a kind the window shows, or too big."""
+    suffix = picture_suffix(data)
+    if suffix is None or len(data) > COVER_BYTES:
+        return False
+    with _lock:
+        if not any(entry["id"] == playlist_id for entry in load()):
+            return False
+        target = covers_dir() / f"{playlist_id}{suffix}"
+        spare = target.with_name(f"{target.name}.{threading.get_ident()}.tmp")
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            spare.write_bytes(data)
+            _forget_cover(playlist_id)
+            os.replace(spare, target)
+        except OSError as e:
+            logs.log.warning("обложка плейлиста не записана: %s", e)
+            return False
+        return True
+
+
+def clear_cover(playlist_id: str) -> None:
+    with _lock:
+        _forget_cover(playlist_id)
 
 
 # .m3u8: the list of paths, with each track's length and name on the line above

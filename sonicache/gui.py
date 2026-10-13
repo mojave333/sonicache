@@ -1131,10 +1131,12 @@ class Api:
         return cards + [self._playlist_card(entry) for entry in playlists.load()]
 
     def _playlist_card(self, entry: dict, smart: bool = False) -> dict:
-        cover = next((address for address in map(self._track_cover, entry["tracks"][:8]) if address), "")
+        chosen = None if smart else playlists.cover_file(entry["id"])
+        cover = (self.cover(str(chosen)) if chosen else "") or next(
+            (address for address in map(self._track_cover, entry["tracks"][:8]) if address), "")
         return {"id": entry["id"], "name": entry["name"], "smart": smart, "count": len(entry["tracks"]),
                 "duration": sum(track["duration"] for track in entry["tracks"]), "cover": cover,
-                "modified": entry.get("modified", 0)}
+                "custom": chosen is not None, "modified": entry.get("modified", 0)}
 
     def _track_cover(self, entry: dict) -> str:
         path = Path(entry["path"])
@@ -1164,6 +1166,34 @@ class Api:
 
     def delete_playlist(self, playlist_id: str) -> None:
         playlists.delete(playlist_id)
+
+    def set_playlist_cover(self, playlist_id: str) -> dict | None:
+        """Asks for a picture and keeps it as the playlist's cover. Returns the playlist's card; None
+        when nothing was chosen; {"error": ...} for a file that cannot be one."""
+        if self._window is None or playlist_id in playlists.SMART:
+            return None
+        chosen = self._window.create_file_dialog(
+            webview.FileDialog.OPEN, directory=str(Path.home()),
+            file_types=(t("Картинки (*.jpg;*.jpeg;*.png;*.webp)"), t("Все файлы (*.*)")))
+        if not chosen:
+            return None
+        return self._keep_playlist_cover(playlist_id, Path(chosen[0]))
+
+    def _keep_playlist_cover(self, playlist_id: str, path: Path) -> dict:
+        try:
+            data = path.read_bytes() if path.stat().st_size <= playlists.COVER_BYTES else b""
+        except OSError as e:
+            return {"error": str(e)}
+        if not playlists.set_cover(playlist_id, data):
+            return {"error": t("Нужна картинка JPEG, PNG или WebP не больше 8 МБ")}
+        entry = next((found for found in playlists.load() if found["id"] == playlist_id), None)
+        return self._playlist_card(entry) if entry else {"error": t("Плейлиста уже нет")}
+
+    def reset_playlist_cover(self, playlist_id: str) -> dict | None:
+        """Takes the chosen picture off, and the playlist shows its tracks' cover again."""
+        playlists.clear_cover(playlist_id)
+        entry = next((found for found in playlists.load() if found["id"] == playlist_id), None)
+        return self._playlist_card(entry) if entry else None
 
     def export_playlist(self, playlist_id: str) -> str | None:
         """Writes the playlist as .m3u8 where the person says, the music
@@ -1830,7 +1860,8 @@ class _CoverServer:
                     self.send_error(404)
                     return
                 self.send_response(200)
-                self.send_header("Content-Type", "image/png" if data.startswith(b"\x89PNG") else "image/jpeg")
+                kind = "png" if data.startswith(b"\x89PNG") else "webp" if data.startswith(b"RIFF") else "jpeg"
+                self.send_header("Content-Type", f"image/{kind}")
                 self.send_header("Content-Length", str(len(data)))
                 self.send_header("Cache-Control", "private, max-age=86400")
                 # The album page reads the cover's colour through a canvas, which needs this
@@ -1931,6 +1962,8 @@ def _cover_bytes(path: Path) -> bytes | None:
     """An album's cover beside its files, or else the picture inside its
     first file; the picture inside a single track's file."""
     try:
+        if path.parent == playlists.covers_dir():  # a picture chosen for a playlist is the cover itself
+            return path.read_bytes()
         if not path.is_dir():
             return _embedded_cover(path)
         picture = folders.cover_file(path)

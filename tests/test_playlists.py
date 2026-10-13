@@ -32,6 +32,50 @@ class TestPlaylists:
     def test_a_track_without_a_title_is_named_by_its_file(self, tmp_path):
         assert playlists.track({"path": str(tmp_path / "07. Seven.mp3")})["title"] == "07. Seven"
 
+    def test_a_chosen_cover_is_kept_beside_the_playlists_and_goes_with_them(self, tmp_path):
+        made = playlists.save(None, "Road", [])
+        assert playlists.cover_file(made["id"]) is None
+        assert playlists.set_cover(made["id"], b"\x89PNG\r\n\x1a\n" + b"0" * 20)
+        assert playlists.cover_file(made["id"]).suffix == ".png"
+        # Another picture replaces it, whatever its kind: there is never more than one
+        assert playlists.set_cover(made["id"], b"\xff\xd8\xff" + b"0" * 20)
+        assert [path.suffix for path in playlists.covers_dir().iterdir()] == [".jpg"]
+        playlists.clear_cover(made["id"])
+        assert playlists.cover_file(made["id"]) is None
+        playlists.set_cover(made["id"], b"RIFF\0\0\0\0WEBP" + b"0" * 20)
+        playlists.delete(made["id"])
+        assert list(playlists.covers_dir().iterdir()) == []
+
+    def test_only_a_picture_of_a_known_kind_and_a_playlist_that_is_there_get_a_cover(self, tmp_path):
+        made = playlists.save(None, "Road", [])
+        assert not playlists.set_cover(made["id"], b"GIF89a" + b"0" * 20)
+        assert not playlists.set_cover(made["id"], b"\xff\xd8\xff" + b"0" * playlists.COVER_BYTES)
+        assert not playlists.set_cover("nothere", b"\xff\xd8\xff" + b"0" * 20)
+        assert playlists.cover_file("../playlists") is None
+
+    def test_the_card_shows_the_chosen_cover_and_says_so(self, tmp_path):
+        picture = tmp_path / "mine.png"
+        picture.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 20)
+        api = gui.Api()
+        made = playlists.save(None, "Road", [])
+        assert api._playlist_card(playlists.load()[0])["custom"] is False
+        card = api._keep_playlist_cover(made["id"], picture)
+        assert card["custom"] is True and card["cover"].startswith("http://127.0.0.1:")
+        assert api.reset_playlist_cover(made["id"])["custom"] is False
+        bad = tmp_path / "notes.txt"
+        bad.write_text("not a picture")
+        assert "error" in api._keep_playlist_cover(made["id"], bad)
+
+    def test_a_chosen_cover_is_served_as_the_picture_it_is(self, tmp_path):
+        made = playlists.save(None, "Road", [])
+        data = b"\x89PNG\r\n\x1a\n" + b"0" * 20
+        playlists.set_cover(made["id"], data)
+        assert gui._cover_bytes(playlists.cover_file(made["id"])) == data
+        # Any other picture on the disk is not served by this
+        elsewhere = tmp_path / "elsewhere.png"
+        elsewhere.write_bytes(data)
+        assert gui._cover_bytes(elsewhere) is None
+
     def test_a_broken_file_is_no_playlists(self):
         playlists.playlists_file().parent.mkdir(parents=True, exist_ok=True)
         playlists.playlists_file().write_text("{not json", encoding="utf-8")

@@ -283,8 +283,10 @@ screen), the keyboard's media keys work, and so do the previous, pause and next 
 under the window's picture on the taskbar.
 
 The Playlists tab holds playlists of your own: made there, filled with a right click,
-reordered by dragging, saved as `.m3u8` for other players, or opened from one. Two more are
-made from what you listen to: "Recently played" and "Most played". A track counts once half
+reordered by dragging, saved as `.m3u8` for other players, or opened from one. A playlist shows
+the cover of its first track that has one; a click on the cover on its page puts a picture of your
+own there (JPEG, PNG or WebP, up to 8 MB; a copy is kept beside the playlists), and a button
+beside the title takes it off. Two more are made from what you listen to: "Recently played" and "Most played". A track counts once half
 of it, or four minutes, has played, as Last.fm counts it; the Tracks tab can sort by it.
 
 The volume, the shuffle, the repeat, the crossfade and the equalizer are kept in the settings
