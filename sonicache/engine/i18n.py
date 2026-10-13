@@ -93,6 +93,7 @@ ENGLISH = {
     "ffmpeg не перекодировал файл: {error}": "ffmpeg could not convert the file: {error}",
     "Поиск не удался: ни Deezer, ни YouTube Music не ответили ({error})":
         "The search failed: neither Deezer nor YouTube Music answered ({error})",
+    "Каталог не открылся: Deezer не ответил": "The Catalogue did not open: Deezer did not answer",
     "Deezer недавно не ответил, ISRC пока не ищем": "Deezer did not answer a moment ago, so no ISRCs for now",
     "Не похоже на ссылку на исполнителя: {link}": "This does not look like a link to an artist: {link}",
     "Страница исполнителя не открылась: {error}": "The artist's page did not open: {error}",

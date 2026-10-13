@@ -1,7 +1,9 @@
 """The translation table itself, and how a language is chosen."""
 
+import ast
 import re
 import string
+from pathlib import Path
 
 import pytest
 
@@ -37,6 +39,21 @@ class TestTable:
         for russian in i18n.ENGLISH:
             for _, field, _, _ in string.Formatter().parse(russian):
                 assert field is None or field.isidentifier(), russian
+
+
+def test_every_line_the_program_says_has_its_english():
+    """A Russian line passed to t() or to an error's of() with no line in the
+    table would be shown in Russian to whoever chose English."""
+    said = set()
+    for path in Path(i18n.__file__).parent.rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            name = getattr(node.func, "id", getattr(node.func, "attr", ""))
+            # of(code, sentence, ...) has the sentence second
+            texts = node.args[:1] if name == "t" else node.args[1:2] if name == "of" else []
+            said.update(text.value for text in texts if isinstance(text, ast.Constant) and isinstance(text.value, str))
+    assert sorted(line for line in said if re.search(r"[А-Яа-яЁё]", line) and line not in i18n.ENGLISH) == []
 
 
 class TestTranslate:
