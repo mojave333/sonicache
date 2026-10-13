@@ -184,11 +184,15 @@ p { margin: 0; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .col-date { text-align: left; font-variant-numeric: tabular-nums; }
 
+/* The icons are filled outlines on a grid of 256 (Phosphor's). A line round the outline, of --icon-weight in
+   the grid's units, sets how heavy they are: a little at the size of the words beside them, more where one is
+   drawn very small, none where it is a picture. The few that are lines take it as their own. */
+:root { --icon-weight: 4px; }
 .icon {
   width: 18px; height: 18px; flex: none;
-  fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round;
+  fill: currentColor; stroke: currentColor; stroke-width: var(--icon-weight); stroke-linecap: round; stroke-linejoin: round;
 }
-.icon.sm { width: 16px; height: 16px; stroke-width: 2; }
+.icon.sm { width: 16px; height: 16px; }
 
 /* Frame */
 /* The top bar, then the single row capped at the window height, so long lists
@@ -248,7 +252,7 @@ p { margin: 0; }
    They stand over every view, Now playing included, and the bar leaves them room. */
 .window-controls { position: fixed; top: 0; right: 0; z-index: 60; display: flex; align-items: stretch; height: 56px; }
 .win-btn { display: grid; place-items: center; width: 46px; height: 100%; color: var(--text-subtle); }
-.win-btn .icon { width: 16px; height: 16px; stroke-width: 1.6; }
+.win-btn .icon { width: 16px; height: 16px; }
 .win-btn:hover { background: var(--hover); color: var(--text); }
 .win-close:hover { background: var(--danger); color: var(--on-danger); }
 html.frameless .topbar-right { padding-right: 150px; }
@@ -756,7 +760,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   box-shadow: var(--shadow-md);
 }
 .home-feature-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.home-feature-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
+.home-feature-cover .icon { width: 44px; height: 44px; --icon-weight: 0px; }
 .home-feature-text { min-width: 0; }
 .home-feature-kicker { margin: 0 0 8px; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .home-feature-title {
@@ -786,7 +790,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   width: 100%; height: auto; aspect-ratio: 1; border-radius: var(--radius-md);
   transition: transform var(--settle) var(--ease), box-shadow var(--settle) var(--ease);
 }
-.card-cover .icon { width: 30px; height: 30px; stroke-width: 1.5; }
+.card-cover .icon { width: 30px; height: 30px; --icon-weight: 0px; }
 .card:hover .card-cover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .card:active .card-cover { transform: translateY(-1px) scale(0.985); transition-duration: var(--press); }
 .card:focus-visible .card-cover { outline: 2px solid var(--accent-fg); outline-offset: 3px; }
@@ -874,7 +878,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   padding: 2px 8px 2px 4px; border-radius: var(--radius); background: var(--accent); color: var(--on-accent);
   box-shadow: inset 0 0 0 1px var(--accent-edge), var(--shadow-xs); font-size: var(--fs-2xs); font-weight: 600;
 }
-.in-library .icon { width: 13px; height: 13px; stroke-width: 2.5; }
+.in-library .icon { width: 13px; height: 13px; --icon-weight: 10px; }
 /* On a cover in the library: downloaded within the week, or with tracks still missing */
 .cover-mark {
   position: absolute; top: 8px; z-index: 1; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
@@ -882,10 +886,10 @@ html.window-full .topbar-right { padding-right: 24px; }
 }
 .cover-mark.new { left: 8px; background: var(--field); color: var(--text); }
 .cover-mark.gap { right: 8px; padding-left: 4px; background: var(--field); color: var(--text); }
-.cover-mark .icon { width: 13px; height: 13px; stroke-width: 2.5; }
+.cover-mark .icon { width: 13px; height: 13px; --icon-weight: 10px; }
 /* A heart at the foot of a favourite's cover, and filled on its page's button */
 .cover-mark.fav { top: auto; bottom: 8px; left: 8px; padding: 4px; background: var(--field); color: var(--accent-fg); }
-.cover-mark.fav .icon, .heart[aria-pressed="true"] .icon { fill: currentColor; }
+.cover-mark.fav .icon, .heart[aria-pressed="true"] .icon { --icon-line: none; --icon-full: inline; }
 .heart[aria-pressed="true"] { color: var(--accent-fg); }
 #album-page[data-kind="playlist"] [data-page-action="favourite"] { display: none; }
 .search-track .title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
@@ -928,7 +932,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .tracks-head { grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 52px 32px; gap: 0 16px; padding: 4px 28px 4px 16px; }
 /* The same menu as the right button gives, one click away at the end of a row */
 .row-more { width: var(--h-sm); height: var(--h-sm); justify-self: end; opacity: 0; transition: opacity var(--quick) ease-out; }
-.row-more .icon { stroke-width: 3.2; }
+.row-more .icon { --icon-weight: 10px; }
 .album-track:hover .row-more, .track-item:hover .row-more, .row-more:focus-visible, .row-more[aria-expanded="true"] { opacity: 1; }
 
 /* Album and artist pages: drawn over the grid, which keeps its scroll position underneath */
@@ -1008,7 +1012,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .album-full #album-page .album-tracks { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -28px; padding: 0 28px 16px; }
 .album-full #album-page .album-head { position: sticky; top: 0; z-index: 1; background: var(--field); }
 .setting-path { overflow-wrap: anywhere; user-select: text; }
-.album-cover .icon { width: 44px; height: 44px; stroke-width: 1.25; }
+.album-cover .icon { width: 44px; height: 44px; --icon-weight: 0px; }
 /* The name of an album or an artist leads its page: set large, in the page's own
    width, and at most two lines on an album's page, where the tracks scroll under it */
 .album-title, .artist-name {
@@ -1073,7 +1077,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 4px;
   padding: 28px; text-align: center; color: var(--text-subtle);
 }
-.empty .icon { width: 26px; height: 26px; margin-bottom: 8px; stroke-width: 1.5; }
+.empty .icon { width: 26px; height: 26px; margin-bottom: 8px; --icon-weight: 0px; }
 /* An empty screen shows a picture, not only words */
 .empty .scene { display: grid; place-items: center; max-width: 100%; margin-bottom: 12px; }
 /* The picture typed: a thing in ASCII with a part that moves (app.js) */
@@ -1360,7 +1364,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   position: relative; flex: none; width: min(100%, 50vh); height: auto; aspect-ratio: 1; overflow: hidden;
   border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
 }
-.now-cover .icon { width: 56px; height: 56px; stroke-width: 1.2; }
+.now-cover .icon { width: 56px; height: 56px; --icon-weight: 0px; }
 .now-names { min-width: 0; }
 .now-title { margin: 24px 0 0; font-size: var(--fs-2xl); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .now-artist { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-md); font-weight: 600; }
@@ -1570,7 +1574,7 @@ button.lyric-line:hover { opacity: 1; }
 /* Over a cover, the two made from the listens keep their sign in a corner */
 .playlist-card.smart .card-cover img:not([hidden]) ~ .icon {
   position: absolute; right: 8px; bottom: 8px; z-index: 1; width: 30px; height: 30px; padding: 8px;
-  border-radius: 50%; background: var(--accent); color: var(--on-accent); stroke-width: 2;
+  border-radius: 50%; background: var(--accent); color: var(--on-accent); --icon-weight: 6px;
   box-shadow: var(--shadow-xs);
 }
 /* Filling in tags is the albums' business */

@@ -2238,7 +2238,7 @@ function setPaused(paused) {
   for (const button of $$(".pause")) {
     button.setAttribute("aria-pressed", String(paused));
     $("span", button).textContent = paused ? "Продолжить" : "Пауза";
-    $("use", button).setAttribute("href", paused ? "#i-mi-play" : "#i-mi-pause");
+    $("use", button).setAttribute("href", paused ? "#i-play" : "#i-pause");
   }
   reportProgress();
 }
@@ -5099,7 +5099,7 @@ function renderPlayerModes() {
   shuffle.setAttribute("aria-label", shuffle.title);
   const repeat = $("#player-repeat");
   repeat.setAttribute("aria-pressed", String(player.repeat !== "off"));
-  $("use", repeat).setAttribute("href", player.repeat === "one" ? "#i-mi-repeat-one" : "#i-mi-repeat");
+  $("use", repeat).setAttribute("href", player.repeat === "one" ? "#i-repeat-one" : "#i-repeat");
   repeat.title = t({ off: "Повторять очередь", all: "Повторять этот трек", one: "Не повторять" }[player.repeat]);
   repeat.setAttribute("aria-label", repeat.title);
 }
@@ -5206,7 +5206,7 @@ function setPlayerPicture(box, url) {
 function renderPlayerButton() {
   const playing = !player.audio.paused;
   const button = $("#player-play");
-  $("use", button).setAttribute("href", playing ? "#i-mi-pause" : "#i-mi-play");
+  $("use", button).setAttribute("href", playing ? "#i-pause" : "#i-play");
   button.title = t(playing ? "Пауза" : "Слушать");
   button.setAttribute("aria-label", button.title);
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
@@ -5236,7 +5236,7 @@ function renderPlayerTime() {
 
 function renderPlayerVolume() {
   const silent = player.muted || player.volume === 0;
-  $("use", $("#player-mute")).setAttribute("href", silent ? "#i-mi-mute" : player.volume < 0.5 ? "#i-mi-volume-low" : "#i-mi-volume");
+  $("use", $("#player-mute")).setAttribute("href", silent ? "#i-mute" : player.volume < 0.5 ? "#i-volume-low" : "#i-volume");
   $("#player-mute").title = t(silent ? "Со звуком" : "Без звука");
   fillRange($("#player-volume"));
 }
@@ -6475,7 +6475,7 @@ function toggleFullscreen() {
   document.documentElement.classList.toggle("window-full", player.fullscreen);
   api().fullscreen();
   const button = $("#player-full");
-  $("use", button).setAttribute("href", player.fullscreen ? "#i-mi-full-exit" : "#i-mi-full");
+  $("use", button).setAttribute("href", player.fullscreen ? "#i-full-exit" : "#i-full");
   button.title = t(player.fullscreen ? "Выйти из полноэкранного режима" : "Во весь экран");
   button.setAttribute("aria-label", button.title);
 }

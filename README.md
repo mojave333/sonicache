@@ -264,7 +264,7 @@ The library plays what it holds. "Play" on an album's page starts it from the to
 on a track's number, or a double click on its row, starts from that track, and the album is
 the queue. A bar at the bottom of the window then shows the track, with shuffle, previous,
 pause, next and repeat (the whole queue, or one track), a position to drag, and the volume,
-in the filled icons Harmonoid uses (Material Icons). Shuffled, each artist's tracks are
+in filled icons. Shuffled, each artist's tracks are
 spread evenly through the queue, so a band with many albums does not come back every few
 songs. The shuffle button above the library plays all of it, or the genre picked, that way.
 While a track plays, the next one is already loaded, and the next track of an album starts
@@ -840,6 +840,7 @@ Other dependencies: yt-dlp and yt-dlp-ejs are under the Unlicense, ytmusicapi un
 pywebview under BSD-3-Clause. The window writes its names and headings in Source Serif 4 unless you choose
 Comic Sans or the system font; it travels with the program in `sonicache/web/fonts/` under the
 SIL Open Font License; the licence text sits beside the files.
+The icons are Phosphor Icons, under MIT; their licence text is `sonicache/web/LICENSE-phosphor-icons.txt`.
 
 The release builds carry two separate programs, each under its own licence: ffmpeg (GPL,
 sources at [ffmpeg.org](https://ffmpeg.org/download.html)) and Deno from
