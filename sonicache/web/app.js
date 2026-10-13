@@ -436,7 +436,7 @@ function renderSettings() {
   applyPlayerSettings(settings);
   $("#naming-preview").textContent = namingExample(settings);
   $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
-  $("#submit use").setAttribute("href", settings.dry_run ? "#i-search" : "#i-download");
+  swapIcon($("#submit use"), settings.dry_run ? "#i-search" : "#i-download");
   renderStatus();
 }
 
@@ -885,6 +885,9 @@ function bindUi() {
   for (const button of $$("[data-view]")) {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
+  // Another language, another face or a narrower window is another width, and the line goes to its new place.
+  // (The word in use is heavier, so every change of section is a new width too: the slide must outlast it.)
+  new ResizeObserver(() => placeNavInk()).observe($(".topnav"));
   bindToast();
   bindProfiles();
   bindWatch();
@@ -1215,12 +1218,27 @@ function onHomeClick(event) {
   openAlbum(item);
 }
 
+// The line under the section in use, slid to where its word is; where the view is none of the bar's
+// sections (the settings, Now playing) it fades and waits where it was
+let navInkPlaced = false;
+function placeNavInk(animate = true) {
+  const nav = $(".topnav");
+  const label = $('[aria-current="page"] .nav-label', nav);
+  nav.classList.toggle("ink-ready", animate && navInkPlaced && !reduceMotion());
+  nav.style.setProperty("--ink-o", label ? "1" : "0");
+  if (!label || !label.offsetWidth) return;
+  nav.style.setProperty("--ink-x", `${label.parentElement.offsetLeft + label.offsetLeft}px`);
+  nav.style.setProperty("--ink-w", `${label.offsetWidth}px`);
+  navInkPlaced = true;
+}
+
 function showView(name) {
   state.view = name;
   for (const button of $$("[data-view]")) {
     if (button.dataset.view === name) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   }
+  placeNavInk();
   for (const view of $$(".view")) view.hidden = view.id !== `view-${name}`;
   setMenuOpen(false, false);
   setLibrarySideOpen(false, false);
@@ -2238,7 +2256,7 @@ function setPaused(paused) {
   for (const button of $$(".pause")) {
     button.setAttribute("aria-pressed", String(paused));
     $("span", button).textContent = paused ? "Продолжить" : "Пауза";
-    $("use", button).setAttribute("href", paused ? "#i-play" : "#i-pause");
+    swapIcon($("use", button), paused ? "#i-play" : "#i-pause");
   }
   reportProgress();
 }
@@ -2396,6 +2414,17 @@ function statusText() {
 
 // Motion follows Material's emphasized curve: things leave fast and land softly.
 const EMPHASIZED = "cubic-bezier(0.2, 0, 0, 1)";
+// What arrives is off the mark at once and slow to land: the stylesheet's --ease-out
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+
+// A sign that turns into another under the pointer does not blink: the new one grows into its place
+function swapIcon(use, href) {
+  if (use.getAttribute("href") === href) return;
+  use.setAttribute("href", href);
+  const icon = use.ownerSVGElement;
+  if (reduceMotion() || !icon.getClientRects().length) return; // nobody sees it change
+  icon.animate([{ opacity: 0.2, transform: "scale(0.6)" }, { opacity: 1, transform: "none" }], { duration: 200, easing: EASE_OUT });
+}
 const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function librarySorts(tab = state.library.tab) {
@@ -3381,10 +3410,14 @@ async function toggleFavourite(item) {
   if (on) state.favourites.add(item.path);
   else state.favourites.delete(item.path);
   renderFavourite(item);
+  // The heart that has just been filled grows into its place, on the page and on the cover
+  const grow = (node) => !reduceMotion() && node?.animate([{ transform: "scale(0.5)" }, { transform: "none" }],
+                                                          { duration: 240, easing: EASE_OUT });
+  if (on) grow($("#album-page [data-page-action=favourite] .icon"));
   for (const card of $$(".card")) {
     if (card.dataset.path !== item.path) continue;
     $(".cover-mark.fav", card)?.remove();
-    if (on) markFavourite(card);
+    if (on) grow(markFavourite(card));
   }
   await api().set_favourite(item.path, on);
 }
@@ -3393,6 +3426,7 @@ function markFavourite(card) {
   mark.className = "cover-mark fav";
   mark.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>';
   $(".card-cover", card).append(mark);
+  return mark;
 }
 
 // What the library already holds of what is being searched for: by title or artist
@@ -3946,10 +3980,7 @@ function openLibraryMenu(x, y) {
   $("[data-action=open]", menu).hidden = items.length !== 1;
   $("[data-action=tidy]", menu).hidden = state.tidy.running || !items.some(hasGaps);
   menu.hidden = false;
-  // Placed after it is measurable, so a menu near the edge turns back inwards
-  const box = menu.getBoundingClientRect();
-  menu.style.left = `${Math.min(x, window.innerWidth - box.width - 8)}px`;
-  menu.style.top = `${Math.min(y, window.innerHeight - box.height - 8)}px`;
+  placeMenu(menu, x, y);
   $("button:not([hidden])", menu).focus();
 }
 
@@ -4332,7 +4363,7 @@ function createSearchArtist(item, index) {
 function markQueued(button, link) {
   const queued = state.search.queued.has(link);
   button.classList.toggle("is-queued", queued);
-  $("use", button).setAttribute("href", queued ? "#i-check" : "#i-download");
+  swapIcon($("use", button), queued ? "#i-check" : "#i-download");
   button.title = queued ? t("В очереди") : t("Скачать");
   button.setAttribute("aria-label", button.title);
 }
@@ -5099,7 +5130,7 @@ function renderPlayerModes() {
   shuffle.setAttribute("aria-label", shuffle.title);
   const repeat = $("#player-repeat");
   repeat.setAttribute("aria-pressed", String(player.repeat !== "off"));
-  $("use", repeat).setAttribute("href", player.repeat === "one" ? "#i-repeat-one" : "#i-repeat");
+  swapIcon($("use", repeat), player.repeat === "one" ? "#i-repeat-one" : "#i-repeat");
   repeat.title = t({ off: "Повторять очередь", all: "Повторять этот трек", one: "Не повторять" }[player.repeat]);
   repeat.setAttribute("aria-label", repeat.title);
 }
@@ -5206,7 +5237,7 @@ function setPlayerPicture(box, url) {
 function renderPlayerButton() {
   const playing = !player.audio.paused;
   const button = $("#player-play");
-  $("use", button).setAttribute("href", playing ? "#i-pause" : "#i-play");
+  swapIcon($("use", button), playing ? "#i-pause" : "#i-play");
   button.title = t(playing ? "Пауза" : "Слушать");
   button.setAttribute("aria-label", button.title);
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
@@ -5236,7 +5267,7 @@ function renderPlayerTime() {
 
 function renderPlayerVolume() {
   const silent = player.muted || player.volume === 0;
-  $("use", $("#player-mute")).setAttribute("href", silent ? "#i-mute" : player.volume < 0.5 ? "#i-volume-low" : "#i-volume");
+  swapIcon($("use", $("#player-mute")), silent ? "#i-mute" : player.volume < 0.5 ? "#i-volume-low" : "#i-volume");
   $("#player-mute").title = t(silent ? "Со звуком" : "Без звука");
   fillRange($("#player-volume"));
 }
@@ -5910,11 +5941,19 @@ function onMenuKey(event) {
   buttons[(buttons.indexOf(document.activeElement) + step + buttons.length) % buttons.length]?.focus();
 }
 
+// Placed after it is measurable, so a menu near the edge turns back inwards. It is measured by its own
+// size, not by its box on the screen, which is still growing; and it grows out of where the pointer is.
+function placeMenu(menu, x, y) {
+  const left = Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8));
+  const top = Math.max(8, Math.min(y, window.innerHeight - menu.offsetHeight - 8));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.style.transformOrigin = `${Math.max(0, x - left)}px ${Math.max(0, y - top)}px`;
+}
+
 function openMenuAt(menu, x, y) {
   menu.hidden = false;
-  const box = menu.getBoundingClientRect();
-  menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - box.width - 8))}px`;
-  menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - box.height - 8))}px`;
+  placeMenu(menu, x, y);
   $("button:not([hidden])", menu)?.focus();
 }
 
@@ -6475,7 +6514,7 @@ function toggleFullscreen() {
   document.documentElement.classList.toggle("window-full", player.fullscreen);
   api().fullscreen();
   const button = $("#player-full");
-  $("use", button).setAttribute("href", player.fullscreen ? "#i-full-exit" : "#i-full");
+  swapIcon($("use", button), player.fullscreen ? "#i-full-exit" : "#i-full");
   button.title = t(player.fullscreen ? "Выйти из полноэкранного режима" : "Во весь экран");
   button.setAttribute("aria-label", button.title);
 }
@@ -6665,7 +6704,7 @@ function renderTidy() {
   const button = $("#library-tidy");
   button.hidden = !running && !gaps.size; // nothing to fill in, nothing to offer
   // An icon alone: how far it has come is said above the list
-  $("use", button).setAttribute("href", running ? "#i-stop" : "#i-tag");
+  swapIcon($("use", button), running ? "#i-stop" : "#i-tag");
   button.title = running
     ? t("Остановить после текущей записи · {done} из {total}", { done: Math.min(done + 1, total), total })
     : t("Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново");

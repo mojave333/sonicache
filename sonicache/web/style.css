@@ -84,10 +84,15 @@
   --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
 
   /* Motion settles like a critically damped spring: quick, no overshoot.
-     Nothing here bounces — a flick would earn that, a state change does not. */
+     Nothing here bounces — a flick would earn that, a state change does not.
+     What moves across the page takes --ease; what arrives takes --ease-out, off the mark at once and slow
+     to land. A thing that opens over the page (--pop) goes away faster than it came (--exit). */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --press: 90ms;
+  --exit: 100ms;
   --quick: 140ms;
+  --pop: 170ms;
   --settle: 220ms;
 }
 
@@ -209,7 +214,7 @@ p { margin: 0; }
 :root[data-theme="dark"] .logo { color: #FFFFFF; }
 .logo img { width: 48px; height: 48px; }
 .brand-name { font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.02em; }
-.topnav { display: flex; align-items: stretch; align-self: stretch; gap: 4px; }
+.topnav { position: relative; display: flex; align-items: stretch; align-self: stretch; gap: 4px; }
 /* The sections are words, and the one in use is told by a line under it; the line
    sits on the bar's own edge, so the bar and the page below it share it */
 .nav-item {
@@ -220,16 +225,21 @@ p { margin: 0; }
 /* The ring sits inside the bar: drawn outside it, it is a box as tall as the bar and cut off at the window's top edge */
 .topnav .nav-item:focus-visible { border-radius: var(--radius); outline-offset: -8px; }
 .nav-item[aria-current="page"] { color: var(--text); font-weight: 600; }
-.nav-item[aria-current="page"]::after {
-  content: ""; position: absolute; left: 16px; right: 16px; bottom: -1px; height: 3px;
+/* One line for the whole bar: it slides to the section chosen (the script measures the word and sets --ink-x
+   and --ink-w), and fades where the view is none of the sections */
+.topnav::after {
+  content: ""; position: absolute; left: 0; bottom: -1px; width: var(--ink-w, 0); height: 3px; opacity: var(--ink-o, 0);
   border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: var(--accent-fg);
+  transform: translateX(var(--ink-x, 0)); pointer-events: none;
+}
+.topnav.ink-ready::after {
+  transition: transform var(--settle) var(--ease), width var(--settle) var(--ease), opacity var(--quick) ease-out;
 }
 .nav-label { text-align: left; white-space: nowrap; }
 /* The settings are an icon at the far end */
 .nav-icon { width: var(--h-lg); height: var(--h-lg); padding: 0; border-radius: var(--radius); }
 .nav-icon:hover { background: var(--hover); }
 .nav-icon[aria-current="page"] { background: var(--selected); }
-.nav-icon[aria-current="page"]::after { display: none; }
 /* How far the downloads have come, a line under the word Download, seen from any
    section; yellow on pause, red once something failed, a sliding piece before the count */
 .nav-ring {
@@ -276,13 +286,13 @@ html.window-full .topbar-right { padding-right: 24px; }
   .brand { margin-right: 8px; }
   .brand-name { display: none; }
   .nav-item { padding: 0 12px; }
-  .nav-item[aria-current="page"]::after, .nav-ring { left: 12px; right: 12px; }
+  .nav-ring { left: 12px; right: 12px; }
 }
 
 /* Columns react to the content width, which a widened side panel narrows */
 .main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0;
   container: content / inline-size; }
-.view { display: flex; flex-direction: column; min-height: 0; animation: view-in var(--quick) ease-out; }
+.view { display: flex; flex-direction: column; min-height: 0; animation: view-in 180ms var(--ease-out); }
 @keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
 
 /* Toolbar */
@@ -296,6 +306,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   display: flex; align-items: center; gap: 8px; flex: 1; min-width: 120px; height: var(--h); padding: 0 4px 0 12px;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--field); color: var(--text-subtle);
 }
+.field { transition: border-color var(--press) ease-out, box-shadow var(--quick) var(--ease-out); }
 .field:hover { border-color: var(--border-strong); }
 .field:focus-within { border-color: var(--border-strong); box-shadow: inset 0 -2px 0 var(--accent-fg); }
 .field.invalid { border-color: var(--danger); box-shadow: inset 0 -2px 0 var(--danger); }
@@ -355,12 +366,15 @@ html.window-full .topbar-right { padding-right: 24px; }
   height: var(--h); padding: 0 16px; border-radius: var(--radius); white-space: nowrap;
 }
 /* Feedback belongs to the press, not the release */
-.btn, .tool-btn, .icon-btn, .nav-item, .segmented button, .stepper button, .menu button {
+.btn, .tool-btn, .icon-btn, .nav-item, .segmented button, .stepper button, .menu button, .side-item, .page-back {
   transition: background-color var(--press) ease-out, color var(--press) ease-out,
               border-color var(--press) ease-out, transform var(--press) var(--ease);
 }
 .btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
-.nav-item:active, .stepper button:active { transform: scale(0.97); }
+.nav-item:active, .stepper button:active, .chips button:active, .sort-button:active,
+.library-title:not(:disabled):active, .genre-chip:active, .page-back:active { transform: scale(0.97); }
+/* A row as wide as the list gives less: the same press would read as a jump */
+.side-item:active { transform: scale(0.985); }
 .btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; box-shadow: inset 0 0 0 1px var(--accent-edge); }
 .btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
 .btn.danger { background: var(--danger); color: var(--on-danger); font-weight: 600; }
@@ -379,6 +393,16 @@ html.window-full .topbar-right { padding-right: 24px; }
   position: absolute; top: calc(100% + 4px); right: 0; z-index: 10; min-width: 280px; padding: 4px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--field); box-shadow: var(--menu-shadow);
 }
+/* What opens over the page grows out of the corner it hangs from, and goes away faster than it came. The
+   transition on display keeps it drawn until it has faded: [hidden] alone would cut it off at once. */
+.menu, .float-panel, .toast, .confirm {
+  transition: opacity var(--pop) var(--ease-out), transform var(--pop) var(--ease-out),
+              display var(--pop) allow-discrete, overlay var(--pop) allow-discrete;
+}
+.menu { transform-origin: top right; }
+.menu[hidden], .float-panel[hidden], .toast[hidden] { opacity: 0; pointer-events: none; transition-duration: var(--exit); }
+.menu[hidden] { transform: scale(0.96); }
+@starting-style { .menu:not([hidden]) { opacity: 0; transform: scale(0.96); } }
 .menu button {
   display: flex; align-items: center; gap: 8px; width: 100%; height: var(--h); padding: 0 12px 0 12px;
   border-radius: var(--radius); text-align: left; white-space: nowrap;
@@ -386,7 +410,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .menu button:hover, .menu button:focus-visible { background: var(--hover); outline: none; }
 .menu .check { visibility: hidden; color: var(--text); }
 /* Opened where the pointer is, so it needs neither an anchor nor a width */
-.context-menu { position: fixed; top: 0; right: auto; min-width: 220px; }
+.context-menu { position: fixed; top: 0; right: auto; min-width: 220px; transform-origin: top left; }
 .context-menu .danger-item { color: var(--danger); }
 .menu [aria-checked="true"] .check { visibility: visible; }
 /* A profile line carries its name and, quieter, what it sets */
@@ -399,7 +423,8 @@ html.window-full .topbar-right { padding-right: 24px; }
 .target-menu { min-width: 300px; padding: 8px; }
 /* What the catalogue finds for a name typed in the link field, right under it */
 #view-download .field { position: relative; }
-.suggest { left: 0; right: 0; min-width: 0; max-height: min(60vh, 440px); overflow-y: auto; color: var(--text); }
+/* The finds come and go with every letter typed: they are simply there */
+.suggest { left: 0; right: 0; min-width: 0; max-height: min(60vh, 440px); overflow-y: auto; color: var(--text); transition: none; }
 .menu .suggest-item { height: var(--row); gap: 12px; }
 .menu .suggest-item.is-active { background: var(--hover); }
 .suggest-item .cover { width: 34px; height: 34px; }
@@ -435,7 +460,18 @@ html.window-full .topbar-right { padding-right: 24px; }
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
   background: var(--field); color: var(--text); box-shadow: var(--menu-shadow);
 }
-.confirm::backdrop { background: var(--scrim); }
+/* A question comes forward out of the page, which dims behind it, and steps back the quicker */
+.confirm { opacity: 0; transform: scale(0.96); transition-duration: var(--exit); }
+.confirm[open] { opacity: 1; transform: none; transition-duration: var(--pop); }
+.confirm::backdrop {
+  background: transparent;
+  transition: background-color var(--exit) ease-out, display var(--exit) allow-discrete, overlay var(--exit) allow-discrete;
+}
+.confirm[open]::backdrop { background: var(--scrim); transition-duration: var(--settle); }
+@starting-style {
+  .confirm[open] { opacity: 0; transform: scale(0.96); }
+  .confirm[open]::backdrop { background: transparent; }
+}
 .confirm-body { display: grid; gap: 8px; padding: 16px; }
 .confirm-title { font-weight: 600; }
 .confirm-text { color: var(--text-subtle); font-size: var(--fs-sm); user-select: text; }
@@ -612,7 +648,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   display: inline-flex; flex: none; align-items: center; gap: 6px; max-width: 280px; height: var(--h);
   margin-left: -8px; padding: 0 6px 0 8px; border-radius: var(--radius); color: var(--text);
   font: 600 var(--fs-xl)/1.3 var(--font-display); letter-spacing: -0.01em;
-  transition: background-color var(--press) ease-out;
+  transition: background-color var(--press) ease-out, transform var(--press) var(--ease);
 }
 .library-title:not(:disabled):hover, .library-title[aria-expanded="true"] { background: var(--hover); }
 .library-title:disabled { opacity: 1; cursor: default; }
@@ -628,7 +664,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .genre-chip {
   display: inline-flex; flex: 0 1 auto; align-items: center; gap: 4px; min-width: 0; height: var(--h-sm); padding: 0 6px 0 10px;
   border-radius: var(--radius); background: var(--selected); color: var(--text); font-size: var(--fs-sm); font-weight: 500;
-  transition: background-color var(--press) ease-out;
+  transition: background-color var(--press) ease-out, transform var(--press) var(--ease);
 }
 .genre-chip:hover { background: var(--selected-hover); }
 .genre-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -647,7 +683,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .sort-button {
   display: inline-flex; align-items: center; gap: 8px; min-width: 0; height: var(--h); padding: 0 10px;
   border-radius: var(--radius); color: var(--text-muted); font-size: var(--fs-sm); font-weight: 500; white-space: nowrap;
-  transition: background-color var(--press) ease-out, color var(--press) ease-out;
+  transition: background-color var(--press) ease-out, color var(--press) ease-out, transform var(--press) var(--ease);
 }
 .sort-button:hover { background: var(--hover); color: var(--text); }
 .sort-button[aria-expanded="true"] { background: var(--selected); color: var(--text); }
@@ -713,13 +749,20 @@ html.window-full .topbar-right { padding-right: 24px; }
 /* Narrower, the list opens under the name as a menu does, and the order is told by its icon alone */
 @container content (width < 1000px) {
   #view-library { position: relative; }
-  #view-library.side-open .lib-side {
-    display: block; position: absolute; top: 50px; left: 12px; z-index: 10; width: 264px; max-height: calc(100% - 62px);
+  /* Where it will stand is set before it is shown, so that it can fade from there as the other menus do */
+  .lib-side {
+    position: absolute; top: 50px; left: 12px; z-index: 10; width: 264px; max-height: calc(100% - 62px);
     padding: 8px; overflow-y: auto; border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
     background: var(--field); box-shadow: var(--menu-shadow);
+    opacity: 0; transform: scale(0.96); transform-origin: top left; pointer-events: none;
+    transition: opacity var(--exit) var(--ease-out), transform var(--exit) var(--ease-out), display var(--exit) allow-discrete;
   }
-  .side-open .lib-side .side-head:first-child { display: none; }
-  .side-open .lib-side .side-head { margin-top: 12px; }
+  #view-library.side-open .lib-side {
+    display: block; opacity: 1; transform: none; pointer-events: auto; transition-duration: var(--pop);
+  }
+  @starting-style { #view-library.side-open .lib-side { opacity: 0; transform: scale(0.96); } }
+  .lib-side .side-head:first-child { display: none; }
+  .lib-side .side-head { margin-top: 12px; }
   #library-sort-label { display: none; }
   .library-search { flex-basis: 160px; }
   /* An action with a name on it is its icon too, so that what is shown and chosen keeps some room to be told in */
@@ -828,7 +871,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .chips { display: flex; gap: 8px; }
 .chips button {
   height: var(--h-sm); padding: 0 16px; border-radius: var(--radius); background: var(--selected); color: var(--text); font-weight: 600;
-  transition: background-color var(--press) ease-out, color var(--press) ease-out;
+  transition: background-color var(--press) ease-out, color var(--press) ease-out, transform var(--press) var(--ease);
 }
 .chips button:hover { background: var(--selected-hover); }
 .chips button[aria-checked="true"] { background: var(--text); color: var(--bg); }
@@ -1254,7 +1297,11 @@ html.window-full .topbar-right { padding-right: 24px; }
   align-items: center; height: 76px; padding: 0 16px; background: var(--chrome);
   /* A plate of its own, clear of the window's edges, not a strip across the bottom */
   margin: 0 12px 12px; border: 1px solid var(--divider); border-radius: var(--radius-lg); box-shadow: var(--shadow-dock);
+  /* It comes up from under the window's edge with the first track, and goes back there with the last */
+  transition: transform var(--settle) var(--ease), opacity var(--settle) ease-out, display var(--settle) allow-discrete;
 }
+.player[hidden] { opacity: 0; transform: translateY(100%); }
+@starting-style { .player:not([hidden]) { opacity: 0; transform: translateY(100%); } }
 .player-track { display: flex; align-items: center; gap: 16px; min-width: 0; text-align: left; border-radius: var(--radius); }
 .player-track:hover .player-title { text-decoration: underline; }
 .player-cover { position: relative; flex: none; width: 52px; height: 52px; overflow: hidden; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--border); }
@@ -1339,7 +1386,9 @@ html.window-full .topbar-right { padding-right: 24px; }
   grid-template-rows: auto minmax(0, 1fr); column-gap: 56px;
   padding: 16px 48px 108px; overflow: hidden; background: var(--bg);
 }
-.now-mode #view-now { position: fixed; inset: 0; z-index: 40; }
+/* It comes up over the window from where the player is, as a sheet does */
+.now-mode #view-now { position: fixed; inset: 0; z-index: 40; animation: now-in 320ms var(--ease); }
+@keyframes now-in { from { opacity: 0; transform: translateY(28px); } }
 /* The cover's own colour washed over the view, as the album page's band is:
    a pastel in the light theme, a deep shade in the dark. A pale or grey cover
    blurred on a light page would otherwise leave no colour at all. */
@@ -1480,13 +1529,15 @@ button.lyric-line:hover { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; }
   .status-icon[data-icon="search"], .status-icon[data-icon="level"] path { animation: none; }
-  .job, .view { animation: fade-in var(--quick) ease-out; }
+  .job, .view, .now-mode #view-now { animation: fade-in var(--quick) ease-out; }
   .btn:active:not(:disabled), .tool-btn:active, .icon-btn:active,
-  .nav-item:active, .stepper button:active { transform: none; }
+  .nav-item:active, .stepper button:active, .chips button:active, .sort-button:active,
+  .library-title:active, .genre-chip:active, .page-back:active, .side-item:active { transform: none; }
+  /* What opens over the page still fades, but does not grow or slide */
+  .menu[hidden], .float-panel[hidden], .toast[hidden], .player[hidden], .confirm, .lib-side { transform: none; }
   .expander[aria-expanded="true"] .icon { transition: none; }
   .cards.entering .card { animation: fade-in var(--quick) ease-out; }
   .card:hover .card-cover, .artist-card:hover .artist-photo { transform: none; }
-  .toast { animation: fade-in var(--quick) ease-out; }
   @keyframes fade-in { from { opacity: 0; } }
 }
 
@@ -1495,15 +1546,15 @@ button.lyric-line:hover { opacity: 1; }
   position: fixed; right: 16px; bottom: 80px; z-index: 20; display: flex; flex-direction: column;
   width: min(380px, calc(100vw - 32px)); max-height: min(72vh, 600px); overflow: hidden;
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--field); box-shadow: var(--menu-shadow);
-  animation: float-in 220ms var(--ease);
 }
-@keyframes float-in { from { opacity: 0; transform: translateY(8px); } }
+/* They rise from the player and sink back towards it */
+.float-panel[hidden], .toast[hidden] { transform: translateY(10px); }
+@starting-style { .float-panel:not([hidden]), .toast:not([hidden]) { opacity: 0; transform: translateY(10px); } }
 /* A word from the program wherever the window is, just above the player */
 .toast {
   position: fixed; right: 16px; bottom: 12px; z-index: 30; display: flex; align-items: center; gap: 12px;
   max-width: min(480px, calc(100vw - 32px)); padding: 8px 8px 8px 16px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--field); box-shadow: var(--menu-shadow);
-  animation: float-in 220ms var(--ease);
 }
 .toast-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .toast-action { color: var(--accent-fg); font-weight: 600; }
