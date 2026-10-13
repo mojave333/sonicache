@@ -27,6 +27,7 @@ from .logs import log
 from .matcher import _norm, ytmusic
 from .models import SourceError
 from .net import BROWSER_UA, fetch_json
+from .sources import _names, _thumbnail
 
 LIMITS = {"album": 24, "track": 20, "artist": 8}
 # The Catalogue before anything is asked: the albums in a row, how many of the library's artists
@@ -271,7 +272,7 @@ def _youtube_search(query: str) -> dict:
             "year": str(item.get("year") or ""),
             "tracks": 0,
             "explicit": bool(item.get("isExplicit")),
-            "cover": _picture(item.get("thumbnails")),
+            "cover": _thumbnail(item.get("thumbnails"), 400),
             "link": f"https://music.youtube.com/browse/{item['browseId']}",
         } for item in albums if item.get("browseId")],
         "tracks": [{
@@ -281,7 +282,7 @@ def _youtube_search(query: str) -> dict:
             "album": (item.get("album") or {}).get("name") or "",
             "duration": item.get("duration_seconds") or 0,
             "explicit": bool(item.get("isExplicit")),
-            "cover": _picture(item.get("thumbnails"), 120),
+            "cover": _thumbnail(item.get("thumbnails"), 120),
             "link": f"https://music.youtube.com/watch?v={item['videoId']}",
         } for item in songs if item.get("videoId")],
         "artists": [{
@@ -289,23 +290,10 @@ def _youtube_search(query: str) -> dict:
             "name": item.get("artist") or "",
             "albums": 0,
             "fans": 0,
-            "picture": _picture(item.get("thumbnails")),
+            "picture": _thumbnail(item.get("thumbnails"), 400),
             "link": f"https://music.youtube.com/channel/{item['browseId']}",
         } for item in artists if item.get("browseId")],
     }
-
-
-def _names(artists) -> str:
-    return ", ".join(artist.get("name", "") for artist in artists or [] if isinstance(artist, dict))
-
-
-def _picture(thumbnails, size: int = 400) -> str:
-    """The largest thumbnail, asked for at the size the page shows: Google's
-    picture addresses carry their size and serve any other on request."""
-    if not thumbnails:
-        return ""
-    url = max(thumbnails, key=lambda thumb: thumb.get("width") or 0).get("url") or ""
-    return re.sub(r"=w\d+-h\d+", f"=w{size}-h{size}", url)
 
 
 # Artists
@@ -383,12 +371,12 @@ def _youtube_artist_page(channel_id: str) -> dict:
             "date": str(item.get("year") or ""),
             "tracks": 0,
             "explicit": bool(item.get("isExplicit")),
-            "cover": _picture(item.get("thumbnails")),
+            "cover": _thumbnail(item.get("thumbnails"), 400),
             "link": f"https://music.youtube.com/browse/{item['browseId']}",
         } for item in items if item.get("browseId")]
     return {
         "name": name,
-        "picture": _picture(data.get("thumbnails"), 500),
+        "picture": _thumbnail(data.get("thumbnails"), 500),
         "albums": len(releases),
         "fans": 0,
         "service": "YouTube Music",

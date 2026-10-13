@@ -20,14 +20,13 @@ from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
 
 from . import spotify
-from .i18n import language, t
+from .i18n import t
 from .logs import YtdlpLogger
 from .matcher import _NOISE_RE, _VERSION_WORDS, _artist_score, _norm, _similarity, ytmusic
 from .models import Album, Release, SourceError, Track
 from .net import BROWSER_UA, fetch_json, fetch_text, follow_short_link
 
 SUPPORTED = "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp"
-_SUPPORTED_EN = "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm and sites such as Bandcamp"
 
 _APPLE_PATH_RE = re.compile(r"^/(?:([a-z]{2})/)?([\w-]+)/(?:[^/]+/)?(?:id)?(\d+)", re.I)
 _APPLE_DATA_RE = re.compile(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', re.S)
@@ -856,8 +855,7 @@ def _best(results: list[dict], title: str, artist: str, fields) -> dict | None:
     for result in results:
         name, names = fields(result)
         title_score = _similarity(_norm(title), _norm(name))
-        if title_score >= 0.85 and (_artist_score(artist, names) > 0
-                                    or _similarity(_norm(artist), _norm(names)) >= 0.8):
+        if title_score >= 0.85 and _artist_fits(artist, names):
             scored.append((title_score, result))
     return max(scored, key=lambda pair: pair[0])[1] if scored else None
 
@@ -876,7 +874,7 @@ def _ytdlp(url: str) -> Release:
         if "Unsupported URL" in message or message.startswith("[generic]"):
             raise SourceError.of("unsupported_link",
                                  "По этой ссылке не нашлось музыки. Подойдут ссылки из {services}",
-                                 services=SUPPORTED if language() == "ru" else _SUPPORTED_EN) from e
+                                 services=t(SUPPORTED)) from e
         raise SourceError.of("link_failed", "Не удалось открыть ссылку: {error}", error=message) from e
 
     service = _service_name(info, url)
@@ -970,14 +968,16 @@ def _ytdlp_cover(info: dict) -> str:
 # Small helpers
 
 def _names(artists) -> str:
-    return ", ".join(a["name"] for a in artists or [] if a.get("name"))
+    return ", ".join(a["name"] for a in artists or [] if isinstance(a, dict) and a.get("name"))
 
 
-def _thumbnail(thumbnails) -> str:
+def _thumbnail(thumbnails, size: int = 1200) -> str:
+    """The largest thumbnail, asked for at the size wanted: Google's picture
+    addresses carry their size and serve any other on request."""
     if not thumbnails:
         return ""
-    url = max(thumbnails, key=lambda t: t.get("width") or 0).get("url", "")
-    return re.sub(r"=w\d+-h\d+", "=w1200-h1200", url)  # Google image URLs scale on request
+    url = max(thumbnails, key=lambda t: t.get("width") or 0).get("url") or ""
+    return re.sub(r"=w\d+-h\d+", f"=w{size}-h{size}", url)
 
 
 def _seconds(text: str | None) -> float:
