@@ -1,6 +1,6 @@
 # sonicache
 
-Find it, tag it, keep it, play it.
+Your personal music archive.
 
 Sonicache reads a link or a name from a music service for what the release is (the titles,
 the artists, the year, the cover), finds the audio in open sources, and saves it tagged, with

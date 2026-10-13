@@ -1,10 +1,7 @@
 <div align="center">
 
-<img src="docs/logo.png" width="120" alt="Sonicache">
-
-<h1>sonicache</h1>
-
-<p><em>Find it, tag it, keep it, play it.</em></p>
+<!-- A paragraph and not a heading: GitHub draws a rule under a heading, and the banner carries the name itself -->
+<p align="center"><img src="docs/banner.webp" width="100%" alt="Sonicache. Your personal music archive."></p>
 
 [![Build](https://img.shields.io/github/actions/workflow/status/mojave333/sonicache/ci.yml?label=build&color=BE3237)](https://github.com/mojave333/sonicache/actions/workflows/ci.yml)
 [![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-BE3237)](LICENSE)
