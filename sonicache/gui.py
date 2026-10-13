@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import base64
 import ctypes
-from ctypes import wintypes
 import hashlib
 import datetime
 import json
@@ -80,11 +79,9 @@ PROFILE_LIMIT = 12
 UPDATE_HOST = "github.com"
 # The page's background in each theme (--bg in web/style.css): the window takes it before the page is drawn
 PAGE_LIGHT, PAGE_DARK = "#F6F0DE", "#23212C"
-# The top bar's (--chrome), which a system title bar is painted to join
-CHROME_LIGHT, CHROME_DARK = "#EDE5CD", "#15131B"
 # On Windows the window has no frame of its own: the top bar is its title bar and the page draws the
-# buttons and the edges to size it by. SONICACHE_SYSTEM_FRAME=1 brings the system's frame back.
-FRAMELESS = sys.platform == "win32" and not os.environ.get("SONICACHE_SYSTEM_FRAME")
+# buttons and the edges to size it by.
+FRAMELESS = sys.platform == "win32"
 WINDOW_SIZE = (1160, 800)
 MIN_SIZE = (720, 520)
 LIST_BYTES = 2_000_000  # a list of links this long is already hundreds of thousands of lines
@@ -204,28 +201,9 @@ class Api:
         set_language(settings["language"])  # errors from now on speak it
         _save_settings(settings)
         self._sync_tray(settings)
-        self._tint_title(settings["theme"])
         if settings["discord"] != self._discord:
             self._discord = settings["discord"]
             self._presence.show(self._now if self._discord else None)
-
-    def _tint_title(self, theme: str | None = None) -> None:
-        """Paints the window's title bar the colour of the top bar, so the two are one
-        band and not a white strip above. Windows 11 takes the colour;
-        Windows 10 only goes dark or light; elsewhere the system keeps its own."""
-        if sys.platform != "win32" or FRAMELESS or self._window is None:
-            return
-        theme = theme or _load_settings()["theme"]
-        dark = theme == "dark" or (theme == "system" and _system_dark())
-        try:
-            hwnd = self._window.native.Handle.ToInt64()
-            set_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-            for attribute, value in ((20, int(dark)),  # DWMWA_USE_IMMERSIVE_DARK_MODE
-                                     (35, _colorref(CHROME_DARK if dark else CHROME_LIGHT)),  # DWMWA_CAPTION_COLOR
-                                     (36, _colorref("#EDEBF2" if dark else "#1F1D26"))):  # DWMWA_TEXT_COLOR
-                set_attribute(wintypes.HWND(hwnd), attribute, ctypes.byref(ctypes.c_int(value)), 4)
-        except Exception:
-            logs.log.debug("окно: заголовок не перекрашен", exc_info=True)
 
     def focus(self, focused: bool) -> None:
         """The page says whether the window is the one being used."""
@@ -1481,7 +1459,7 @@ class Api:
                         "tracks": finished_tracks(), **counts})
         quiet = self._finish_watch_check(job, state, counts)
         if state == "done" and not options.dry_run and (report.ok or report.skipped):
-            _remember_downloaded(names, getattr(downloader, "_paths", {}).values())
+            _remember_downloaded(names, report.paths.values())
         emit(type="job", state=state, dry_run=options.dry_run, quiet=quiet, **counts)
         # A check that found nothing new, a trial run and a stopped one are not news
         if state == "done" and not quiet and not options.dry_run:
@@ -2472,11 +2450,6 @@ def _clipboard_text() -> str:
             root.destroy()
 
 
-def _colorref(colour: str) -> int:
-    """"#RRGGBB" as Windows counts a colour: blue first."""
-    return int(colour[5:7] + colour[3:5] + colour[1:3], 16)
-
-
 def _system_dark() -> bool:
     """Whether the desktop is in its dark theme; light when nothing says so."""
     if sys.platform == "darwin":
@@ -2592,6 +2565,5 @@ def main() -> None:
     )
     api._window.events.closing += api._on_closing
     api._window.events.shown += api._keep_frame_style
-    api._window.events.shown += api._tint_title
     api._sync_tray(_load_settings())
     webview.start(http_server=True)
