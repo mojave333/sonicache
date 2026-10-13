@@ -491,11 +491,19 @@ html.window-full .topbar-right { padding-right: 24px; }
 .welcome { width: min(480px, calc(100vw - 32px)); }
 .welcome-body { gap: 12px; padding: 24px 24px 20px; }
 /* The logo as it was drawn, in pencil: the welcome of its own */
-.welcome-scene { display: block; width: 168px; height: auto; margin: -8px auto 0; }
+.welcome-scene { display: block; width: 112px; height: auto; margin: -4px auto 0; }
+/* In a window too short for it the picture gives way, so that the words and the button need no scrolling */
+@media (max-height: 640px) { .welcome-scene { display: none; } }
 .welcome-title { text-align: center; }
 /* The empty download list keeps its own picture back: one on screen at a time */
 .welcoming #empty .scene { visibility: hidden; }
 .welcome-title { font-size: var(--fs-lg); font-weight: 650; }
+/* What the sections are for, a line each, with the sign each has in the bar */
+.welcome-what { display: grid; gap: 12px; margin: 4px 0; }
+.welcome-row { display: grid; grid-template-columns: 16px minmax(0, 1fr); column-gap: 12px; row-gap: 1px; }
+.welcome-row .icon { grid-row: 1 / 3; margin-top: 3px; color: var(--accent-fg); }
+.welcome-name { font-weight: 600; }
+.welcome-text { color: var(--text-subtle); font-size: var(--fs-sm); }
 .welcome-folder {
   display: flex; align-items: center; gap: 12px; margin: 4px 0; padding: 12px 12px;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg);

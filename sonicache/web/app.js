@@ -331,7 +331,7 @@ function showWelcome() {
   dialog.addEventListener("cancel", start, { once: true }); // Escape starts too: nothing here must be decided
   document.documentElement.classList.add("welcoming");
   dialog.showModal();
-  $("#welcome-start").focus();
+  $("#welcome-start").focus({ preventScroll: true }); // a dialog taller than the window opens at its top
 }
 
 // Where the log sits, and how old the yt-dlp inside this build is

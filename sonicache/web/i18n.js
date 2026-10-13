@@ -425,12 +425,14 @@ const TRANSLATIONS = {
   "Сообщает, что загрузки закончились, если окно свёрнуто, закрыто или спрятано под другими":
     "Says the downloads have finished when the window is minimized, closed or behind other windows",
   "Добро пожаловать в Sonicache": "Welcome to Sonicache",
-  "Вставьте ссылку на альбом, плейлист или трек из Spotify, Apple Music, Deezer, YouTube или SoundCloud. Можно и просто написать «Исполнитель - Альбом». Программа найдёт эту запись в открытом доступе, скачает её и заполнит теги: название, обложку, жанр и текст песни.":
-    "Paste a link to an album, playlist or track from Spotify, Apple Music, Deezer, YouTube or SoundCloud, or just write \"Artist - Album\". The program finds the same recording where it is openly available, downloads it and fills in the tags: title, cover, genre and lyrics.",
+  "Ваша музыка в одном месте.": "Your music in one place.",
+  "Показывает музыку из ваших папок и играет её.": "Shows the music in your folders and plays it.",
+  "Ищет исполнителей и альбомы, показывает новинки и чарт.": "Searches artists and albums, and shows what is new and the chart.",
+  "Принимает ссылку или название, находит запись в открытом доступе и сохраняет с тегами, обложкой и текстом песни.":
+    "Takes a link or a name, finds the recording in open sources and saves it with its tags, cover and lyrics.",
   "Музыка будет здесь": "The music goes here",
   "Изменить…": "Change…",
-  "Формат, названия файлов, прокси и остальное можно поменять в настройках в любой момент.":
-    "The format, file names, proxy and the rest can be changed in Settings at any time.",
+  "Формат, названия файлов, прокси и остальное — в настройках.": "The format, file names, proxy and the rest are in Settings.",
   "Начать": "Start",
   "Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново":
     "Fill in genres, covers, lyrics and missing tags, downloading nothing again",

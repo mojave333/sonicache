@@ -1024,7 +1024,13 @@
       <div class="confirm-body welcome-body">
         <img class="welcome-scene" src="art/logo.webp" alt="" aria-hidden="true">
         <p id="welcome-title" class="welcome-title">Добро пожаловать в Sonicache</p>
-        <p class="confirm-text">Вставьте ссылку на альбом, плейлист или трек из Spotify, Apple Music, Deezer, YouTube или SoundCloud. Можно и просто написать «Исполнитель - Альбом». Программа найдёт эту запись в открытом доступе, скачает её и заполнит теги: название, обложку, жанр и текст песни.</p>
+        <p class="confirm-text">Ваша музыка в одном месте.</p>
+        <!-- The sections of the bar, one line each: what each is for -->
+        <div class="welcome-what">
+          <div class="welcome-row"><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg><span class="welcome-name">Библиотека</span><span class="welcome-text">Показывает музыку из ваших папок и играет её.</span></div>
+          <div class="welcome-row"><svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg><span class="welcome-name">Каталог</span><span class="welcome-text">Ищет исполнителей и альбомы, показывает новинки и чарт.</span></div>
+          <div class="welcome-row"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span class="welcome-name">Загрузка</span><span class="welcome-text">Принимает ссылку или название, находит запись в открытом доступе и сохраняет с тегами, обложкой и текстом песни.</span></div>
+        </div>
         <div class="welcome-folder">
           <div class="welcome-where">
             <p class="welcome-label">Музыка будет здесь</p>
@@ -1032,7 +1038,7 @@
           </div>
           <button type="button" class="tool-btn" id="welcome-folder"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Изменить…</span></button>
         </div>
-        <p class="confirm-text">Формат, названия файлов, прокси и остальное можно поменять в настройках в любой момент.</p>
+        <p class="confirm-text">Формат, названия файлов, прокси и остальное — в настройках.</p>
       </div>
       <div class="confirm-actions">
         <button type="button" class="btn primary" id="welcome-start">Начать</button>
