@@ -4,7 +4,17 @@ import argparse
 
 import pytest
 
-from sonicache.cli import _rate
+from sonicache.cli import _language, _rate
+
+
+@pytest.mark.parametrize("argv, expected", [
+    (["--lang", "en", "https://example.test/album"], "en"),
+    (["-f", "opus", "--lang=ru", "--lyrics"], "ru"),
+    (["--limit-rate", "2M", "Artist - Album"], "system"),
+    (["--lang"], "system"),
+])
+def test_the_language_is_read_before_the_help_is_written(argv, expected):
+    assert _language(argv) == expected
 
 
 @pytest.fixture

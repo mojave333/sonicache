@@ -16,14 +16,10 @@ from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, TRACK
 
 
 def _language(argv: list[str] | None) -> str:
-    """--lang, read before argparse so that even the help speaks it."""
-    words = list(sys.argv[1:] if argv is None else argv)
-    for index, word in enumerate(words):
-        if word == "--lang" and index + 1 < len(words):
-            return words[index + 1]
-        if word.startswith("--lang="):
-            return word.split("=", 1)[1]
-    return "system"
+    """--lang, read before the real parser is built so that even the help speaks it."""
+    early = argparse.ArgumentParser(prog="sonicache", add_help=False)
+    early.add_argument("--lang", nargs="?")  # with no value it is the real parser's to refuse
+    return early.parse_known_args(argv)[0].lang or "system"
 
 
 def _rate(value: str, parser: argparse.ArgumentParser) -> int:
