@@ -100,10 +100,10 @@
       </nav>
       </div>
       <!-- The catalogue's search, for finding music to download: it says which catalogue, so it is not taken for the library's filter -->
-      <div class="field topbar-search" role="search" title="Поиск в каталоге Deezer: найденное можно скачать (Ctrl+2)">
+      <div class="field topbar-search" role="search" title="Каталог: поиск, новинки и чарт Deezer, найденное можно скачать (Ctrl+2)">
         <span class="search-scope"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span id="search-scope-name">Deezer</span></span>
         <input id="search-input" type="search" autocomplete="off" spellcheck="false"
-               placeholder="Исполнитель, альбом или трек" aria-label="Что найти">
+               placeholder="Каталог" aria-label="Каталог: найти исполнителя, альбом или трек">
       </div>
       <div class="topbar-right">
         <button type="button" class="nav-item nav-icon" data-view="settings" title="Настройки (Ctrl+4)" aria-label="Настройки">
@@ -241,7 +241,7 @@
         </div>
       </section>
 
-      <section id="view-search" class="view" aria-label="Поиск" hidden>
+      <section id="view-search" class="view" aria-label="Каталог" hidden>
         <div id="search-bar" class="search-bar" hidden>
           <div id="search-chips" class="chips" role="radiogroup" aria-label="Что показать">
             <button type="button" role="radio" data-search-filter="all">Всё</button>
@@ -257,6 +257,22 @@
               <div class="scene" data-scene="radio" aria-hidden="true"><pre class="ascii"></pre><span class="crayon"></span></div>
               <p class="empty-title"></p>
               <p class="empty-text"></p>
+            </div>
+            <div id="catalogue-home" hidden>
+              <section class="search-section" id="home-fresh-section" hidden>
+                <div class="search-row-head">
+                  <h3 class="search-head">Новое у ваших исполнителей</h3>
+                  <button type="button" class="btn ghost search-more" data-more="fresh">Все</button>
+                </div>
+                <div class="cards home-cards" id="home-fresh"></div>
+              </section>
+              <section class="search-section" id="home-popular-section" hidden>
+                <div class="search-row-head">
+                  <h3 class="search-head">Популярные альбомы <span class="search-note">чарт Deezer</span></h3>
+                  <button type="button" class="btn ghost search-more" data-more="popular">Все</button>
+                </div>
+                <div class="cards home-cards" id="home-popular"></div>
+              </section>
             </div>
             <section class="search-section" id="search-best-section" hidden>
               <h3 class="search-head">Лучший результат</h3>

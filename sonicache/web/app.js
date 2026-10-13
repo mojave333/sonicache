@@ -106,7 +106,8 @@ const state = {
     pending: new Map(),
   },
   // The catalogue search: what was asked last and what came back
-  search: { query: "", filter: "all", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null, pages: [] },
+  // home: the Catalogue's first screen (the chart and what is new), asked for when it is opened with nothing typed
+  search: { home: { data: null, loading: false, at: 0, key: "" }, query: "", filter: "all", token: 0, results: null, loading: false, queued: new Set(), timer: 0, page: null, pages: [] },
   covers: new Map(),
   artistPhotos: new Map(),
   plays: new Map(), // path → how many times it was listened to
@@ -1246,6 +1247,7 @@ function showView(name) {
   if (name === "search") {
     renderSearch();
     $("#search-input").focus();
+    if (!state.search.query) loadCatalogueHome();
     // The search marks what the library holds: it is read, if it was not yet
     if (state.library.stale && !state.library.loading) loadLibrary();
   }
@@ -4049,6 +4051,13 @@ function bindSearch() {
     }
   });
   $("#search-scroll").addEventListener("click", onSearchClick);
+  $("#catalogue-home").addEventListener("click", (event) => {
+    const more = event.target.closest("[data-more]");
+    if (!more) return;
+    const section = more.closest(".search-section");
+    const open = section.classList.toggle("expanded");
+    more.textContent = t(open ? "Свернуть" : "Все");
+  });
   radioGroup($("#search-chips"), "data-search-filter", (filter) => {
     state.search.filter = filter;
     renderSearch({ enter: true });
@@ -4090,16 +4099,22 @@ async function runSearch(text, again = false) {
 
 function renderSearch({ enter = false } = {}) {
   const { query, results, loading } = state.search;
+  const home = state.search.home;
   const found = results || { albums: [], tracks: [], artists: [] };
   const any = renderSearchLibrary() + found.albums.length + found.tracks.length + found.artists.length;
+  // With nothing typed the Catalogue shows its first screen; the empty page is for when it has none
+  const onShow = query ? 0 : renderCatalogueHome();
+  $("#catalogue-home").hidden = !onShow;
   const empty = $("#search-empty");
-  empty.hidden = Boolean(any);
-  $(".scene", empty).hidden = loading; // no picture while the answer is still on its way
-  $(".empty-title", empty).textContent = !query ? t("Найдите, что скачать")
+  empty.hidden = Boolean(any) || onShow > 0;
+  const waiting = loading || (!query && home.loading);
+  $(".scene", empty).hidden = waiting; // no picture while the answer is still on its way
+  $(".empty-title", empty).textContent = !query
+    ? (home.loading ? t("Загружаем каталог…") : home.data?.error ? t("Каталог сейчас недоступен") : t("Найдите, что скачать"))
     : loading ? t("Ищем…")
     : results?.error ? t("Поиск не удался") : t("Ничего не найдено");
   $(".empty-text", empty).textContent = !query
-    ? t("Исполнитель, альбом или трек — с обложками из каталога. Щелчок по альбому покажет его треки, стрелка сразу поставит в очередь")
+    ? (home.loading ? "" : home.data?.error || t("Исполнитель, альбом или трек — с обложками из каталога. Щелчок по альбому покажет его треки, стрелка сразу поставит в очередь"))
     : loading ? "" : results?.error || t("По запросу «{query}»", { query });
   $("#search-service").textContent = results?.service ? t("Каталог: {service}", { service: results.service }) : "";
   if (results?.service) $("#search-scope-name").textContent = results.service;
@@ -4113,6 +4128,47 @@ function renderSearch({ enter = false } = {}) {
   fillSearchSection("artists", wanted("artists") ? found.artists.map(createSearchArtist) : [], enter);
   fillSearchSection("albums", wanted("albums") ? found.albums.map(createSearchAlbum) : [], enter);
   fillSearchSection("tracks", wanted("tracks") ? found.tracks.map(createSearchTrack) : [], false);
+}
+
+/* The Catalogue's first screen: the albums new from the library's artists, and the chart */
+
+// The artists the library has most albums of, the ones the catalogue is asked about
+function catalogueArtists() {
+  const unknown = t("Без исполнителя");
+  return libraryArtists().filter((artist) => artist.name !== unknown)
+    .sort((a, b) => b.albums - a.albums || b.modified - a.modified).slice(0, 12).map((artist) => artist.name);
+}
+
+async function loadCatalogueHome({ force = false } = {}) {
+  const home = state.search.home;
+  if (home.loading) return;
+  const artists = catalogueArtists();
+  const key = artists.join("|");
+  if (!force && home.data && !home.data.error && home.key === key && Date.now() - home.at < 3600 * 1000) return;
+  home.loading = true;
+  if (state.view === "search") renderSearch();
+  try {
+    home.data = await api().catalogue_home(artists, force);
+  } catch (error) {
+    console.error(error);
+    home.data = { error: String(error), popular: [], fresh: [] };
+  }
+  Object.assign(home, { loading: false, key, at: home.data.error ? 0 : Date.now() });
+  if (state.view === "search") renderSearch();
+}
+
+// The rows are cards like the search's own, so a click on one does what a click there does; what the
+// library holds already is left out of what is new
+function renderCatalogueHome() {
+  const data = state.search.home.data;
+  const rows = { fresh: (data?.fresh || []).filter((item) => !inLibrary(item)), popular: data?.popular || [] };
+  let shown = 0;
+  for (const [kind, items] of Object.entries(rows)) {
+    $(`#home-${kind}-section`).hidden = !items.length;
+    $(`#home-${kind}`).replaceChildren(...items.map((item, index) => createSearchAlbum(item, index)));
+    shown += items.length;
+  }
+  return shown;
 }
 
 // The artist the words name, or else the first album the catalogue sent: made
@@ -4179,6 +4235,7 @@ function inLibrary(item, kind = "album") {
 
 // The marks drawn again once the library has been read
 function markInLibrary() {
+  if (state.view === "search" && !state.search.query) loadCatalogueHome();
   for (const card of $$("#view-search .search-card")) {
     if (card._item) $(".in-library", card).hidden = !inLibrary(card._item);
   }
