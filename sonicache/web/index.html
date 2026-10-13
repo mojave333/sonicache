@@ -341,8 +341,8 @@
       </section>
 
       <section id="view-library" class="view" aria-label="Библиотека" hidden>
-        <!-- The library's own list, beside it in a wide window: its views, its genres and its playlists.
-             Narrower, the tabs in the bar are what is left. -->
+        <!-- The library's own list: its views, its genres and its playlists. A wide window stands it beside the
+             library; a narrower one opens it as a menu under the name in the bar. -->
         <nav id="library-side" class="lib-side" aria-label="Библиотека">
           <h4 class="side-head">Библиотека</h4>
           <button type="button" class="side-item" data-side="albums"><svg class="icon sm" aria-hidden="true"><use href="#i-grid"/></svg><span class="side-name">Альбомы</span><span class="side-n"></span></button>
@@ -355,19 +355,21 @@
           <div id="side-playlists"></div>
           <button type="button" class="side-item side-add" id="side-playlist-new"><svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span class="side-name">Новый плейлист</span></button>
         </nav>
+        <!-- One bar: what is on the screen and how much of it, then the order, the view, the filter and the buttons -->
         <div class="library-head">
-        <div class="toolbar">
-          <div id="library-tabs" class="tabs" role="tablist" aria-label="Библиотека">
-            <button type="button" role="tab" data-tab="albums" aria-selected="true">Альбомы</button>
-            <button type="button" role="tab" data-tab="tracks" aria-selected="false">Треки</button>
-            <button type="button" role="tab" data-tab="artists" aria-selected="false">Исполнители</button>
-            <button type="button" role="tab" data-tab="playlists" aria-selected="false">Плейлисты</button>
+          <div class="library-what">
+            <button type="button" id="library-title" class="library-title" aria-haspopup="true" aria-expanded="false" aria-controls="library-side">
+              <span id="library-title-name"></span><svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </button>
+            <!-- Beside the name: the genre the library is narrowed to, taken off by a click, and how much is shown -->
+            <span class="library-note">
+              <button type="button" id="library-genre" class="genre-chip" title="Показать все жанры" hidden>
+                <span></span><svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg>
+              </button>
+              <span id="library-summary" class="library-summary"></span>
+            </span>
           </div>
-          <div class="field library-search">
-            <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
-            <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр библиотеки" title="Показать в библиотеке только то, что подходит">
-          </div>
-          <button type="button" id="library-again" class="tool-btn" hidden>
+          <button type="button" id="library-again" class="tool-btn" title="Докачать недостающее" hidden>
             <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Докачать недостающее</span>
           </button>
           <button type="button" id="library-delete" class="tool-btn icon-only danger" hidden title="Удалить (Delete)" aria-label="Удалить">
@@ -376,31 +378,12 @@
           <button type="button" id="library-tidy" class="tool-btn icon-only" hidden title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново" aria-label="Дописать теги">
             <svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg>
           </button>
-          <button type="button" id="playlist-new" class="tool-btn" hidden>
+          <button type="button" id="playlist-new" class="tool-btn" title="Новый плейлист" hidden>
             <svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Новый плейлист</span>
           </button>
           <button type="button" id="playlist-import" class="tool-btn icon-only" hidden title="Открыть плейлист .m3u8 из другого плеера" aria-label="Открыть плейлист .m3u8">
             <svg class="icon sm" aria-hidden="true"><use href="#i-file-in"/></svg>
           </button>
-          <div class="btn-group">
-            <button type="button" id="library-shuffle" class="tool-btn icon-only" title="Слушать всю библиотеку вперемешку" aria-label="Слушать всю библиотеку вперемешку" hidden>
-              <svg class="icon sm" aria-hidden="true"><use href="#i-mi-shuffle"/></svg>
-            </button>
-            <button type="button" id="library-folder" class="tool-btn icon-only" title="Открыть папку в проводнике" aria-label="Открыть папку">
-              <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>
-            </button>
-            <button type="button" id="library-refresh" class="tool-btn icon-only" title="Обновить (F5)" aria-label="Обновить">
-              <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg>
-            </button>
-          </div>
-        </div>
-        <div class="library-bar">
-          <!-- What is on the screen and how much of it: the name shows where the side list stands in for the tabs -->
-          <div class="library-what">
-            <h2 id="library-title" class="library-title"></h2>
-            <span id="library-summary" class="library-summary"></span>
-          </div>
-          <label class="pick" hidden>Жанр: <select id="library-genre" aria-label="Жанр"></select><svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg></label>
           <!-- One button for how the list is ordered: its menu offers what to sort by and which way.
                The two selects stay, hidden, as what the script reads and sets. -->
           <div class="sort-wrap">
@@ -415,7 +398,21 @@
             <button type="button" role="radio" data-library-view="grid" title="Сетка обложек" aria-label="Сетка обложек"><svg class="icon sm" aria-hidden="true"><use href="#i-grid"/></svg></button>
             <button type="button" role="radio" data-library-view="list" title="Список" aria-label="Список"><svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg></button>
           </div>
-        </div>
+          <div class="field library-search">
+            <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр библиотеки" title="Показать в библиотеке только то, что подходит">
+          </div>
+          <div class="btn-group">
+            <button type="button" id="library-shuffle" class="tool-btn icon-only" title="Слушать всю библиотеку вперемешку" aria-label="Слушать всю библиотеку вперемешку" hidden>
+              <svg class="icon sm" aria-hidden="true"><use href="#i-mi-shuffle"/></svg>
+            </button>
+            <button type="button" id="library-folder" class="tool-btn icon-only" title="Открыть папку в проводнике" aria-label="Открыть папку">
+              <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>
+            </button>
+            <button type="button" id="library-refresh" class="tool-btn icon-only" title="Обновить (F5)" aria-label="Обновить">
+              <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg>
+            </button>
+          </div>
         </div>
         <div class="library-body">
           <div id="library-panel" class="library-panel">

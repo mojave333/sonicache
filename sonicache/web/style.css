@@ -158,7 +158,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 /* Where a name or a heading is written, not a row of data */
-.brand-name, .tabs button, .list-title, .empty-title, .card-title, .album-title,
+.brand-name, .list-title, .empty-title, .card-title, .album-title,
 .artist-name, .confirm-title, .welcome-title { font-family: var(--font-display); }
 [hidden] { display: none !important; }
 
@@ -594,61 +594,59 @@ html.window-full .topbar-right { padding-right: 24px; }
 .library-row .open { opacity: 0; }
 .library-row:hover .open, .library-row:focus-within .open { opacity: 1; }
 
-/* Library tabs: the line under the chosen one slides to the next, the way a
-   Material tab strip moves. The script places it through --ink-x and --ink-w. */
-.tabs { position: relative; display: flex; flex: none; gap: 4px; height: var(--h); }
-.tabs button {
-  padding: 0 12px; border-radius: var(--radius); color: var(--text-subtle); font-size: var(--fs-md); white-space: nowrap;
+/* The library's bar, one line at any width: the name of what is on the screen with how much of it, then the
+   order, the view, the filter and the buttons. The name is never cut short: what stands beside it gives way
+   first (it is measured as if empty, so the pair asks for no more than the name), then the words of the
+   order and the filter's width. */
+.library-head {
+  display: flex; flex: none; align-items: center; gap: 8px; padding: 10px 14px 10px 20px;
+  border-bottom: 1px solid var(--divider);
 }
-/* In the library the tabs fill the bar down to its divider, as the sections fill the top bar, so the line
-   under the chosen one lies on the divider instead of hanging above it; the other controls keep their
-   place through a margin, and a bar that wraps still has 48 px to a line */
-.library-head { flex: none; }
-.library-head > .toolbar { padding-block: 0; row-gap: 0; }
-.library-head > .toolbar > :not(.tabs) { margin-block: 7px; }
-#view-library .tabs { height: 48px; }
-#view-library .tabs button { border-radius: var(--radius) var(--radius) 0 0; }
-.tabs button:hover { background: var(--hover); color: var(--text); }
-.tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; }
-.tabs::after {
-  content: ""; position: absolute; left: 0; bottom: -1px; width: var(--ink-w, 0); height: 3px;
-  border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: var(--accent-fg); transform: translateX(var(--ink-x, 0));
-}
-.tabs.ink-ready::after { transition: transform var(--settle) var(--ease), width var(--settle) var(--ease); }
-.library-search { flex: 0 1 280px; margin-left: auto; }
-/* The Playlists tab has two more buttons, one of them with words: the search gives way so the bar keeps to one line */
-@container content (max-width: 1100px) {
-  #view-library[data-tab="playlists"] .library-search { flex-basis: 180px; }
-}
-
-.library-bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; flex: none; padding: 7px 16px;
-  border-bottom: 1px solid var(--divider); color: var(--text-subtle); font-size: var(--fs-sm);
-}
-.library-what { display: flex; align-items: baseline; gap: 12px; min-width: 0; margin-right: auto; }
+.library-what { display: flex; flex: 1 1 0; align-items: baseline; gap: 12px; min-width: min-content; }
+/* The name opens the list of views where the list is its menu; where the list stands beside, it is a heading */
 .library-title {
-  display: none; flex: 0 1 auto; min-width: 0; margin: 0; overflow: hidden; color: var(--text);
-  font: 600 var(--fs-xl)/1.3 var(--font-display); letter-spacing: -0.01em; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-flex; flex: none; align-items: center; gap: 6px; max-width: 280px; height: var(--h);
+  margin-left: -8px; padding: 0 6px 0 8px; border-radius: var(--radius); color: var(--text);
+  font: 600 var(--fs-xl)/1.3 var(--font-display); letter-spacing: -0.01em;
+  transition: background-color var(--press) ease-out;
 }
-.library-summary { flex: 0 999 auto; min-width: 0; overflow: hidden; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-/* What the library's bars hold lies flat on them: an icon or a few words, 34 high, that take a shade under
-   the pointer. The filter alone has a rim, being the one thing there to type in, and an action with a name
-   on it is a button. (The genre pick is also the equalizer's preset in the settings, which keeps its own look.) */
-.library-bar .pick, .library-bar .sort-button, #library-view { height: var(--h); border-radius: var(--radius); }
-.library-bar .pick, .library-bar .sort-button { transition: background-color var(--press) ease-out, color var(--press) ease-out; }
-.library-bar .pick:hover, .library-bar .sort-button:hover { background: var(--hover); color: var(--text); }
-.library-bar .sort-button[aria-expanded="true"] { background: var(--selected); color: var(--text); }
+.library-title:not(:disabled):hover, .library-title[aria-expanded="true"] { background: var(--hover); }
+.library-title:disabled { opacity: 1; cursor: default; }
+.library-title .icon { flex: none; color: var(--text-subtle); transition: transform var(--settle) var(--ease); }
+.library-title[aria-expanded="true"] .icon { transform: rotate(180deg); }
+#library-title-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.library-note { display: flex; flex: 1 1 0; align-items: baseline; gap: 10px; min-width: 0; contain: inline-size; }
+.library-summary {
+  flex: 0 99 auto; min-width: 0; overflow: hidden; color: var(--text-subtle); font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The genre the library is narrowed to: it keeps its place when the count has none, and a click takes it off */
+.genre-chip {
+  display: inline-flex; flex: 0 1 auto; align-items: center; gap: 4px; min-width: 0; height: var(--h-sm); padding: 0 6px 0 10px;
+  border-radius: var(--radius); background: var(--selected); color: var(--text); font-size: var(--fs-sm); font-weight: 500;
+  transition: background-color var(--press) ease-out;
+}
+.genre-chip:hover { background: var(--selected-hover); }
+.genre-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.genre-chip .icon { flex: none; width: 14px; height: 14px; color: var(--text-subtle); }
+.library-search { flex: 0 1 200px; margin: 0 4px; }
+/* What the bar holds lies flat on it: an icon or a few words, 34 high, that take a shade under the pointer.
+   The filter alone has a rim, being the one thing there to type in, and an action with a name on it is a button. */
 .pick { position: relative; display: inline-flex; align-items: center; gap: 4px; padding-left: 12px; white-space: nowrap; }
 .pick select {
   appearance: none; height: 100%; padding: 0 24px 0 4px; border: 0; border-radius: var(--radius); background: transparent;
   color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
 }
 .pick select option { background: var(--field); color: var(--text); font-weight: 400; }
-/* As wide as the genre picked, not as the longest of dozens */
-#library-genre { field-sizing: content; max-width: 220px; text-overflow: ellipsis; }
 .pick .icon { position: absolute; right: 6px; pointer-events: none; }
-.sort-wrap { position: relative; display: inline-flex; min-width: 0; }
-.sort-button { display: inline-flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+.sort-wrap { position: relative; display: inline-flex; flex: 0 4 auto; min-width: 0; }
+.sort-button {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0; height: var(--h); padding: 0 10px;
+  border-radius: var(--radius); color: var(--text-muted); font-size: var(--fs-sm); font-weight: 500; white-space: nowrap;
+  transition: background-color var(--press) ease-out, color var(--press) ease-out;
+}
+.sort-button:hover { background: var(--hover); color: var(--text); }
+.sort-button[aria-expanded="true"] { background: var(--selected); color: var(--text); }
 .sort-button .icon { flex: none; color: var(--text-subtle); }
 #library-sort-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* The sorts are written in lower case after "by", so the menu begins them with a capital */
@@ -657,8 +655,8 @@ html.window-full .topbar-right { padding-right: 24px; }
 .segmented.small { height: var(--h-sm); }
 .segmented.small button { padding: 0 8px; }
 /* The view switch is two icons side by side, the one in use told by a shade: no frame round the pair, and
-   not a black block that outweighs the red line of the tabs */
-#library-view { gap: 2px; overflow: visible; border: 0; background: none; }
+   not a black block that outweighs the name */
+#library-view { gap: 2px; height: var(--h); overflow: visible; border: 0; background: none; }
 #view-library #library-view button { justify-content: center; width: var(--h); padding: 0; border: 0; border-radius: var(--radius); }
 #library-view button[aria-checked="true"] { background: var(--selected); color: var(--text); }
 #library-view button[aria-checked="true"]:focus-visible { outline-color: var(--accent-fg); }
@@ -671,8 +669,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .library-head .tool-btn.icon-only:focus-visible { outline-offset: 0; }
 
 /* The library's own list: its views, its genres and its playlists. A window wide enough stands it beside the
-   library, and the tabs and the genre pick, which it replaces, give way; narrower, it is not there and they are.
-   The toolbar and the bar are one line then: what the library holds, the order and the view, the filter and the buttons. */
+   library; in a narrower one it is the menu of the name in the bar. */
 .lib-side { display: none; }
 .side-head {
   margin: 0 8px 4px; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em;
@@ -704,29 +701,32 @@ html.window-full .topbar-right { padding-right: 24px; }
     display: block; grid-column: 1; grid-row: 1 / 3; min-height: 0; padding: 16px 12px 24px; overflow-y: auto;
     border-right: 1px solid var(--divider); background: var(--chrome);
   }
-  #view-library > .library-head {
-    grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px 10px 20px;
-    border-bottom: 1px solid var(--divider);
-  }
+  #view-library > .library-head { grid-column: 2; grid-row: 1; }
   #view-library > .library-body { grid-column: 2; grid-row: 2; }
-  .library-head > .toolbar, .library-head > .library-bar { display: contents; }
-  .library-head > .toolbar > :not(.tabs) { margin-block: 0; }
-  .library-head .tabs, .library-head .pick { display: none; }
-  /* The name is never cut short: the count beside it gives way first (it is measured as if empty, so the
-     pair asks for no more than the name), then the words of the order and the filter's width */
-  .library-what { order: 1; flex: 1 1 0; min-width: min-content; margin: 0; }
-  .library-title { display: block; flex: none; max-width: 280px; }
-  .library-summary { flex: 1 1 0; contain: inline-size; }
-  .library-head .tool-btn { order: 2; }
-  .library-head .sort-wrap { order: 4; flex: 0 4 auto; }
-  .library-head #library-view { order: 5; }
-  .library-head .library-search { order: 6; flex-basis: 200px; margin: 0 4px; }
-  .library-head .btn-group { order: 7; }
+  .library-title { padding-right: 8px; }
+  .library-title .icon { display: none; }
+}
+/* Narrower, the list opens under the name as a menu does, and the order is told by its icon alone */
+@container content (width < 1000px) {
+  #view-library { position: relative; }
+  #view-library.side-open .lib-side {
+    display: block; position: absolute; top: 50px; left: 12px; z-index: 10; width: 264px; max-height: calc(100% - 62px);
+    padding: 8px; overflow-y: auto; border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+    background: var(--field); box-shadow: var(--menu-shadow);
+  }
+  .side-open .lib-side .side-head:first-child { display: none; }
+  .side-open .lib-side .side-head { margin-top: 12px; }
+  #library-sort-label { display: none; }
+  .library-search { flex-basis: 160px; }
+  /* An action with a name on it is its icon too, so that what is shown and chosen keeps some room to be told in */
+  .library-head > .tool-btn span { display: none; }
+  .library-head > .tool-btn { flex: none; justify-content: center; width: var(--h); padding: 0; border-color: transparent; background: none; }
+  .library-head > .tool-btn:hover { background: var(--hover); }
 }
 
 .library-body { position: relative; display: flex; flex: 1; min-height: 0; }
 /* Sorting and the view switch mean nothing on an album's page */
-.page-open .library-bar .pick, .page-open .library-bar .sort-wrap, .page-open #library-view { visibility: hidden; }
+.page-open .library-head .sort-wrap, .page-open #library-view { visibility: hidden; }
 .library-panel { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 
 /* Cover grid */
@@ -1445,8 +1445,6 @@ button.lyric-line:hover { opacity: 1; }
 }
 @container content (max-width: 796px) {
   .library-search { flex-basis: 140px; }
-  .tabs button { padding: 0 8px; }
-  #library-sort-label { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #library-folder span { display: none; }
   #library-folder { flex: none; }
   .cards { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px 16px; padding: 16px; }

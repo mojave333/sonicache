@@ -86,7 +86,7 @@ const state = {
     tab: "albums", view: "grid",
     favouritesOnly: false, // the albums that are favourites, shown as a view of their own in the side list
     genresOpen: undefined, // the side list's genres, open or shut; left to the genre picked while undecided
-    genre: "", // the genre the tabs are narrowed to, by its lower-case name; "" for all
+    genre: "", // the genre the library is narrowed to, by its lower-case name; "" for all
     sorts: { // newest first, the way the folder itself is read
       albums: { key: "modified", dir: -1 },
       tracks: { key: "modified", dir: -1 },
@@ -890,11 +890,7 @@ function bindUi() {
   bindWatch();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
-  $("#font").addEventListener("change", (event) => {
-    updateSettings({ font: event.target.value });
-    // Another face is another width: the line under the tab is measured again once it has loaded
-    document.fonts.ready.then(() => placeTabInk(false));
-  });
+  $("#font").addEventListener("change", (event) => updateSettings({ font: event.target.value }));
   $("#art").addEventListener("change", (event) => updateSettings({ art: event.target.value }));
   bindSwitch($("#replaygain"), (on) => updateSettings({ replaygain: on }));
   bindSwitch($("#lyrics"), (on) => updateSettings({ lyrics: on }));
@@ -983,16 +979,9 @@ function bindUi() {
     if (row) openTrack(row);
   });
   $("#library-tracks").addEventListener("keydown", onTracksKey);
-  for (const tab of $$("#library-tabs [role=tab]")) {
-    tab.addEventListener("click", () => chooseLibraryView(tab.dataset.tab));
-  }
   bindLibrarySide();
   radioGroup($("#library-view"), "data-library-view", setLibraryView);
   $("#library-sort").addEventListener("change", onSortPick);
-  $("#library-genre").addEventListener("change", (event) => {
-    state.library.genre = event.target.value;
-    renderLibrary();
-  });
   $("#library-order").addEventListener("change", onSortPick);
   $("#library-sort-button").addEventListener("click", () => setSortMenuOpen($("#library-sort-menu").hidden));
   $("#library-sort-menu").addEventListener("click", onSortMenuClick);
@@ -1006,7 +995,6 @@ function bindUi() {
   $("#view-library").addEventListener("mouseup", (event) => {
     if (event.button === 3 && !$("#library-page").hidden) closePage();
   });
-  new ResizeObserver(() => placeTabInk(false)).observe($("#library-tabs"));
   $("#library-menu").addEventListener("click", onLibraryMenuClick);
   // Anywhere else — including another window — closes the menu
   document.addEventListener("pointerdown", (event) => {
@@ -1084,6 +1072,10 @@ function onLibraryShortcut(event) {
   const { selected, shown } = state.library;
   if (event.key === "Escape" && !$("#library-menu").hidden) {
     closeLibraryMenu();
+    return;
+  }
+  if (event.key === "Escape" && $("#view-library").classList.contains("side-open")) {
+    setLibrarySideOpen(false);
     return;
   }
   const pageOpen = !$("#library-page").hidden;
@@ -1231,6 +1223,7 @@ function showView(name) {
   }
   for (const view of $$(".view")) view.hidden = view.id !== `view-${name}`;
   setMenuOpen(false, false);
+  setLibrarySideOpen(false, false);
   if (name === "download") $("#link").focus();
   $("#player-lyrics")?.setAttribute("aria-pressed", String(name === "now"));
   // Now playing covers the whole window; any way out of it gives the window back
@@ -1256,7 +1249,6 @@ function showView(name) {
     renderHome();
   }
   if (name === "library") {
-    requestAnimationFrame(() => placeTabInk(false)); // the tabs have no size until the view shows
     if (state.library.stale || state.library.folder !== libraryFolders().join("\n")) loadLibrary();
     if (state.playlists.stale && !state.playlists.loading) loadPlaylists();
   } else {
@@ -2418,15 +2410,15 @@ function currentSort(tab = state.library.tab) {
 // else what it holds. A folder being read or holding nothing says so in the
 // middle of the view instead.
 function renderLibrarySummary() {
-  $("#library-title").textContent = libraryTitle();
-  $("#library-summary").textContent = libraryNote() || librarySummary();
+  $("#library-title-name").textContent = libraryTitle();
+  const summary = $("#library-summary");
+  summary.textContent = libraryNote() || librarySummary();
+  summary.title = summary.textContent; // a narrow window cuts it short
 }
 
-// The name of what the library shows, as the side list has it: the view, or the genre the albums are narrowed to
+// The name of what the library shows, as its list of views has it
 function libraryTitle() {
-  const { tab, genre, favouritesOnly } = state.library;
-  const named = tab === "albums" && genre ? libraryGenres().find((entry) => entry.key === genre)?.name : "";
-  if (named) return named;
+  const { tab, favouritesOnly } = state.library;
   if (tab === "albums" && favouritesOnly) return t("Избранное");
   return t({ albums: "Альбомы", tracks: "Треки", artists: "Исполнители", playlists: "Плейлисты" }[tab]);
 }
@@ -2584,11 +2576,8 @@ function renderLibrary({ enter = false } = {}) {
   $("#library-view").hidden = tab !== "albums";
   syncRadios($("#library-view"), "data-library-view", library.view);
   renderSortPickers();
-  renderGenrePicker();
-  if (tab === "playlists") {
-    $("#library-shuffle").hidden = true;
-    $("#library-genre").closest(".pick").hidden = true;
-  }
+  renderGenre();
+  if (tab === "playlists") $("#library-shuffle").hidden = true;
   const shownCount = tab === "albums" ? renderAlbums(grid, enter)
     : tab === "tracks" ? renderTracks(enter) : tab === "playlists" ? renderPlaylists(enter) : renderArtists(enter);
   renderSelection(); // and with it the bar above the list
@@ -2598,7 +2587,7 @@ function renderLibrary({ enter = false } = {}) {
   empty.hidden = shownCount > 0;
   const query = $("#library-filter").value.trim();
   let [title, text] = [t("Ничего не найдено"), query ? t("По запросу «{query}»", { query })
-    : t("В жанре «{genre}»", { genre: $("#library-genre").selectedOptions[0]?.dataset.name || "" })];
+    : t("В жанре «{genre}»", { genre: genreName() })];
   if (library.favouritesOnly && tab === "albums" && !query && !library.genre) {
     [title, text] = [t("Избранного пока нет"), t("Откройте альбом и нажмите на сердечко: он появится здесь")];
   }
@@ -2654,21 +2643,23 @@ function libraryGenres() {
   return [...found.values()].sort((a, b) => COLLATOR.compare(a.name, b.name));
 }
 
-function renderGenrePicker() {
+// The genre the library is narrowed to, as the tags spell it; nothing when it is not
+function genreName() {
+  const { genre } = state.library;
+  return (genre && libraryGenres().find((entry) => entry.key === genre)?.name) || "";
+}
+
+// The genre is chosen in the list of views. Here it is checked against the tags, shown beside the name of the
+// view as something a click takes off, and the shuffle is named after it
+function renderGenre() {
   const library = state.library;
-  const pick = $("#library-genre");
   const shuffle = $("#library-shuffle");
-  const genres = libraryGenres();
   // A genre gone from the folders after it was read again lets the library go back to all
-  if (library.genre && !genres.some((genre) => genre.key === library.genre)) library.genre = "";
-  pick.closest(".pick").hidden = !genres.length;
-  pick.replaceChildren(new Option(t("все"), ""), ...genres.map((genre) => {
-    const option = new Option(`${genre.name} · ${genre.count}`, genre.key);
-    option.dataset.name = genre.name;
-    return option;
-  }));
-  pick.value = library.genre;
-  const genre = pick.selectedOptions[0]?.dataset.name;
+  if (library.genre && !genreName()) library.genre = "";
+  const genre = genreName();
+  const chip = $("#library-genre");
+  chip.hidden = !genre || library.tab === "playlists"; // the playlists are not narrowed by it
+  $("span", chip).textContent = genre;
   shuffle.title = genre ? t("Слушать «{genre}» вперемешку", { genre }) : t("Слушать всю библиотеку вперемешку");
   shuffle.setAttribute("aria-label", shuffle.title);
   shuffle.hidden = !library.items.length;
@@ -2892,7 +2883,10 @@ function renderSortPickers() {
 // What the library is sorted by and which way, in one button; its menu lists the
 // sorts of the tab being shown and the two directions that go with the one chosen
 function renderSortMenu(sorts, key, dir, labels) {
-  $("#library-sort-label").textContent = `${t(sorts[key].label)} · ${t(labels[dir])}`;
+  const order = `${t(sorts[key].label)} · ${t(labels[dir])}`;
+  $("#library-sort-label").textContent = order;
+  // In a narrow window the button is its icon alone, and says the order when asked
+  $("#library-sort-button").title = `${t("Сортировка")}: ${order}`;
   const menu = $("#library-sort-menu");
   const item = (attribute, value, text, checked) => {
     const button = document.createElement("button");
@@ -2957,16 +2951,7 @@ function onSortPick() {
   renderLibrary();
 }
 
-/* Tabs, views and the pages drawn over them */
-
-function placeTabInk(animate = true) {
-  const tabs = $("#library-tabs");
-  const chosen = $("[aria-selected=true]", tabs);
-  if (!chosen || !chosen.offsetWidth) return;
-  tabs.classList.toggle("ink-ready", animate && !reduceMotion());
-  tabs.style.setProperty("--ink-x", `${chosen.offsetLeft + 8}px`);
-  tabs.style.setProperty("--ink-w", `${chosen.offsetWidth - 16}px`);
-}
+/* Views and the pages drawn over them */
 
 // Material's "fade through": what leaves fades out quickly, what arrives fades
 // in while growing from just under its size
@@ -2987,9 +2972,25 @@ function fadeThrough(change) {
   }, 90);
 }
 
-/* The library's list at the side: the views, the genres and the playlists, chosen here as well as by the tabs in the bar */
+/* The library's list of views, genres and playlists: at the side in a wide window, and in a narrower one
+   the menu of the name in the bar */
 
-// One of the library's views: a tab of its own, or the albums that are favourites
+// The width from which the list stands at the side: the stylesheet's own figure
+const LIBRARY_SIDE_FROM = 1000;
+
+function setLibrarySideOpen(open, restoreFocus = true) {
+  const view = $("#view-library");
+  const title = $("#library-title");
+  const side = $("#library-side");
+  const wasOpen = view.classList.contains("side-open");
+  open = open && $(".main").clientWidth < LIBRARY_SIDE_FROM; // beside the library it has nothing to open
+  view.classList.toggle("side-open", open);
+  title.setAttribute("aria-expanded", String(open));
+  if (open) ($("[aria-pressed=true]", side) || $("[aria-current=page]", side) || $(".side-item", side)).focus();
+  else if (wasOpen && restoreFocus) title.focus();
+}
+
+// One of the library's views: the albums, the tracks, the artists, the playlists, or the albums that are favourites
 async function chooseLibraryView(tab, favourites = false) {
   const library = state.library;
   while (!$("#library-page").hidden) await closePage({ instant: true });
@@ -3060,9 +3061,25 @@ function sideItem({ icon, name, count, attributes }) {
 
 function bindLibrarySide() {
   const side = $("#library-side");
+  const title = $("#library-title");
+  title.addEventListener("click", () => setLibrarySideOpen(title.getAttribute("aria-expanded") !== "true"));
+  $("#library-genre").addEventListener("click", () => {
+    state.library.genre = "";
+    renderLibrary({ enter: true });
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest("#library-side, #library-title")) setLibrarySideOpen(false, false);
+  });
+  // Beside the library the list is always there, and the name is only a heading
+  new ResizeObserver(([entry]) => {
+    title.disabled = entry.contentRect.width >= LIBRARY_SIDE_FROM;
+    if (title.disabled) setLibrarySideOpen(false, false);
+  }).observe($(".main"));
   side.addEventListener("click", async (event) => {
     const library = state.library;
     const target = event.target;
+    // Opening the genres is a step on the way; anything else chosen closes the menu
+    if (target.closest("button, [data-side]") && !target.closest("#side-genres")) setLibrarySideOpen(false);
     const genre = target.closest("[data-genre]");
     if (genre) {
       while (!$("#library-page").hidden) await closePage({ instant: true });
@@ -3102,10 +3119,6 @@ function showLibraryTab(tab) {
   if (tab === library.tab && $("#library-page").hidden) return;
   closePage({ instant: true });
   library.scroll[library.tab] = $("#library-scroll").scrollTop;
-  for (const button of $$("#library-tabs [role=tab]")) {
-    button.setAttribute("aria-selected", String(button.dataset.tab === tab));
-  }
-  placeTabInk();
   clearSelection();
   fadeThrough(() => {
     library.tab = tab;
