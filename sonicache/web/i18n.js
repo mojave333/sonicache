@@ -36,7 +36,6 @@ const TRANSLATIONS = {
     "From {name} to the queue: {count}, lines not understood: {skipped}",
 
   // Watching
-  "Слежение": "Watching",
   "Плейлисты, альбомы и исполнители под наблюдением":
     "Watched playlists, albums and artists",
   "Раз в 12 часов программа снова открывает ссылку и докачивает в ту же папку только новое. Чтобы следить за релизом, нажмите на глаз на его карточке загрузки. За исполнителем можно следить с его страницы в поиске":
@@ -192,6 +191,7 @@ const TRANSLATIONS = {
   "Скачано {ok} {trackWord}": "Downloaded {ok} {trackWord}",
   "уже были: {skipped}": "already here: {skipped}",
   "не удалось: {failed}": "failed: {failed}",
+  "не найдено: {failed}": "not found: {failed}",
   "из «{album}»": "from \"{album}\"",
 
   // Status bar
@@ -212,18 +212,14 @@ const TRANSLATIONS = {
   "Фильтр": "Filter",
   "Фильтр библиотеки": "Filter the library",
   "Показать в библиотеке только то, что подходит": "Show only what matches in the library",
-  "Сортировка:": "Sort:",
   "Назад: {where}": "Back: {where}",
   "Всё сохраняется сразу, отдельная кнопка не нужна": "Everything is saved at once, there is no button for it",
   "Разделы настроек": "Settings sections",
   "Куда сохранять": "Where music goes",
   "Звук и тексты": "Sound and lyrics",
   "Слежение и фон": "Watching and background",
-  "Сеть": "Network",
-  "Если что-то не работает": "If something does not work",
   "Как выглядит окно": "How the window looks",
   "Папка для музыки и то, как в ней называются альбомы и треки": "The music folder, and how albums and tracks are named in it",
-  "Скорость и то, как программа выбирает запись": "Speed, and how the program picks a recording",
   "Что дописывается к каждому скачанному треку": "What every downloaded track gets besides its sound",
   "Где ещё лежит ваша музыка": "Where else your music is",
   "Показывать в Discord, что играет": "Show on Discord what plays",
@@ -231,8 +227,6 @@ const TRANSLATIONS = {
     "Your profile shows \"Listening to\" with the track, the artist and the album's cover. It goes away while paused. Discord must be running on this computer",
   "Новые треки приходят сами, без вашего участия": "New tracks arrive by themselves",
   "Папка, формат и имена под одним названием, на один щелчок": "A folder, a format and names under one name, a click away",
-  "Если сервисы открываются плохо или не открываются совсем": "When the services open slowly or not at all",
-  "Что установлено и где искать подробности": "What is installed, and where to find the details",
   "Так будет выглядеть альбом:": "An album will look like this:",
   "Остановить после текущей записи · {done} из {total}": "Stop after the current item · {done} of {total}",
   "Удалить (Delete)": "Delete (Delete)",
@@ -242,7 +236,6 @@ const TRANSLATIONS = {
   "Скачать ещё раз": "Download again",
   "Показать все жанры": "Show all genres",
   "В жанре «{genre}»": "In the genre “{genre}”",
-  "Порядок:": "Order:",
   "Сортировка": "Sort",
   "Порядок": "Order",
   "Вид": "View",
@@ -367,7 +360,6 @@ const TRANSLATIONS = {
   "Дописать теги": "Fill in tags",
   "несколько секунд": "a few seconds",
   "{progress} · ещё {eta}": "{progress} · {eta} left",
-  "Поиск (Ctrl+2)": "Search (Ctrl+2)",
   "Папка для музыки": "Music folder",
   "Другие папки с музыкой": "Other music folders",
   "Библиотека покажет музыку и из этих папок. Файлы остаются там, где лежат":
@@ -375,7 +367,6 @@ const TRANSLATIONS = {
   "Добавить папку…": "Add a folder…",
   "Убрать из библиотеки": "Remove from the library",
   "Исполнитель, альбом или трек": "Artist, album or track",
-  "Что найти": "What to find",
   "Найдите, что скачать": "Find something to download",
   "Ищем…": "Searching…",
   "Поиск не удался": "The search failed",
@@ -608,7 +599,6 @@ const TRANSLATIONS = {
   "Все": "All",
   "Загружаем каталог…": "Loading the catalogue…",
   "Каталог сейчас недоступен": "The catalogue is not available right now",
-  "Поиск в каталоге Deezer: найденное можно скачать (Ctrl+2)": "Search the Deezer catalogue: what is found can be downloaded (Ctrl+2)",
   "Жанры": "Genres",
   "Избранного пока нет": "No favourites yet",
   "Откройте альбом и нажмите на сердечко: он появится здесь": "Open an album and press its heart: it will appear here",
