@@ -1027,26 +1027,91 @@ html.window-full .topbar-right { padding-right: 24px; }
 #page-back span, #search-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
 .page-back:hover { background: var(--hover); color: var(--text); }
-/* Synchronisation: the devices in a list, and the page of the one opened beside it */
-#view-sync { display: grid; grid-template-columns: 232px minmax(0, 1fr); }
-.sync-side { min-height: 0; padding: 16px 12px 24px; overflow-y: auto; border-right: 1px solid var(--divider); background: var(--chrome); }
-.sync-page { min-width: 0; min-height: 0; padding: 20px 32px 32px; overflow-y: auto; container: page / inline-size; }
-.sync-empty { margin: 0; color: var(--text-subtle); }
-@container content (width < 720px) {
-  #view-sync { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .sync-side { max-height: 200px; border-right: 0; border-bottom: 1px solid var(--divider); }
-  .sync-page { padding: 16px 16px 24px; }
+/* Synchronisation. The overview is cards: a device is a card with how full it is, and a click opens its page.
+   A device's page goes in two steps, what to take and how to write it, and its bar at the bottom stays in
+   sight with what a sync would do, how it goes and the button. */
+.sync { --px: 32px; --pb: 40px; max-width: 880px; margin: 0 auto; padding: 24px var(--px) var(--pb); }
+.sync .settings-hero { margin-bottom: 8px; }
+.sync-art .ascii { font-size: var(--fs-2xs); }
+.sync-heading { display: flex; align-items: baseline; gap: 8px; margin: 28px 0 12px; font: 700 var(--fs-md)/1.3 var(--font-display); }
+.sync-count { color: var(--text-subtle); font: 400 var(--fs-sm) var(--font); }
+.sync-count:empty { display: none; }
+.sync-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.sync-grid:empty { display: none; }
+.sync-card {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px 14px; min-width: 0;
+  padding: 16px; border-radius: var(--radius-lg); background: var(--field); box-shadow: inset 0 0 0 1px var(--divider);
+  color: var(--text); text-align: left; cursor: pointer;
+  transition: background-color var(--press) ease-out, box-shadow var(--press) ease-out;
 }
-/* A device's page: how full it is, what it gets, the button that syncs it */
-.device-page { max-width: 760px; }
+.sync-card:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.sync-card:active { background: var(--selected); }
+.sync-card:focus-visible { outline-offset: 2px; }
+.sync-icon {
+  display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: var(--radius-md);
+  background: var(--selected); color: var(--text-muted);
+}
+.sync-icon .icon { width: 24px; height: 24px; }
+.sync-icon.big { width: 56px; height: 56px; border-radius: var(--radius-lg); }
+.sync-icon.big .icon { width: 30px; height: 30px; }
+.sync-card-body { display: grid; gap: 2px; min-width: 0; }
+.sync-card-name { overflow: hidden; font-size: var(--fs-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.sync-card-kind { overflow: hidden; color: var(--text-subtle); font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap; }
+.sync-way .sync-card-kind { white-space: normal; line-height: 1.4; }
+.sync-chevron { color: var(--text-subtle); }
+.sync-card > .space-bar, .sync-card-foot { grid-column: 1 / -1; }
+.sync-card-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; color: var(--text-subtle); font-size: var(--fs-sm); }
+.sync-state { display: inline-flex; align-items: center; gap: 6px; color: var(--text-subtle); font-size: var(--fs-sm); }
+.sync-state .icon { width: 16px; height: 16px; }
+.sync-state.ok { color: var(--success); }
+.sync-state.warn { color: var(--warning); }
+.sync-card.not-ready .sync-icon { background: var(--warn-bg); color: var(--warning); }
+.sync-card.working { box-shadow: inset 0 0 0 1px var(--accent-edge); }
+.sync-none { padding: 20px 24px; border: 1px dashed var(--border); border-radius: var(--radius-lg); }
+.sync-none-title { margin: 0 0 12px; font-weight: 600; }
+.sync-tips { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.sync-tips li { display: flex; align-items: flex-start; gap: 12px; color: var(--text-muted); line-height: 1.45; }
+.sync-tips .icon { flex: none; width: 22px; height: 22px; margin-top: 1px; color: var(--text-subtle); }
+.sync-tips b { color: var(--text); font-weight: 600; }
+
+/* A device's page */
+.sync-back { margin-bottom: 8px; }
 .device-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
-.device-what { min-width: 0; }
-.device-head .album-title { margin: 0; }
+.device-what { flex: 1; min-width: 0; }
+.device-actions { display: flex; flex: none; gap: 8px; }
+.device-head .album-title { margin: 0; font-size: var(--fs-3xl); line-height: 1.15; overflow-wrap: anywhere; }
 .device-head .album-sub { margin: 4px 0 0; overflow-wrap: anywhere; user-select: text; }
+.space-card { padding: 16px 20px; border-radius: var(--radius-lg); background: var(--field); box-shadow: inset 0 0 0 1px var(--divider); }
 .space-bar { display: flex; height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--divider); }
-.space-taken { background: var(--text-subtle); }
+.space-taken { background: var(--text-subtle); transition: width var(--settle) var(--ease); }
 .space-after { background: var(--accent); transition: width var(--settle) var(--ease); }
-.device-space { margin: 8px 0 20px; color: var(--text-subtle); font-size: var(--fs-sm); }
+.space-legend { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 12px 0 0; padding: 0; list-style: none; color: var(--text-subtle); font-size: var(--fs-sm); }
+.space-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.space-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.dot.taken { background: var(--text-subtle); }
+.dot.added { background: var(--accent); }
+.dot.free { background: var(--divider); box-shadow: inset 0 0 0 1px var(--border); }
+.step-head { display: flex; align-items: center; gap: 10px; margin: 28px 0 12px; font: 700 var(--fs-md)/1.3 var(--font-display); }
+.step-n {
+  display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--text); color: var(--bg); font: 600 var(--fs-xs) var(--font);
+}
+.scope { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.scope-opt {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; row-gap: 2px; align-items: center;
+  padding: 14px 16px; border-radius: var(--radius-lg); background: var(--field); box-shadow: inset 0 0 0 1px var(--divider);
+  color: var(--text-muted); text-align: left;
+  transition: background-color var(--press) ease-out, box-shadow var(--press) ease-out;
+}
+.scope-opt .icon { grid-row: 1 / 3; width: 22px; height: 22px; color: var(--text-subtle); }
+.scope-t { color: var(--text); font-weight: 600; }
+.scope-d { color: var(--text-subtle); font-size: var(--fs-sm); line-height: 1.35; }
+.scope-opt:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.scope-opt[aria-checked="true"] { background: var(--selected); box-shadow: inset 0 0 0 2px var(--text); }
+.scope-opt[aria-checked="true"] .icon { color: var(--text); }
+.scope-opt:active { background: var(--selected-hover); }
+.scope-opt:focus-visible { outline-offset: 2px; }
 .device-card { margin-bottom: 16px; }
 .device-lists { display: grid; gap: 8px; margin-bottom: 16px; }
 .device-list { border-radius: var(--radius-lg); background: var(--field); box-shadow: inset 0 0 0 1px var(--divider); }
@@ -1070,7 +1135,27 @@ html.window-full .topbar-right { padding-right: 24px; }
 .device-item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .device-item-sub { flex: none; max-width: 45%; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--text-subtle); font-size: var(--fs-sm); }
-.device-preview { min-height: 1.5em; margin: 0 0 12px; color: var(--text-muted); }
+.device-foot {
+  position: sticky; bottom: 16px; z-index: 2; display: flex; align-items: center; gap: 16px; margin: 24px 0 0;
+  padding: 12px 12px 12px 20px; border-radius: var(--radius-lg); background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--border), var(--menu-shadow);
+}
+.device-foot-text { flex: 1; min-width: 0; }
+.device-foot-text > p { margin: 0; }
+.device-foot .btn { flex: none; }
+.device-preview { min-height: 1.5em; color: var(--text); font-weight: 600; line-height: 1.5; }
+.device-notes { color: var(--text-subtle); font-size: var(--fs-sm); line-height: 1.45; }
+.device-notes:empty { display: none; }
+.device-result { margin-bottom: 4px !important; color: var(--success); font-size: var(--fs-sm); }
+.sync-progress { height: 6px; margin-top: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--divider); }
+.sync-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--settle) var(--ease); }
+@container content (width < 720px) {
+  .sync { --px: 16px; --pb: 24px; }
+  .scope { grid-template-columns: 1fr; }
+  .device-head { flex-wrap: wrap; }
+  .device-foot { flex-wrap: wrap; }
+  .device-foot .btn { width: 100%; justify-content: center; }
+}
 #device-bitrate { flex: none; }
 /* Phones over Wi-Fi: what to type into the player, set apart so it reads as something to copy */
 .wifi-value { margin: 4px 0 0; font-family: ui-monospace, Consolas, monospace; font-size: var(--fs-sm); user-select: text;
@@ -1731,6 +1816,7 @@ button.lyric-line:hover { opacity: 1; }
 .crayon { display: none; width: 100%; height: 100%; background: center / contain no-repeat; }
 [data-art="crayon"] .crayon { display: block; }
 [data-art="none"] :is(.scene, .settings-art) { display: none; }
+[data-art="crayon"] .sync-art { display: none; }
 [data-scene="cassette"] .crayon { background-image: url("art/crayon-downloads.webp"); }
 [data-scene="turntable"] .crayon { background-image: url("art/crayon-library.webp"); }
 [data-scene="radio"] .crayon { background-image: url("art/crayon-nothing.webp"); }

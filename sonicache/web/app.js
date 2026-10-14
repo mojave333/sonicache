@@ -225,6 +225,22 @@ const ASCII_SCENES = {
     }
     return lines;
   },
+  sync(tick, accents) {
+    const lines = [
+      " .-------------------.                     .--------. ",
+      " |  .-------------.  |                     | .----. | ",
+      " |  |  ~  ~  ~  ~ |  |                     | | ~~ | | ",
+      " |  |  ~  ~  ~  ~ |  |                     | '----' | ",
+      " |  '-------------'  |                     |   (  ) | ",
+      " '---------+---------'                     '--------' ",
+    ];
+    // Notes go over to the player, one after another
+    const trail = ">    ".repeat(5).slice(0, 25);
+    const shift = tick % 5;
+    asciiPut(lines, 3, 24, (trail.slice(shift) + trail.slice(0, shift)).slice(0, 19), accents);
+    asciiPut(lines, 4, 52, tick % 2 ? "(o)" : "( )");
+    return lines;
+  },
   mixer(tick, accents) {
     const lines = [" .---------------------------. ", ...Array(6).fill(" |                           | "),
                    " |   1    2    3    4    5   | ", " '---------------------------' "];
@@ -1065,6 +1081,9 @@ function onShortcut(event) {
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyK") {
     event.preventDefault();
     showView("search");
+  } else if (event.key === "Escape" && state.view === "sync" && state.devices.open
+             && !(event.target instanceof Element && event.target.closest("input, select"))) {
+    closeSyncPage();
   } else if (event.key === "Escape" && state.view === "now") {
     closeNowPlaying();
   } else if (event.key === "Escape" && state.view === "search" && !$("#search-page").hidden) {
@@ -6998,14 +7017,14 @@ function openWifi() {
   loadWifi();
 }
 
-// The page of the device or of the Wi-Fi server opened from the list, or the hint when none is
+// The overview, or the page of the device or of the Wi-Fi server opened from it
 function showSyncPage() {
   const open = state.devices.open;
-  const page = open?.kind === "wifi" ? $("#wifi-page") : open?.kind === "device" ? $("#device-page") : null;
-  const changed = Boolean(page) && page.hidden;
-  $("#device-page").hidden = page?.id !== "device-page";
-  $("#wifi-page").hidden = page?.id !== "wifi-page";
-  $("#sync-empty").hidden = Boolean(page);
+  const page = open?.kind === "wifi" ? $("#wifi-page") : open?.kind === "device" ? $("#device-page") : $("#sync-home");
+  const changed = page.hidden;
+  $("#sync-home").hidden = page.id !== "sync-home";
+  $("#device-page").hidden = page.id !== "device-page";
+  $("#wifi-page").hidden = page.id !== "wifi-page";
   if (changed) {
     $("#sync-page").scrollTop = 0;
     riseIn([...page.children]);
@@ -7013,15 +7032,22 @@ function showSyncPage() {
   renderDeviceSide();
 }
 
+function closeSyncPage() {
+  state.devices.open = null;
+  showSyncPage();
+}
+
 function bindSyncSide() {
-  $("#sync-side").addEventListener("click", async (event) => {
+  $("#sync-page").addEventListener("click", async (event) => {
     const target = event.target;
     const device = target.closest("[data-device]");
-    if (device) {
+    if (target.closest("[data-sync-back]")) {
+      closeSyncPage();
+    } else if (device) {
       openDevice(device.dataset.device);
-    } else if (target.closest("#side-wifi")) {
+    } else if (target.closest("#sync-wifi")) {
       openWifi();
-    } else if (target.closest("#side-device-folder")) {
+    } else if (target.closest("#sync-folder")) {
       const added = await api().add_device_folder();
       if (!added) return;
       await loadDevices();
@@ -7107,10 +7133,7 @@ async function loadDevices() {
   if (!id) return;
   const device = items.find((entry) => entry.id === id);
   if (device) renderDeviceSpace(device);
-  else if (!state.devices.sync.running) { // unplugged while its page was open
-    state.devices.open = null;
-    showSyncPage();
-  }
+  else if (!state.devices.sync.running) closeSyncPage(); // unplugged while its page was open
 }
 
 function openDeviceId() {
@@ -7118,32 +7141,85 @@ function openDeviceId() {
   return open?.kind === "device" && state.view === "sync" ? open.id : "";
 }
 
+// What a device is called and drawn as, by the kind of connection it has
+const DEVICE_KINDS = {
+  ipod: ["i-hard-drive", "iPod"], drive: ["i-usb", "Съёмный диск"], mtp: ["i-device-mobile", "Телефон по кабелю"],
+  folder: ["i-folder", "Папка"],
+};
+
+function deviceKind(device) {
+  const [icon, name] = DEVICE_KINDS[device.kind] || DEVICE_KINDS.drive;
+  return { icon, name: t(name) };
+}
+
 function renderDeviceSide() {
   const id = openDeviceId();
-  const wifiOpen = state.devices.open?.kind === "wifi" && state.view === "sync";
-  const wifiRow = $("#side-wifi");
-  if (wifiOpen) wifiRow.setAttribute("aria-current", "page");
-  else wifiRow.removeAttribute("aria-current");
-  $(".side-n", wifiRow).textContent = state.devices.wifi?.running ? t("вкл") : "";
-  // The drives are looked for every few seconds: rows drawn again for nothing would take the focus away
-  const rows = JSON.stringify([language(), id, state.devices.items.map((device) => [device.id, device.name, device.note, device.free])]);
-  if (rows !== state.devices.sideRows) {
-    state.devices.sideRows = rows;
-    renderDeviceRows(id);
+  const wifi = state.devices.wifi;
+  const wifiState = $("#sync-wifi-state");
+  wifiState.textContent = wifi?.running ? t("Включено") : "";
+  wifiState.classList.toggle("ok", Boolean(wifi?.running));
+  // The drives are looked for every few seconds: cards drawn again for nothing would take the focus away
+  const sync = state.devices.sync;
+  const cards = JSON.stringify([language(), state.devices.items.map((device) => [device.id, device.name, device.note, device.free,
+    device.synced, sync.running && sync.device === device.id ? sync.done : -1])]);
+  if (cards !== state.devices.sideRows) {
+    state.devices.sideRows = cards;
+    renderDeviceCards();
   }
   // What the lists offer comes from the library and the playlists, which may be read only now
   const shown = `${state.library.items.length}|${state.playlists.items.length}`;
   if (id && shown !== state.devices.shown) renderDeviceChoice();
 }
 
-function renderDeviceRows(id) {
-  $("#side-devices").replaceChildren(...state.devices.items.map((device) => sideItem({
-    icon: "i-folder", name: device.name, count: device.note ? "" : formatSize(device.free),
-    attributes: { "data-device": device.id,
-                  title: device.note ? `${device.name} · ${device.note}` : t("{name} · свободно {free} из {total}",
-                           { name: device.name, free: formatSize(device.free), total: formatSize(device.total) }),
-                  ...(device.id === id ? { "aria-current": "page" } : {}) },
-  })));
+function renderDeviceCards() {
+  const { items, sync } = state.devices;
+  $("#sync-count").textContent = items.length ? String(items.length) : "";
+  $("#sync-none").hidden = items.length > 0;
+  $("#sync-devices").replaceChildren(...items.map((device) => {
+    const { icon, name } = deviceKind(device);
+    const working = sync.running && sync.device === device.id;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "sync-card" + (device.note ? " not-ready" : "") + (working ? " working" : "");
+    card.dataset.device = device.id;
+    card.innerHTML = `<span class="sync-icon"><svg class="icon" aria-hidden="true"><use href="#${icon}"/></svg></span>
+      <span class="sync-card-body"><span class="sync-card-name"></span><span class="sync-card-kind"></span></span>
+      <svg class="icon sm sync-chevron" aria-hidden="true"><use href="#i-chevron-right"/></svg>`;
+    $(".sync-card-name", card).textContent = device.name;
+    $(".sync-card-kind", card).textContent = device.kind === "mtp" ? name : `${name} · ${device.root.replace(/[\\/]+$/, "") || device.root}`;
+    const foot = document.createElement("span");
+    foot.className = "sync-card-foot";
+    const stateLine = document.createElement("span");
+    stateLine.className = "sync-state";
+    if (device.note) {
+      stateLine.classList.add("warn");
+      stateLine.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span></span>';
+      $("span", stateLine).textContent = device.note;
+      foot.append(stateLine);
+    } else {
+      const bar = document.createElement("span");
+      bar.className = "space-bar";
+      bar.setAttribute("aria-hidden", "true");
+      bar.innerHTML = '<span class="space-taken"></span>';
+      $(".space-taken", bar).style.width = `${(100 * (device.total - device.free)) / Math.max(1, device.total)}%`;
+      const free = document.createElement("span");
+      free.textContent = t("Свободно {free} из {total}", { free: formatSize(device.free), total: formatSize(device.total) });
+      if (working) {
+        stateLine.classList.add("ok");
+        stateLine.textContent = t("Синхронизация: {done} из {total}", { done: Math.min(sync.done + 1, sync.total), total: sync.total });
+      } else if (device.synced) {
+        stateLine.classList.add("ok");
+        stateLine.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span></span>';
+        $("span", stateLine).textContent = t("Уже синхронизировалось");
+      } else {
+        stateLine.textContent = t("Ещё не синхронизировалось");
+      }
+      foot.append(free, stateLine);
+      card.append(bar);
+    }
+    card.append(foot);
+    return card;
+  }));
 }
 
 function openDevice(id) {
@@ -7168,6 +7244,7 @@ function fillDevicePage(device) {
   // A phone over a cable has no path to show or to open in Explorer
   $(".device-root", page).textContent = device.kind === "mtp" ? t("По кабелю · папка Music/Sonicache")
     : device.kind === "ipod" ? t("iPod · {root}", { root: device.root }) : device.root;
+  swapIcon($(".sync-icon use", page), `#${deviceKind(device).icon}`);
   $("#device-open").hidden = device.kind === "mtp";
   $("#device-forget").hidden = device.kind !== "folder";
   $("#device-transcode").disabled = !device.ffmpeg;
@@ -7184,19 +7261,19 @@ function fillDevicePage(device) {
 function renderDeviceSpace(device) {
   const page = $("#device-page");
   // A locked phone shows no storage yet: what to do about it is said where the preview would be
-  $(".space-bar", page).hidden = Boolean(device.note);
-  if (device.note) {
-    $(".device-space", page).textContent = "";
-    return;
-  }
+  $(".space-card", page).hidden = Boolean(device.note);
+  if (device.note) return;
   const total = Math.max(1, device.total);
   const taken = device.total - device.free;
   const plan = state.devices.plan;
-  const after = plan && !plan.error ? Math.max(0, Math.min(plan.need, device.free)) : 0;
+  const ready = plan && !plan.error;
+  const added = ready ? Math.max(0, Math.min(plan.need, device.free)) : 0;
   $(".space-taken", page).style.width = `${(100 * taken) / total}%`;
-  $(".space-after", page).style.width = `${(100 * after) / total}%`;
-  $(".device-space", page).textContent = t("Свободно {free} из {total}",
-                                           { free: formatSize(device.free), total: formatSize(device.total) });
+  $(".space-after", page).style.width = `${(100 * added) / total}%`;
+  $("#space-taken-n").textContent = formatSize(taken);
+  $("#space-added").hidden = !added;
+  $("#space-added-n").textContent = formatSize(added);
+  $("#space-free-n").textContent = formatSize(ready ? Math.max(0, device.free - plan.need) : device.free);
 }
 
 // What can be chosen for a device, each as the library and the side list name it
@@ -7220,7 +7297,7 @@ function renderDeviceChoice() {
   if (!selection) return;
   state.devices.shown = `${state.library.items.length}|${state.playlists.items.length}`;
   const transcode = $("#device-transcode");
-  syncSwitch($("#device-all"), selection.all);
+  syncRadios($("#device-scope"), "data-scope", selection.all ? "all" : "pick");
   syncSwitch(transcode, selection.transcode && !transcode.disabled);
   $("#device-bitrate").value = String(selection.bitrate);
   $("#device-bitrate").disabled = transcode.disabled || !selection.transcode;
@@ -7294,32 +7371,47 @@ function nothingChosen(selection) {
 
 function renderDevicePreview() {
   const { plan, selection, sync } = state.devices;
-  const running = sync.running && sync.device === openDeviceId();
-  let text = "";
-  if (!plan) {
-    text = t("Считаем…");
+  const id = openDeviceId();
+  const running = sync.running && sync.device === id;
+  let lead = "";
+  const notes = [];
+  if (running) {
+    lead = t("Синхронизация: {done} из {total}", { done: Math.min(sync.done + 1, sync.total), total: sync.total });
+    notes.push(sync.title, t("не отключайте устройство"));
+  } else if (!plan) {
+    lead = t("Считаем…");
   } else if (plan.error) {
-    text = plan.error;
+    lead = plan.error;
   } else if (!plan.fits) {
-    text = t("Не хватает {size}", { size: formatSize(plan.need - plan.free) });
+    lead = t("Не хватает {size}", { size: formatSize(plan.need - plan.free) });
   } else if (!plan.tracks && !plan.deleted) {
-    text = selection && nothingChosen(selection) ? t("Отметьте, что взять на устройство") : t("Всё уже на устройстве");
+    lead = selection && nothingChosen(selection) ? t("Отметьте, что взять на устройство") : t("Всё уже на устройстве");
   } else {
-    const parts = [];
     if (plan.tracks) {
-      parts.push(t("Добавится {tracks} {trackWord} ({size})", { tracks: plan.tracks,
-        trackWord: plural(plan.tracks, "трек", "трека", "треков"), size: formatSize(plan.bytes) }));
+      lead = t("Добавится {tracks} {trackWord} ({size})", { tracks: plan.tracks,
+        trackWord: plural(plan.tracks, "трек", "трека", "треков"), size: formatSize(plan.bytes) });
     }
-    if (plan.deleted) parts.push(t("уберётся {deleted}", { deleted: plan.deleted }));
-    parts.push(t("после синхронизации свободно {free}", { free: formatSize(Math.max(0, plan.free - plan.need)) }));
-    text = parts.join(" · ");
+    if (plan.deleted) {
+      const gone = t("уберётся {deleted}", { deleted: plan.deleted });
+      if (lead) notes.push(gone);
+      else lead = gone;
+    }
+    notes.push(t("после синхронизации свободно {free}", { free: formatSize(Math.max(0, plan.free - plan.need)) }));
   }
-  if (plan && !plan.error) {
-    if (plan.conflicts) text += ` · ${t("чужих файлов на месте: {conflicts}", { conflicts: plan.conflicts })}`;
-    if (plan.missing) text += ` · ${t("нет на диске: {missing}", { missing: plan.missing })}`;
-    if (plan.unplayable) text += ` · ${t("iPod не сыграет без ffmpeg: {count}", { count: plan.unplayable })}`;
+  if (!running && plan && !plan.error) {
+    if (plan.conflicts) notes.push(t("чужих файлов на месте: {conflicts}", { conflicts: plan.conflicts }));
+    if (plan.missing) notes.push(t("нет на диске: {missing}", { missing: plan.missing }));
+    if (plan.unplayable) notes.push(t("iPod не сыграет без ffmpeg: {count}", { count: plan.unplayable }));
   }
-  $("#device-preview").textContent = text.charAt(0).toUpperCase() + text.slice(1);
+  $("#device-preview").textContent = lead.charAt(0).toUpperCase() + lead.slice(1);
+  $("#device-notes").textContent = notes.filter(Boolean).join(" · ");
+  // How the last sync of this device went stays where it was asked for
+  const result = $("#device-result");
+  result.hidden = running || !sync.note || sync.device !== id;
+  result.textContent = sync.note;
+  const progress = $("#device-progress");
+  progress.hidden = !running;
+  if (running) $("span", progress).style.width = `${(100 * Math.min(sync.done, sync.total)) / Math.max(1, sync.total)}%`;
   const button = $("#device-sync");
   button.disabled = !running && (sync.running || !plan || Boolean(plan.error) || !plan.fits);
   swapIcon($("use", button), running ? "#i-stop" : "#i-retry");
@@ -7369,10 +7461,9 @@ function syncSummary({ name, copied, deleted, failed, conflicts, error, state: h
 
 function bindDevices() {
   const page = $("#device-page");
-  const all = $("#device-all");
   const transcode = $("#device-transcode");
-  bindSwitch(all, (on) => {
-    state.devices.selection.all = on;
+  radioGroup($("#device-scope"), "data-scope", (scope) => {
+    state.devices.selection.all = scope === "all";
     renderDeviceChoice();
     changeDevice();
   });
@@ -7410,8 +7501,7 @@ function bindDevices() {
     const id = openDeviceId();
     if (!id) return;
     await api().forget_device_folder(id);
-    state.devices.open = null;
-    showSyncPage();
+    closeSyncPage();
     loadDevices();
   });
   page.hidden = true;
