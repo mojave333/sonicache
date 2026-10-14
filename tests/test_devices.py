@@ -290,3 +290,31 @@ def test_a_stop_while_transcoding_is_a_stop_not_a_failure(lib, dev, monkeypatch)
     sources = [Source(make(lib / "a.flac"), "a.flac", 1), Source(make(lib / "b.flac"), "b.flac", 1)]
     report = devices.run(dev, devices.plan(dev, sources, [], transcode=True), ffmpeg="ffmpeg", stop=stop)
     assert report.stopped and report.failed == []
+
+
+class TestFind:
+    def test_drives_and_folders_are_listed(self, tmp_path, monkeypatch):
+        drive, folder = tmp_path / "E", tmp_path / "Phone"
+        drive.mkdir()
+        folder.mkdir()
+        monkeypatch.setattr(devices, "_drives", lambda: [(str(drive), "WALKMAN", 0x1A2B3C4D)])
+        found = devices.find_devices([str(folder)])
+        assert [(device.id, device.name, device.kind) for device in found] == [
+            ("vol:1A2B3C4D", "WALKMAN", "drive"), (devices.folder_id(str(folder)), "Phone", "folder")]
+        assert found[0].total > 0 and found[0].root == str(drive)
+
+    def test_a_drive_without_a_label_is_named_by_its_letter(self, monkeypatch):
+        monkeypatch.setattr(devices, "_drives", lambda: [("E:\\", "", 7)])
+        monkeypatch.setattr(devices.shutil, "disk_usage", lambda root: types.SimpleNamespace(total=10, used=4, free=6))
+        [device] = devices.find_devices([])
+        assert (device.name, device.free, device.total) == ("Диск E:", 6, 10)
+
+    def test_a_missing_folder_is_left_out(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(devices, "_drives", lambda: [])
+        assert devices.find_devices([str(tmp_path / "nope")]) == []
+
+    def test_a_folder_id_does_not_depend_on_case_or_a_trailing_slash(self, tmp_path):
+        assert devices.folder_id(str(tmp_path)) == devices.folder_id(str(tmp_path) + "/")
+
+    def test_the_real_drives_are_a_list(self):
+        assert isinstance(devices._drives(), list)

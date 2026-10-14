@@ -13,6 +13,8 @@ its own there.
 
 from __future__ import annotations
 
+import getpass
+import hashlib
 import json
 import os
 import posixpath
@@ -21,7 +23,7 @@ import shutil
 import subprocess
 import sys
 import threading
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -363,3 +365,82 @@ def _prune(root: Path, folder: Path) -> None:
         except OSError:
             return  # not empty: what is above is not either
         folder = folder.parent
+
+
+DRIVE_REMOVABLE = 2  # GetDriveTypeW: card readers, players, phones as a drive
+
+
+@dataclass
+class Device:
+    id: str  # "vol:<volume serial>" or "folder:<hash of the path>"
+    name: str
+    root: str
+    free: int
+    total: int
+    kind: str  # "drive" or "folder"
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def folder_id(path: str) -> str:
+    """A chosen folder's id: the same however its path is spelled."""
+    key = os.path.normcase(os.path.abspath(path)).rstrip("\\/")
+    return f"folder:{hashlib.sha1(key.encode('utf-8')).hexdigest()[:12]}"
+
+
+def find_devices(chosen: list[str]) -> list[Device]:
+    """The removable drives plugged in now, then the folders chosen by hand that are there."""
+    found = []
+    for root, label, serial in _drives():
+        try:
+            usage = shutil.disk_usage(root)
+        except OSError:
+            continue  # pulled out while it was looked at
+        letter = root.rstrip("\\/") if re.match(r"^[A-Za-z]:", root) else Path(root).name
+        found.append(Device(f"vol:{serial:08X}", label or t("Диск {letter}", letter=letter), root,
+                            usage.free, usage.total, "drive"))
+    for path in chosen:
+        if not os.path.isdir(path):
+            continue
+        usage = shutil.disk_usage(path)
+        found.append(Device(folder_id(path), Path(path).name or path, path, usage.free, usage.total, "folder"))
+    return found
+
+
+def _drives() -> list[tuple[str, str, int]]:
+    """(root, label, volume serial) of each removable drive with a medium in it."""
+    if sys.platform == "win32":
+        import ctypes
+
+        kernel = ctypes.windll.kernel32
+        mask = kernel.GetLogicalDrives()
+        found = []
+        old_mode = kernel.SetErrorMode(1)  # an empty card reader is no reason for a "No disk" dialog
+        try:
+            for index in range(26):
+                root = f"{chr(65 + index)}:\\"
+                if not mask & (1 << index) or kernel.GetDriveTypeW(root) != DRIVE_REMOVABLE:
+                    continue
+                label = ctypes.create_unicode_buffer(261)
+                serial = ctypes.c_uint32()
+                if kernel.GetVolumeInformationW(root, label, 261, ctypes.byref(serial), None, None, None, 0):
+                    found.append((root, label.value, serial.value))
+        finally:
+            kernel.SetErrorMode(old_mode)
+        return found
+    user = getpass.getuser()
+    bases = [Path("/Volumes")] if sys.platform == "darwin" else [Path("/media") / user, Path("/run/media") / user]
+    found = []
+    for base in bases:
+        try:
+            entries = sorted(base.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            try:
+                if entry.is_dir() and entry.resolve() != Path("/"):  # macOS lists its own disk there too
+                    found.append((str(entry), entry.name, os.stat(entry).st_dev))
+            except OSError:
+                continue
+    return found
