@@ -37,10 +37,10 @@ from mutagen.flac import Picture
 
 from . import __version__, logs, mediacontrols, playlists, presence, relay_for, scrobble, thumbbar, tray, watch, winframe
 from .i18n import LANGUAGES, resolve, set_language, t
-from .engine import batch, catalog, folders, loudness, lyrics, network, sources, use_relay
+from .engine import batch, catalog, devices, folders, loudness, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
 from .engine.downloader import (DEFAULT_OUTPUT_DIR, FOLDER_NAMES, FORMATS, MARKER_NAMES, TRACK_NAMES,
-                                Downloader, Options, _safe_name, read_marker, read_tags, use_proxy)
+                                Downloader, Options, _safe_name, find_tool, read_marker, read_tags, use_proxy)
 from .engine.tidy import tidy as tidy_up
 
 TITLE = "Sonicache"
@@ -111,6 +111,14 @@ SEEN_FILE = "seen.json"
 # The albums marked with a heart: a list of their folders
 FAVOURITES_FILE = "favourites.json"
 SEEN_FOR = 8 * 24 * 3600
+# The players and phones synced to: the folders chosen as devices by hand, and
+# what each device gets, by its id (engine/devices.py)
+DEVICES_FILE = "devices.json"
+DEFAULT_SELECTION = {"all": False, "playlists": [], "albums": [], "artists": [], "transcode": False,
+                     "bitrate": devices.DEFAULT_BITRATE}
+# The names the window gives the playlists made of the plays, for their .m3u8 on a device
+SMART_NAMES = {"recent": "Недавно слушали", "top": "Часто слушаю"}
+_DEVICES_LOCK = threading.Lock()
 # The tags read from the library's files, kept between runs so that opening
 # the library reads again only the files changed since
 LIBRARY_CACHE_FILE = "library-cache.json"
@@ -140,6 +148,7 @@ class Api:
         self._watcher: threading.Thread | None = None
         self._covers = _CoverServer()
         self._tidying: threading.Event | None = None  # set to stop the tidy-up that runs
+        self._syncing: threading.Event | None = None  # set to stop the sync to a device that runs
         self._tray: tray.Tray | None = None
         self._thumbbar: thumbbar.ThumbBar | None = None  # the player's buttons under the taskbar picture
         self._media: mediacontrols.MediaControls | None = None  # the track in Windows' own media controls
@@ -933,6 +942,109 @@ class Api:
                                    "cover": item["cover"], "modified": modified})
         _save_library_cache()
         return result
+
+    # Devices: the library copied to a player or a phone that shows up as a
+    # drive, or to any folder chosen as one (engine/devices.py does the work)
+
+    def devices(self) -> list[dict]:
+        """The devices there now, each with what it is to get and whether it was synced before."""
+        data = _devices_data()
+        ffmpeg = bool(find_tool("ffmpeg"))
+        return [{**device.to_dict(), "selection": _selection(data["devices"].get(device.id, {}).get("selection")),
+                 "synced": bool(devices.load_manifest(Path(device.root))), "ffmpeg": ffmpeg}
+                for device in devices.find_devices(data["folders"])]
+
+    def add_device_folder(self) -> dict | None:
+        """A folder chosen as a device: a phone's music folder, a mounted card, a share."""
+        chosen = self.choose_folder("")
+        if not chosen:
+            return None
+        with _DEVICES_LOCK:
+            data = _devices_data()
+            if devices.folder_id(chosen) not in map(devices.folder_id, data["folders"]):
+                data["folders"].append(chosen)
+                logs.write_json(logs.data_dir() / DEVICES_FILE, data)
+        return next((device for device in self.devices() if device["id"] == devices.folder_id(chosen)), None)
+
+    def forget_device_folder(self, device_id: str) -> None:
+        with _DEVICES_LOCK:
+            data = _devices_data()
+            data["folders"] = [path for path in data["folders"] if devices.folder_id(path) != device_id]
+            data["devices"].pop(device_id, None)
+            logs.write_json(logs.data_dir() / DEVICES_FILE, data)
+
+    def save_device(self, device_id: str, selection: dict) -> None:
+        with _DEVICES_LOCK:
+            data = _devices_data()
+            data["devices"].setdefault(str(device_id), {})["selection"] = _selection(selection)
+            logs.write_json(logs.data_dir() / DEVICES_FILE, data)
+
+    def device_plan(self, device_id: str) -> dict:
+        """What a sync would do now, for the line above its button."""
+        device = _find_device(device_id)
+        if device is None:
+            return {"error": t("Устройство не найдено")}
+        work, missing = self._device_work(device)
+        audio = [item for item in work.write if item.audio]
+        return {"tracks": len(audio), "bytes": sum(item.size for item in audio), "deleted": len(work.delete),
+                "keep": work.keep, "conflicts": len(work.conflicts), "missing": missing, "need": work.need,
+                "free": work.free, "fits": work.fits}
+
+    def sync_device(self, device_id: str) -> bool:
+        """Starts a sync in the background; False when one is running already."""
+        with self._lock:
+            if self._syncing is not None:
+                return False
+            stop = self._syncing = threading.Event()
+        threading.Thread(target=self._sync, args=(str(device_id), stop), daemon=True).start()
+        return True
+
+    def stop_sync(self) -> None:
+        with self._lock:
+            if self._syncing is not None:
+                self._syncing.set()
+
+    def _device_work(self, device: devices.Device) -> tuple[devices.Plan, int]:
+        selection = _selection(_devices_data()["devices"].get(device.id, {}).get("selection"))
+        settings = _load_settings()
+        roots = [settings["folder"], *(settings.get("library_folders") or [])]
+        library = _library_just_read(roots) or self.library(roots)
+        found, specs, missing = _sync_sources(selection, roots, library)
+        work = devices.plan(Path(device.root), found, specs, transcode=selection["transcode"],
+                            bitrate=selection["bitrate"], can_transcode=bool(find_tool("ffmpeg")))
+        return work, missing
+
+    def _sync(self, device_id: str, stop: threading.Event) -> None:
+        result = {"type": "sync", "state": "error", "device": device_id, "name": "", "copied": 0, "deleted": 0,
+                  "failed": [], "conflicts": 0, "error": ""}
+        try:
+            device = _find_device(device_id)
+            if device is None:
+                result["error"] = t("Устройство не найдено")
+                return
+            result["name"] = device.name
+            work, _ = self._device_work(device)
+            if not work.fits:
+                result["error"] = t("На устройстве не хватает места")
+                return
+
+            def progress(done: int, total: int, title: str) -> None:
+                self._events.put({"type": "sync", "state": "running", "device": device_id, "done": done,
+                                  "total": total, "title": title})
+            report = devices.run(Path(device.root), work, find_tool("ffmpeg"), progress, stop)
+            result.update(state="error" if report.error else "stopped" if report.stopped else "done",
+                          copied=report.copied, deleted=report.deleted, failed=report.failed[:20],
+                          conflicts=len(report.conflicts), error=report.error)
+            logs.log.info("синхронизация с %s: записано %d, удалено %d, не удалось %d%s", device.name,
+                          report.copied, report.deleted, len(report.failed),
+                          f", ошибка: {report.error}" if report.error else "")
+        except Exception as e:  # whatever it was, the window has to hear that the sync is over
+            logs.log.exception("синхронизация с %s не удалась", device_id)
+            result["error"] = str(e) or type(e).__name__
+        finally:
+            with self._lock:
+                self._syncing = None
+            self._events.put(result)
 
     # The player: the window streams a file from the local server and reads
     # its lyrics from beside it, from its tags, or from LRCLIB
@@ -2199,6 +2311,76 @@ def _library_just_read(roots: str | list[str]) -> list[dict] | None:
     if read is not None and read[0] == _roots_key(roots) and time.monotonic() - read[1] < LIBRARY_FRESH:
         return read[2]
     return None
+
+
+def _devices_data() -> dict:
+    """devices.json as it is, with the two keys always there."""
+    data = logs.read_json(logs.data_dir() / DEVICES_FILE)
+    chosen = [str(path) for path in data.get("folders") or [] if isinstance(path, str)]
+    kept = {key: value for key, value in (data.get("devices") or {}).items() if isinstance(value, dict)}
+    return {"folders": chosen, "devices": kept}
+
+
+def _selection(value) -> dict:
+    """What a device gets, as the window sent or the file kept it, with nothing else in it."""
+    value = value if isinstance(value, dict) else {}
+    names = lambda key: [str(entry) for entry in value.get(key) or [] if isinstance(entry, str)]  # noqa: E731
+    bitrate = value.get("bitrate")
+    return {"all": bool(value.get("all")), "playlists": names("playlists"), "albums": names("albums"),
+            "artists": [name.casefold() for name in names("artists")], "transcode": bool(value.get("transcode")),
+            "bitrate": bitrate if bitrate in devices.BITRATES else devices.DEFAULT_BITRATE}
+
+
+def _find_device(device_id: str) -> devices.Device | None:
+    return next((device for device in devices.find_devices(_devices_data()["folders"]) if device.id == device_id),
+                None)
+
+
+def _sync_sources(selection: dict, roots: list[str],
+                  library: list[dict]) -> tuple[list[devices.Source], list[devices.PlaylistSpec], int]:
+    """The files a device gets for what was chosen, each once; its playlists;
+    and how many of the files chosen are gone from the disk."""
+    everything = selection["all"]
+    albums = {os.path.normcase(path) for path in selection["albums"]}
+    artists = set(selection["artists"])
+    paths: list[Path] = []
+    for item in library:
+        if everything or os.path.normcase(item["path"]) in albums or (item.get("artist") or "").casefold() in artists:
+            entry = Path(item["path"])
+            paths += folders.album_files(entry)[0] if item["album"] else [entry]
+    chosen = set(selection["playlists"])
+    lists = [{"name": t(SMART_NAMES[kind]), "tracks": playlists.smart(kind)}
+             for kind in playlists.SMART if everything or kind in chosen]
+    lists += [entry for entry in playlists.load() if everything or entry["id"] in chosen]
+    specs = []
+    for entry in lists:
+        files = [Path(track["path"]) for track in entry["tracks"]]
+        if files:  # a list of the plays is empty until something has been played
+            specs.append(devices.PlaylistSpec(entry["name"], files))
+            paths += files
+    ordered = sorted((Path(root).expanduser() for root in roots), key=lambda root: len(root.parts), reverse=True)
+    found, seen, missing = [], set(), 0
+    for path in paths:
+        key = os.path.normcase(str(path))
+        if key in seen:
+            continue
+        seen.add(key)
+        if not path.is_file():
+            missing += 1
+            continue
+        found.append(devices.Source(path, _device_rel(path, ordered), _tags(path)["duration"]))
+    return found, specs, missing
+
+
+def _device_rel(path: Path, roots: list[Path]) -> str:
+    """Where a file goes inside Sonicache/: as it lies in its library folder,
+    or under Other/ when a playlist took it from outside them."""
+    for root in roots:
+        try:
+            return path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+    return f"Other/{path.parent.name}/{path.name}"
 
 
 def _forget_in_library_cache(paths: set[str]) -> None:

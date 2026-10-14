@@ -950,3 +950,75 @@ class TestBackground:
 ])
 def test_a_package_managers_install_is_left_to_it_to_update(executable, manager):
     assert gui._package_manager(executable) == manager
+
+
+class TestDeviceSync:
+    """What a device gets, as the window chose it, and the sync run from the window's side."""
+
+    @pytest.fixture
+    def music(self, tmp_path):
+        root = tmp_path / "Music"
+        for rel in ("R - First (2000)/01. a.mp3", "R - First (2000)/02. b.mp3", "S - Second (2001)/01. c.mp3",
+                    "X - Single.mp3"):
+            path = root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"music")
+        return root
+
+    def chosen(self, music, **selection):
+        items = gui.Api.library(None, str(music))
+        return gui._sync_sources({**gui.DEFAULT_SELECTION, **selection}, [str(music)], items)
+
+    def test_an_album_chosen_twice_is_synced_once(self, music):
+        album = str(music / "R - First (2000)")
+        found, _, missing = self.chosen(music, albums=[album], artists=["r"])
+        assert sorted(source.rel for source in found) == ["R - First (2000)/01. a.mp3", "R - First (2000)/02. b.mp3"]
+        assert missing == 0
+
+    def test_choosing_an_artist_takes_all_their_entries(self, music):
+        found, _, _ = self.chosen(music, artists=["s"])
+        assert [source.rel for source in found] == ["S - Second (2001)/01. c.mp3"]
+
+    def test_all_takes_every_entry_and_every_playlist(self, music):
+        gui.playlists.save(None, "Mix", [{"path": str(music / "X - Single.mp3"), "title": "x"}])
+        found, specs, _ = self.chosen(music, all=True)
+        assert len(found) == 4
+        assert [spec.name for spec in specs] == ["Mix"]  # the smart lists are empty with nothing played
+
+    def test_a_track_outside_the_library_goes_under_other(self, music, tmp_path):
+        outside = tmp_path / "Elsewhere" / "z.mp3"
+        outside.parent.mkdir()
+        outside.write_bytes(b"music")
+        entry = gui.playlists.save(None, "Mix", [{"path": str(outside), "title": "z"}])
+        found, specs, _ = self.chosen(music, playlists=[entry["id"]])
+        assert [source.rel for source in found] == ["Other/Elsewhere/z.mp3"]
+        assert specs[0].sources == [outside]
+
+    def test_a_missing_file_is_counted_not_synced(self, music, tmp_path):
+        entry = gui.playlists.save(None, "Mix", [{"path": str(tmp_path / "gone.mp3"), "title": "g"}])
+        found, _, missing = self.chosen(music, playlists=[entry["id"]])
+        assert found == [] and missing == 1
+
+    def test_save_device_keeps_only_known_keys(self):
+        gui.Api.save_device(None, "vol:1", {"all": True, "bitrate": 999, "junk": 1, "artists": ["Radiohead"]})
+        kept = gui.logs.read_json(gui.logs.data_dir() / gui.DEVICES_FILE)["devices"]["vol:1"]["selection"]
+        assert kept == {**gui.DEFAULT_SELECTION, "all": True, "artists": ["radiohead"]}
+
+    def test_sync_device_plans_and_runs(self, music, tmp_path, monkeypatch):
+        phone = tmp_path / "Phone"
+        phone.mkdir()
+        monkeypatch.setattr(gui.devices, "_drives", lambda: [])
+        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        gui.logs.write_json(gui.logs.data_dir() / gui.DEVICES_FILE, {"folders": [str(phone)], "devices": {}})
+        device_id = gui.devices.folder_id(str(phone))
+        api = gui.Api()
+        api.save_device(device_id, {"all": True})
+        assert [device["id"] for device in api.devices()] == [device_id]
+        preview = api.device_plan(device_id)
+        assert (preview["tracks"], preview["fits"]) == (4, True)
+        assert api.sync_device(device_id) is True
+        while (event := api._events.get(timeout=10))["type"] != "sync" or event["state"] == "running":
+            pass
+        assert (event["state"], event["copied"], event["name"]) == ("done", 4, "Phone")
+        assert (phone / "Sonicache" / "X - Single.mp3").is_file()
+        assert api.device_plan(device_id)["tracks"] == 0

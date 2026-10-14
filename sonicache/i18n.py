@@ -141,4 +141,7 @@ ENGLISH.update({
     "Картинки (*.jpg;*.jpeg;*.png;*.webp)": "Pictures (*.jpg;*.jpeg;*.png;*.webp)",
     "Нужна картинка JPEG, PNG или WebP не больше 8 МБ": "A JPEG, PNG or WebP picture of up to 8 MB is needed",
     "Плейлиста уже нет": "The playlist is gone",
+    # Syncing to a device
+    "Устройство не найдено": "The device is not there",
+    "На устройстве не хватает места": "There is not enough room on the device",
 })
