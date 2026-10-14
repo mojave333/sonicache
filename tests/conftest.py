@@ -29,6 +29,14 @@ def own_data_dir(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def wifi_on_this_computer_only(monkeypatch):
+    """The Wi-Fi server in tests listens on 127.0.0.1: on every address Windows would ask about the firewall."""
+    from sonicache import subsonic
+
+    monkeypatch.setattr(subsonic, "HOST", "127.0.0.1")
+
+
+@pytest.fixture(autouse=True)
 def russian():
     """The tests read Russian messages; a runner with an English locale must not change that."""
     from sonicache.engine.i18n import set_language

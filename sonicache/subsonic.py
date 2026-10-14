@@ -695,6 +695,7 @@ def required(params: dict[str, str], name: str) -> str:
 # The server on the home network
 
 PORT = 4533  # Navidrome's: a player that guesses the port guesses this one
+HOST = "0.0.0.0"  # every address of the computer, for the phones; the tests keep to this computer
 PORT_TRIES = 11  # the port and the ten after it, when another program holds it
 
 
@@ -708,10 +709,10 @@ class _Server(ThreadingHTTPServer):
 class Listener:
     """The HTTP server in front of an Api, on every address of the computer."""
 
-    def __init__(self, api: Api, port: int = PORT, host: str = "0.0.0.0"):
+    def __init__(self, api: Api, port: int = PORT, host: str | None = None):
         self.api = api
         self.port = port
-        self.host = host
+        self.host = host or HOST
         self._server: _Server | None = None
 
     def start(self) -> int:

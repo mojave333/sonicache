@@ -405,7 +405,7 @@ class TestListener:
 
         taken = free_port()
         holder = socket.socket()
-        holder.bind(("0.0.0.0", taken))
+        holder.bind(("127.0.0.1", taken))
         holder.listen()
         listener = subsonic.Listener(full, taken)
         try:
