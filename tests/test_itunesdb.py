@@ -245,3 +245,23 @@ def test_a_track_written_again_keeps_its_place_id_and_listens():
     assert again == first and [track.title for track in back.tracks] == ["New title", "Other"]
     assert back.tracks[0].record.u32(0x50) == 9 and other == 53
     assert back.playlists[1].track_ids == [first]
+
+
+def test_tracks_outside_the_main_list_stay_outside():
+    """iTunes keeps podcasts out of the main list: they must not turn up among the songs."""
+    db = itunesdb.new_database("iPod")
+    podcast = db.add_track(info("Episode", dbid=1))
+    song = db.add_track(info("Song", dbid=2))
+    db.finish()
+    for kind in (2, 3):
+        master = db.playlists_of(kind)[0].record
+        master.children = [child for child in master.children if child.tag != b"mhip" or child.u32(0x18) != podcast]
+    back = itunesdb.parse(db.to_bytes())  # as iTunes would have left it
+    added = back.add_track(info("New", dbid=3))
+    back.finish()
+    again = itunesdb.parse(back.to_bytes())
+    assert [track.id for track in again.tracks] == [song, added, podcast]  # the main list's first, as libgpod has it
+    for kind in (2, 3):
+        assert again.playlists_of(kind)[0].track_ids == [song, added]
+    index, _ = mhod52(again, 3)
+    assert struct.unpack_from("<I", index.body, 4)[0] == 2

@@ -324,3 +324,13 @@ def test_tags_of_a_real_mp3_reach_the_database(pod, lib):
     assert (track.title, track.artist, track.album, track.track) == ("Airbag", "Radiohead", "OK Computer", 1)
     mhit = track.record
     assert mhit.u32(0x34) == 1997 and 900 <= mhit.u32(0x28) <= 1200 and mhit.u32(0x38) > 0
+
+
+def test_a_wrong_guid_writes_nothing(tmp_path, lib):
+    """A Classic iTunes signed with another ID than the one found: the iPod would refuse what is written."""
+    pod = make_ipod(tmp_path / "classic", "xB147", guid=GUID)
+    signed = itunesdb.sign(itunesdb.new_database("IPOD").to_bytes(), bytes.fromhex("000A270099999999"))
+    (pod / ipod.DATABASE).write_bytes(signed)
+    report, _ = sync(pod, [song(lib, "A/X/01 One.mp3")])
+    assert report.error and report.copied == 0
+    assert (pod / ipod.DATABASE).read_bytes() == signed

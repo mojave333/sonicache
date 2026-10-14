@@ -205,6 +205,7 @@ class Playlist:
 class Database:
     def __init__(self, root: Record):
         self.root = root
+        self._joining: list[int] = []  # tracks added since the last finish(): they join the main list
 
     def dataset(self, kind: int) -> Record | None:
         return next((record for record in self.root.children if record.tag == b"mhsd" and record.u32(12) == kind),
@@ -235,6 +236,7 @@ class Database:
         tracks = self._list(1)
         number = max([FIRST_ID - 1, *(track.id for track in self.tracks)]) + 1
         tracks.children.append(_track(info, number, self.root.u64(0x24)))
+        self._joining.append(number)
         return number
 
     def put_track(self, info: TrackInfo) -> int:
@@ -277,9 +279,18 @@ class Database:
         and the artists. libgpod does the same at every write."""
         if self.root.u32(0x10) < 0x30:
             self.root.set_u32(0x10, 0x30)
+        # The main list keeps who is in it (iTunes leaves podcasts out) and gets the new tracks;
+        # its tracks come first in the list of tracks, in its order, as libgpod writes them
+        found = {track.id: track.record for track in self.tracks}
+        masters = [playlist for playlist in self.playlists_of(2) + self.playlists_of(3) if playlist.master]
+        ids = list(dict.fromkeys(number for number in [*(masters[0].track_ids if masters else found), *self._joining]
+                                 if number in found))
+        self._joining = []
+        listed = set(ids)
+        self._list(1).children = [found[number] for number in ids] + [record for number, record in found.items()
+                                                                      if number not in listed]
         tracks = self.tracks
-        ids = [track.id for track in tracks]
-        indexes = _indexes(tracks) if tracks else []
+        indexes = _indexes(tracks[:len(ids)]) if ids else []
         for kind in (2, 3):
             for playlist in self.playlists_of(kind):
                 if playlist.master:

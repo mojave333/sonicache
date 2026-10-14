@@ -306,6 +306,10 @@ class IpodTarget(devices.Target):
                 db = itunesdb.parse(data)
             except ValueError as e:
                 raise devices.TargetError(t("База iPod не прочиталась, она не тронута: {error}", error=e)) from e
+            # The hash iTunes left proves the ID found is the iPod's: with another one it would refuse the database
+            if self.info.guid is not None and any(data[0x58:0x6C]) \
+                    and itunesdb.sign(data, self.info.guid)[0x58:0x6C] != data[0x58:0x6C]:
+                raise devices.TargetError(t("FireWire ID этого iPod не подошёл к его базе: база не тронута"))
         # What the iPod recorded since the last write is carried into the tracks first
         counts = itunes / "Play Counts"
         if counts.is_file():
