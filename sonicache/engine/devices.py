@@ -22,6 +22,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -57,23 +58,125 @@ def safe_rel(rel: str) -> str:
     return path
 
 
-def _manifest_file(root: Path) -> Path:
-    return Path(root) / SYNC_DIR / MANIFEST
+class Target:
+    """Where a sync writes: a drive or a folder (DriveTarget), or a phone over a
+    cable (mtp.MtpTarget). Paths are "/"-strings from its root: "Sonicache/..."."""
+
+    def free(self) -> int:
+        raise NotImplementedError
+
+    def exists(self, dest: str) -> bool:
+        raise NotImplementedError
+
+    def is_file(self, dest: str) -> bool:
+        raise NotImplementedError
+
+    def read_bytes(self, dest: str) -> bytes:
+        """FileNotFoundError when there is nothing there."""
+        raise NotImplementedError
+
+    def write_bytes(self, dest: str, data: bytes) -> None:
+        """The whole file, in place of what was there."""
+        raise NotImplementedError
+
+    def put(self, local: Path, dest: str) -> int:
+        """A copy of a file of this computer, in place of what was there; the bytes written.
+        An OSError naming the local file is that file's trouble, any other the target's."""
+        raise NotImplementedError
+
+    def delete(self, dest: str) -> None:
+        """The file, if it is there."""
+        raise NotImplementedError
+
+    def prune(self, folder: str) -> None:
+        """Folders left empty, from this one up, never above Sonicache/."""
+        raise NotImplementedError
+
+    def clean_parts(self) -> None:
+        """Files a sync cut short left half written inside Sonicache/."""
+        raise NotImplementedError
 
 
-def load_manifest(root: Path) -> dict[str, dict]:
+class DriveTarget(Target):
+    """A drive or a folder: each file is written under a .part name and put in place whole."""
+
+    def __init__(self, root: Path):
+        self.root = Path(root)
+
+    def __str__(self) -> str:
+        return str(self.root)
+
+    def free(self) -> int:
+        return shutil.disk_usage(self.root).free
+
+    def exists(self, dest: str) -> bool:
+        return (self.root / dest).exists()
+
+    def is_file(self, dest: str) -> bool:
+        return (self.root / dest).is_file()
+
+    def read_bytes(self, dest: str) -> bytes:
+        return (self.root / dest).read_bytes()
+
+    def write_bytes(self, dest: str, data: bytes) -> None:
+        target = self.root / dest
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(f"{target.name}.part")
+        partial.write_bytes(data)
+        os.replace(partial, target)
+
+    def put(self, local: Path, dest: str) -> int:
+        target = self.root / dest
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(f"{target.name}.part")
+        try:
+            shutil.copyfile(local, partial)
+        except OSError:
+            partial.unlink(missing_ok=True)
+            raise
+        os.replace(partial, target)
+        return target.stat().st_size
+
+    def delete(self, dest: str) -> None:
+        (self.root / dest).unlink(missing_ok=True)
+
+    def prune(self, folder: str) -> None:
+        top = self.root / SYNC_DIR
+        path = self.root / folder
+        while path != top and top in path.parents:
+            try:
+                path.rmdir()
+            except OSError:
+                return  # not empty: what is above is not either
+            path = path.parent
+
+    def clean_parts(self) -> None:
+        for folder, _, names in os.walk(self.root / SYNC_DIR):
+            for name in names:
+                if name.endswith(".part"):
+                    os.remove(os.path.join(folder, name))
+
+
+def as_target(root: Path | Target) -> Target:
+    return root if isinstance(root, Target) else DriveTarget(Path(root))
+
+
+MANIFEST_PATH = f"{SYNC_DIR}/{MANIFEST}"
+
+
+def load_manifest(root: Path | Target) -> dict[str, dict]:
     """What the program put on the device, by its path there; empty when that cannot be told."""
-    path = _manifest_file(root)
+    target = as_target(root)
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(target.read_bytes(MANIFEST_PATH).decode("utf-8"))
     except FileNotFoundError:
         return {}
     except (OSError, ValueError) as e:
-        _log.warning("список синхронизации %s не прочитался: %s", path, e)
+        _log.warning("список синхронизации на %s не прочитался: %s", target, e)
         return {}
     files = data.get("files") if isinstance(data, dict) and data.get("version") == MANIFEST_VERSION else None
     if not isinstance(files, dict):
-        _log.warning("список синхронизации %s другой версии: ничего не будет удалено", path)
+        _log.warning("список синхронизации на %s другой версии: ничего не будет удалено", target)
         return {}
     return {key: value for key, value in files.items() if isinstance(value, dict) and _ours(key)}
 
@@ -86,14 +189,10 @@ def _ours(dest: str) -> bool:
             and all(part not in ("", ".", "..") for part in parts))
 
 
-def save_manifest(root: Path, files: dict[str, dict]) -> None:
+def save_manifest(root: Path | Target, files: dict[str, dict]) -> None:
     """Written beside and then put in place, so a pulled cable leaves the old list or the new one."""
-    path = _manifest_file(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    partial = path.with_name(f"{MANIFEST}.tmp")
-    partial.write_text(json.dumps({"version": MANIFEST_VERSION, "files": files}, ensure_ascii=False, indent=1),
-                       encoding="utf-8")
-    os.replace(partial, path)
+    data = json.dumps({"version": MANIFEST_VERSION, "files": files}, ensure_ascii=False, indent=1)
+    as_target(root).write_bytes(MANIFEST_PATH, data.encode("utf-8"))
 
 
 PLAYLISTS_DIR = f"{SYNC_DIR}/Playlists"
@@ -136,12 +235,12 @@ class Plan:
     fits: bool = True
 
 
-def plan(root: Path, sources: list[Source], playlists: list[PlaylistSpec], transcode: bool = False,
+def plan(root: Path | Target, sources: list[Source], playlists: list[PlaylistSpec], transcode: bool = False,
          bitrate: int = DEFAULT_BITRATE, can_transcode: bool = True) -> Plan:
     """What the device lacks of these files, what it holds that is no longer
     wanted, and whether the difference fits on it."""
-    root = Path(root)
-    manifest = load_manifest(root)
+    target = as_target(root)
+    manifest = load_manifest(target)
     wanted: dict[str, Item] = {}
     taken: set[str] = set()  # FAT does not tell names apart by case
     by_source: dict[str, str] = {}
@@ -187,9 +286,8 @@ def plan(root: Path, sources: list[Source], playlists: list[PlaylistSpec], trans
     freed = 0
     for dest, item in wanted.items():
         entry = manifest.get(dest)
-        on_device = root / dest
         if entry is None:
-            if on_device.exists():
+            if target.exists(dest):
                 result.conflicts.append(dest)
             else:
                 result.write.append(item)
@@ -197,7 +295,7 @@ def plan(root: Path, sources: list[Source], playlists: list[PlaylistSpec], trans
         stat = item.source.stat()
         if (entry.get("source") == str(item.source) and entry.get("size") == stat.st_size
                 and entry.get("mtime_ns") == stat.st_mtime_ns and entry.get("mode") == item.mode
-                and on_device.is_file()):
+                and target.is_file(dest)):
             result.keep += 1
         else:
             result.write.append(item)
@@ -216,7 +314,7 @@ def plan(root: Path, sources: list[Source], playlists: list[PlaylistSpec], trans
         if dest not in wanted and dest not in result.playlists:
             result.delete.append(dest)
             freed += int(entry.get("bytes") or 0)
-    result.free = shutil.disk_usage(root).free
+    result.free = target.free()
     result.need = sum(item.size for item in result.write) - freed
     result.fits = result.need <= result.free
     return result
@@ -239,24 +337,23 @@ class _Failed(Exception):
     """One file could not be made; the rest go on."""
 
 
-def run(root: Path, plan: Plan, ffmpeg: str | None = None,
+def run(root: Path | Target, plan: Plan, ffmpeg: str | None = None,
         progress: Callable[[int, int, str], None] | None = None,
         stop: threading.Event | None = None) -> Report:
     """Carries a plan out: deletions first, to free the room, then the files
     one by one, then the playlists. The manifest is kept up with the work, so
     a sync cut short by a pulled cable or a stop goes on from there next time."""
-    root = Path(root)
+    target = as_target(root)
     report = Report(conflicts=list(plan.conflicts))
-    files = load_manifest(root)
+    files = load_manifest(target)
     try:
-        _remove_parts(root)
+        target.clean_parts()
         for dest in plan.delete:
-            target = root / dest
-            target.unlink(missing_ok=True)
+            target.delete(dest)
             files.pop(dest, None)
             report.deleted += 1
-            _prune(root, target.parent)
-        save_manifest(root, files)
+            target.prune(posixpath.dirname(dest))
+        save_manifest(target, files)
         total = len(plan.write)
         for index, item in enumerate(plan.write):
             if progress is not None:
@@ -265,7 +362,7 @@ def run(root: Path, plan: Plan, ffmpeg: str | None = None,
                 report.stopped = True
                 break
             try:
-                files[item.dest] = _write(root, item, ffmpeg, stop)
+                files[item.dest] = _write(target, item, ffmpeg, stop)
             except _Failed as e:
                 if stop is not None and stop.is_set():  # ffmpeg was cut short by the stop itself
                     report.stopped = True
@@ -275,62 +372,61 @@ def run(root: Path, plan: Plan, ffmpeg: str | None = None,
                 continue
             report.copied += item.audio
             if (index + 1) % SAVE_EVERY == 0:
-                save_manifest(root, files)
+                save_manifest(target, files)
         if not report.stopped:
             for dest, text in plan.playlists.items():
-                _write_playlist(root, dest, text, files, report)
+                _write_playlist(target, dest, text, files, report)
     except OSError as e:
-        _log.warning("синхронизация с %s прервана: %s", root, e)
+        _log.warning("синхронизация с %s прервана: %s", target, e)
         report.error = t("Устройство отключено или заполнено: {error}", error=e.strerror or e)
     finally:
         try:
-            save_manifest(root, files)
+            save_manifest(target, files)
         except OSError as e:  # the device is gone: what was done is what the last save says
-            _log.warning("список синхронизации на %s не сохранён: %s", root, e)
+            _log.warning("список синхронизации на %s не сохранён: %s", target, e)
     return report
 
 
-def _write(root: Path, item: Item, ffmpeg: str | None, stop: threading.Event | None) -> dict:
-    """One file onto the device, under a .part name until it is whole; its manifest entry."""
+def _write(target: Target, item: Item, ffmpeg: str | None, stop: threading.Event | None) -> dict:
+    """One file onto the device; its manifest entry. An mp3 is made on this computer first."""
     try:
         stat = item.source.stat()
     except OSError as e:
         raise _Failed(e) from e
-    target = root / item.dest
-    partial = target.with_name(f"{target.name}.part")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if item.mode == "copy":
-        try:
-            shutil.copyfile(item.source, partial)
-        except OSError as e:
-            # The file in the library went away or is locked: that one file failed.
-            # Anything else is the device's own trouble and ends the sync (run).
-            if e.filename != str(item.source) and item.source.is_file():
-                raise
-            partial.unlink(missing_ok=True)
-            raise _Failed(e) from e
-    else:
+    local, made = item.source, None
+    if item.mode != "copy":
         if not ffmpeg:
             raise _Failed("ffmpeg")
-        _to_mp3(ffmpeg, item.source, partial, int(item.mode.partition(":")[2]), stop)
-    os.replace(partial, target)
+        handle, name = tempfile.mkstemp(prefix="sonicache-", suffix=".mp3")
+        os.close(handle)
+        local = made = Path(name)
+    try:
+        if made is not None:
+            _to_mp3(ffmpeg, item.source, made, int(item.mode.partition(":")[2]), stop)
+        written = target.put(local, item.dest)
+    except OSError as e:
+        # The file in the library went away or is locked: that one file failed.
+        # Anything else is the device's own trouble and ends the sync (run).
+        if e.filename != str(local) and local.is_file():
+            raise
+        raise _Failed(e) from e
+    finally:
+        if made is not None:
+            made.unlink(missing_ok=True)
     return {"source": str(item.source), "size": stat.st_size, "mtime_ns": stat.st_mtime_ns, "mode": item.mode,
-            "bytes": target.stat().st_size}
+            "bytes": written}
 
 
-def _write_playlist(root: Path, dest: str, text: str, files: dict[str, dict], report: Report) -> None:
-    target = root / dest
-    if target.exists():
+def _write_playlist(target: Target, dest: str, text: str, files: dict[str, dict], report: Report) -> None:
+    if target.exists(dest):
         if dest not in files:
             report.conflicts.append(dest)
             return
-        if target.read_text(encoding="utf-8", errors="replace") == text:
+        if target.read_bytes(dest).decode("utf-8", errors="replace") == text:
             return
-    target.parent.mkdir(parents=True, exist_ok=True)
-    partial = target.with_name(f"{target.name}.part")
-    partial.write_text(text, encoding="utf-8", newline="\n")
-    os.replace(partial, target)
-    files[dest] = {"source": "", "size": 0, "mtime_ns": 0, "mode": "playlist", "bytes": len(text.encode())}
+    data = text.encode("utf-8")
+    target.write_bytes(dest, data)
+    files[dest] = {"source": "", "size": 0, "mtime_ns": 0, "mode": "playlist", "bytes": len(data)}
 
 
 def _to_mp3(ffmpeg: str, source: Path, target: Path, bitrate: int, stop: threading.Event | None) -> None:
@@ -362,25 +458,6 @@ def _to_mp3(ffmpeg: str, source: Path, target: Path, bitrate: int, stop: threadi
         target.unlink(missing_ok=True)
         lines = "".join(complaints).strip().splitlines()
         raise _Failed(lines[-1] if lines else f"ffmpeg {process.returncode}")
-
-
-def _remove_parts(root: Path) -> None:
-    """Files a sync cut short left half written."""
-    for folder, _, names in os.walk(root / SYNC_DIR):
-        for name in names:
-            if name.endswith(".part"):
-                os.remove(os.path.join(folder, name))
-
-
-def _prune(root: Path, folder: Path) -> None:
-    """Folders left empty inside Sonicache/, from the deepest up."""
-    top = root / SYNC_DIR
-    while folder != top and top in folder.parents:
-        try:
-            folder.rmdir()
-        except OSError:
-            return  # not empty: what is above is not either
-        folder = folder.parent
 
 
 DRIVE_REMOVABLE = 2  # GetDriveTypeW: card readers, players, phones as a drive

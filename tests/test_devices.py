@@ -358,3 +358,12 @@ def test_a_folder_that_cannot_be_measured_leaves_the_rest_listed(tmp_path, monke
     monkeypatch.setattr(devices, "_drives", lambda: [])
     monkeypatch.setattr(devices.shutil, "disk_usage", measure)
     assert [device.name for device in devices.find_devices([str(bad), str(good)])] == ["good"]
+
+
+def test_plan_and_run_take_a_target_as_well_as_a_path(lib, dev):
+    target = devices.DriveTarget(dev)
+    source = make(lib / "a.flac", b"abc")
+    report = devices.run(target, devices.plan(target, [Source(source, "a.flac")], []))
+    assert report.copied == 1 and (dev / "Sonicache" / "a.flac").read_bytes() == b"abc"
+    assert list(devices.load_manifest(target)) == ["Sonicache/a.flac"]
+    assert devices.plan(target, [Source(source, "a.flac")], []).keep == 1
