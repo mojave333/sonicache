@@ -367,3 +367,12 @@ class TestPhonesAsDevices:
             pass
         assert (event["state"], event["copied"]) == ("done", 1)
         assert phone.content("Music/Sonicache/R - First (2000)/01. a.mp3") == b"abc"
+
+
+def test_a_phone_that_keeps_a_file_under_another_name_is_a_device_error(tmp_path):
+    class Renaming(FakeWpd):
+        def write(self, parent, name, chunks, size):
+            super().write(parent, f"~{name}", chunks, size)
+    target = MtpTarget(Renaming(), "s1")
+    with pytest.raises(OSError):
+        target.put(make(tmp_path / "a.mp3"), "Sonicache/a.mp3")

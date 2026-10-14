@@ -143,7 +143,9 @@ class MtpTarget(Target):
                 self.session.remove(stale.id)
             self.session.write(folder, partial, chunks(), size)
             self._forget(folder)
-            written = self._listing(folder)[partial.casefold()]
+            written = self._listing(folder).get(partial.casefold())
+            if written is None:  # the phone kept it under a name of its own: nothing to rename
+                raise OSError(0x80070002, "the phone does not show the file just written", partial)
             old = self._listing(folder).get(name.casefold())
             if old is not None:
                 self.session.remove(old.id)
