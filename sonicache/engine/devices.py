@@ -18,6 +18,8 @@ import os
 import posixpath
 import re
 import shutil
+import subprocess
+import sys
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -255,6 +257,9 @@ def run(root: Path, plan: Plan, ffmpeg: str | None = None,
             try:
                 files[item.dest] = _write(root, item, ffmpeg, stop)
             except _Failed as e:
+                if stop is not None and stop.is_set():  # ffmpeg was cut short by the stop itself
+                    report.stopped = True
+                    break
                 _log.warning("синхронизация: %s не записан: %s", item.source, e)
                 report.failed.append(item.source.name)
                 continue
@@ -311,7 +316,34 @@ def _write_playlist(root: Path, dest: str, text: str, files: dict[str, dict], re
 
 
 def _to_mp3(ffmpeg: str, source: Path, target: Path, bitrate: int, stop: threading.Event | None) -> None:
-    raise _Failed("not yet")
+    """An mp3 of a file for a player that takes nothing else, or for a small card:
+    the tags and the cover go along, the file in the library is not touched."""
+    command = [ffmpeg, "-y", "-hide_banner", "-nostdin", "-loglevel", "error", "-i", str(source),
+               "-map", "0:a:0", "-map", "0:v?", "-c:a", "libmp3lame", "-b:a", f"{bitrate}k", "-ar", "44100",
+               "-c:v", "copy", "-map_metadata", "0", "-id3v2_version", "3", "-f", "mp3", str(target)]
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0  # no console flashing up
+    process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+                               encoding="utf-8", errors="replace", creationflags=flags)
+    complaints: list[str] = []
+    reader = threading.Thread(target=lambda: complaints.extend(process.stderr), daemon=True)
+    reader.start()
+    try:
+        while process.poll() is None:
+            if stop is not None and stop.is_set():
+                raise _Failed("stopped")
+            try:
+                process.wait(timeout=0.2)
+            except subprocess.TimeoutExpired:
+                pass
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+        reader.join(timeout=5)
+    if process.returncode != 0:
+        target.unlink(missing_ok=True)
+        lines = "".join(complaints).strip().splitlines()
+        raise _Failed(lines[-1] if lines else f"ffmpeg {process.returncode}")
 
 
 def _remove_parts(root: Path) -> None:

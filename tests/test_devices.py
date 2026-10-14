@@ -1,13 +1,16 @@
 """Syncing the library to a player or a phone that shows up as a drive (sonicache.engine.devices)."""
 
 import json
+import subprocess
 import threading
 import types
 
 import pytest
+from mutagen import File as MutagenFile
 
 from sonicache.engine import devices
 from sonicache.engine.devices import PlaylistSpec, Source
+from sonicache.engine.downloader import find_tool
 
 
 def manifest_path(root):
@@ -245,3 +248,45 @@ class TestRun:
         assert devices.load_manifest(dev)["Sonicache/Playlists/Mix.m3u8"]["mode"] == "playlist"
         devices.run(dev, devices.plan(dev, [Source(source, "a.flac")], []))
         assert not playlist.exists()
+
+
+FFMPEG = find_tool("ffmpeg")
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+class TestTranscode:
+    def test_a_flac_becomes_an_mp3_with_its_tags_and_the_source_stays(self, lib, dev):
+        source = lib / "a.flac"
+        lib.mkdir()
+        subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                        "-i", "sine=frequency=440:duration=2", "-c:a", "flac", "-metadata", "title=Hi", str(source)],
+                       check=True)
+        before = source.read_bytes()
+        work = devices.plan(dev, [Source(source, "a.flac", 2)], [], transcode=True, bitrate=128)
+        report = devices.run(dev, work, ffmpeg=FFMPEG)
+        made = dev / "Sonicache" / "a.mp3"
+        assert report.copied == 1 and report.failed == []
+        audio = MutagenFile(made, easy=True)
+        assert abs(audio.info.bitrate - 128_000) <= 16_000
+        assert audio["title"] == ["Hi"]
+        assert source.read_bytes() == before
+        assert devices.load_manifest(dev)["Sonicache/a.mp3"]["mode"] == "mp3:128"
+
+    def test_a_file_ffmpeg_cannot_read_is_reported(self, lib, dev):
+        source = make(lib / "broken.flac", b"not audio")
+        report = devices.run(dev, devices.plan(dev, [Source(source, "broken.flac", 1)], [], transcode=True),
+                             ffmpeg=FFMPEG)
+        assert report.failed == ["broken.flac"] and report.error == ""
+        assert not list((dev / "Sonicache").glob("*.part"))
+
+
+def test_a_stop_while_transcoding_is_a_stop_not_a_failure(lib, dev, monkeypatch):
+    stop = threading.Event()
+
+    def interrupted(ffmpeg, source, target, bitrate, stop_event):
+        stop.set()
+        raise devices._Failed("stopped")
+    monkeypatch.setattr(devices, "_to_mp3", interrupted)
+    sources = [Source(make(lib / "a.flac"), "a.flac", 1), Source(make(lib / "b.flac"), "b.flac", 1)]
+    report = devices.run(dev, devices.plan(dev, sources, [], transcode=True), ffmpeg="ffmpeg", stop=stop)
+    assert report.stopped and report.failed == []
