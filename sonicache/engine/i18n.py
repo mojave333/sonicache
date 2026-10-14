@@ -203,6 +203,11 @@ ENGLISH = {
         "An iPhone takes no music over a cable: Apple lets only its photos be read that way. Open \"Phone over Wi-Fi\"",
     "Разблокируйте телефон и выберите в уведомлении «Передача файлов»":
         "Unlock the phone and choose \"File transfer\" in its notification",
+    "Этот iPod не поддерживается: его база защищена подписью, которую нельзя сделать без iTunes":
+        "This iPod is not supported: its database is protected by a signature only iTunes can make",
+    "iPod shuffle не поддерживается": "The iPod shuffle is not supported",
+    "Не удалось узнать FireWire ID этого iPod: без него он не примет базу":
+        "Could not find this iPod's FireWire ID: without it the iPod will not take a database",
 }
 
 

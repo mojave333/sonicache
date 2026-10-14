@@ -471,7 +471,7 @@ class Device:
     root: str  # the drive or the folder; for a phone "mtp:<PnP id>|<storage object id>"
     free: int
     total: int
-    kind: str  # "drive", "folder" or "mtp"
+    kind: str  # "drive", "folder", "mtp" or "ipod"
     note: str = ""  # why it cannot be synced now; nothing when it can
 
     def to_dict(self) -> dict:
@@ -524,6 +524,8 @@ def folder_id(path: str) -> str:
 
 def find_devices(chosen: list[str]) -> list[Device]:
     """The removable drives plugged in now, the phones by cable, then the folders chosen by hand that are there."""
+    from . import ipod  # ipod builds on this module
+
     found = []
     for root, label, serial in _drives():
         try:
@@ -531,6 +533,11 @@ def find_devices(chosen: list[str]) -> list[Device]:
         except OSError:
             continue  # pulled out while it was looked at
         letter = root.rstrip("\\/") if re.match(r"^[A-Za-z]:", root) else Path(root).name
+        if ipod.is_ipod(Path(root)):  # its own firmware plays only what its database lists
+            info = ipod.inspect(Path(root))
+            found.append(Device(f"vol:{serial:08X}", label or info.model, root, usage.free, usage.total, "ipod",
+                                info.note))
+            continue
         found.append(Device(f"vol:{serial:08X}", label or t("Диск {letter}", letter=letter), root,
                             usage.free, usage.total, "drive"))
     found += _phones()
