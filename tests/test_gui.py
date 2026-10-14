@@ -1022,3 +1022,20 @@ class TestDeviceSync:
         assert (event["state"], event["copied"], event["name"]) == ("done", 4, "Phone")
         assert (phone / "Sonicache" / "X - Single.mp3").is_file()
         assert api.device_plan(device_id)["tracks"] == 0
+
+    def test_the_preview_does_not_walk_the_folders_again(self, music, tmp_path, monkeypatch):
+        phone = tmp_path / "Phone"
+        phone.mkdir()
+        monkeypatch.setattr(gui.devices, "_drives", lambda: [])
+        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        gui.logs.write_json(gui.logs.data_dir() / gui.DEVICES_FILE, {"folders": [str(phone)], "devices": {}})
+        device_id = gui.devices.folder_id(str(phone))
+        api = gui.Api()
+        api.save_device(device_id, {"all": True})
+        api.library([str(music)])  # what the window does on opening the library
+
+        def walked(*args, **kwargs):
+            raise AssertionError("the folders were walked again for a preview")
+        monkeypatch.setattr(gui, "LIBRARY_FRESH", 0)
+        monkeypatch.setattr(gui, "_library_items", walked)
+        assert api.device_plan(device_id)["tracks"] == 4

@@ -1004,11 +1004,13 @@ class Api:
             if self._syncing is not None:
                 self._syncing.set()
 
-    def _device_work(self, device: devices.Device) -> tuple[devices.Plan, int]:
+    def _device_work(self, device: devices.Device, fresh: bool = False) -> tuple[devices.Plan, int]:
+        """The plan for a device. A preview, asked for at every tick of a box, takes the library
+        as it was last read; the sync itself reads the folders again unless that was just done."""
         selection = _selection(_devices_data()["devices"].get(device.id, {}).get("selection"))
         settings = _load_settings()
         roots = [settings["folder"], *(settings.get("library_folders") or [])]
-        library = _library_just_read(roots) or self.library(roots)
+        library = _library_just_read(roots) or (None if fresh else self.library_cached(roots)) or self.library(roots)
         found, specs, missing = _sync_sources(selection, roots, library)
         work = devices.plan(Path(device.root), found, specs, transcode=selection["transcode"],
                             bitrate=selection["bitrate"], can_transcode=bool(find_tool("ffmpeg")))
@@ -1023,7 +1025,7 @@ class Api:
                 result["error"] = t("Устройство не найдено")
                 return
             result["name"] = device.name
-            work, _ = self._device_work(device)
+            work, _ = self._device_work(device, fresh=True)
             if not work.fits:
                 result["error"] = t("На устройстве не хватает места")
                 return
