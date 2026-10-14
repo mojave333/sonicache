@@ -318,3 +318,14 @@ class TestFind:
 
     def test_the_real_drives_are_a_list(self):
         assert isinstance(devices._drives(), list)
+
+
+def test_a_manifest_naming_paths_outside_our_folder_deletes_nothing_there(lib, dev, tmp_path):
+    outside = make(tmp_path / "precious.txt")
+    beside = make(dev / "Music" / "theirs.mp3")
+    manifest_path(dev).parent.mkdir(parents=True, exist_ok=True)
+    keys = ["../precious.txt", str(outside), "Music/theirs.mp3", "Sonicache/../Music/theirs.mp3", "Sonicache\\..\\x"]
+    manifest_path(dev).write_text(json.dumps({"version": 1, "files": {key: {"bytes": 1} for key in keys}}), encoding="utf-8")
+    assert devices.load_manifest(dev) == {}
+    devices.run(dev, devices.plan(dev, [], []))
+    assert outside.exists() and beside.exists()

@@ -75,7 +75,15 @@ def load_manifest(root: Path) -> dict[str, dict]:
     if not isinstance(files, dict):
         _log.warning("список синхронизации %s другой версии: ничего не будет удалено", path)
         return {}
-    return {key: value for key, value in files.items() if isinstance(value, dict)}
+    return {key: value for key, value in files.items() if isinstance(value, dict) and _ours(key)}
+
+
+def _ours(dest: str) -> bool:
+    """A path the program could have written: inside Sonicache/, with no way out of it.
+    The manifest is a file on a device anyone may have edited, and its paths are deleted."""
+    parts = dest.split("/")
+    return (len(parts) > 1 and parts[0] == SYNC_DIR and "\\" not in dest and ":" not in dest
+            and all(part not in ("", ".", "..") for part in parts))
 
 
 def save_manifest(root: Path, files: dict[str, dict]) -> None:
