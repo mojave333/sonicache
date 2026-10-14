@@ -300,7 +300,15 @@ def _write(root: Path, item: Item, ffmpeg: str | None, stop: threading.Event | N
     partial = target.with_name(f"{target.name}.part")
     target.parent.mkdir(parents=True, exist_ok=True)
     if item.mode == "copy":
-        shutil.copyfile(item.source, partial)
+        try:
+            shutil.copyfile(item.source, partial)
+        except OSError as e:
+            # The file in the library went away or is locked: that one file failed.
+            # Anything else is the device's own trouble and ends the sync (run).
+            if e.filename != str(item.source) and item.source.is_file():
+                raise
+            partial.unlink(missing_ok=True)
+            raise _Failed(e) from e
     else:
         if not ffmpeg:
             raise _Failed("ffmpeg")

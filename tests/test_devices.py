@@ -329,3 +329,17 @@ def test_a_manifest_naming_paths_outside_our_folder_deletes_nothing_there(lib, d
     assert devices.load_manifest(dev) == {}
     devices.run(dev, devices.plan(dev, [], []))
     assert outside.exists() and beside.exists()
+
+
+def test_a_source_gone_while_it_is_copied_is_a_failure_not_a_lost_device(lib, dev, monkeypatch):
+    sources = [Source(make(lib / "a.flac"), "a.flac"), Source(make(lib / "b.flac"), "b.flac")]
+    work = devices.plan(dev, sources, [])
+    copy = devices.shutil.copyfile
+
+    def vanishing(source, target):
+        if str(source).endswith("a.flac"):
+            raise FileNotFoundError(2, "No such file", str(source))
+        return copy(source, target)
+    monkeypatch.setattr(devices.shutil, "copyfile", vanishing)
+    report = devices.run(dev, work)
+    assert report.error == "" and report.failed == ["a.flac"] and report.copied == 1
