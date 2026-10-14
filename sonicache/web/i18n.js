@@ -658,6 +658,7 @@ const TRANSLATIONS = {
   "{chosen} из {total}": "{chosen} of {total}",
   "Синхронизировать": "Sync",
   "Убрать из списка": "Remove from the list",
+  "По кабелю · папка Music/Sonicache": "By cable · the Music/Sonicache folder",
   "Считаем…": "Counting…",
   "Не хватает {size}": "{size} more room is needed",
   "Отметьте, что взять на устройство": "Tick what the device should get",

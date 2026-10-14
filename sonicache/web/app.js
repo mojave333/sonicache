@@ -7017,7 +7017,7 @@ function openDeviceId() {
 function renderDeviceSide() {
   const id = openDeviceId();
   // The drives are looked for every few seconds: rows drawn again for nothing would take the focus away
-  const rows = JSON.stringify([language(), id, state.devices.items.map((device) => [device.id, device.name, formatSize(device.free)])]);
+  const rows = JSON.stringify([language(), id, state.devices.items.map((device) => [device.id, device.name, device.note, device.free])]);
   if (rows !== state.devices.sideRows) {
     state.devices.sideRows = rows;
     renderDeviceRows(id);
@@ -7029,9 +7029,9 @@ function renderDeviceSide() {
 
 function renderDeviceRows(id) {
   $("#side-devices").replaceChildren(...state.devices.items.map((device) => sideItem({
-    icon: "i-folder", name: device.name, count: formatSize(device.free),
+    icon: "i-folder", name: device.name, count: device.note ? "" : formatSize(device.free),
     attributes: { "data-device": device.id,
-                  title: t("{name} · свободно {free} из {total}",
+                  title: device.note ? `${device.name} · ${device.note}` : t("{name} · свободно {free} из {total}",
                            { name: device.name, free: formatSize(device.free), total: formatSize(device.total) }),
                   ...(device.id === id ? { "aria-current": "page" } : {}) },
   })));
@@ -7061,7 +7061,9 @@ function openDevice(id) {
 function fillDevicePage(device) {
   const page = $("#device-page");
   $(".device-name", page).textContent = device.name;
-  $(".device-root", page).textContent = device.root;
+  // A phone over a cable has no path to show or to open in Explorer
+  $(".device-root", page).textContent = device.kind === "mtp" ? t("По кабелю · папка Music/Sonicache") : device.root;
+  $("#device-open").hidden = device.kind === "mtp";
   $("#device-forget").hidden = device.kind !== "folder";
   $("#device-transcode").disabled = !device.ffmpeg;
   $("#device-transcode-desc").textContent = device.ffmpeg
@@ -7075,6 +7077,12 @@ function fillDevicePage(device) {
 // How full the device is now, and how full it will be after the sync
 function renderDeviceSpace(device) {
   const page = $("#device-page");
+  // A locked phone shows no storage yet: what to do about it is said where the preview would be
+  $(".space-bar", page).hidden = Boolean(device.note);
+  if (device.note) {
+    $(".device-space", page).textContent = "";
+    return;
+  }
   const total = Math.max(1, device.total);
   const taken = device.total - device.free;
   const plan = state.devices.plan;

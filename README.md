@@ -36,7 +36,7 @@ Everything runs on your own machine. There are no accounts and no API keys.
 - Favourites, playlists of your own (to and from `.m3u8`), and two made from what you
   listen to: recently played and most played.
 - A queue to reorder, albums without gaps, a crossfade and a ten-band equalizer.
-- Sync to a player, an SD card or a phone that shows up as a drive: the whole library or the
+- Sync to a player, an SD card or an Android phone by cable: the whole library or the
   playlists, artists and albums you tick, converted to MP3 if the player wants it.
 - ReplayGain tags make a shuffled library play at one volume.
 - Listens go to Last.fm or ListenBrainz if you connect them; Discord can show what plays.
@@ -284,6 +284,14 @@ library stay as they are). Everything the program writes goes into a `Sonicache`
 device, listed in `.sonicache-sync.json` beside it: only what that list names is ever removed, so
 music put on the device another way stays. A sync cut short by a pulled cable carries on from where
 it stopped the next time. What each device gets is remembered in `devices.json` beside the history.
+
+An Android phone plugged in by cable shows up there too, once it is unlocked and "File transfer" is
+chosen in the notification it shows (Windows reaches it over MTP, without a drive letter, through
+Windows Portable Devices). Each of its storages, the internal one and an SD card, is a device of its
+own, and the music goes into `Music/Sonicache` on it. A phone that is locked or only charging is
+listed with what to do about it. To check it with a phone: plug it in, unlock it, choose "File
+transfer", open the library, pick the phone under Devices, tick a playlist, press "Sync", and look
+for `Music/Sonicache` in the phone's file manager or its music player.
 
 ### Filling in tags
 
@@ -715,6 +723,7 @@ program built on top of it.
 | `sonicache/engine/tidy.py` | filling in the tags older files lack, without fetching them again |
 | `sonicache/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
 | `sonicache/engine/devices.py` | syncing to a player or a phone that shows up as a drive: what it lacks, what goes, the copying |
+| `sonicache/engine/mtp.py` | an Android phone over a cable: Windows Portable Devices through ctypes, and the sync's target on it |
 | `sonicache/engine/i18n.py`, `sonicache/i18n.py`, `sonicache/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
 | `sonicache/logs.py` | the log file and the report |
 | `sonicache/watch.py` | the list of watched playlists |

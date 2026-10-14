@@ -739,7 +739,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .side-item[aria-current="page"], .side-item[aria-pressed="true"] { background: var(--selected); color: var(--text); font-weight: 600; }
 .side-item .icon { color: var(--text-subtle); }
 .side-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.side-n { margin-left: auto; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 400; font-variant-numeric: tabular-nums; }
+.side-n { flex: none; margin-left: auto; white-space: nowrap; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 400; font-variant-numeric: tabular-nums; }
 .side-n:empty { display: none; }
 .side-chevron { margin-left: -4px; transition: transform var(--settle) var(--ease); }
 #side-genres[aria-expanded="true"] .side-chevron { transform: rotate(180deg); }
