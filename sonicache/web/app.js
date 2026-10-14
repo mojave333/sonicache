@@ -7158,13 +7158,15 @@ function fillDevicePage(device) {
   const page = $("#device-page");
   $(".device-name", page).textContent = device.name;
   // A phone over a cable has no path to show or to open in Explorer
-  $(".device-root", page).textContent = device.kind === "mtp" ? t("По кабелю · папка Music/Sonicache") : device.root;
+  $(".device-root", page).textContent = device.kind === "mtp" ? t("По кабелю · папка Music/Sonicache")
+    : device.kind === "ipod" ? t("iPod · {root}", { root: device.root }) : device.root;
   $("#device-open").hidden = device.kind === "mtp";
   $("#device-forget").hidden = device.kind !== "folder";
   $("#device-transcode").disabled = !device.ffmpeg;
-  $("#device-transcode-desc").textContent = device.ffmpeg
-    ? t("Для плееров, которые не играют opus и m4a, и чтобы больше влезло. Файлы в библиотеке не меняются")
-    : t("Для пережатия нужен ffmpeg");
+  // An iPod plays mp3 and m4a only: anything else is made mp3 whether this is on or not
+  $("#device-transcode-desc").textContent = !device.ffmpeg ? t("Для пережатия нужен ffmpeg")
+    : device.kind === "ipod" ? t("iPod играет только mp3 и m4a: остальное пережимается всегда. Включите, чтобы пережимать и m4a")
+    : t("Для плееров, которые не играют opus и m4a, и чтобы больше влезло. Файлы в библиотеке не меняются");
   renderDeviceSpace(device);
   renderDeviceChoice();
   renderDevicePreview();
@@ -7307,6 +7309,7 @@ function renderDevicePreview() {
   if (plan && !plan.error) {
     if (plan.conflicts) text += ` · ${t("чужих файлов на месте: {conflicts}", { conflicts: plan.conflicts })}`;
     if (plan.missing) text += ` · ${t("нет на диске: {missing}", { missing: plan.missing })}`;
+    if (plan.unplayable) text += ` · ${t("iPod не сыграет без ffmpeg: {count}", { count: plan.unplayable })}`;
   }
   $("#device-preview").textContent = text.charAt(0).toUpperCase() + text.slice(1);
   const button = $("#device-sync");

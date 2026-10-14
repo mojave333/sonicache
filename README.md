@@ -36,8 +36,8 @@ Everything runs on your own machine. There are no accounts and no API keys.
 - Favourites, playlists of your own (to and from `.m3u8`), and two made from what you
   listen to: recently played and most played.
 - A queue to reorder, albums without gaps, a crossfade and a ten-band equalizer.
-- Sync to a player, an SD card or an Android phone by cable: the whole library or the
-  playlists, artists and albums you tick, converted to MP3 if the player wants it.
+- Sync to a player, an SD card, an Android phone by cable or a classic iPod: the whole library
+  or the playlists, artists and albums you tick, converted to MP3 if the player wants it.
 - An iPhone or an Android phone plays the library over Wi-Fi, and keeps albums offline, in a
   free Subsonic player such as Amperfy or Ultrasonic.
 - ReplayGain tags make a shuffled library play at one volume.
@@ -294,6 +294,33 @@ own, and the music goes into `Music/Sonicache` on it. A phone that is locked or 
 listed with what to do about it. To check it with a phone: plug it in, unlock it, choose "File
 transfer", open the library, pick the phone under Devices, tick a playlist, press "Sync", and look
 for `Music/Sonicache` in the phone's file manager or its music player.
+
+A classic iPod in disk mode shows up under Devices as an iPod. Its own firmware plays only what its
+database (`iPod_Control/iTunes/iTunesDB`) lists, so the program writes that database as libgpod
+(gtkpod, Rhythmbox) does: the tracks go into the iPod's own `iPod_Control/Music/Fnn` folders under names of their own
+(`SNC…`), and appear in Music → Artists, Albums, Songs and Playlists on the iPod. What iTunes put
+there stays, with its playlists; play counts, ratings and On-The-Go playlists made on the iPod are
+carried over. The iPod plays only MP3 and AAC (`.m4a`): opus and FLAC are made MP3 with ffmpeg
+whether "Convert to MP3" is on or not (without ffmpeg they are left out and the preview says how
+many). The list of what is ours is `iPod_Control/iTunes/sonicache-sync.json`. Covers are not
+written: the iPod shows its own blank picture for these tracks.
+
+| Model | Works |
+|---|---|
+| iPod 1G–4G, photo/color, mini, video (5G, 5.5G), nano 1G and 2G | yes |
+| iPod Classic (6G, 6.5G, 7G), nano 3G and 4G | yes, signed with the iPod's FireWire ID (read from `SysInfo` or from Windows); not yet tried on a real Classic |
+| iPod nano 5G, 6G, 7G | no: their database needs a signature only iTunes makes |
+| iPod shuffle | no: no screen, a database of its own |
+| iPod touch | no: no disk mode; use "Phone over Wi-Fi" |
+
+An iPod with Rockbox (a `.rockbox` folder at its root) plays from folders and is synced like any
+player, into `Sonicache`. To check it with an iPod: plug it in and turn on disk mode if iTunes is not
+there to do it, open the library, pick the iPod under Devices, tick two albums and a playlist, press
+"Sync", eject it safely (Windows' "Safely remove hardware"), unplug it, and look for the albums
+under Music → Artists and the playlist under Music → Playlists; play a song. Then plug it in again,
+untick one album and sync: it is gone from the iPod's menus, the other one still plays. A Classic
+that answers "no music" or shows nothing after a sync is worth a line in an issue, with its model
+from Settings → About.
 
 An iPhone gives no program on the computer its files, by cable or otherwise, so phones over Wi-Fi
 work the other way round: "Phone over Wi-Fi" under Devices opens the library on the home network as
@@ -738,6 +765,8 @@ program built on top of it.
 | `sonicache/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
 | `sonicache/engine/devices.py` | syncing to a player or a phone that shows up as a drive: what it lacks, what goes, the copying |
 | `sonicache/engine/mtp.py` | an Android phone over a cable: Windows Portable Devices through ctypes, and the sync's target on it |
+| `sonicache/engine/itunesdb.py` | the classic iPod's database, `iTunesDB`, read and written as libgpod does, and its hash58 signature |
+| `sonicache/engine/ipod.py` | a classic iPod: which model it is, and the sync's target on it |
 | `sonicache/subsonic.py` | the library over Wi-Fi as a Subsonic server, for phone players such as Amperfy and Ultrasonic |
 | `sonicache/engine/i18n.py`, `sonicache/i18n.py`, `sonicache/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
 | `sonicache/logs.py` | the log file and the report |

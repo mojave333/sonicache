@@ -1040,6 +1040,32 @@ class TestDeviceSync:
         monkeypatch.setattr(gui, "_library_items", walked)
         assert api.device_plan(device_id)["tracks"] == 4
 
+    def test_an_ipod_is_synced_from_the_window(self, music, tmp_path, monkeypatch):
+        pod = tmp_path / "IPOD"
+        for folder in ("iPod_Control/iTunes", "iPod_Control/Music/F00", "iPod_Control/Device"):
+            (pod / folder).mkdir(parents=True)
+        (pod / "iPod_Control/Device/SysInfo").write_text("ModelNumStr: xA002\n", encoding="ascii")
+        (music / "Z - Odd.opus").write_bytes(b"music")
+        monkeypatch.setattr(gui.devices, "_drives", lambda: [(str(pod), "IPOD 5G", 0x5)])
+        monkeypatch.setattr(gui.devices, "_phones", lambda: [])
+        monkeypatch.setattr(gui, "find_tool", lambda name: None)  # no ffmpeg: the opus cannot go
+        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        gui.logs.write_json(gui.logs.data_dir() / gui.DEVICES_FILE, {"folders": [], "devices": {}})
+        api = gui.Api()
+        [device] = api.devices()
+        assert (device["kind"], device["name"], device["synced"]) == ("ipod", "IPOD 5G", False)
+        api.save_device(device["id"], {"all": True})
+        preview = api.device_plan(device["id"])
+        assert (preview["tracks"], preview["unplayable"]) == (4, 1)
+        assert api.sync_device(device["id"]) is True
+        while (event := api._events.get(timeout=10))["type"] != "sync" or event["state"] == "running":
+            pass
+        assert (event["state"], event["copied"]) == ("done", 4)
+        from sonicache.engine import itunesdb
+
+        assert len(itunesdb.parse((pod / "iPod_Control/iTunes/iTunesDB").read_bytes()).tracks) == 4
+        assert api.devices()[0]["synced"] is True
+
 
 class TestWifi:
     """The library over Wi-Fi from the window's side: the switch, the port and the password in wifi.json."""

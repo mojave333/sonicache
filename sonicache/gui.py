@@ -960,9 +960,8 @@ class Api:
         """The devices there now, each with what it is to get and whether it was synced before."""
         data = _devices_data()
         ffmpeg = bool(find_tool("ffmpeg"))
-        # A phone is not opened to tell whether it was synced: it is asked for every few seconds
         return [{**device.to_dict(), "selection": _selection(data["devices"].get(device.id, {}).get("selection")),
-                 "synced": device.kind != "mtp" and bool(devices.load_manifest(Path(device.root))), "ffmpeg": ffmpeg}
+                 "synced": _synced(device), "ffmpeg": ffmpeg}
                 for device in devices.find_devices(data["folders"])]
 
     def add_device_folder(self) -> dict | None:
@@ -1005,7 +1004,7 @@ class Api:
         audio = [item for item in work.write if item.audio]
         return {"tracks": len(audio), "bytes": sum(item.size for item in audio), "deleted": len(work.delete),
                 "keep": work.keep, "conflicts": len(work.conflicts), "missing": missing, "need": work.need,
-                "free": work.free, "fits": work.fits}
+                "free": work.free, "fits": work.fits, "unplayable": work.unplayable}
 
     def sync_device(self, device_id: str) -> bool:
         """Starts a sync in the background; False when one is running already."""
@@ -2443,6 +2442,18 @@ def _selection(value) -> dict:
     return {"all": bool(value.get("all")), "playlists": names("playlists"), "albums": names("albums"),
             "artists": [name.casefold() for name in names("artists")], "transcode": bool(value.get("transcode")),
             "bitrate": bitrate if bitrate in devices.BITRATES else devices.DEFAULT_BITRATE}
+
+
+def _synced(device: devices.Device) -> bool:
+    """Whether the program put something on the device before. A phone is not
+    opened to tell: it is asked for every few seconds."""
+    if device.kind == "mtp" or device.note:
+        return False
+    try:
+        with devices.open_target(device) as target:
+            return bool(devices.load_manifest(target))
+    except OSError:
+        return False
 
 
 def _find_device(device_id: str) -> devices.Device | None:

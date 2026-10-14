@@ -659,6 +659,10 @@ const TRANSLATIONS = {
   "Синхронизировать": "Sync",
   "Убрать из списка": "Remove from the list",
   "По кабелю · папка Music/Sonicache": "By cable · the Music/Sonicache folder",
+  "iPod · {root}": "iPod · {root}",
+  "iPod играет только mp3 и m4a: остальное пережимается всегда. Включите, чтобы пережимать и m4a":
+    "An iPod plays only mp3 and m4a: anything else is always converted. Turn this on to convert m4a too",
+  "iPod не сыграет без ffmpeg: {count}": "the iPod cannot play without ffmpeg: {count}",
   // Phones over Wi-Fi
   "Телефон по Wi-Fi": "Phone over Wi-Fi",
   "iPhone и Android слушают библиотеку по домашней сети": "An iPhone or an Android phone plays the library over the home network",
