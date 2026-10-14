@@ -161,3 +161,73 @@ def test_garbage_is_not_a_database():
     for data in (b"", b"not a database at all", b"mhbd" + struct.pack("<II", 244, 10_000) + bytes(100)):
         with pytest.raises(ValueError):
             itunesdb.parse(data)
+
+
+# Signing (hash58: iPod Classic, nano 3G and 4G), and what the firmware itself records
+
+FIXED = bytes.fromhex("6723FE304533F890992107C1D012B2A10781")
+
+
+def test_hash_tables_are_the_aes_sboxes():
+    forward, inverse = itunesdb.SBOX, itunesdb.INVERSE_SBOX
+    assert forward[:8] == bytes.fromhex("637C777BF26B6FC5") and forward[-1] == 0x16
+    assert inverse[:8] == bytes.fromhex("52096AD53036A538") and inverse[-1] == 0x7D
+    assert all(inverse[forward[n]] == n for n in range(256))
+
+
+def test_the_key_comes_from_the_firewire_guid():
+    import hashlib
+
+    # Pairs with a zero count as 1: S-box and inverse of 0 and of 1. lcm(0x0A, 0x27) = 0x0186
+    plain = bytes([0x63, 0x52, 0x7C, 0x09])
+    assert itunesdb.hash58_key(bytes.fromhex("0001000200030004")) == \
+        hashlib.sha1(FIXED + plain * 4).digest() + bytes(44)
+    assert itunesdb.hash58_key(bytes.fromhex("0A27000100010001")) == \
+        hashlib.sha1(FIXED + bytes([0x7C, 0x09, 0x44, 0xDC]) + plain * 3).digest() + bytes(44)
+
+
+def zeroed(data):
+    data = bytearray(data)
+    data[0x18:0x20] = bytes(8)
+    data[0x32:0x46] = bytes(20)
+    data[0x58:0x6C] = bytes(20)
+    return bytes(data)
+
+
+def test_hash58_is_hmac_sha1_with_the_derived_key():
+    import hashlib
+    import hmac
+
+    guid = bytes.fromhex("000A27001A2B3C4D")
+    db = itunesdb.new_database("Classic")
+    db.add_track(info("Airbag"))
+    db.finish()
+    data = bytearray(db.to_bytes())
+    data[0x32:0x46] = b"x" * 20  # whatever iTunes left there stays
+    signed = itunesdb.sign(bytes(data), guid)
+    assert struct.unpack_from("<H", signed, 0x30)[0] == 1
+    assert signed[0x18:0x20] == data[0x18:0x20] and signed[0x32:0x46] == b"x" * 20
+    expected = hmac.new(itunesdb.hash58_key(guid)[:20], zeroed(signed), hashlib.sha1).digest()
+    assert signed[0x58:0x6C] == expected
+    assert itunesdb.sign(signed, guid) == signed
+
+
+def test_play_counts_and_otg_are_carried_over():
+    db = itunesdb.new_database("iPod")
+    db.add_track(info("First"))
+    db.add_track(info("Second"))
+    entries = [(3, 3_700_000_000, 1500, 80, 0, 2, 3_700_000_100), (0, 0, 0, 0, 0, 0, 0)]
+    counts = struct.pack("<4sIII", b"mhdp", 0x60, 0x1C, 2).ljust(0x60, b"\0")
+    counts += b"".join(struct.pack("<7I", *entry) for entry in entries)
+    first = db.tracks[0].record
+    first.set_u32(0x50, 4)
+    itunesdb.apply_play_counts(db, counts)
+    assert first.u32(0x50) == 7 and first.header[0x1F] == 80
+    assert (first.u32(0x58), first.u32(0x6C), first.u32(0x9C), first.u32(0xA0)) == \
+        (3_700_000_000, 1500, 2, 3_700_000_100)
+    assert db.tracks[1].record.u32(0x50) == 0
+    otg = struct.pack("<4sIII", b"mhpo", 0x14, 4, 2).ljust(0x14, b"\0") + struct.pack("<II", 1, 0)
+    assert itunesdb.otg_indexes(otg) == [1, 0]
+    assert [db.track_ids_in_order()[n] for n in itunesdb.otg_indexes(otg)] == [53, 52]
+    with pytest.raises(ValueError):
+        itunesdb.apply_play_counts(db, b"garbage")

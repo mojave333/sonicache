@@ -15,6 +15,8 @@ nothing when the program adds its own songs to it.
 
 from __future__ import annotations
 
+import hashlib
+import math
 import random
 import struct
 import time
@@ -446,3 +448,102 @@ def _indexes(tracks: list[Track]) -> list[Record]:
         made.append(_mhod(JUMPS, body))
     return made
 
+
+
+# Signing: an iPod Classic or a nano of the 3rd or 4th generation takes no
+# database without it. hash58 is an HMAC-SHA1 of the whole file, keyed by the
+# device's FireWire GUID (itdb_hash58.c in libgpod, from wtbw's work)
+
+def _sboxes() -> tuple[bytes, bytes]:
+    """AES's S-box and its inverse: the two tables hash58 takes its key bytes from."""
+    forward = bytearray(256)
+    p = q = 1
+    while True:
+        p = (p ^ (p << 1) ^ (0x1B if p & 0x80 else 0)) & 0xFF  # p times 3 in GF(2^8)
+        q ^= q << 1
+        q ^= q << 2
+        q ^= q << 4
+        q &= 0xFF
+        if q & 0x80:
+            q ^= 0x09  # q divided by 3: the inverse of p
+        rotate = lambda value, shift: ((value << shift) | (value >> (8 - shift))) & 0xFF  # noqa: E731
+        forward[p] = q ^ rotate(q, 1) ^ rotate(q, 2) ^ rotate(q, 3) ^ rotate(q, 4) ^ 0x63
+        if p == 1:
+            break
+    forward[0] = 0x63
+    inverse = bytearray(256)
+    for index, value in enumerate(forward):
+        inverse[value] = index
+    return bytes(forward), bytes(inverse)
+
+
+SBOX, INVERSE_SBOX = _sboxes()
+_HASH58_FIXED = bytes.fromhex("6723FE304533F890992107C1D012B2A10781")
+
+
+def hash58_key(guid: bytes) -> bytes:
+    """The 64-byte HMAC key of a device: from the least common multiple of each pair of its GUID's first 8 bytes."""
+    material = bytearray()
+    for a, b in zip(guid[0:8:2], guid[1:8:2]):
+        lcm = 1 if not a or not b else a * b // math.gcd(a, b)
+        high, low = (lcm >> 8) & 0xFF, lcm & 0xFF
+        material += bytes((SBOX[high], INVERSE_SBOX[high], SBOX[low], INVERSE_SBOX[low]))
+    return hashlib.sha1(_HASH58_FIXED + bytes(material)).digest().ljust(64, b"\0")
+
+
+def sign(data: bytes, guid: bytes) -> bytes:
+    """The database with its hash58 in place, for an iPod with this FireWire GUID."""
+    signed = bytearray(data)
+    kept = signed[0x18:0x20], signed[0x32:0x46]
+    signed[0x18:0x20] = bytes(8)
+    signed[0x32:0x46] = bytes(20)
+    signed[0x58:0x6C] = bytes(20)
+    struct.pack_into("<H", signed, 0x30, 1)
+    key = hash58_key(guid)
+    inner = hashlib.sha1(bytes(byte ^ 0x36 for byte in key) + signed).digest()
+    signed[0x58:0x6C] = hashlib.sha1(bytes(byte ^ 0x5C for byte in key) + inner).digest()
+    signed[0x18:0x20], signed[0x32:0x46] = kept
+    return bytes(signed)
+
+
+def _counted(data: bytes, tag: bytes, smallest_header: int, smallest_entry: int) -> tuple[int, int, int]:
+    """Header length, entry length and number of entries of a file the firmware writes; ValueError if it is not one."""
+    if len(data) < 16 or data[:4] != tag:
+        raise ValueError(f"not a {tag.decode()} file")
+    header, entry, count = struct.unpack_from("<III", data, 4)
+    if header < smallest_header or entry < smallest_entry or header + entry * count > len(data):
+        raise ValueError(f"a broken {tag.decode()} file")
+    return header, entry, count
+
+
+def apply_play_counts(db: Database, data: bytes) -> None:
+    """What the iPod recorded since the database was written ("Play Counts"),
+    entry by entry in the order of the tracks: listens and skips added, the
+    last time, the bookmark and a rating given on the iPod taken."""
+    header, entry, count = _counted(data, b"mhdp", 0x60, 0x0C)
+    for track, number in zip(db.tracks, range(count)):
+        at = header + number * entry
+        plays, last_played, bookmark = struct.unpack_from("<III", data, at)
+        mhit = track.record
+        mhit.set_u32(0x50, mhit.u32(0x50) + plays)
+        if plays:
+            mhit.header[0xB2] = 1  # no longer marked unplayed
+        if last_played:
+            mhit.set_u32(0x58, last_played)
+        if bookmark:
+            mhit.set_u32(0x6C, bookmark)
+        if entry >= 0x10:
+            rating = struct.unpack_from("<I", data, at + 12)[0]
+            if rating <= 100:  # the iPod's own rating, unrated included
+                mhit.header[0x1F] = rating
+        if entry >= 0x1C:
+            skips, last_skipped = struct.unpack_from("<II", data, at + 20)
+            mhit.set_u32(0x9C, mhit.u32(0x9C) + skips)
+            if last_skipped:
+                mhit.set_u32(0xA0, last_skipped)
+
+
+def otg_indexes(data: bytes) -> list[int]:
+    """An On-The-Go playlist made on the iPod ("OTGPlaylistInfo"): positions in the list of tracks."""
+    header, entry, count = _counted(data, b"mhpo", 0x14, 0x04)
+    return [struct.unpack_from("<I", data, header + number * entry)[0] for number in range(count)]
