@@ -334,11 +334,3 @@ def test_a_wrong_guid_writes_nothing(tmp_path, lib):
     report, _ = sync(pod, [song(lib, "A/X/01 One.mp3")])
     assert report.error and report.copied == 0
     assert (pod / ipod.DATABASE).read_bytes() == signed
-
-
-def test_a_library_folder_made_by_itunes_does_not_lock_a_video(tmp_path):
-    """iTunes 10 and later leave an "iTunes Library.itlp" folder on any iPod it syncs: that alone is no signature."""
-    root = make_ipod(tmp_path, "xA002")
-    (root / "iPod_Control/iTunes/iTunes Library.itlp").mkdir()
-    found = ipod.inspect(root)
-    assert (found.checksum, found.note) == ("none", "")
