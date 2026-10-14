@@ -659,6 +659,35 @@ const TRANSLATIONS = {
   "Синхронизировать": "Sync",
   "Убрать из списка": "Remove from the list",
   "По кабелю · папка Music/Sonicache": "By cable · the Music/Sonicache folder",
+  // Phones over Wi-Fi
+  "Телефон по Wi-Fi": "Phone over Wi-Fi",
+  "iPhone и Android слушают библиотеку по домашней сети": "An iPhone or an Android phone plays the library over the home network",
+  "iPhone и Android слушают библиотеку по домашней сети и сохраняют альбомы, чтобы слушать без неё":
+    "An iPhone or an Android phone plays the library over the home network and keeps albums to play without it",
+  "Открыть библиотеку по Wi-Fi": "Open the library over Wi-Fi",
+  "Пока включено и Sonicache открыт, телефоны в этой сети могут слушать библиотеку с логином и паролем ниже":
+    "While this is on and Sonicache is open, phones on this network can play the library with the login and password below",
+  "Адрес сервера": "Server address",
+  "Логин": "Login",
+  "Пароль": "Password",
+  "Скопировать": "Copy",
+  "Новый пароль": "New password",
+  "Как подключить телефон": "How to connect a phone",
+  "Поставьте на телефон плеер, который умеет Subsonic: на iPhone — Amperfy (бесплатно), на Android — Ultrasonic (бесплатно) или Symfonium.":
+    "Install a player that speaks Subsonic: Amperfy (free) on an iPhone, Ultrasonic (free) or Symfonium on Android.",
+  "Добавьте в нём сервер Subsonic с адресом, логином и паролем отсюда.":
+    "Add a Subsonic server in it with the address, login and password from here.",
+  "Альбомы и плейлисты, которые нужны без сети, скачайте в самом плеере.":
+    "Download the albums and playlists you want without a network in the player itself.",
+  "Телефон и компьютер должны быть в одной сети Wi-Fi, а Sonicache — открыт: его можно свернуть в область уведомлений. Если Windows спросит про брандмауэр, разрешите доступ в частных сетях.":
+    "The phone and the computer have to be on the same Wi-Fi network, and Sonicache open: it can be left in the notification area. If Windows asks about the firewall, allow access on private networks.",
+  "вкл": "on",
+  "Компьютер не подключён к сети": "The computer is not connected to a network",
+  "Сменить пароль?": "Change the password?",
+  "Телефоны, подключённые со старым паролем, перестанут слушать, пока в плеере не введут новый.":
+    "Phones connected with the old password stop playing until the new one is typed into the player.",
+  "Сменить": "Change",
+  "Скопировано: {text}": "Copied: {text}",
   "Считаем…": "Counting…",
   "Не хватает {size}": "{size} more room is needed",
   "Отметьте, что взять на устройство": "Tick what the device should get",

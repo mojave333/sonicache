@@ -1062,6 +1062,13 @@ html.window-full .topbar-right { padding-right: 24px; }
   color: var(--text-subtle); font-size: var(--fs-sm); }
 .device-preview { min-height: 1.5em; margin: 0 0 12px; color: var(--text-muted); }
 #device-bitrate { flex: none; }
+/* Phones over Wi-Fi: what to type into the player, set apart so it reads as something to copy */
+.wifi-value { margin: 4px 0 0; font-family: ui-monospace, Consolas, monospace; font-size: var(--fs-sm); user-select: text;
+  overflow-wrap: anywhere; }
+.wifi-row .tool-btn { flex: none; }
+.wifi-steps { margin: 8px 0 12px; padding-left: 20px; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.5; }
+.wifi-steps li + li { margin-top: 4px; }
+.wifi-error { color: var(--danger); }
 #device-bitrate:disabled, #device-transcode:disabled { opacity: 0.5; }
 .setting.toggle:has(.switch:disabled) { cursor: default; }
 .setting.toggle:has(.switch:disabled):hover { background: none; }

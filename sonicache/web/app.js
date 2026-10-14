@@ -114,6 +114,8 @@ const state = {
   playlists: { items: [], stale: true, loading: false, token: 0 }, // the cards of the Playlists tab
   // Players and phones the library is synced to: those there now, what the open one gets, how its sync goes
   devices: { items: [], timer: 0, selection: null, plan: null, planToken: 0, planTimer: 0, saving: null, shown: "", sideRows: "",
+             wifi: null, // the library over Wi-Fi: on or off, the address, the login and the password
+
              sync: { running: false, device: "", done: 0, total: 0, title: "", note: "", timer: 0 } },
   scrobble: null, // the Last.fm and ListenBrainz accounts, as the settings show them
   trackMenu: null, // the tracks the track menu was opened for
@@ -987,6 +989,7 @@ function bindUi() {
   $("#library-tracks").addEventListener("keydown", onTracksKey);
   bindLibrarySide();
   bindDevices();
+  bindWifi();
   radioGroup($("#library-view"), "data-library-view", setLibraryView);
   $("#library-sort").addEventListener("change", onSortPick);
   $("#library-order").addEventListener("change", onSortPick);
@@ -3047,7 +3050,7 @@ function renderLibrarySide() {
   const library = state.library;
   const side = $("#library-side");
   const top = library.pages[library.pages.length - 1];
-  const view = ["playlist", "device"].includes(top?.kind) ? ""
+  const view = ["playlist", "device", "wifi"].includes(top?.kind) ? ""
     : library.favouritesOnly && library.tab === "albums" ? "favourites" : library.tab;
   const counts = {
     albums: library.items.filter((item) => item.album).length,
@@ -3147,6 +3150,11 @@ function bindLibrarySide() {
     if (device) {
       while (!$("#library-page").hidden) await closePage({ instant: true });
       openDevice(device.dataset.device);
+      return;
+    }
+    if (target.closest("#side-wifi")) {
+      while (!$("#library-page").hidden) await closePage({ instant: true });
+      openWifi();
       return;
     }
     if (target.closest("#side-device-folder")) {
@@ -3344,9 +3352,10 @@ function showPage(kind) {
   $("#view-library").classList.add("page-open");
   document.documentElement.classList.toggle("album-full", kind === "album" || kind === "playlist");
   page.classList.toggle("artist-open", kind === "artist");
-  $("#album-page").hidden = kind === "artist" || kind === "device";
+  $("#album-page").hidden = ["artist", "device", "wifi"].includes(kind);
   $("#artist-page").hidden = kind !== "artist";
   $("#device-page").hidden = kind !== "device";
+  $("#wifi-page").hidden = kind !== "wifi";
   page.hidden = false;
   page.scrollTop = 0;
   $("#library-panel").inert = true;
@@ -6989,7 +6998,88 @@ function watchDevices(on) {
   state.devices.timer = 0;
   if (!on) return;
   loadDevices();
+  if (!state.devices.wifi) loadWifi(); // the side list says whether it is on
   state.devices.timer = setInterval(() => { if (!document.hidden) loadDevices(); }, DEVICE_POLL);
+}
+
+/* Phones over Wi-Fi: the library as a Subsonic server (subsonic.py), which phone
+   players such as Amperfy and Ultrasonic play from and download for later */
+
+function openWifi() {
+  const library = state.library;
+  library.pages.push({ kind: "wifi", item: { title: t("Телефон по Wi-Fi") } });
+  library.pageToken += 1;
+  renderWifi();
+  renderPageBack();
+  showPage("wifi");
+  renderDeviceSide();
+  riseIn([$("#page-back"), ...$("#wifi-page").children]);
+  $("#page-back").focus({ preventScroll: true });
+  loadWifi();
+}
+
+async function loadWifi() {
+  try {
+    state.devices.wifi = await api().wifi();
+  } catch (error) {
+    console.error(error);
+    return;
+  }
+  renderWifi();
+  renderDeviceSide();
+}
+
+function wifiAddress(wifi) {
+  return wifi.addresses.length ? `http://${wifi.addresses[0]}:${wifi.port}` : "";
+}
+
+function renderWifi() {
+  const wifi = state.devices.wifi;
+  if (!wifi) return;
+  syncSwitch($("#wifi-on"), wifi.on);
+  // A computer on several networks shows each way in; the first is the one its traffic goes out by
+  $("#wifi-address").textContent = wifi.addresses.length
+    ? wifi.addresses.map((address) => `http://${address}:${wifi.port}`).join("  ·  ")
+    : t("Компьютер не подключён к сети");
+  $("#wifi-user").textContent = wifi.user;
+  $("#wifi-password").textContent = wifi.password;
+  $("[data-wifi-copy=address]").disabled = !wifi.addresses.length;
+  const error = $("#wifi-error");
+  error.hidden = !wifi.error;
+  error.textContent = wifi.error;
+}
+
+function bindWifi() {
+  bindSwitch($("#wifi-on"), async (on) => {
+    syncSwitch($("#wifi-on"), on);
+    try {
+      state.devices.wifi = await api().set_wifi(on);
+    } catch (error) {
+      console.error(error);
+    }
+    renderWifi();
+    renderDeviceSide();
+  });
+  $("#wifi-new").addEventListener("click", async () => {
+    const ok = await askConfirm({
+      title: t("Сменить пароль?"),
+      text: t("Телефоны, подключённые со старым паролем, перестанут слушать, пока в плеере не введут новый."),
+      action: t("Сменить"),
+      danger: false,
+    });
+    if (!ok) return;
+    state.devices.wifi = await api().new_wifi_password();
+    renderWifi();
+  });
+  $("#wifi-page").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-wifi-copy]");
+    const wifi = state.devices.wifi;
+    if (!button || !wifi) return;
+    const text = { address: wifiAddress(wifi), user: wifi.user, password: wifi.password }[button.dataset.wifiCopy];
+    if (!text) return;
+    api().copy(text);
+    showToast(t("Скопировано: {text}", { text }));
+  });
 }
 
 async function loadDevices() {
@@ -7016,6 +7106,12 @@ function openDeviceId() {
 
 function renderDeviceSide() {
   const id = openDeviceId();
+  const pages = state.library.pages;
+  const wifiOpen = pages[pages.length - 1]?.kind === "wifi" && !$("#library-page").hidden;
+  const wifiRow = $("#side-wifi");
+  if (wifiOpen) wifiRow.setAttribute("aria-current", "page");
+  else wifiRow.removeAttribute("aria-current");
+  $(".side-n", wifiRow).textContent = state.devices.wifi?.running ? t("вкл") : "";
   // The drives are looked for every few seconds: rows drawn again for nothing would take the focus away
   const rows = JSON.stringify([language(), id, state.devices.items.map((device) => [device.id, device.name, device.note, device.free])]);
   if (rows !== state.devices.sideRows) {

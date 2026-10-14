@@ -38,6 +38,8 @@ Everything runs on your own machine. There are no accounts and no API keys.
 - A queue to reorder, albums without gaps, a crossfade and a ten-band equalizer.
 - Sync to a player, an SD card or an Android phone by cable: the whole library or the
   playlists, artists and albums you tick, converted to MP3 if the player wants it.
+- An iPhone or an Android phone plays the library over Wi-Fi, and keeps albums offline, in a
+  free Subsonic player such as Amperfy or Ultrasonic.
 - ReplayGain tags make a shuffled library play at one volume.
 - Listens go to Last.fm or ListenBrainz if you connect them; Discord can show what plays.
 
@@ -292,6 +294,18 @@ own, and the music goes into `Music/Sonicache` on it. A phone that is locked or 
 listed with what to do about it. To check it with a phone: plug it in, unlock it, choose "File
 transfer", open the library, pick the phone under Devices, tick a playlist, press "Sync", and look
 for `Music/Sonicache` in the phone's file manager or its music player.
+
+An iPhone gives no program on the computer its files, by cable or otherwise, so phones over Wi-Fi
+work the other way round: "Phone over Wi-Fi" under Devices opens the library on the home network as
+a Subsonic server, the kind Navidrome and Airsonic are. A free player that speaks Subsonic plays it
+and downloads the albums and playlists you pick for when there is no network: Amperfy on an iPhone,
+Ultrasonic (or Symfonium) on Android. Add a Subsonic server in the player with the address, login
+and password the page shows (port 4533, or the next free one). The phone and the computer have to
+be on the same network and Sonicache has to be running (the tray is enough); the first time, Windows
+asks whether to let it through the firewall: allow private networks. Stars on albums in the player
+are the library's favourites, what is played to the end on the phone counts as played, and opus and
+m4a files are sent as MP3 to a player that asks for it. The switch, the port and the password are
+kept in `wifi.json` beside the history; "New password" makes phones sign in again.
 
 ### Filling in tags
 
@@ -724,6 +738,7 @@ program built on top of it.
 | `sonicache/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
 | `sonicache/engine/devices.py` | syncing to a player or a phone that shows up as a drive: what it lacks, what goes, the copying |
 | `sonicache/engine/mtp.py` | an Android phone over a cable: Windows Portable Devices through ctypes, and the sync's target on it |
+| `sonicache/subsonic.py` | the library over Wi-Fi as a Subsonic server, for phone players such as Amperfy and Ultrasonic |
 | `sonicache/engine/i18n.py`, `sonicache/i18n.py`, `sonicache/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
 | `sonicache/logs.py` | the log file and the report |
 | `sonicache/watch.py` | the list of watched playlists |
