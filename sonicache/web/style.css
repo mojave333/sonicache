@@ -1027,6 +1027,16 @@ html.window-full .topbar-right { padding-right: 24px; }
 #page-back span, #search-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
 .page-back:hover { background: var(--hover); color: var(--text); }
+/* Synchronisation: the devices in a list, and the page of the one opened beside it */
+#view-sync { display: grid; grid-template-columns: 232px minmax(0, 1fr); }
+.sync-side { min-height: 0; padding: 16px 12px 24px; overflow-y: auto; border-right: 1px solid var(--divider); background: var(--chrome); }
+.sync-page { min-width: 0; min-height: 0; padding: 20px 32px 32px; overflow-y: auto; container: page / inline-size; }
+.sync-empty { margin: 0; color: var(--text-subtle); }
+@container content (width < 720px) {
+  #view-sync { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .sync-side { max-height: 200px; border-right: 0; border-bottom: 1px solid var(--divider); }
+  .sync-page { padding: 16px 16px 24px; }
+}
 /* A device's page: how full it is, what it gets, the button that syncs it */
 .device-page { max-width: 760px; }
 .device-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }

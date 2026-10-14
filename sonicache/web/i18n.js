@@ -17,6 +17,8 @@ const TRANSLATIONS = {
   "Загрузка (Ctrl+1)": "Download (Ctrl+1)",
   "Библиотека (Ctrl+3)": "Library (Ctrl+3)",
   "Настройки (Ctrl+4)": "Settings (Ctrl+4)",
+  "Синхронизация": "Sync",
+  "Выберите устройство в списке слева": "Choose a device in the list",
 
   "Нужны для треков с возрастным ограничением: YouTube отдаёт их только после входа в аккаунт. Пока идёт загрузка, браузер лучше закрыть":
     "Needed for age-restricted tracks: YouTube only serves them to a signed-in account. Close the browser while downloading",

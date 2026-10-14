@@ -113,7 +113,7 @@ const state = {
   plays: new Map(), // path → how many times it was listened to
   playlists: { items: [], stale: true, loading: false, token: 0 }, // the cards of the Playlists tab
   // Players and phones the library is synced to: those there now, what the open one gets, how its sync goes
-  devices: { items: [], timer: 0, selection: null, plan: null, planToken: 0, planTimer: 0, saving: null, shown: "", sideRows: "",
+  devices: { items: [], open: null, timer: 0, selection: null, plan: null, planToken: 0, planTimer: 0, saving: null, shown: "", sideRows: "",
              wifi: null, // the library over Wi-Fi: on or off, the address, the login and the password
 
              sync: { running: false, device: "", done: 0, total: 0, title: "", note: "", timer: 0 } },
@@ -989,6 +989,7 @@ function bindUi() {
   $("#library-tracks").addEventListener("keydown", onTracksKey);
   bindLibrarySide();
   bindDevices();
+  bindSyncSide();
   bindWifi();
   radioGroup($("#library-view"), "data-library-view", setLibraryView);
   $("#library-sort").addEventListener("change", onSortPick);
@@ -1279,7 +1280,13 @@ function showView(name) {
   } else {
     clearSelection();
   }
-  watchDevices(name === "library");
+  if (name === "sync") {
+    // The lists a device is chosen from are made of the library and the playlists
+    if (state.library.stale && !state.library.loading) loadLibrary();
+    if (state.playlists.stale && !state.playlists.loading) loadPlaylists();
+    showSyncPage();
+  }
+  watchDevices(name === "sync");
   renderStatus();
 }
 
@@ -3050,7 +3057,7 @@ function renderLibrarySide() {
   const library = state.library;
   const side = $("#library-side");
   const top = library.pages[library.pages.length - 1];
-  const view = ["playlist", "device", "wifi"].includes(top?.kind) ? ""
+  const view = top?.kind === "playlist" ? ""
     : library.favouritesOnly && library.tab === "albums" ? "favourites" : library.tab;
   const counts = {
     albums: library.items.filter((item) => item.album).length,
@@ -3144,25 +3151,6 @@ function bindLibrarySide() {
     if (playlist) {
       while (!$("#library-page").hidden) await closePage({ instant: true });
       openPlaylist(playlist.dataset.playlist);
-      return;
-    }
-    const device = target.closest("[data-device]");
-    if (device) {
-      while (!$("#library-page").hidden) await closePage({ instant: true });
-      openDevice(device.dataset.device);
-      return;
-    }
-    if (target.closest("#side-wifi")) {
-      while (!$("#library-page").hidden) await closePage({ instant: true });
-      openWifi();
-      return;
-    }
-    if (target.closest("#side-device-folder")) {
-      const added = await api().add_device_folder();
-      if (!added) return;
-      await loadDevices();
-      while (!$("#library-page").hidden) await closePage({ instant: true });
-      openDevice(added.id);
       return;
     }
     if (target.closest("#side-playlist-new")) {
@@ -3352,10 +3340,8 @@ function showPage(kind) {
   $("#view-library").classList.add("page-open");
   document.documentElement.classList.toggle("album-full", kind === "album" || kind === "playlist");
   page.classList.toggle("artist-open", kind === "artist");
-  $("#album-page").hidden = ["artist", "device", "wifi"].includes(kind);
+  $("#album-page").hidden = kind === "artist";
   $("#artist-page").hidden = kind !== "artist";
-  $("#device-page").hidden = kind !== "device";
-  $("#wifi-page").hidden = kind !== "wifi";
   page.hidden = false;
   page.scrollTop = 0;
   $("#library-panel").inert = true;
@@ -6990,9 +6976,9 @@ function formatLength(seconds) {
    or to a folder chosen as one. Python works out the difference and copies;
    the page here says what the device is to get and what a sync would change. */
 
-const DEVICE_POLL = 3000; // how often the drives are looked for while the library is open
+const DEVICE_POLL = 3000; // how often the drives are looked for while the synchronisation page is open
 
-// Drives come and go while the library is on screen: they are looked for again every few seconds
+// Drives come and go while the page is on screen: they are looked for again every few seconds
 function watchDevices(on) {
   clearInterval(state.devices.timer);
   state.devices.timer = 0;
@@ -7006,16 +6992,42 @@ function watchDevices(on) {
    players such as Amperfy and Ultrasonic play from and download for later */
 
 function openWifi() {
-  const library = state.library;
-  library.pages.push({ kind: "wifi", item: { title: t("Телефон по Wi-Fi") } });
-  library.pageToken += 1;
+  state.devices.open = { kind: "wifi" };
   renderWifi();
-  renderPageBack();
-  showPage("wifi");
-  renderDeviceSide();
-  riseIn([$("#page-back"), ...$("#wifi-page").children]);
-  $("#page-back").focus({ preventScroll: true });
+  showSyncPage();
   loadWifi();
+}
+
+// The page of the device or of the Wi-Fi server opened from the list, or the hint when none is
+function showSyncPage() {
+  const open = state.devices.open;
+  const page = open?.kind === "wifi" ? $("#wifi-page") : open?.kind === "device" ? $("#device-page") : null;
+  const changed = Boolean(page) && page.hidden;
+  $("#device-page").hidden = page?.id !== "device-page";
+  $("#wifi-page").hidden = page?.id !== "wifi-page";
+  $("#sync-empty").hidden = Boolean(page);
+  if (changed) {
+    $("#sync-page").scrollTop = 0;
+    riseIn([...page.children]);
+  }
+  renderDeviceSide();
+}
+
+function bindSyncSide() {
+  $("#sync-side").addEventListener("click", async (event) => {
+    const target = event.target;
+    const device = target.closest("[data-device]");
+    if (device) {
+      openDevice(device.dataset.device);
+    } else if (target.closest("#side-wifi")) {
+      openWifi();
+    } else if (target.closest("#side-device-folder")) {
+      const added = await api().add_device_folder();
+      if (!added) return;
+      await loadDevices();
+      openDevice(added.id);
+    }
+  });
 }
 
 async function loadWifi() {
@@ -7095,19 +7107,20 @@ async function loadDevices() {
   if (!id) return;
   const device = items.find((entry) => entry.id === id);
   if (device) renderDeviceSpace(device);
-  else if (!state.devices.sync.running) closePage({ instant: true }); // unplugged while its page was open
+  else if (!state.devices.sync.running) { // unplugged while its page was open
+    state.devices.open = null;
+    showSyncPage();
+  }
 }
 
 function openDeviceId() {
-  const pages = state.library.pages;
-  const top = pages[pages.length - 1];
-  return top?.kind === "device" && !$("#library-page").hidden ? top.id : "";
+  const open = state.devices.open;
+  return open?.kind === "device" && state.view === "sync" ? open.id : "";
 }
 
 function renderDeviceSide() {
   const id = openDeviceId();
-  const pages = state.library.pages;
-  const wifiOpen = pages[pages.length - 1]?.kind === "wifi" && !$("#library-page").hidden;
+  const wifiOpen = state.devices.open?.kind === "wifi" && state.view === "sync";
   const wifiRow = $("#side-wifi");
   if (wifiOpen) wifiRow.setAttribute("aria-current", "page");
   else wifiRow.removeAttribute("aria-current");
@@ -7137,17 +7150,12 @@ function openDevice(id) {
   const device = state.devices.items.find((entry) => entry.id === id);
   if (!device) return;
   const library = state.library;
-  library.pages.push({ kind: "device", id, item: { title: device.name } });
-  library.pageToken += 1;
+  state.devices.open = { kind: "device", id };
   state.devices.selection = structuredClone(device.selection);
   state.devices.plan = null;
   for (const input of $$("#device-page .device-filter input")) input.value = "";
   fillDevicePage(device);
-  renderPageBack();
-  showPage("device");
-  renderDeviceSide(); // its row in the side list is marked once the page is there
-  riseIn([$("#page-back"), ...$("#device-page").children]);
-  $("#page-back").focus({ preventScroll: true });
+  showSyncPage(); // its row in the list is marked once the page is there
   // The lists are made of the library and the playlists: they are read if they were not yet
   if (library.stale && !library.loading) loadLibrary();
   if (state.playlists.stale && !state.playlists.loading) loadPlaylists();
@@ -7402,7 +7410,8 @@ function bindDevices() {
     const id = openDeviceId();
     if (!id) return;
     await api().forget_device_folder(id);
-    await closePage();
+    state.devices.open = null;
+    showSyncPage();
     loadDevices();
   });
   page.hidden = true;

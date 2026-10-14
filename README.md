@@ -275,8 +275,8 @@ mutes, L opens the words and F makes the window full screen; Escape leaves the v
 
 ### Players and phones
 
-A player, an SD card or a phone plugged in as a removable drive shows up under Devices in the
-library's list; a phone or a share that does not can be added as a folder with "Choose a folder".
+A player, an SD card or a phone plugged in as a removable drive shows up in the list on the Sync page (the arrows icon beside Settings)
+in the top bar; a phone or a share that does not can be added as a folder with "Choose a folder".
 Its page says how full it is, and what goes onto it: the whole library, or the playlists, artists
 and albums ticked there. Before anything is copied the line above the button says how many tracks
 will be added, how many removed and how much room is left afterwards; "Sync" does it. Covers and
@@ -292,10 +292,10 @@ chosen in the notification it shows (Windows reaches it over MTP, without a driv
 Windows Portable Devices). Each of its storages, the internal one and an SD card, is a device of its
 own, and the music goes into `Music/Sonicache` on it. A phone that is locked or only charging is
 listed with what to do about it. To check it with a phone: plug it in, unlock it, choose "File
-transfer", open the library, pick the phone under Devices, tick a playlist, press "Sync", and look
+transfer", open the Sync page, pick the phone in its list, tick a playlist, press "Sync", and look
 for `Music/Sonicache` in the phone's file manager or its music player.
 
-A classic iPod in disk mode shows up under Devices as an iPod. Its own firmware plays only what its
+A classic iPod in disk mode shows up on the Sync page as an iPod. Its own firmware plays only what its
 database (`iPod_Control/iTunes/iTunesDB`) lists, so the program writes that database as libgpod
 (gtkpod, Rhythmbox) does: the tracks go into the iPod's own `iPod_Control/Music/Fnn` folders under names of their own
 (`SNC…`), and appear in Music → Artists, Albums, Songs and Playlists on the iPod. What iTunes put
@@ -315,7 +315,7 @@ written: the iPod shows its own blank picture for these tracks.
 
 An iPod with Rockbox (a `.rockbox` folder at its root) plays from folders and is synced like any
 player, into `Sonicache`. To check it with an iPod: plug it in and turn on disk mode if iTunes is not
-there to do it, open the library, pick the iPod under Devices, tick two albums and a playlist, press
+there to do it, open the Sync page, pick the iPod in its list, tick two albums and a playlist, press
 "Sync", eject it safely (Windows' "Safely remove hardware"), unplug it, and look for the albums
 under Music → Artists and the playlist under Music → Playlists; play a song. Then plug it in again,
 untick one album and sync: it is gone from the iPod's menus, the other one still plays. A Classic
@@ -323,7 +323,7 @@ that answers "no music" or shows nothing after a sync is worth a line in an issu
 from Settings → About.
 
 An iPhone gives no program on the computer its files, by cable or otherwise, so phones over Wi-Fi
-work the other way round: "Phone over Wi-Fi" under Devices opens the library on the home network as
+work the other way round: "Phone over Wi-Fi" on the Sync page opens the library on the home network as
 a Subsonic server, the kind Navidrome and Airsonic are. A free player that speaks Subsonic plays it
 and downloads the albums and playlists you pick for when there is no network: Amperfy on an iPhone,
 Ultrasonic (or Symfonium) on Android. Add a Subsonic server in the player with the address, login
