@@ -387,6 +387,24 @@ class TestLibraryScan:
         assert len(tracks) == 3
         assert str(tmp_path / "Radiohead" / "In Rainbows (2007)") in {track["entry"] for track in tracks}
 
+    def test_the_tracks_tab_does_not_walk_the_folders_again_right_after_the_library(self, tmp_path, monkeypatch):
+        self.music(tmp_path)
+        api = gui.Api.__new__(gui.Api)
+        api.library(str(tmp_path))
+
+        def walked(*args, **kwargs):
+            raise AssertionError("the folders were walked again")
+        monkeypatch.setattr(gui, "_library_items", walked)
+        assert len(api.tracks(str(tmp_path))) == 3
+
+    def test_the_tracks_tab_reads_the_folders_again_once_what_was_read_is_old(self, tmp_path, monkeypatch):
+        self.music(tmp_path)
+        api = gui.Api.__new__(gui.Api)
+        api.library(str(tmp_path))
+        song(tmp_path / "Pixies - Doolittle (1989)", "01. Debaser")
+        monkeypatch.setattr(gui, "LIBRARY_FRESH", 0)
+        assert len(api.tracks(str(tmp_path))) == 4
+
 
 @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
 class TestAlbumFolders:

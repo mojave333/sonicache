@@ -431,6 +431,7 @@ class Api:
                         items.append(item)
         items.sort(key=lambda item: item["modified"], reverse=True)
         _save_library_cache(_roots_key(roots), items)
+        _LIBRARY_LAST["read"] = (_roots_key(roots), time.monotonic(), items)
         return items
 
     def library_cached(self, roots: str | list[str]) -> list[dict]:
@@ -920,7 +921,7 @@ class Api:
         """Every track in the library's folders with its tags, for the Tracks tab."""
         result = []
         with folders.scanning():
-            for item in self.library(roots):
+            for item in _library_just_read(roots) or self.library(roots):
                 entry = Path(item["path"])
                 files = folders.album_files(entry)[0] if item["album"] else [entry]
                 for file in files:
@@ -2185,10 +2186,26 @@ def _save_library_cache(roots: str = "", items: list[dict] | None = None) -> Non
         _LIBRARY_CACHE["saved"] = size
 
 
+# What library() read last, for the Tracks tab that is opened right after the library
+# has been: walking every folder again to learn what was just found takes seconds
+_LIBRARY_LAST: dict[str, tuple[str, float, list[dict]] | None] = {"read": None}
+LIBRARY_FRESH = 60  # seconds
+
+
+def _library_just_read(roots: str | list[str]) -> list[dict] | None:
+    """The entries library() found within the last minute for these folders, else None."""
+    roots = [roots] if isinstance(roots, str) else [str(root) for root in roots or []]
+    read = _LIBRARY_LAST["read"]
+    if read is not None and read[0] == _roots_key(roots) and time.monotonic() - read[1] < LIBRARY_FRESH:
+        return read[2]
+    return None
+
+
 def _forget_in_library_cache(paths: set[str]) -> None:
     """What was deleted is not shown again at the next start, while the folders are read."""
     if not paths:
         return
+    _LIBRARY_LAST["read"] = None
     _load_library_cache()
     with _LIBRARY_CACHE_LOCK:
         kept = _LIBRARY_CACHE["items"]
