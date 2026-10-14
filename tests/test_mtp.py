@@ -208,3 +208,83 @@ class TestSyncOntoAPhone:
 def test_not_on_windows_there_are_no_phones(monkeypatch):
     monkeypatch.setattr(mtp.sys, "platform", "linux")
     assert mtp.find_phones() == []
+
+
+windows = pytest.mark.skipif(mtp.sys.platform != "win32", reason="Windows Portable Devices")
+
+
+@windows
+class TestCom:
+    """The COM wrapping, on what Windows has without a phone plugged in."""
+
+    def test_values_round_trip_a_string_a_guid_and_a_number(self):
+        with mtp._com():
+            values = mtp._Values()
+            try:
+                values.set_string(mtp.NAME, "Песни")
+                values.set_guid(mtp.CONTENT_TYPE, mtp.TYPE_FOLDER)
+                values.set_ulonglong(mtp.SIZE, 5_000_000_000)
+                assert values.get_string(mtp.NAME) == "Песни"
+                assert values.get_guid(mtp.CONTENT_TYPE) == mtp.TYPE_FOLDER
+                assert values.get_ulonglong(mtp.SIZE) == 5_000_000_000
+                assert values.get_string(mtp.ORIGINAL_FILE_NAME) is None
+            finally:
+                values.release()
+
+    def test_collections_take_keys_and_strings(self):
+        with mtp._com():
+            keys = mtp._keys([mtp.NAME, mtp.SIZE])
+            ids = mtp._ids_collection(["o1", "o2", "o3"])
+            try:
+                assert mtp._count(keys) == 2 and mtp._count(ids) == 3
+            finally:
+                mtp._release(keys)
+                mtp._release(ids)
+
+    def test_find_phones_on_this_machine_is_a_list(self):
+        assert isinstance(mtp.find_phones(), list)
+
+
+class TestFindPhones:
+    @pytest.fixture(autouse=True)
+    def fresh(self, monkeypatch):
+        monkeypatch.setattr(mtp.sys, "platform", "win32")
+        monkeypatch.setattr(mtp, "_FOUND", {})
+
+    def storage(self, name="Internal shared storage"):
+        return mtp.Storage("s1", name, 6, 10, "PUID1")
+
+    def test_only_mtp_devices_are_listed(self, monkeypatch):
+        monkeypatch.setattr(mtp, "_list_devices", lambda: [("p1", "Redmi Note"), ("p2", "D:\\"), ("p3", "Apple iPhone")])
+        answers = {"p1": ("MTP: 1.00", [self.storage()]), "p2": ("MSC:", []), "p3": ("PTP: 1.0", [self.storage("DCIM")])}
+        monkeypatch.setattr(mtp, "_probe", answers.__getitem__)
+        [phone] = mtp.find_phones()
+        assert (phone.pnp_id, phone.name, [storage.description for storage in phone.storages]) == (
+            "p1", "Redmi Note", ["Internal shared storage"])
+
+    def test_the_list_is_kept_for_a_while(self, monkeypatch):
+        calls, now = [], [100.0]
+        monkeypatch.setattr(mtp, "_list_devices", lambda: [("p1", "Redmi Note")])
+        monkeypatch.setattr(mtp, "_probe", lambda pnp: calls.append(pnp) or ("MTP: 1.00", [self.storage()]))
+        monkeypatch.setattr(mtp.time, "monotonic", lambda: now[0])
+        mtp.find_phones()
+        now[0] += 10
+        mtp.find_phones()
+        assert calls == ["p1"]
+        now[0] += mtp.KEEP_FOR
+        mtp.find_phones()
+        assert calls == ["p1", "p1"]
+
+    def test_a_device_that_cannot_be_opened_is_left_out(self, monkeypatch):
+        monkeypatch.setattr(mtp, "_list_devices", lambda: [("p1", "Redmi Note")])
+
+        def refuse(pnp):
+            raise OSError(-2147024891, "Access is denied")
+        monkeypatch.setattr(mtp, "_probe", refuse)
+        assert mtp.find_phones() == []
+
+    def test_a_locked_phone_is_listed_without_storages(self, monkeypatch):
+        monkeypatch.setattr(mtp, "_list_devices", lambda: [("p1", "Redmi Note")])
+        monkeypatch.setattr(mtp, "_probe", lambda pnp: ("MTP: 1.00", []))
+        [phone] = mtp.find_phones()
+        assert phone.storages == []
