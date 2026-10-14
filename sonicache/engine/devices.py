@@ -13,6 +13,7 @@ its own there.
 
 from __future__ import annotations
 
+import contextlib
 import getpass
 import hashlib
 import json
@@ -465,15 +466,49 @@ DRIVE_REMOVABLE = 2  # GetDriveTypeW: card readers, players, phones as a drive
 
 @dataclass
 class Device:
-    id: str  # "vol:<volume serial>" or "folder:<hash of the path>"
+    id: str  # "vol:<volume serial>", "folder:<hash of the path>" or "mtp:<hash of the phone and storage>"
     name: str
-    root: str
+    root: str  # the drive or the folder; for a phone "mtp:<PnP id>|<storage object id>"
     free: int
     total: int
-    kind: str  # "drive" or "folder"
+    kind: str  # "drive", "folder" or "mtp"
+    note: str = ""  # why it cannot be synced now; nothing when it can
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def _short_hash(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+
+
+@contextlib.contextmanager
+def open_target(device: Device):
+    """Where a sync writes on this device, open for as long as the with lasts."""
+    if device.kind != "mtp":
+        yield DriveTarget(Path(device.root))
+        return
+    from . import mtp  # mtp builds on this module
+
+    pnp_id, _, storage_id = device.root.removeprefix("mtp:").rpartition("|")
+    with mtp._session(pnp_id) as session:
+        yield mtp.MtpTarget(session, storage_id)
+
+
+def _phones() -> list[Device]:
+    """Each storage of each phone plugged in by cable, and a phone that shows none as not ready."""
+    from . import mtp
+
+    found = []
+    for phone in mtp.find_phones():
+        if not phone.storages:
+            found.append(Device(f"mtp:{_short_hash(phone.pnp_id)}", phone.name, f"mtp:{phone.pnp_id}|", 0, 0, "mtp",
+                                t("Разблокируйте телефон и выберите в уведомлении «Передача файлов»")))
+        for storage in phone.storages:
+            found.append(Device(f"mtp:{_short_hash(phone.pnp_id + '|' + storage.persistent_id)}",
+                                f"{phone.name} · {storage.description}", f"mtp:{phone.pnp_id}|{storage.id}",
+                                storage.free, storage.total, "mtp"))
+    return found
 
 
 def folder_id(path: str) -> str:
@@ -483,7 +518,7 @@ def folder_id(path: str) -> str:
 
 
 def find_devices(chosen: list[str]) -> list[Device]:
-    """The removable drives plugged in now, then the folders chosen by hand that are there."""
+    """The removable drives plugged in now, the phones by cable, then the folders chosen by hand that are there."""
     found = []
     for root, label, serial in _drives():
         try:
@@ -493,6 +528,7 @@ def find_devices(chosen: list[str]) -> list[Device]:
         letter = root.rstrip("\\/") if re.match(r"^[A-Za-z]:", root) else Path(root).name
         found.append(Device(f"vol:{serial:08X}", label or t("Диск {letter}", letter=letter), root,
                             usage.free, usage.total, "drive"))
+    found += _phones()
     for path in chosen:
         try:
             usage = shutil.disk_usage(path) if os.path.isdir(path) else None

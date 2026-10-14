@@ -215,7 +215,14 @@ class Phone:
     storages: list[Storage]  # none while it is locked or only charging
 
 
-_FOUND: dict[str, tuple[float, Phone]] = {}
+_FOUND: dict[str, tuple[float, Phone | None]] = {}
+
+
+@contextlib.contextmanager
+def _session(pnp_id: str):
+    """A phone opened for as long as a preview or a sync needs it."""
+    with _Wpd(pnp_id) as wpd:
+        yield wpd
 
 
 def find_phones() -> list[Phone]:

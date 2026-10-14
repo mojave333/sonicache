@@ -1,5 +1,6 @@
 """A phone over a cable (sonicache.engine.mtp): the paths on top of WPD, tried on a phone kept in memory."""
 
+import contextlib
 import itertools
 
 import pytest
@@ -288,3 +289,81 @@ class TestFindPhones:
         monkeypatch.setattr(mtp, "_probe", lambda pnp: ("MTP: 1.00", []))
         [phone] = mtp.find_phones()
         assert phone.storages == []
+
+
+class TestPhonesAsDevices:
+    """A phone's storages in the list of devices, beside the drives, and synced from the window's side."""
+
+    NOT_READY = "Разблокируйте телефон и выберите в уведомлении «Передача файлов»"
+
+    @pytest.fixture
+    def phones(self, monkeypatch):
+        listed = []
+        monkeypatch.setattr(devices, "_drives", lambda: [])
+        monkeypatch.setattr(mtp, "find_phones", lambda: listed)
+        return listed
+
+    def test_a_phone_s_storages_are_devices(self, phones):
+        phones.append(mtp.Phone("p1", "Redmi Note", [mtp.Storage("s1", "Internal shared storage", 6, 10, "P1"),
+                                                     mtp.Storage("s2", "SD card", 1, 2, "P2")]))
+        found = devices.find_devices([])
+        assert [(device.name, device.kind, device.free, device.total, device.note) for device in found] == [
+            ("Redmi Note · Internal shared storage", "mtp", 6, 10, ""), ("Redmi Note · SD card", "mtp", 1, 2, "")]
+        assert all(device.id.startswith("mtp:") for device in found) and found[0].id != found[1].id
+        assert [device.id for device in devices.find_devices([])] == [device.id for device in found]
+
+    def test_a_phone_without_storages_is_listed_as_not_ready(self, phones):
+        phones.append(mtp.Phone("p1", "Redmi Note", []))
+        [device] = devices.find_devices([])
+        assert (device.name, device.kind, device.note) == ("Redmi Note", "mtp", self.NOT_READY)
+
+    def test_the_target_of_a_phone_is_an_mtp_target(self, phones, monkeypatch):
+        phones.append(mtp.Phone("p1", "Redmi Note", [mtp.Storage("s1", "Internal shared storage", 6, 10, "P1")]))
+        opened = []
+
+        @contextlib.contextmanager
+        def session(pnp_id):
+            opened.append(pnp_id)
+            yield FakeWpd()
+        monkeypatch.setattr(mtp, "_session", session)
+        [device] = devices.find_devices([])
+        with devices.open_target(device) as target:
+            assert isinstance(target, MtpTarget) and target.storage_id == "s1"
+        assert opened == ["p1"]
+
+    def test_the_target_of_a_drive_is_a_drive_target(self, tmp_path):
+        device = devices.Device("folder:x", "x", str(tmp_path), 1, 2, "folder")
+        with devices.open_target(device) as target:
+            assert isinstance(target, devices.DriveTarget) and target.root == tmp_path
+
+    def test_a_not_ready_phone_cannot_be_synced(self, phones):
+        from sonicache import gui
+
+        phones.append(mtp.Phone("p1", "Redmi Note", []))
+        api = gui.Api()
+        [device] = api.devices()
+        assert device["note"] == self.NOT_READY
+        assert api.device_plan(device["id"]) == {"error": self.NOT_READY}
+
+    def test_the_window_syncs_onto_a_phone(self, phones, monkeypatch, tmp_path):
+        from sonicache import gui
+
+        music = tmp_path / "Music"
+        make(music / "R - First (2000)" / "01. a.mp3", b"abc")
+        phone = FakeWpd()
+        phones.append(mtp.Phone("p1", "Redmi Note", [mtp.Storage("s1", "Internal shared storage", 6, 10, "P1")]))
+
+        @contextlib.contextmanager
+        def session(pnp_id):
+            yield phone
+        monkeypatch.setattr(mtp, "_session", session)
+        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        api = gui.Api()
+        [device] = api.devices()
+        api.save_device(device["id"], {"all": True})
+        assert api.device_plan(device["id"])["tracks"] == 1
+        assert api.sync_device(device["id"]) is True
+        while (event := api._events.get(timeout=10))["type"] != "sync" or event["state"] == "running":
+            pass
+        assert (event["state"], event["copied"]) == ("done", 1)
+        assert phone.content("Music/Sonicache/R - First (2000)/01. a.mp3") == b"abc"

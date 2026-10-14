@@ -144,4 +144,5 @@ ENGLISH.update({
     # Syncing to a device
     "Устройство не найдено": "The device is not there",
     "На устройстве не хватает места": "There is not enough room on the device",
+    "Устройство не отвечает: {error}": "The device does not answer: {error}",
 })

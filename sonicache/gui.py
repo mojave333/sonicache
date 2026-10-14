@@ -950,8 +950,9 @@ class Api:
         """The devices there now, each with what it is to get and whether it was synced before."""
         data = _devices_data()
         ffmpeg = bool(find_tool("ffmpeg"))
+        # A phone is not opened to tell whether it was synced: it is asked for every few seconds
         return [{**device.to_dict(), "selection": _selection(data["devices"].get(device.id, {}).get("selection")),
-                 "synced": bool(devices.load_manifest(Path(device.root))), "ffmpeg": ffmpeg}
+                 "synced": device.kind != "mtp" and bool(devices.load_manifest(Path(device.root))), "ffmpeg": ffmpeg}
                 for device in devices.find_devices(data["folders"])]
 
     def add_device_folder(self) -> dict | None:
@@ -984,7 +985,13 @@ class Api:
         device = _find_device(device_id)
         if device is None:
             return {"error": t("Устройство не найдено")}
-        work, missing = self._device_work(device)
+        if device.note:
+            return {"error": device.note}
+        try:
+            with devices.open_target(device) as target:
+                work, missing = self._device_work(device, target)
+        except OSError as e:  # a phone that went away or stopped answering
+            return {"error": t("Устройство не отвечает: {error}", error=e.strerror or e)}
         audio = [item for item in work.write if item.audio]
         return {"tracks": len(audio), "bytes": sum(item.size for item in audio), "deleted": len(work.delete),
                 "keep": work.keep, "conflicts": len(work.conflicts), "missing": missing, "need": work.need,
@@ -1004,7 +1011,8 @@ class Api:
             if self._syncing is not None:
                 self._syncing.set()
 
-    def _device_work(self, device: devices.Device, fresh: bool = False) -> tuple[devices.Plan, int]:
+    def _device_work(self, device: devices.Device, target: devices.Target,
+                     fresh: bool = False) -> tuple[devices.Plan, int]:
         """The plan for a device. A preview, asked for at every tick of a box, takes the library
         as it was last read; the sync itself reads the folders again unless that was just done."""
         selection = _selection(_devices_data()["devices"].get(device.id, {}).get("selection"))
@@ -1012,7 +1020,7 @@ class Api:
         roots = [settings["folder"], *(settings.get("library_folders") or [])]
         library = _library_just_read(roots) or (None if fresh else self.library_cached(roots)) or self.library(roots)
         found, specs, missing = _sync_sources(selection, roots, library)
-        work = devices.plan(Path(device.root), found, specs, transcode=selection["transcode"],
+        work = devices.plan(target, found, specs, transcode=selection["transcode"],
                             bitrate=selection["bitrate"], can_transcode=bool(find_tool("ffmpeg")))
         return work, missing
 
@@ -1025,21 +1033,28 @@ class Api:
                 result["error"] = t("Устройство не найдено")
                 return
             result["name"] = device.name
-            work, _ = self._device_work(device, fresh=True)
-            if not work.fits:
-                result["error"] = t("На устройстве не хватает места")
+            if device.note:
+                result["error"] = device.note
                 return
 
             def progress(done: int, total: int, title: str) -> None:
                 self._events.put({"type": "sync", "state": "running", "device": device_id, "done": done,
                                   "total": total, "title": title})
-            report = devices.run(Path(device.root), work, find_tool("ffmpeg"), progress, stop)
+            with devices.open_target(device) as target:
+                work, _ = self._device_work(device, target, fresh=True)
+                if not work.fits:
+                    result["error"] = t("На устройстве не хватает места")
+                    return
+                report = devices.run(target, work, find_tool("ffmpeg"), progress, stop)
             result.update(state="error" if report.error else "stopped" if report.stopped else "done",
                           copied=report.copied, deleted=report.deleted, failed=report.failed[:20],
                           conflicts=len(report.conflicts), error=report.error)
             logs.log.info("синхронизация с %s: записано %d, удалено %d, не удалось %d%s", device.name,
                           report.copied, report.deleted, len(report.failed),
                           f", ошибка: {report.error}" if report.error else "")
+        except OSError as e:  # a phone that went away before the sync could begin
+            logs.log.warning("синхронизация с %s не началась: %s", device_id, e)
+            result["error"] = t("Устройство не отвечает: {error}", error=e.strerror or e)
         except Exception as e:  # whatever it was, the window has to hear that the sync is over
             logs.log.exception("синхронизация с %s не удалась", device_id)
             result["error"] = str(e) or type(e).__name__
