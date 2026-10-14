@@ -113,7 +113,7 @@ const state = {
   plays: new Map(), // path → how many times it was listened to
   playlists: { items: [], stale: true, loading: false, token: 0 }, // the cards of the Playlists tab
   // Players and phones the library is synced to: those there now, what the open one gets, how its sync goes
-  devices: { items: [], timer: 0, selection: null, plan: null, planToken: 0, planTimer: 0, saving: null, shown: "",
+  devices: { items: [], timer: 0, selection: null, plan: null, planToken: 0, planTimer: 0, saving: null, shown: "", sideRows: "",
              sync: { running: false, device: "", done: 0, total: 0, title: "", note: "", timer: 0 } },
   scrobble: null, // the Last.fm and ListenBrainz accounts, as the settings show them
   trackMenu: null, // the tracks the track menu was opened for
@@ -7016,6 +7016,18 @@ function openDeviceId() {
 
 function renderDeviceSide() {
   const id = openDeviceId();
+  // The drives are looked for every few seconds: rows drawn again for nothing would take the focus away
+  const rows = JSON.stringify([language(), id, state.devices.items.map((device) => [device.id, device.name, formatSize(device.free)])]);
+  if (rows !== state.devices.sideRows) {
+    state.devices.sideRows = rows;
+    renderDeviceRows(id);
+  }
+  // What the lists offer comes from the library and the playlists, which may be read only now
+  const shown = `${state.library.items.length}|${state.playlists.items.length}`;
+  if (id && shown !== state.devices.shown) renderDeviceChoice();
+}
+
+function renderDeviceRows(id) {
   $("#side-devices").replaceChildren(...state.devices.items.map((device) => sideItem({
     icon: "i-folder", name: device.name, count: formatSize(device.free),
     attributes: { "data-device": device.id,
@@ -7023,9 +7035,6 @@ function renderDeviceSide() {
                            { name: device.name, free: formatSize(device.free), total: formatSize(device.total) }),
                   ...(device.id === id ? { "aria-current": "page" } : {}) },
   })));
-  // What the lists offer comes from the library and the playlists, which may be read only now
-  const shown = `${state.library.items.length}|${state.playlists.items.length}`;
-  if (id && shown !== state.devices.shown) renderDeviceChoice();
 }
 
 function openDevice(id) {
