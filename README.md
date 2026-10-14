@@ -36,6 +36,8 @@ Everything runs on your own machine. There are no accounts and no API keys.
 - Favourites, playlists of your own (to and from `.m3u8`), and two made from what you
   listen to: recently played and most played.
 - A queue to reorder, albums without gaps, a crossfade and a ten-band equalizer.
+- Sync to a player, an SD card or a phone that shows up as a drive: the whole library or the
+  playlists, artists and albums you tick, converted to MP3 if the player wants it.
 - ReplayGain tags make a shuffled library play at one volume.
 - Listens go to Last.fm or ListenBrainz if you connect them; Discord can show what plays.
 
@@ -268,6 +270,20 @@ with plain lyrics in its tags shows those, and one with none has its lyrics look
 the screen, without anything being written to it. The queue and the equalizer open over it. Keys:
 Space pauses, the left and right arrows move 5 seconds, the up and down arrows set the volume, M
 mutes, L opens the words and F makes the window full screen; Escape leaves the view.
+
+### Players and phones
+
+A player, an SD card or a phone plugged in as a removable drive shows up under Devices in the
+library's list; a phone or a share that does not can be added as a folder with "Choose a folder".
+Its page says how full it is, and what goes onto it: the whole library, or the playlists, artists
+and albums ticked there. Before anything is copied the line above the button says how many tracks
+will be added, how many removed and how much room is left afterwards; "Sync" does it. Covers and
+`.lrc` lyrics go along, playlists become `.m3u8` files in `Sonicache/Playlists`, and "Convert to
+MP3" makes MP3s of the opus and m4a files for a player that plays nothing else (the files in the
+library stay as they are). Everything the program writes goes into a `Sonicache` folder on the
+device, listed in `.sonicache-sync.json` beside it: only what that list names is ever removed, so
+music put on the device another way stays. A sync cut short by a pulled cable carries on from where
+it stopped the next time. What each device gets is remembered in `devices.json` beside the history.
 
 ### Filling in tags
 
@@ -698,6 +714,7 @@ program built on top of it.
 | `sonicache/engine/folders.py` | which files and which picture belong to an album folder |
 | `sonicache/engine/tidy.py` | filling in the tags older files lack, without fetching them again |
 | `sonicache/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
+| `sonicache/engine/devices.py` | syncing to a player or a phone that shows up as a drive: what it lacks, what goes, the copying |
 | `sonicache/engine/i18n.py`, `sonicache/i18n.py`, `sonicache/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
 | `sonicache/logs.py` | the log file and the report |
 | `sonicache/watch.py` | the list of watched playlists |

@@ -363,6 +363,10 @@
           <h4 class="side-head side-link" data-side="playlists" role="button" tabindex="0">Плейлисты</h4>
           <div id="side-playlists"></div>
           <button type="button" class="side-item side-add" id="side-playlist-new"><svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span class="side-name">Новый плейлист</span></button>
+          <!-- Players and phones plugged in as a drive, and folders chosen as devices -->
+          <h4 class="side-head">Устройства</h4>
+          <div id="side-devices"></div>
+          <button type="button" class="side-item side-add" id="side-device-folder" title="Выбрать папку телефона или плеера, если он не виден как съёмный диск"><svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span class="side-name">Выбрать папку</span></button>
         </nav>
         <!-- One bar: what is on the screen and how much of it, then the order, the view, the filter and the buttons -->
         <div class="library-head">
@@ -490,6 +494,68 @@
                 <div><h2 class="artist-name"></h2><p class="album-sub artist-sub"></p></div>
               </div>
               <div class="cards artist-albums"></div>
+            </div>
+            <!-- A device: how full it is, what it gets, and the button that syncs it -->
+            <div id="device-page" class="device-page" hidden>
+              <div class="device-head">
+                <div class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg></div>
+                <div class="device-what">
+                  <h2 class="album-title device-name"></h2>
+                  <p class="album-sub device-root"></p>
+                </div>
+              </div>
+              <div class="space-bar" aria-hidden="true"><span class="space-taken"></span><span class="space-after"></span></div>
+              <p class="device-space"></p>
+              <div class="settings-card device-card">
+                <div class="setting toggle">
+                  <div class="setting-label">
+                    <p id="device-all-label">Вся библиотека</p>
+                    <p class="setting-desc">Все альбомы, треки и плейлисты. Без этого — только то, что отмечено ниже</p>
+                  </div>
+                  <button type="button" id="device-all" class="switch" role="switch" aria-checked="false" aria-labelledby="device-all-label"></button>
+                </div>
+                <div class="setting toggle">
+                  <div class="setting-label">
+                    <p id="device-transcode-label">Пережимать в MP3</p>
+                    <p class="setting-desc" id="device-transcode-desc"></p>
+                  </div>
+                  <select id="device-bitrate" class="select" aria-label="Битрейт MP3">
+                    <option value="128">128 кбит/с</option>
+                    <option value="192">192 кбит/с</option>
+                    <option value="256">256 кбит/с</option>
+                    <option value="320">320 кбит/с</option>
+                  </select>
+                  <button type="button" id="device-transcode" class="switch" role="switch" aria-checked="false" aria-labelledby="device-transcode-label"></button>
+                </div>
+              </div>
+              <div id="device-lists" class="device-lists">
+                <details class="device-list" data-list="playlists" open>
+                  <summary><span>Плейлисты</span><span class="device-count"></span><svg class="icon sm device-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
+                  <div class="device-items"></div>
+                </details>
+                <details class="device-list" data-list="artists">
+                  <summary><span>Исполнители</span><span class="device-count"></span><svg class="icon sm device-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
+                  <div class="field device-filter">
+                    <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
+                    <input type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр исполнителей">
+                  </div>
+                  <div class="device-items"></div>
+                </details>
+                <details class="device-list" data-list="albums">
+                  <summary><span>Альбомы</span><span class="device-count"></span><svg class="icon sm device-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
+                  <div class="field device-filter">
+                    <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
+                    <input type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр альбомов">
+                  </div>
+                  <div class="device-items"></div>
+                </details>
+              </div>
+              <p id="device-preview" class="device-preview" aria-live="polite"></p>
+              <div class="album-actions">
+                <button type="button" class="btn primary" id="device-sync"><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span>Синхронизировать</span></button>
+                <button type="button" class="tool-btn icon-only" id="device-open" title="Открыть папку в проводнике" aria-label="Открыть папку"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
+                <button type="button" class="tool-btn" id="device-forget" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg><span>Убрать из списка</span></button>
+              </div>
             </div>
           </div>
         </div>

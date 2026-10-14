@@ -634,6 +634,42 @@ const TRANSLATIONS = {
   "{count} {playlistWord}": "{count} {playlistWord}",
   "Здесь появятся треки, когда вы их послушаете": "Tracks show up here once you have listened to them",
   "Пока пусто. Треки добавляются правым щелчком в альбоме, во вкладке «Треки» или в библиотеке": "Empty for now. Tracks are added with a right click on an album's page, in the Tracks tab or in the library",
+  // Devices
+  "Устройства": "Devices",
+  "Выбрать папку": "Choose a folder",
+  "Выбрать папку телефона или плеера, если он не виден как съёмный диск":
+    "Choose the folder of a phone or a player that does not show up as a removable drive",
+  "{name} · свободно {free} из {total}": "{name} · {free} free of {total}",
+  "Свободно {free} из {total}": "{free} free of {total}",
+  "Вся библиотека": "The whole library",
+  "Все альбомы, треки и плейлисты. Без этого — только то, что отмечено ниже":
+    "Every album, track and playlist. Otherwise only what is ticked below",
+  "Пережимать в MP3": "Convert to MP3",
+  "Для плееров, которые не играют opus и m4a, и чтобы больше влезло. Файлы в библиотеке не меняются":
+    "For players that do not play opus or m4a, and to fit more. The files in the library stay as they are",
+  "Для пережатия нужен ffmpeg": "Converting needs ffmpeg",
+  "Битрейт MP3": "MP3 bitrate",
+  "128 кбит/с": "128 kbit/s",
+  "192 кбит/с": "192 kbit/s",
+  "256 кбит/с": "256 kbit/s",
+  "320 кбит/с": "320 kbit/s",
+  "Фильтр исполнителей": "Filter the artists",
+  "Фильтр альбомов": "Filter the albums",
+  "{chosen} из {total}": "{chosen} of {total}",
+  "Синхронизировать": "Sync",
+  "Убрать из списка": "Remove from the list",
+  "Считаем…": "Counting…",
+  "Не хватает {size}": "{size} more room is needed",
+  "Отметьте, что взять на устройство": "Tick what the device should get",
+  "Всё уже на устройстве": "Everything is on the device already",
+  "Добавится {tracks} {trackWord} ({size})": "{tracks} {trackWord} to add ({size})",
+  "уберётся {deleted}": "{deleted} to remove",
+  "после синхронизации свободно {free}": "{free} free afterwards",
+  "чужих файлов на месте: {conflicts}": "files of someone else in the way: {conflicts}",
+  "нет на диске: {missing}": "missing from the disk: {missing}",
+  "Синхронизация: {done} из {total} · {title} · не отключайте устройство":
+    "Syncing: {done} of {total} · {title} · do not disconnect the device",
+  "На «{name}» записано {copied}, удалено {deleted}": "On “{name}”: {copied} written, {deleted} removed",
 };
 
 // Russian has three plural forms and English two. The Russian singular is the

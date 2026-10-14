@@ -112,6 +112,9 @@ const state = {
   artistPhotos: new Map(),
   plays: new Map(), // path → how many times it was listened to
   playlists: { items: [], stale: true, loading: false, token: 0 }, // the cards of the Playlists tab
+  // Players and phones the library is synced to: those there now, what the open one gets, how its sync goes
+  devices: { items: [], timer: 0, selection: null, plan: null, planToken: 0, planTimer: 0, saving: null, shown: "",
+             sync: { running: false, device: "", done: 0, total: 0, title: "", note: "", timer: 0 } },
   scrobble: null, // the Last.fm and ListenBrainz accounts, as the settings show them
   trackMenu: null, // the tracks the track menu was opened for
   lastfmWaiting: false,
@@ -983,6 +986,7 @@ function bindUi() {
   });
   $("#library-tracks").addEventListener("keydown", onTracksKey);
   bindLibrarySide();
+  bindDevices();
   radioGroup($("#library-view"), "data-library-view", setLibraryView);
   $("#library-sort").addEventListener("change", onSortPick);
   $("#library-order").addEventListener("change", onSortPick);
@@ -1272,6 +1276,7 @@ function showView(name) {
   } else {
     clearSelection();
   }
+  watchDevices(name === "library");
   renderStatus();
 }
 
@@ -1967,6 +1972,7 @@ function handleEvent(event) {
   if (event.type === "added") return addJob(event.job, event.link, event.dry_run, event.format);
   if (event.type === "watched") return setWatched(event.list);
   if (event.type === "tidy") return onTidyEvent(event);
+  if (event.type === "sync") return onSyncEvent(event);
   const job = state.jobs.get(event.job);
   if (!job) {
     state.orphans.push(event);
@@ -2455,6 +2461,12 @@ function libraryTitle() {
 
 function libraryNote() {
   const { items, selected, shown } = state.library;
+  const sync = state.devices.sync;
+  if (sync.running) {
+    return t("Синхронизация: {done} из {total} · {title} · не отключайте устройство",
+             { done: Math.min(sync.done + 1, sync.total), total: sync.total, title: sync.title });
+  }
+  if (sync.note && !selected.size) return sync.note;
   if (state.tidy.running) {
     const { done, total, title } = state.tidy;
     return t("Дописываем теги: {done} из {total} · {title}", { done: Math.min(done + 1, total), total, title });
@@ -3035,7 +3047,8 @@ function renderLibrarySide() {
   const library = state.library;
   const side = $("#library-side");
   const top = library.pages[library.pages.length - 1];
-  const view = top?.kind === "playlist" ? "" : library.favouritesOnly && library.tab === "albums" ? "favourites" : library.tab;
+  const view = ["playlist", "device"].includes(top?.kind) ? ""
+    : library.favouritesOnly && library.tab === "albums" ? "favourites" : library.tab;
   const counts = {
     albums: library.items.filter((item) => item.album).length,
     favourites: library.items.filter(isFavourite).length,
@@ -3071,6 +3084,7 @@ function renderLibrarySide() {
     name: playlistName(entry), count: entry.smart ? 0 : entry.count,
     attributes: { "data-playlist": entry.id, ...(top?.kind === "playlist" && top.id === entry.id ? { "aria-current": "page" } : {}) },
   })));
+  renderDeviceSide();
 }
 
 function sideItem({ icon, name, count, attributes }) {
@@ -3127,6 +3141,20 @@ function bindLibrarySide() {
     if (playlist) {
       while (!$("#library-page").hidden) await closePage({ instant: true });
       openPlaylist(playlist.dataset.playlist);
+      return;
+    }
+    const device = target.closest("[data-device]");
+    if (device) {
+      while (!$("#library-page").hidden) await closePage({ instant: true });
+      openDevice(device.dataset.device);
+      return;
+    }
+    if (target.closest("#side-device-folder")) {
+      const added = await api().add_device_folder();
+      if (!added) return;
+      await loadDevices();
+      while (!$("#library-page").hidden) await closePage({ instant: true });
+      openDevice(added.id);
       return;
     }
     if (target.closest("#side-playlist-new")) {
@@ -3314,10 +3342,11 @@ function albumFillsWindow() {
 function showPage(kind) {
   const page = $("#library-page");
   $("#view-library").classList.add("page-open");
-  document.documentElement.classList.toggle("album-full", kind !== "artist");
+  document.documentElement.classList.toggle("album-full", kind === "album" || kind === "playlist");
   page.classList.toggle("artist-open", kind === "artist");
-  $("#album-page").hidden = kind === "artist";
+  $("#album-page").hidden = kind === "artist" || kind === "device";
   $("#artist-page").hidden = kind !== "artist";
+  $("#device-page").hidden = kind !== "device";
   page.hidden = false;
   page.scrollTop = 0;
   $("#library-panel").inert = true;
@@ -6946,6 +6975,321 @@ function formatLength(seconds) {
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return t("{minutes} мин", { minutes });
   return t("{hours} ч {minutes} мин", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
+}
+
+/* Devices: the library copied to a player or a phone that shows up as a drive,
+   or to a folder chosen as one. Python works out the difference and copies;
+   the page here says what the device is to get and what a sync would change. */
+
+const DEVICE_POLL = 3000; // how often the drives are looked for while the library is open
+
+// Drives come and go while the library is on screen: they are looked for again every few seconds
+function watchDevices(on) {
+  clearInterval(state.devices.timer);
+  state.devices.timer = 0;
+  if (!on) return;
+  loadDevices();
+  state.devices.timer = setInterval(() => { if (!document.hidden) loadDevices(); }, DEVICE_POLL);
+}
+
+async function loadDevices() {
+  let items = [];
+  try {
+    items = await api().devices() || [];
+  } catch (error) {
+    console.error(error);
+  }
+  state.devices.items = items;
+  renderDeviceSide();
+  const id = openDeviceId();
+  if (!id) return;
+  const device = items.find((entry) => entry.id === id);
+  if (device) renderDeviceSpace(device);
+  else if (!state.devices.sync.running) closePage({ instant: true }); // unplugged while its page was open
+}
+
+function openDeviceId() {
+  const pages = state.library.pages;
+  const top = pages[pages.length - 1];
+  return top?.kind === "device" && !$("#library-page").hidden ? top.id : "";
+}
+
+function renderDeviceSide() {
+  const id = openDeviceId();
+  $("#side-devices").replaceChildren(...state.devices.items.map((device) => sideItem({
+    icon: "i-folder", name: device.name, count: formatSize(device.free),
+    attributes: { "data-device": device.id,
+                  title: t("{name} · свободно {free} из {total}",
+                           { name: device.name, free: formatSize(device.free), total: formatSize(device.total) }),
+                  ...(device.id === id ? { "aria-current": "page" } : {}) },
+  })));
+  // What the lists offer comes from the library and the playlists, which may be read only now
+  const shown = `${state.library.items.length}|${state.playlists.items.length}`;
+  if (id && shown !== state.devices.shown) renderDeviceChoice();
+}
+
+function openDevice(id) {
+  const device = state.devices.items.find((entry) => entry.id === id);
+  if (!device) return;
+  const library = state.library;
+  library.pages.push({ kind: "device", id, item: { title: device.name } });
+  library.pageToken += 1;
+  state.devices.selection = structuredClone(device.selection);
+  state.devices.plan = null;
+  for (const input of $$("#device-page .device-filter input")) input.value = "";
+  fillDevicePage(device);
+  renderPageBack();
+  showPage("device");
+  renderDeviceSide(); // its row in the side list is marked once the page is there
+  riseIn([$("#page-back"), ...$("#device-page").children]);
+  $("#page-back").focus({ preventScroll: true });
+  // The lists are made of the library and the playlists: they are read if they were not yet
+  if (library.stale && !library.loading) loadLibrary();
+  if (state.playlists.stale && !state.playlists.loading) loadPlaylists();
+  previewDevice();
+}
+
+function fillDevicePage(device) {
+  const page = $("#device-page");
+  $(".device-name", page).textContent = device.name;
+  $(".device-root", page).textContent = device.root;
+  $("#device-forget").hidden = device.kind !== "folder";
+  $("#device-transcode").disabled = !device.ffmpeg;
+  $("#device-transcode-desc").textContent = device.ffmpeg
+    ? t("Для плееров, которые не играют opus и m4a, и чтобы больше влезло. Файлы в библиотеке не меняются")
+    : t("Для пережатия нужен ffmpeg");
+  renderDeviceSpace(device);
+  renderDeviceChoice();
+  renderDevicePreview();
+}
+
+// How full the device is now, and how full it will be after the sync
+function renderDeviceSpace(device) {
+  const page = $("#device-page");
+  const total = Math.max(1, device.total);
+  const taken = device.total - device.free;
+  const plan = state.devices.plan;
+  const after = plan && !plan.error ? Math.max(0, Math.min(plan.need, device.free)) : 0;
+  $(".space-taken", page).style.width = `${(100 * taken) / total}%`;
+  $(".space-after", page).style.width = `${(100 * after) / total}%`;
+  $(".device-space", page).textContent = t("Свободно {free} из {total}",
+                                           { free: formatSize(device.free), total: formatSize(device.total) });
+}
+
+// What can be chosen for a device, each as the library and the side list name it
+function deviceEntries(kind) {
+  if (kind === "playlists") {
+    return state.playlists.items.filter((entry) => !entry.smart || entry.count)
+      .map((entry) => ({ key: entry.id, name: playlistName(entry), sub: String(entry.count || "") }));
+  }
+  if (kind === "artists") {
+    const unknown = t("Без исполнителя");
+    return libraryArtists().filter((artist) => artist.name !== unknown)
+      .sort((a, b) => COLLATOR.compare(a.name, b.name))
+      .map((artist) => ({ key: artist.key, name: artist.name, sub: artistCounts(artist) }));
+  }
+  return [...state.library.items].sort((a, b) => COLLATOR.compare(a.artist, b.artist) || COLLATOR.compare(a.title, b.title))
+    .map((item) => ({ key: item.path, name: item.title, sub: [item.artist, item.album ? item.year : t("трек")].filter(Boolean).join(" · ") }));
+}
+
+function renderDeviceChoice() {
+  const selection = state.devices.selection;
+  if (!selection) return;
+  state.devices.shown = `${state.library.items.length}|${state.playlists.items.length}`;
+  const transcode = $("#device-transcode");
+  syncSwitch($("#device-all"), selection.all);
+  syncSwitch(transcode, selection.transcode && !transcode.disabled);
+  $("#device-bitrate").value = String(selection.bitrate);
+  $("#device-bitrate").disabled = transcode.disabled || !selection.transcode;
+  $("#device-lists").hidden = selection.all;
+  for (const kind of ["playlists", "artists", "albums"]) renderDeviceList(kind);
+}
+
+function renderDeviceList(kind) {
+  const box = $(`#device-lists [data-list="${kind}"]`);
+  const chosen = new Set(state.devices.selection[kind]);
+  const entries = deviceEntries(kind);
+  const needle = ($(".device-filter input", box)?.value || "").trim().toLocaleLowerCase();
+  const shown = needle ? entries.filter((entry) => `${entry.name} ${entry.sub}`.toLocaleLowerCase().includes(needle)) : entries;
+  $(".device-items", box).replaceChildren(...shown.map((entry) => {
+    const row = document.createElement("label");
+    row.className = "device-item";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.dataset.key = entry.key;
+    check.checked = chosen.has(entry.key);
+    const name = document.createElement("span");
+    name.className = "device-item-name";
+    name.textContent = entry.name;
+    name.title = entry.name;
+    const sub = document.createElement("span");
+    sub.className = "device-item-sub";
+    sub.textContent = entry.sub;
+    row.append(check, name, sub);
+    return row;
+  }));
+  const picked = entries.filter((entry) => chosen.has(entry.key)).length;
+  $(".device-count", box).textContent = picked ? t("{chosen} из {total}", { chosen: picked, total: entries.length })
+    : String(entries.length || "");
+}
+
+// Every change is kept at once, and what a sync would do is worked out again a moment later
+function changeDevice() {
+  const id = openDeviceId();
+  if (!id) return;
+  const selection = state.devices.selection;
+  state.devices.saving = api().save_device(id, selection).catch((error) => console.error(error));
+  const device = state.devices.items.find((entry) => entry.id === id);
+  if (device) device.selection = structuredClone(selection);
+  clearTimeout(state.devices.planTimer);
+  state.devices.planTimer = setTimeout(previewDevice, 300);
+}
+
+async function previewDevice() {
+  const id = openDeviceId();
+  if (!id) return;
+  const token = ++state.devices.planToken;
+  state.devices.plan = null;
+  renderDevicePreview();
+  await state.devices.saving;
+  let plan;
+  try {
+    plan = await api().device_plan(id);
+  } catch (error) {
+    plan = { error: String(error) };
+  }
+  if (token !== state.devices.planToken || id !== openDeviceId()) return;
+  state.devices.plan = plan;
+  renderDevicePreview();
+  const device = state.devices.items.find((entry) => entry.id === id);
+  if (device) renderDeviceSpace(device);
+}
+
+function nothingChosen(selection) {
+  return !selection.all && !selection.playlists.length && !selection.albums.length && !selection.artists.length;
+}
+
+function renderDevicePreview() {
+  const { plan, selection, sync } = state.devices;
+  const running = sync.running && sync.device === openDeviceId();
+  let text = "";
+  if (!plan) {
+    text = t("Считаем…");
+  } else if (plan.error) {
+    text = plan.error;
+  } else if (!plan.fits) {
+    text = t("Не хватает {size}", { size: formatSize(plan.need - plan.free) });
+  } else if (!plan.tracks && !plan.deleted) {
+    text = selection && nothingChosen(selection) ? t("Отметьте, что взять на устройство") : t("Всё уже на устройстве");
+  } else {
+    const parts = [];
+    if (plan.tracks) {
+      parts.push(t("Добавится {tracks} {trackWord} ({size})", { tracks: plan.tracks,
+        trackWord: plural(plan.tracks, "трек", "трека", "треков"), size: formatSize(plan.bytes) }));
+    }
+    if (plan.deleted) parts.push(t("уберётся {deleted}", { deleted: plan.deleted }));
+    parts.push(t("после синхронизации свободно {free}", { free: formatSize(Math.max(0, plan.free - plan.need)) }));
+    text = parts.join(" · ");
+  }
+  if (plan && !plan.error) {
+    if (plan.conflicts) text += ` · ${t("чужих файлов на месте: {conflicts}", { conflicts: plan.conflicts })}`;
+    if (plan.missing) text += ` · ${t("нет на диске: {missing}", { missing: plan.missing })}`;
+  }
+  $("#device-preview").textContent = text.charAt(0).toUpperCase() + text.slice(1);
+  const button = $("#device-sync");
+  button.disabled = !running && (sync.running || !plan || Boolean(plan.error) || !plan.fits);
+  swapIcon($("use", button), running ? "#i-stop" : "#i-retry");
+  $("span", button).textContent = running ? t("Остановить") : t("Синхронизировать");
+}
+
+async function syncDevice() {
+  const id = openDeviceId();
+  if (!id) return;
+  if (state.devices.sync.running) {
+    api().stop_sync(); // the file in hand is finished, the rest wait for the next time
+    return;
+  }
+  if (!await api().sync_device(id)) return;
+  clearTimeout(state.devices.sync.timer);
+  Object.assign(state.devices.sync, { running: true, device: id, done: 0, total: 0, title: "", note: "" });
+  renderDevicePreview();
+  renderStatus();
+}
+
+function onSyncEvent(event) {
+  const sync = state.devices.sync;
+  if (event.state === "running") {
+    Object.assign(sync, { running: true, device: event.device, done: event.done, total: event.total, title: event.title });
+  } else {
+    sync.running = false;
+    sync.note = syncSummary(event);
+    announce(sync.note);
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(() => { sync.note = ""; renderStatus(); }, 30000);
+    loadDevices();
+    if (openDeviceId() === event.device) previewDevice();
+  }
+  renderDevicePreview();
+  renderStatus();
+}
+
+function syncSummary({ name, copied, deleted, failed, conflicts, error, state: how }) {
+  if (error && !copied && !deleted) return error;
+  const parts = [t("На «{name}» записано {copied}, удалено {deleted}", { name, copied, deleted })];
+  if (failed.length) parts.push(t("не удалось: {failed}", { failed: failed.length }));
+  if (conflicts) parts.push(t("чужих файлов на месте: {conflicts}", { conflicts }));
+  if (error) parts.push(error);
+  const text = parts.join(" · ");
+  return how === "stopped" ? t("Остановлено. {text}", { text }) : text;
+}
+
+function bindDevices() {
+  const page = $("#device-page");
+  const all = $("#device-all");
+  const transcode = $("#device-transcode");
+  bindSwitch(all, (on) => {
+    state.devices.selection.all = on;
+    renderDeviceChoice();
+    changeDevice();
+  });
+  bindSwitch(transcode, (on) => {
+    if (transcode.disabled) return;
+    state.devices.selection.transcode = on;
+    renderDeviceChoice();
+    changeDevice();
+  });
+  $("#device-bitrate").addEventListener("change", (event) => {
+    state.devices.selection.bitrate = Number(event.target.value);
+    changeDevice();
+  });
+  $("#device-lists").addEventListener("change", (event) => {
+    const box = event.target.closest("input[type=checkbox]");
+    if (!box) return;
+    const kind = box.closest("[data-list]").dataset.list;
+    const chosen = new Set(state.devices.selection[kind]);
+    if (box.checked) chosen.add(box.dataset.key);
+    else chosen.delete(box.dataset.key);
+    state.devices.selection[kind] = [...chosen];
+    renderDeviceList(kind);
+    changeDevice();
+  });
+  $("#device-lists").addEventListener("input", (event) => {
+    const list = event.target.closest(".device-filter") && event.target.closest("[data-list]");
+    if (list) renderDeviceList(list.dataset.list);
+  });
+  $("#device-sync").addEventListener("click", syncDevice);
+  $("#device-open").addEventListener("click", () => {
+    const device = state.devices.items.find((entry) => entry.id === openDeviceId());
+    if (device) api().open_folder(device.root);
+  });
+  $("#device-forget").addEventListener("click", async () => {
+    const id = openDeviceId();
+    if (!id) return;
+    await api().forget_device_folder(id);
+    await closePage();
+    loadDevices();
+  });
+  page.hidden = true;
 }
 
 /* Helpers */

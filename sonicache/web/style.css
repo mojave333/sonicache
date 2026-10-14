@@ -1027,6 +1027,47 @@ html.window-full .topbar-right { padding-right: 24px; }
 #page-back span, #search-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
 .page-back:hover { background: var(--hover); color: var(--text); }
+/* A device's page: how full it is, what it gets, the button that syncs it */
+.device-page { max-width: 760px; }
+.device-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.device-what { min-width: 0; }
+.device-head .album-title { margin: 0; }
+.device-head .album-sub { margin: 4px 0 0; overflow-wrap: anywhere; user-select: text; }
+.space-bar { display: flex; height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--divider); }
+.space-taken { background: var(--text-subtle); }
+.space-after { background: var(--accent); transition: width var(--settle) var(--ease); }
+.device-space { margin: 8px 0 20px; color: var(--text-subtle); font-size: var(--fs-sm); }
+.device-card { margin-bottom: 16px; }
+.device-lists { display: grid; gap: 8px; margin-bottom: 16px; }
+.device-list { border-radius: var(--radius-lg); background: var(--field); box-shadow: inset 0 0 0 1px var(--divider); }
+.device-list > summary {
+  display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px 0 20px;
+  font-weight: 600; cursor: pointer; list-style: none;
+}
+.device-list > summary::-webkit-details-marker { display: none; }
+.device-list > summary:hover { color: var(--text); }
+.device-count { margin-left: auto; color: var(--text-subtle); font-size: var(--fs-sm); font-weight: 400; }
+.device-chevron { color: var(--text-subtle); transition: transform var(--settle) var(--ease); }
+.device-list[open] .device-chevron { transform: rotate(180deg); }
+.device-filter { margin: 0 16px 8px 20px; }
+.device-items { max-height: 320px; overflow-y: auto; padding: 0 8px 8px; }
+.device-item {
+  display: flex; align-items: center; gap: 12px; min-height: var(--h); padding: 4px 12px;
+  border-radius: var(--radius); cursor: pointer;
+}
+.device-item:hover { background: var(--hover); }
+.device-item input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--text); cursor: pointer; }
+.device-item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-item-sub { flex: none; max-width: 45%; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-subtle); font-size: var(--fs-sm); }
+.device-preview { min-height: 1.5em; margin: 0 0 12px; color: var(--text-muted); }
+#device-bitrate { flex: none; }
+#device-bitrate:disabled, #device-transcode:disabled { opacity: 0.5; }
+.setting.toggle:has(.switch:disabled) { cursor: default; }
+.setting.toggle:has(.switch:disabled):hover { background: none; }
+@media (prefers-reduced-motion: reduce) {
+  .space-after, .device-chevron { transition: none; }
+}
 .album-page { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; align-items: start; max-width: 1100px; }
 .album-page .album-cover { width: 240px; height: 240px; border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
 /* The cover stays in sight while a long tracklist scrolls past it */
