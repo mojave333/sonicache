@@ -112,7 +112,8 @@ def inspect(root: Path) -> IpodInfo:
     itunes = root / CONTROL / "iTunes"
     if generation == "shuffle" or (itunes / "iTunesSD").exists():
         return IpodInfo(_GENERATIONS["shuffle"][0], "none", None, t("iPod shuffle не поддерживается"))
-    if generation in LOCKED or (itunes / "iTunesCDB").exists() or (itunes / "iTunes Library.itlp").exists():
+    # iTunes 10 and later leave "iTunes Library.itlp" on every iPod it syncs: only the compressed database says more
+    if generation in LOCKED or (itunes / "iTunesCDB").exists():
         return IpodInfo(model, "none", None, locked)
     version = extended.get("DBVersion")
     signs = _database_signs(root)
