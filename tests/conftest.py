@@ -29,6 +29,16 @@ def own_data_dir(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_phones_plugged_in(monkeypatch):
+    """The tests see no phone over a cable, whatever is plugged into the computer they run on;
+    the tests of the phones put in their own."""
+    from sonicache.engine import mtp
+
+    monkeypatch.setattr(mtp, "_list_devices", lambda: [])
+    monkeypatch.setattr(mtp, "_FOUND", {})
+
+
+@pytest.fixture(autouse=True)
 def wifi_on_this_computer_only(monkeypatch):
     """The Wi-Fi server in tests listens on 127.0.0.1: on every address Windows would ask about the firewall."""
     from sonicache import subsonic

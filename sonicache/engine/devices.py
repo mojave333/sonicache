@@ -501,6 +501,11 @@ def _phones() -> list[Device]:
 
     found = []
     for phone in mtp.find_phones():
+        if phone.apple:
+            found.append(Device(f"mtp:{_short_hash(phone.pnp_id)}", phone.name, f"mtp:{phone.pnp_id}|", 0, 0, "mtp",
+                                t("iPhone не принимает музыку по кабелю: Apple разрешает так брать с него только фото. "
+                                  "Откройте «Телефон по Wi-Fi»")))
+            continue
         if not phone.storages:
             found.append(Device(f"mtp:{_short_hash(phone.pnp_id)}", phone.name, f"mtp:{phone.pnp_id}|", 0, 0, "mtp",
                                 t("Разблокируйте телефон и выберите в уведомлении «Передача файлов»")))

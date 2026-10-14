@@ -257,7 +257,7 @@ class TestFindPhones:
 
     def test_only_mtp_devices_are_listed(self, monkeypatch):
         monkeypatch.setattr(mtp, "_list_devices", lambda: [("p1", "Redmi Note"), ("p2", "D:\\"), ("p3", "Apple iPhone")])
-        answers = {"p1": ("MTP: 1.00", [self.storage()]), "p2": ("MSC:", []), "p3": ("PTP: 1.0", [self.storage("DCIM")])}
+        answers = {"p1": ("MTP: 1.00", [self.storage()], False), "p2": ("MSC:", [], False), "p3": ("PTP: 1.0", [self.storage("DCIM")], False)}
         monkeypatch.setattr(mtp, "_probe", answers.__getitem__)
         [phone] = mtp.find_phones()
         assert (phone.pnp_id, phone.name, [storage.description for storage in phone.storages]) == (
@@ -266,7 +266,7 @@ class TestFindPhones:
     def test_the_list_is_kept_for_a_while(self, monkeypatch):
         calls, now = [], [100.0]
         monkeypatch.setattr(mtp, "_list_devices", lambda: [("p1", "Redmi Note")])
-        monkeypatch.setattr(mtp, "_probe", lambda pnp: calls.append(pnp) or ("MTP: 1.00", [self.storage()]))
+        monkeypatch.setattr(mtp, "_probe", lambda pnp: calls.append(pnp) or ("MTP: 1.00", [self.storage()], False))
         monkeypatch.setattr(mtp.time, "monotonic", lambda: now[0])
         mtp.find_phones()
         now[0] += 10
@@ -286,7 +286,7 @@ class TestFindPhones:
 
     def test_a_locked_phone_is_listed_without_storages(self, monkeypatch):
         monkeypatch.setattr(mtp, "_list_devices", lambda: [("p1", "Redmi Note")])
-        monkeypatch.setattr(mtp, "_probe", lambda pnp: ("MTP: 1.00", []))
+        monkeypatch.setattr(mtp, "_probe", lambda pnp: ("MTP: 1.00", [], False))
         [phone] = mtp.find_phones()
         assert phone.storages == []
 
@@ -376,3 +376,25 @@ def test_a_phone_that_keeps_a_file_under_another_name_is_a_device_error(tmp_path
     target = MtpTarget(Renaming(), "s1")
     with pytest.raises(OSError):
         target.put(make(tmp_path / "a.mp3"), "Sonicache/a.mp3")
+
+
+IPHONE = "iPhone не принимает музыку по кабелю: Apple разрешает так брать с него только фото. Откройте «Телефон по Wi-Fi»"
+
+
+def test_an_iphone_is_listed_with_what_to_do_instead(monkeypatch):
+    """An iPhone over a cable says MTP but shows only its photos and takes nothing: it is no sync target."""
+    monkeypatch.setattr(mtp.sys, "platform", "win32")
+    monkeypatch.setattr(mtp, "_FOUND", {})
+    monkeypatch.setattr(devices, "_drives", lambda: [])
+    monkeypatch.setattr(mtp, "_list_devices", lambda: [("usb#vid_05ac&pid_12a8", "Apple iPhone")])
+    monkeypatch.setattr(mtp, "_probe", lambda pnp: ("MTP: 15.20", [mtp.Storage("s10002", "Internal Storage", 1, 2, "P")], True))
+    [phone] = mtp.find_phones()
+    assert phone.apple and phone.storages
+    [device] = devices.find_devices([])
+    assert (device.name, device.kind, device.note) == ("Apple iPhone", "mtp", IPHONE)
+
+
+def test_an_iphone_is_told_by_its_maker_or_its_vendor_id():
+    assert mtp._is_apple("Apple Inc.", "usb#vid_1234")
+    assert mtp._is_apple("", r"\\?\usb#vid_05ac&pid_12a8&mi_00#7")
+    assert not mtp._is_apple("Xiaomi", r"\\?\usb#vid_2717&pid_ff40")

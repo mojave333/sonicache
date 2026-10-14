@@ -199,6 +199,8 @@ ENGLISH = {
     # Syncing to a device
     "Устройство отключено или заполнено: {error}": "The device was disconnected or is full: {error}",
     "Диск {letter}": "Drive {letter}",
+    "iPhone не принимает музыку по кабелю: Apple разрешает так брать с него только фото. Откройте «Телефон по Wi-Fi»":
+        "An iPhone takes no music over a cable: Apple lets only its photos be read that way. Open \"Phone over Wi-Fi\"",
     "Разблокируйте телефон и выберите в уведомлении «Передача файлов»":
         "Unlock the phone and choose \"File transfer\" in its notification",
 }

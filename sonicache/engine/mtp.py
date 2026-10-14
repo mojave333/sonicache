@@ -215,6 +215,13 @@ class Phone:
     pnp_id: str
     name: str
     storages: list[Storage]  # none while it is locked or only charging
+    # An iPhone says MTP too, but over a cable it shows only its photos and takes
+    # nothing: it is listed to say so, and to point at the Wi-Fi instead
+    apple: bool = False
+
+
+def _is_apple(maker: str, pnp_id: str) -> bool:
+    return "apple" in (maker or "").lower() or "vid_05ac" in pnp_id.lower()  # 05AC: Apple's USB vendor id
 
 
 _FOUND: dict[str, tuple[float, Phone | None]] = {}
@@ -246,11 +253,11 @@ def find_phones() -> list[Phone]:
                 found.append(kept[1])
             continue
         try:
-            protocol, storages = _probe(pnp_id)
+            protocol, storages, apple = _probe(pnp_id)
         except OSError as e:  # busy with another program, or gone while it was asked
             _log.info("устройство %s не открылось: %s", name, e)
             continue
-        phone = Phone(pnp_id, name, storages) if protocol.upper().startswith("MTP") else None
+        phone = Phone(pnp_id, name, storages, apple) if protocol.upper().startswith("MTP") else None
         _FOUND[pnp_id] = (now, phone)
         if phone is not None:
             found.append(phone)
@@ -290,12 +297,13 @@ def _friendly_name(manager, pnp_id: str) -> str:
         return pnp_id
 
 
-def _probe(pnp_id: str) -> tuple[str, list[Storage]]:
-    """What a device speaks, and, for a phone, its storages."""
+def _probe(pnp_id: str) -> tuple[str, list[Storage], bool]:
+    """What a device speaks, its storages when it is a phone, and whether Apple made it."""
     with _Wpd(pnp_id) as wpd:
         protocol = wpd.string(_DEVICE, PROTOCOL) or ""
+        apple = _is_apple(wpd.string(_DEVICE, MANUFACTURER) or "", pnp_id)
         if not protocol.upper().startswith("MTP"):
-            return protocol, []
+            return protocol, [], apple
         storages = []
         for object_id in wpd.ids(_DEVICE):
             values = wpd.values(object_id, [CONTENT_TYPE, CATEGORY, DESCRIPTION, FREE, CAPACITY, PERSISTENT_ID])
@@ -308,7 +316,7 @@ def _probe(pnp_id: str) -> tuple[str, list[Storage]]:
                                         values.get_string(PERSISTENT_ID) or object_id))
             finally:
                 values.release()
-        return protocol, storages
+        return protocol, storages, apple
 
 
 # Windows Portable Devices through ctypes. The places of the methods in their
@@ -339,7 +347,7 @@ PARENT_ID, NAME, PERSISTENT_ID = (_OBJECT, 3), (_OBJECT, 4), (_OBJECT, 5)
 FORMAT, CONTENT_TYPE, SIZE, ORIGINAL_FILE_NAME = (_OBJECT, 6), (_OBJECT, 7), (_OBJECT, 11), (_OBJECT, 12)
 CATEGORY = ("8F052D93-ABCA-4FC5-A5AC-B01DF4DBE598", 2)
 CAPACITY, FREE, DESCRIPTION = (_STORAGE, 4), (_STORAGE, 5), (_STORAGE, 7)
-PROTOCOL = ("26D4979A-E643-4626-9E2B-736DC0C92FDC", 6)
+PROTOCOL, MANUFACTURER = ("26D4979A-E643-4626-9E2B-736DC0C92FDC", 6), ("26D4979A-E643-4626-9E2B-736DC0C92FDC", 7)
 CLIENT_NAME, CLIENT_MAJOR, CLIENT_MINOR, CLIENT_REVISION = (_CLIENT, 2), (_CLIENT, 3), (_CLIENT, 4), (_CLIENT, 5)
 RESOURCE_DEFAULT = ("E81E79BE-34F0-41BF-B53F-F1A06AE87842", 0)
 TYPE_FOLDER = uuid.UUID("27E2E392-A111-48E0-AB0C-E17705A05F85")
