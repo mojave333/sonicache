@@ -231,3 +231,17 @@ def test_play_counts_and_otg_are_carried_over():
     assert [db.track_ids_in_order()[n] for n in itunesdb.otg_indexes(otg)] == [53, 52]
     with pytest.raises(ValueError):
         itunesdb.apply_play_counts(db, b"garbage")
+
+
+def test_a_track_written_again_keeps_its_place_id_and_listens():
+    db = itunesdb.new_database("iPod")
+    first = db.put_track(info("Old title", dbid=7))
+    other = db.put_track(info("Other", dbid=8))
+    db.add_playlist("Made on the iPod", 3, [first])
+    db.tracks[0].record.set_u32(0x50, 9)  # listened to nine times
+    again = db.put_track(info("New title", dbid=7))
+    db.finish()
+    back = itunesdb.parse(db.to_bytes())
+    assert again == first and [track.title for track in back.tracks] == ["New title", "Other"]
+    assert back.tracks[0].record.u32(0x50) == 9 and other == 53
+    assert back.playlists[1].track_ids == [first]

@@ -97,6 +97,24 @@ class Target:
         """Files a sync cut short left half written inside Sonicache/."""
         raise NotImplementedError
 
+    # What a device that is more than a folder of files needs (ipod.IpodTarget)
+    plays: frozenset[str] | None = None  # the suffixes it plays, the rest made mp3; None: it plays anything
+    companions = True  # a cover and lyrics beside the tracks
+
+    def begin(self, plan: Plan) -> None:
+        """Before anything is deleted or written."""
+
+    def describe(self, dest: str) -> dict:
+        """What the manifest keeps of a file just written, beyond what every target keeps."""
+        return {}
+
+    def finish(self, files: dict[str, dict]) -> None:
+        """After the work, cut short or not, with the manifest as it was saved."""
+
+
+class TargetError(OSError):
+    """Trouble a target explains itself, in words for the window."""
+
 
 class DriveTarget(Target):
     """A drive or a folder: each file is written under a .part name and put in place whole."""
@@ -234,6 +252,7 @@ class Plan:
     free: int = 0
     need: int = 0  # bytes the sync takes beyond what it frees; less than nothing when it frees more
     fits: bool = True
+    unplayable: int = 0  # files the device does not play and that cannot be made mp3 without ffmpeg
 
 
 def plan(root: Path | Target, sources: list[Source], playlists: list[PlaylistSpec], transcode: bool = False,
@@ -246,6 +265,7 @@ def plan(root: Path | Target, sources: list[Source], playlists: list[PlaylistSpe
     taken: set[str] = set()  # FAT does not tell names apart by case
     by_source: dict[str, str] = {}
     covered: set[str] = set()
+    unplayable = 0
 
     def place(dest: str) -> str:
         stem, suffix = posixpath.splitext(dest)
@@ -263,6 +283,11 @@ def plan(root: Path | Target, sources: list[Source], playlists: list[PlaylistSpe
         except OSError:
             continue  # gone since it was chosen: the window counts it as missing
         mp3 = transcode and can_transcode and path.suffix.lower() != ".mp3"
+        if target.plays is not None and path.suffix.lower() not in target.plays:
+            if not can_transcode:
+                unplayable += 1
+                continue
+            mp3 = True  # an iPod plays no opus or flac: made mp3 whatever was chosen
         rel = safe_rel(source.rel)
         if mp3:
             rel = f"{posixpath.splitext(rel)[0]}.mp3"
@@ -270,6 +295,8 @@ def plan(root: Path | Target, sources: list[Source], playlists: list[PlaylistSpe
         dest = place(f"{SYNC_DIR}/{rel}")
         wanted[dest] = Item(path, dest, f"mp3:{bitrate}" if mp3 else "copy", size)
         by_source[os.path.normcase(str(path))] = dest
+        if not target.companions:
+            continue
         # What players show beside the music: the album's cover and the track's lyrics
         lyrics = path.with_suffix(".lrc")
         if lyrics.is_file():
@@ -283,7 +310,7 @@ def plan(root: Path | Target, sources: list[Source], playlists: list[PlaylistSpe
                 beside = place(f"{posixpath.dirname(dest)}/{safe_rel(cover.name)}")
                 wanted[beside] = Item(cover, beside, "copy", cover.stat().st_size, audio=False)
 
-    result = Plan()
+    result = Plan(unplayable=unplayable)
     freed = 0
     for dest, item in wanted.items():
         entry = manifest.get(dest)
@@ -346,9 +373,12 @@ def run(root: Path | Target, plan: Plan, ffmpeg: str | None = None,
     a sync cut short by a pulled cable or a stop goes on from there next time."""
     target = as_target(root)
     report = Report(conflicts=list(plan.conflicts))
+    begun = False
     files = load_manifest(target)
     try:
         target.clean_parts()
+        target.begin(plan)
+        begun = True
         for dest in plan.delete:
             target.delete(dest)
             files.pop(dest, None)
@@ -363,7 +393,7 @@ def run(root: Path | Target, plan: Plan, ffmpeg: str | None = None,
                 report.stopped = True
                 break
             try:
-                files[item.dest] = _write(target, item, ffmpeg, stop)
+                files[item.dest] = {**_write(target, item, ffmpeg, stop), **target.describe(item.dest)}
             except _Failed as e:
                 if stop is not None and stop.is_set():  # ffmpeg was cut short by the stop itself
                     report.stopped = True
@@ -377,6 +407,9 @@ def run(root: Path | Target, plan: Plan, ffmpeg: str | None = None,
         if not report.stopped:
             for dest, text in plan.playlists.items():
                 _write_playlist(target, dest, text, files, report)
+    except TargetError as e:
+        _log.warning("синхронизация с %s прервана: %s", target, e)
+        report.error = str(e)
     except OSError as e:
         _log.warning("синхронизация с %s прервана: %s", target, e)
         report.error = t("Устройство отключено или заполнено: {error}", error=e.strerror or e)
@@ -385,6 +418,13 @@ def run(root: Path | Target, plan: Plan, ffmpeg: str | None = None,
             save_manifest(target, files)
         except OSError as e:  # the device is gone: what was done is what the last save says
             _log.warning("список синхронизации на %s не сохранён: %s", target, e)
+        if begun:
+            try:  # an iPod lists what was written, also when the sync was cut short
+                target.finish(files)
+            except OSError as e:
+                _log.warning("синхронизация с %s не закончена: %s", target, e)
+                report.error = report.error or (str(e) if isinstance(e, TargetError) else t(
+                    "Устройство отключено или заполнено: {error}", error=e.strerror or e))
     return report
 
 
@@ -427,7 +467,8 @@ def _write_playlist(target: Target, dest: str, text: str, files: dict[str, dict]
             return
     data = text.encode("utf-8")
     target.write_bytes(dest, data)
-    files[dest] = {"source": "", "size": 0, "mtime_ns": 0, "mode": "playlist", "bytes": len(data)}
+    files[dest] = {"source": "", "size": 0, "mtime_ns": 0, "mode": "playlist", "bytes": len(data),
+                   **target.describe(dest)}
 
 
 def _to_mp3(ffmpeg: str, source: Path, target: Path, bitrate: int, stop: threading.Event | None) -> None:
@@ -485,6 +526,11 @@ def _short_hash(text: str) -> str:
 @contextlib.contextmanager
 def open_target(device: Device):
     """Where a sync writes on this device, open for as long as the with lasts."""
+    if device.kind == "ipod":
+        from . import ipod  # ipod builds on this module
+
+        yield ipod.IpodTarget(Path(device.root), ipod.inspect(Path(device.root)), device.name)
+        return
     if device.kind != "mtp":
         yield DriveTarget(Path(device.root))
         return

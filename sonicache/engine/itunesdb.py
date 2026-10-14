@@ -237,6 +237,18 @@ class Database:
         tracks.children.append(_track(info, number, self.root.u64(0x24)))
         return number
 
+    def put_track(self, info: TrackInfo) -> int:
+        """A track written again in its place, with its id and what was listened to
+        on the iPod, so playlists made there keep it; a new one at the end."""
+        tracks = self._list(1)
+        for index, record in enumerate(tracks.children):
+            if record.u64(0x70) == info.dbid:
+                made = _track(info, record.u32(0x10), self.root.u64(0x24))
+                copy_listens(record, made)
+                tracks.children[index] = made
+                return record.u32(0x10)
+        return self.add_track(info)
+
     def remove_tracks(self, dbids: set[int]) -> None:
         tracks = self._list(1)
         gone = {track.id for track in self.tracks if track.dbid in dbids}
@@ -514,6 +526,17 @@ def _counted(data: bytes, tag: bytes, smallest_header: int, smallest_entry: int)
     if header < smallest_header or entry < smallest_entry or header + entry * count > len(data):
         raise ValueError(f"a broken {tag.decode()} file")
     return header, entry, count
+
+
+# What the iPod itself changes in a track: rating, listens, last played,
+# when added, bookmark, skips, last skipped, the "unplayed" mark
+LISTENS = ((0x1F, 1), (0x50, 4), (0x54, 4), (0x58, 4), (0x68, 4), (0x6C, 4), (0x9C, 4), (0xA0, 4), (0xB2, 1))
+
+
+def copy_listens(source: Record, target: Record) -> None:
+    """A track written again keeps what was listened to on the iPod."""
+    for offset, size in LISTENS:
+        target.header[offset:offset + size] = source.header[offset:offset + size]
 
 
 def apply_play_counts(db: Database, data: bytes) -> None:

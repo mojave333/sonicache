@@ -206,6 +206,8 @@ ENGLISH = {
     "Этот iPod не поддерживается: его база защищена подписью, которую нельзя сделать без iTunes":
         "This iPod is not supported: its database is protected by a signature only iTunes can make",
     "iPod shuffle не поддерживается": "The iPod shuffle is not supported",
+    "База iPod не прочиталась, она не тронута: {error}":
+        "The iPod's database could not be read and was left as it is: {error}",
     "Не удалось узнать FireWire ID этого iPod: без него он не примет базу":
         "Could not find this iPod's FireWire ID: without it the iPod will not take a database",
 }
