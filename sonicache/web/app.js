@@ -7180,30 +7180,26 @@ function renderDeviceCards() {
     const working = sync.running && sync.device === device.id;
     const card = document.createElement("button");
     card.type = "button";
-    card.className = "sync-card" + (device.note ? " not-ready" : "") + (working ? " working" : "");
+    card.className = "sync-row" + (device.note ? " not-ready" : "") + (working ? " working" : "");
     card.dataset.device = device.id;
     card.innerHTML = `<span class="sync-icon"><svg class="icon" aria-hidden="true"><use href="#${icon}"/></svg></span>
-      <span class="sync-card-body"><span class="sync-card-name"></span><span class="sync-card-kind"></span></span>
+      <span class="sync-row-body"><span class="sync-row-name"></span><span class="sync-row-kind"></span></span>
       <svg class="icon sm sync-chevron" aria-hidden="true"><use href="#i-chevron-right"/></svg>`;
-    $(".sync-card-name", card).textContent = device.name;
-    $(".sync-card-kind", card).textContent = device.kind === "mtp" ? name : `${name} · ${device.root.replace(/[\\/]+$/, "") || device.root}`;
-    const foot = document.createElement("span");
-    foot.className = "sync-card-foot";
+    $(".sync-row-name", card).textContent = device.name;
+    $(".sync-row-kind", card).textContent = device.kind === "mtp" ? name : `${name} · ${device.root.replace(/[\\/]+$/, "") || device.root}`;
     const stateLine = document.createElement("span");
     stateLine.className = "sync-state";
     if (device.note) {
       stateLine.classList.add("warn");
       stateLine.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span></span>';
       $("span", stateLine).textContent = device.note;
-      foot.append(stateLine);
+      $(".sync-chevron", card).before(stateLine);
     } else {
-      const bar = document.createElement("span");
-      bar.className = "space-bar";
-      bar.setAttribute("aria-hidden", "true");
-      bar.innerHTML = '<span class="space-taken"></span>';
-      $(".space-taken", bar).style.width = `${(100 * (device.total - device.free)) / Math.max(1, device.total)}%`;
-      const free = document.createElement("span");
-      free.textContent = t("Свободно {free} из {total}", { free: formatSize(device.free), total: formatSize(device.total) });
+      const meter = document.createElement("span");
+      meter.className = "sync-meter";
+      meter.innerHTML = '<span class="space-bar" aria-hidden="true"><span class="space-taken"></span></span><span class="sync-free"></span>';
+      $(".space-taken", meter).style.width = `${(100 * (device.total - device.free)) / Math.max(1, device.total)}%`;
+      $(".sync-free", meter).textContent = t("Свободно {free} из {total}", { free: formatSize(device.free), total: formatSize(device.total) });
       if (working) {
         stateLine.classList.add("ok");
         stateLine.textContent = t("Синхронизация: {done} из {total}", { done: Math.min(sync.done + 1, sync.total), total: sync.total });
@@ -7214,10 +7210,8 @@ function renderDeviceCards() {
       } else {
         stateLine.textContent = t("Ещё не синхронизировалось");
       }
-      foot.append(free, stateLine);
-      card.append(bar);
+      $(".sync-chevron", card).before(meter, stateLine);
     }
-    card.append(foot);
     return card;
   }));
 }
@@ -7261,7 +7255,7 @@ function fillDevicePage(device) {
 function renderDeviceSpace(device) {
   const page = $("#device-page");
   // A locked phone shows no storage yet: what to do about it is said where the preview would be
-  $(".space-card", page).hidden = Boolean(device.note);
+  for (const part of $$(".space-card, .side-head", page)) part.hidden = Boolean(device.note);
   if (device.note) return;
   const total = Math.max(1, device.total);
   const taken = device.total - device.free;
