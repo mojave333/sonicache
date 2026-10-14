@@ -1,6 +1,7 @@
 """Syncing the library to a player or a phone that shows up as a drive (sonicache.engine.devices)."""
 
 import json
+import threading
 import types
 
 import pytest
@@ -169,3 +170,78 @@ class TestPlan:
         assert list(plan.playlists) == ["Sonicache/Playlists/Mix_ best.m3u8"]
         text = plan.playlists["Sonicache/Playlists/Mix_ best.m3u8"]
         assert text.splitlines() == ["#EXTM3U", "#PLAYLIST:Mix: best", "../R/A/a.flac"]
+
+
+class TestRun:
+    def test_run_copies_and_records(self, lib, dev):
+        source = make(lib / "R" / "a.flac", b"abc")
+        report = devices.run(dev, devices.plan(dev, [Source(source, "R/a.flac")], []))
+        assert (dev / "Sonicache" / "R" / "a.flac").read_bytes() == b"abc"
+        entry = devices.load_manifest(dev)["Sonicache/R/a.flac"]
+        assert (entry["source"], entry["mode"], entry["bytes"]) == (str(source), "copy", 3)
+        assert report.copied == 1 and report.error == "" and not report.stopped
+
+    def test_run_deletes_only_what_the_manifest_lists(self, lib, dev):
+        mine = make(dev / "Sonicache" / "old" / "x.mp3")
+        theirs = make(dev / "Sonicache" / "theirs.mp3")
+        devices.save_manifest(dev, {"Sonicache/old/x.mp3": record(make(lib / "x.mp3"))})
+        report = devices.run(dev, devices.plan(dev, [], []))
+        assert not mine.exists() and not mine.parent.exists()
+        assert theirs.exists() and report.deleted == 1
+        assert devices.load_manifest(dev) == {}
+
+    def test_a_second_run_writes_nothing(self, lib, dev):
+        sources = [Source(make(lib / "a.flac"), "a.flac"), Source(make(lib / "b.flac"), "b.flac")]
+        devices.run(dev, devices.plan(dev, sources, []))
+        again = devices.plan(dev, sources, [])
+        assert again.write == [] and again.keep == 2
+
+    def test_stop_keeps_what_was_done(self, lib, dev):
+        sources = [Source(make(lib / f"{n}.flac"), f"{n}.flac") for n in "abc"]
+        stop = threading.Event()
+
+        def progress(done, total, title):
+            if done == 1:
+                stop.set()
+        report = devices.run(dev, devices.plan(dev, sources, []), progress=progress, stop=stop)
+        assert report.stopped and report.copied == 1
+        assert list(devices.load_manifest(dev)) == ["Sonicache/a.flac"]
+        assert [item.dest for item in devices.plan(dev, sources, []).write] == ["Sonicache/b.flac", "Sonicache/c.flac"]
+
+    def test_device_gone_mid_run_keeps_what_was_done(self, lib, dev, monkeypatch):
+        sources = [Source(make(lib / f"{n}.flac"), f"{n}.flac") for n in "abc"]
+        work = devices.plan(dev, sources, [])
+        copy = devices.shutil.copyfile
+        calls = []
+
+        def flaky(source, target):
+            calls.append(source)
+            if len(calls) == 2:
+                raise OSError(5, "the device is gone")
+            return copy(source, target)
+        monkeypatch.setattr(devices.shutil, "copyfile", flaky)
+        report = devices.run(dev, work)
+        assert report.error and report.copied == 1
+        assert list(devices.load_manifest(dev)) == ["Sonicache/a.flac"]
+
+    def test_leftover_part_files_are_removed(self, lib, dev):
+        part = make(dev / "Sonicache" / "R" / "x.mp3.part")
+        devices.run(dev, devices.plan(dev, [], []))
+        assert not part.exists()
+
+    def test_an_unreadable_source_is_reported_and_the_rest_go_on(self, lib, dev):
+        gone = make(lib / "a.flac")
+        sources = [Source(gone, "a.flac"), Source(make(lib / "b.flac"), "b.flac")]
+        work = devices.plan(dev, sources, [])
+        gone.unlink()
+        report = devices.run(dev, work)
+        assert report.failed == ["a.flac"] and report.copied == 1
+
+    def test_playlists_are_written_and_dropped(self, lib, dev):
+        source = make(lib / "a.flac")
+        devices.run(dev, devices.plan(dev, [Source(source, "a.flac")], [PlaylistSpec("Mix", [source])]))
+        playlist = dev / "Sonicache" / "Playlists" / "Mix.m3u8"
+        assert playlist.read_text(encoding="utf-8").splitlines()[-1] == "../a.flac"
+        assert devices.load_manifest(dev)["Sonicache/Playlists/Mix.m3u8"]["mode"] == "playlist"
+        devices.run(dev, devices.plan(dev, [Source(source, "a.flac")], []))
+        assert not playlist.exists()

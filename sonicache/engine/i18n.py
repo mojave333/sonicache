@@ -196,6 +196,9 @@ ENGLISH = {
         "{done}: {ok}, already here: {skipped}, failed: {failed}",
     "? {label}  →  {artists} - {title} [{source}, {got} / {wanted}, оценка {score}] {url}":
         "? {label}  →  {artists} - {title} [{source}, {got} / {wanted}, score {score}] {url}",
+    # Syncing to a device
+    "Устройство отключено или заполнено: {error}": "The device was disconnected or is full: {error}",
+    "Диск {letter}": "Drive {letter}",
 }
 
 

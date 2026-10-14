@@ -18,10 +18,13 @@ import os
 import posixpath
 import re
 import shutil
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from . import folders
+from .i18n import t
 from .logs import log
 
 SYNC_DIR = "Sonicache"
@@ -205,3 +208,126 @@ def plan(root: Path, sources: list[Source], playlists: list[PlaylistSpec], trans
     result.need = sum(item.size for item in result.write) - freed
     result.fits = result.need <= result.free
     return result
+
+
+SAVE_EVERY = 20  # files written between two saves of the manifest
+
+
+@dataclass
+class Report:
+    copied: int = 0  # tracks; a cover or lyrics beside them are not counted
+    deleted: int = 0
+    failed: list[str] = field(default_factory=list)  # names of the files that could not be made
+    conflicts: list[str] = field(default_factory=list)
+    stopped: bool = False
+    error: str = ""  # why it ended early: the device went away or is full
+
+
+class _Failed(Exception):
+    """One file could not be made; the rest go on."""
+
+
+def run(root: Path, plan: Plan, ffmpeg: str | None = None,
+        progress: Callable[[int, int, str], None] | None = None,
+        stop: threading.Event | None = None) -> Report:
+    """Carries a plan out: deletions first, to free the room, then the files
+    one by one, then the playlists. The manifest is kept up with the work, so
+    a sync cut short by a pulled cable or a stop goes on from there next time."""
+    root = Path(root)
+    report = Report(conflicts=list(plan.conflicts))
+    files = load_manifest(root)
+    try:
+        _remove_parts(root)
+        for dest in plan.delete:
+            target = root / dest
+            target.unlink(missing_ok=True)
+            files.pop(dest, None)
+            report.deleted += 1
+            _prune(root, target.parent)
+        save_manifest(root, files)
+        total = len(plan.write)
+        for index, item in enumerate(plan.write):
+            if progress is not None:
+                progress(index, total, item.source.name)
+            if stop is not None and stop.is_set():
+                report.stopped = True
+                break
+            try:
+                files[item.dest] = _write(root, item, ffmpeg, stop)
+            except _Failed as e:
+                _log.warning("синхронизация: %s не записан: %s", item.source, e)
+                report.failed.append(item.source.name)
+                continue
+            report.copied += item.audio
+            if (index + 1) % SAVE_EVERY == 0:
+                save_manifest(root, files)
+        if not report.stopped:
+            for dest, text in plan.playlists.items():
+                _write_playlist(root, dest, text, files, report)
+    except OSError as e:
+        _log.warning("синхронизация с %s прервана: %s", root, e)
+        report.error = t("Устройство отключено или заполнено: {error}", error=e.strerror or e)
+    finally:
+        try:
+            save_manifest(root, files)
+        except OSError as e:  # the device is gone: what was done is what the last save says
+            _log.warning("список синхронизации на %s не сохранён: %s", root, e)
+    return report
+
+
+def _write(root: Path, item: Item, ffmpeg: str | None, stop: threading.Event | None) -> dict:
+    """One file onto the device, under a .part name until it is whole; its manifest entry."""
+    try:
+        stat = item.source.stat()
+    except OSError as e:
+        raise _Failed(e) from e
+    target = root / item.dest
+    partial = target.with_name(f"{target.name}.part")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if item.mode == "copy":
+        shutil.copyfile(item.source, partial)
+    else:
+        if not ffmpeg:
+            raise _Failed("ffmpeg")
+        _to_mp3(ffmpeg, item.source, partial, int(item.mode.partition(":")[2]), stop)
+    os.replace(partial, target)
+    return {"source": str(item.source), "size": stat.st_size, "mtime_ns": stat.st_mtime_ns, "mode": item.mode,
+            "bytes": target.stat().st_size}
+
+
+def _write_playlist(root: Path, dest: str, text: str, files: dict[str, dict], report: Report) -> None:
+    target = root / dest
+    if target.exists():
+        if dest not in files:
+            report.conflicts.append(dest)
+            return
+        if target.read_text(encoding="utf-8", errors="replace") == text:
+            return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    partial = target.with_name(f"{target.name}.part")
+    partial.write_text(text, encoding="utf-8", newline="\n")
+    os.replace(partial, target)
+    files[dest] = {"source": "", "size": 0, "mtime_ns": 0, "mode": "playlist", "bytes": len(text.encode())}
+
+
+def _to_mp3(ffmpeg: str, source: Path, target: Path, bitrate: int, stop: threading.Event | None) -> None:
+    raise _Failed("not yet")
+
+
+def _remove_parts(root: Path) -> None:
+    """Files a sync cut short left half written."""
+    for folder, _, names in os.walk(root / SYNC_DIR):
+        for name in names:
+            if name.endswith(".part"):
+                os.remove(os.path.join(folder, name))
+
+
+def _prune(root: Path, folder: Path) -> None:
+    """Folders left empty inside Sonicache/, from the deepest up."""
+    top = root / SYNC_DIR
+    while folder != top and top in folder.parents:
+        try:
+            folder.rmdir()
+        except OSError:
+            return  # not empty: what is above is not either
+        folder = folder.parent
