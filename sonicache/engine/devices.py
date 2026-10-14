@@ -417,9 +417,12 @@ def find_devices(chosen: list[str]) -> list[Device]:
         found.append(Device(f"vol:{serial:08X}", label or t("Диск {letter}", letter=letter), root,
                             usage.free, usage.total, "drive"))
     for path in chosen:
-        if not os.path.isdir(path):
+        try:
+            usage = shutil.disk_usage(path) if os.path.isdir(path) else None
+        except OSError:  # a share that went away, a folder no longer allowed: the others still show
+            usage = None
+        if usage is None:
             continue
-        usage = shutil.disk_usage(path)
         found.append(Device(folder_id(path), Path(path).name or path, path, usage.free, usage.total, "folder"))
     return found
 

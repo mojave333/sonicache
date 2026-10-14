@@ -343,3 +343,18 @@ def test_a_source_gone_while_it_is_copied_is_a_failure_not_a_lost_device(lib, de
     monkeypatch.setattr(devices.shutil, "copyfile", vanishing)
     report = devices.run(dev, work)
     assert report.error == "" and report.failed == ["a.flac"] and report.copied == 1
+
+
+def test_a_folder_that_cannot_be_measured_leaves_the_rest_listed(tmp_path, monkeypatch):
+    good, bad = tmp_path / "good", tmp_path / "bad"
+    good.mkdir()
+    bad.mkdir()
+    usage = devices.shutil.disk_usage
+
+    def measure(path):
+        if str(path) == str(bad):
+            raise PermissionError(13, "Access is denied", str(path))
+        return usage(path)
+    monkeypatch.setattr(devices, "_drives", lambda: [])
+    monkeypatch.setattr(devices.shutil, "disk_usage", measure)
+    assert [device.name for device in devices.find_devices([str(bad), str(good)])] == ["good"]
