@@ -17,16 +17,20 @@ from __future__ import annotations
 import datetime
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import random
 import re
+import socket
 import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -686,3 +690,132 @@ def required(params: dict[str, str], name: str) -> str:
     if not value:
         raise Failure(MISSING, f"Required parameter is missing: {name}")
     return value
+
+
+# The server on the home network
+
+PORT = 4533  # Navidrome's: a player that guesses the port guesses this one
+PORT_TRIES = 11  # the port and the ten after it, when another program holds it
+
+
+class _Server(ThreadingHTTPServer):
+    daemon_threads = True
+    # On Windows SO_REUSEADDR lets a second server take a port another one holds:
+    # without this the "taken" port would be shared, and neither would answer well
+    allow_reuse_address = sys.platform != "win32"
+
+
+class Listener:
+    """The HTTP server in front of an Api, on every address of the computer."""
+
+    def __init__(self, api: Api, port: int = PORT, host: str = "0.0.0.0"):
+        self.api = api
+        self.port = port
+        self.host = host
+        self._server: _Server | None = None
+
+    def start(self) -> int:
+        """Starts serving and gives the port it got: the one asked for, or the next free one."""
+        handler = _handler(self.api)
+        failure: OSError | None = None
+        for port in range(self.port, self.port + PORT_TRIES):
+            try:
+                self._server = _Server((self.host, port), handler)
+            except OSError as e:
+                failure = e
+                continue
+            threading.Thread(target=self._server.serve_forever, daemon=True).start()
+            return port
+        raise failure or OSError("no port")
+
+    def stop(self) -> None:
+        if self._server is not None:
+            self._server.shutdown()
+            self._server.server_close()
+            self._server = None
+
+
+def _handler(api: Api):
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"  # one connection for a whole page of covers
+
+        def do_GET(self):
+            self._answer(head=False)
+
+        def do_HEAD(self):
+            self._answer(head=True)
+
+        def do_POST(self):
+            self._answer(head=False)
+
+        def _answer(self, head: bool) -> None:
+            address = urllib.parse.urlsplit(self.path)
+            params = {key: values[-1] for key, values in urllib.parse.parse_qs(address.query).items()}
+            if self.command == "POST":  # OpenSubsonic's formPost: the same parameters, in the body
+                size = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(min(size, 1_000_000)).decode("utf-8", errors="replace") if size else ""
+                params.update({key: values[-1] for key, values in urllib.parse.parse_qs(body).items()})
+            try:
+                response = api.handle(self.command, address.path, params, dict(self.headers.items()))
+                self._send(response, head)
+            except (ConnectionError, OSError):
+                pass  # the player went away, or dropped the file to seek elsewhere
+
+        def _send(self, response: Response, head: bool) -> None:
+            self.send_response(response.status)
+            self.send_header("Content-Type", response.content_type)
+            for key, value in response.headers.items():
+                self.send_header(key, value)
+            if response.stream is not None:  # made as it goes: its length is not known
+                self.send_header("Connection", "close")
+                self.close_connection = True
+                self.end_headers()
+                if not head:
+                    for chunk in response.stream:
+                        self.wfile.write(chunk)
+                return
+            if response.path is not None:
+                self.send_header("Content-Length", str(response.length or 0))
+                self.end_headers()
+                if not head:
+                    with response.path.open("rb") as source:
+                        source.seek(response.start)
+                        left = response.length or 0
+                        while left > 0:
+                            chunk = source.read(min(256 * 1024, left))
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                            left -= len(chunk)
+                return
+            body = response.body or b""
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            if not head:
+                self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            pass  # a line for every cover and every piece of a song would bury the log
+
+    return Handler
+
+
+def local_addresses() -> list[str]:
+    """The computer's IPv4 addresses on the home network, the one its traffic goes out by first."""
+    found = []
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("192.0.2.1", 9))  # no packet is sent: this only picks the way out
+            found.append(probe.getsockname()[0])
+    except OSError:
+        pass
+    try:
+        found += [info[4][0] for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]
+    except OSError:
+        pass
+    kept = []
+    for address in found:
+        parsed = ipaddress.ip_address(address)
+        if parsed.is_private and not parsed.is_loopback and not parsed.is_link_local and address not in kept:
+            kept.append(address)
+    return kept

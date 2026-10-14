@@ -35,7 +35,8 @@ from mutagen.id3 import Frames
 from mutagen.mp3 import MP3
 from mutagen.flac import Picture
 
-from . import __version__, logs, mediacontrols, playlists, presence, relay_for, scrobble, thumbbar, tray, watch, winframe
+from . import (__version__, logs, mediacontrols, playlists, presence, relay_for, scrobble, subsonic, thumbbar, tray,
+               watch, winframe)
 from .i18n import LANGUAGES, resolve, set_language, t
 from .engine import batch, catalog, devices, folders, loudness, lyrics, network, sources, use_relay
 from .engine.models import Album, SourceError, Track
@@ -119,6 +120,11 @@ DEFAULT_SELECTION = {"all": False, "playlists": [], "albums": [], "artists": [],
 # The names the window gives the playlists made of the plays, for their .m3u8 on a device
 SMART_NAMES = {"recent": "Недавно слушали", "top": "Часто слушаю"}
 _DEVICES_LOCK = threading.Lock()
+# The library over Wi-Fi (subsonic.py): whether it is on, the port and the password. Not in the
+# settings: the window saves those whole from its own copy, and would put back a password changed here
+WIFI_FILE = "wifi.json"
+WIFI_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"  # nothing to mistake for something else on a phone's keyboard
+WIFI_PASSWORD_LENGTH = 10
 # The tags read from the library's files, kept between runs so that opening
 # the library reads again only the files changed since
 LIBRARY_CACHE_FILE = "library-cache.json"
@@ -149,6 +155,9 @@ class Api:
         self._covers = _CoverServer()
         self._tidying: threading.Event | None = None  # set to stop the tidy-up that runs
         self._syncing: threading.Event | None = None  # set to stop the sync to a device that runs
+        self._wifi: subsonic.Listener | None = None  # the library on the home network, while it is on
+        self._wifi_port = 0
+        self._wifi_error = ""
         self._tray: tray.Tray | None = None
         self._thumbbar: thumbbar.ThumbBar | None = None  # the player's buttons under the taskbar picture
         self._media: mediacontrols.MediaControls | None = None  # the track in Windows' own media controls
@@ -178,6 +187,7 @@ class Api:
             if self._watcher is None:
                 self._watcher = threading.Thread(target=self._watch_loop, daemon=True)
                 self._watcher.start()
+        self.start_wifi_if_on()
         return {
             "version": __version__,
             "first_run": not SETTINGS_FILE.exists(),  # the welcome screen, once
@@ -1062,6 +1072,76 @@ class Api:
             with self._lock:
                 self._syncing = None
             self._events.put(result)
+
+    # The library over Wi-Fi: a Subsonic server phone players (Amperfy, Ultrasonic) play from
+
+    def wifi(self) -> dict:
+        """The switch, where a phone reaches the server, and how it signs in."""
+        kept = _wifi_settings()
+        return {"on": kept["on"], "running": self._wifi is not None, "port": self._wifi_port or kept["port"],
+                "addresses": subsonic.local_addresses(), "user": subsonic.USER, "password": kept["password"],
+                "error": self._wifi_error}
+
+    def set_wifi(self, on: bool) -> dict:
+        kept = _wifi_settings()
+        kept["on"] = bool(on)
+        logs.write_json(logs.data_dir() / WIFI_FILE, kept)
+        if on:
+            self._start_wifi(kept)
+        else:
+            self._stop_wifi()
+        return self.wifi()
+
+    def new_wifi_password(self) -> dict:
+        """A new password; a phone signed in with the old one has to be told it."""
+        kept = _wifi_settings()
+        kept["password"] = _new_wifi_password()
+        logs.write_json(logs.data_dir() / WIFI_FILE, kept)
+        if self._wifi is not None:
+            self._wifi.api.password = kept["password"]
+        return self.wifi()
+
+    def start_wifi_if_on(self) -> None:
+        """At start: the server is back if it was left on."""
+        kept = _wifi_settings()
+        if kept["on"] and self._wifi is None:
+            self._start_wifi(kept)
+
+    def _start_wifi(self, kept: dict) -> None:
+        with self._lock:
+            if self._wifi is not None:
+                return
+            listener = subsonic.Listener(subsonic.Api(self._subsonic_source(), kept["password"]), kept["port"])
+            try:
+                self._wifi_port = listener.start()
+            except OSError as e:
+                self._wifi_error = t("Не удалось открыть порт {port}: {error}", port=kept["port"], error=e.strerror or e)
+                logs.log.warning("wi-fi: %s", self._wifi_error)
+                return
+            self._wifi, self._wifi_error = listener, ""
+        logs.log.info("wi-fi: библиотека открыта на порту %d", self._wifi_port)
+
+    def _stop_wifi(self) -> None:
+        with self._lock:
+            listener, self._wifi, self._wifi_port, self._wifi_error = self._wifi, None, 0, ""
+        if listener is not None:
+            listener.stop()
+            logs.log.info("wi-fi: библиотека закрыта")
+
+    def _subsonic_source(self) -> subsonic.Source:
+        def library():
+            settings = _load_settings()
+            roots = [settings["folder"], *(settings.get("library_folders") or [])]
+            items = _library_just_read(roots) or self.library_cached(roots) or self.library(roots)
+            return items, self.tracks(roots)
+
+        def lists():
+            return ([{"id": kind, "name": t(SMART_NAMES[kind]), "tracks": playlists.smart(kind)}
+                     for kind in playlists.SMART] + playlists.load())
+        return subsonic.Source(library=library, playlists=lists, favourites=_favourites,
+                               set_favourite=self.set_favourite, cover=lambda path: _cover_bytes(Path(path)),
+                               listened=self.listened, plays=playlists.counts,
+                               ffmpeg=lambda: find_tool("ffmpeg"))
 
     # The player: the window streams a file from the local server and reads
     # its lyrics from beside it, from its tags, or from LRCLIB
@@ -2328,6 +2408,23 @@ def _library_just_read(roots: str | list[str]) -> list[dict] | None:
     if read is not None and read[0] == _roots_key(roots) and time.monotonic() - read[1] < LIBRARY_FRESH:
         return read[2]
     return None
+
+
+def _new_wifi_password() -> str:
+    return "".join(secrets.choice(WIFI_ALPHABET) for _ in range(WIFI_PASSWORD_LENGTH))
+
+
+def _wifi_settings() -> dict:
+    """wifi.json as it is, with a password made and kept the first time it is asked for."""
+    data = logs.read_json(logs.data_dir() / WIFI_FILE)
+    password = data.get("password")
+    port = data.get("port")
+    kept = {"on": bool(data.get("on")),
+            "port": port if isinstance(port, int) and 1024 <= port <= 65535 else subsonic.PORT,
+            "password": password if isinstance(password, str) and len(password) >= 6 else _new_wifi_password()}
+    if kept["password"] != password:
+        logs.write_json(logs.data_dir() / WIFI_FILE, kept)
+    return kept
 
 
 def _devices_data() -> dict:

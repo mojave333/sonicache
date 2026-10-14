@@ -351,3 +351,72 @@ def test_stream_as_mp3_is_converted(tmp_path, source):
     made.write_bytes(b"".join(response.stream))
     assert abs(MP3(made).info.bitrate - 128_000) <= 16_000
     assert raw(api, "stream", id=song["id"], format="raw").path == opus
+
+
+def free_port():
+    import socket
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def fetch(port, method, password=PASSWORD, headers=None, **params):
+    import urllib.parse
+    import urllib.request
+
+    query = urllib.parse.urlencode({"u": "sonicache", "p": password, "v": "1.16.1", "c": "test", "f": "json", **params})
+    request = urllib.request.Request(f"http://127.0.0.1:{port}/rest/{method}?{query}", headers=headers or {})
+    with urllib.request.urlopen(request, timeout=10) as answer:
+        return answer.status, dict(answer.headers), answer.read()
+
+
+class TestListener:
+    def test_a_real_request_reaches_the_api(self, full):
+        listener = subsonic.Listener(full, free_port())
+        port = listener.start()
+        try:
+            status, _, body = fetch(port, "ping.view")
+            assert status == 200 and json.loads(body)["subsonic-response"]["status"] == "ok"
+            album = json.loads(fetch(port, "getAlbumList2", type="alphabeticalByName")[2])
+            song_album = next(entry for entry in album["subsonic-response"]["albumList2"]["album"]
+                              if entry["name"] == "In Rainbows")
+            song = json.loads(fetch(port, "getAlbum", id=song_album["id"])[2])["subsonic-response"]["album"]["song"][0]
+            status, headers, body = fetch(port, "stream", headers={"Range": "bytes=0-2"}, id=song["id"])
+            assert (status, body, headers["Content-Range"]) == (206, b"ID3", "bytes 0-2/54")
+        finally:
+            listener.stop()
+
+    def test_a_post_form_is_read_like_a_query(self, full):
+        import urllib.parse
+        import urllib.request
+
+        listener = subsonic.Listener(full, free_port())
+        port = listener.start()
+        try:
+            form = urllib.parse.urlencode({"u": "sonicache", "p": PASSWORD, "f": "json", "c": "t", "v": "1.16.1"})
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/rest/ping", data=form.encode(), timeout=10) as answer:
+                assert json.loads(answer.read())["subsonic-response"]["status"] == "ok"
+        finally:
+            listener.stop()
+
+    def test_a_taken_port_moves_to_the_next(self, full):
+        import socket
+
+        taken = free_port()
+        holder = socket.socket()
+        holder.bind(("0.0.0.0", taken))
+        holder.listen()
+        listener = subsonic.Listener(full, taken)
+        try:
+            assert listener.start() != taken
+        finally:
+            listener.stop()
+            holder.close()
+
+    def test_local_addresses_are_private_ipv4(self):
+        import ipaddress
+
+        for address in subsonic.local_addresses():
+            parsed = ipaddress.ip_address(address)
+            assert parsed.version == 4 and parsed.is_private and not parsed.is_loopback and not parsed.is_link_local

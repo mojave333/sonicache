@@ -1039,3 +1039,83 @@ class TestDeviceSync:
         monkeypatch.setattr(gui, "LIBRARY_FRESH", 0)
         monkeypatch.setattr(gui, "_library_items", walked)
         assert api.device_plan(device_id)["tracks"] == 4
+
+
+class TestWifi:
+    """The library over Wi-Fi from the window's side: the switch, the port and the password in wifi.json."""
+
+    @pytest.fixture
+    def port(self, monkeypatch):
+        import socket
+
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            free = probe.getsockname()[1]
+        monkeypatch.setattr(gui.subsonic, "PORT", free)
+        return free
+
+    def ping(self, port, password):
+        import json
+        import urllib.parse
+        import urllib.request
+
+        query = urllib.parse.urlencode({"u": "sonicache", "p": password, "f": "json", "c": "t", "v": "1.16.1"})
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/rest/ping?{query}", timeout=10) as answer:
+            return json.loads(answer.read())["subsonic-response"]["status"]
+
+    def test_wifi_is_off_until_switched_on(self, port):
+        state = gui.Api().wifi()
+        assert (state["on"], state["running"], state["user"]) == (False, False, "sonicache")
+        assert len(state["password"]) == 10 and set(state["password"]) <= set(gui.WIFI_ALPHABET)
+        assert gui.Api().wifi()["password"] == state["password"]  # kept in wifi.json
+
+    def test_switching_wifi_on_starts_the_server_and_keeps_it(self, port):
+        api = gui.Api()
+        state = api.set_wifi(True)
+        try:
+            assert state["on"] and state["running"] and state["port"] == port
+            assert self.ping(port, state["password"]) == "ok"
+            assert gui.logs.read_json(gui.logs.data_dir() / gui.WIFI_FILE)["on"] is True
+        finally:
+            state = api.set_wifi(False)
+        assert not state["on"] and not state["running"]
+        other = gui.Api()
+        other.set_wifi(True)
+        try:
+            again = gui.Api()
+            again.start_wifi_if_on()
+            assert again.wifi()["running"]
+        finally:
+            again.set_wifi(False)
+            other.set_wifi(False)
+
+    def test_a_new_password_replaces_the_old(self, port):
+        api = gui.Api()
+        old = api.set_wifi(True)["password"]
+        try:
+            new = api.new_wifi_password()["password"]
+            assert new != old and self.ping(port, new) == "ok"
+            assert self.ping(port, old) == "failed"
+        finally:
+            api.set_wifi(False)
+
+    def test_the_server_serves_the_library_the_window_reads(self, port, tmp_path, monkeypatch):
+        import json
+        import urllib.parse
+        import urllib.request
+
+        music = tmp_path / "Music"
+        (music / "Radiohead - In Rainbows (2007)").mkdir(parents=True)
+        (music / "Radiohead - In Rainbows (2007)" / "01. 15 Step.mp3").write_bytes(b"ID3" + bytes(40))
+        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        api = gui.Api()
+        state = api.set_wifi(True)
+        try:
+            query = urllib.parse.urlencode({"u": "sonicache", "p": state["password"], "f": "json", "c": "t",
+                                            "v": "1.16.1", "type": "alphabeticalByName"})
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/rest/getAlbumList2?{query}", timeout=20) as answer:
+                albums = json.loads(answer.read())["subsonic-response"]["albumList2"]["album"]
+            assert [(album["name"], album["artist"], album["songCount"]) for album in albums] == [
+                ("In Rainbows", "Radiohead", 1)]
+        finally:
+            api.set_wifi(False)

@@ -145,4 +145,6 @@ ENGLISH.update({
     "Устройство не найдено": "The device is not there",
     "На устройстве не хватает места": "There is not enough room on the device",
     "Устройство не отвечает: {error}": "The device does not answer: {error}",
+    "Не удалось открыть порт {port}: {error}": "Could not open port {port}: {error}",
+    "Без исполнителя": "No artist",
 })
