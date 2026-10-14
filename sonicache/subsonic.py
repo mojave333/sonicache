@@ -20,6 +20,9 @@ import hmac
 import json
 import os
 import random
+import re
+import subprocess
+import sys
 import threading
 import time
 import xml.etree.ElementTree as ElementTree
@@ -46,9 +49,11 @@ class Response:
     status: int
     content_type: str
     body: bytes | None = None
-    path: Path | None = None  # a file to send whole or by the range asked for
+    path: Path | None = None  # a file to send, length bytes of it from start
     stream: Iterable[bytes] | None = None  # sent as it comes, with no length
     headers: dict[str, str] = field(default_factory=dict)
+    start: int = 0
+    length: int | None = None
 
 
 class Failure(Exception):
@@ -330,7 +335,7 @@ class Api:
         if answer is None:
             return self._failed(Failure(GENERIC, f"{name} is not supported"), fmt)
         try:
-            result = answer(params)
+            result = answer(params, headers) if name in ("stream", "download") else answer(params)
         except Failure as failure:
             return self._failed(failure, fmt)
         if isinstance(result, Response):
@@ -568,6 +573,105 @@ class Api:
 
     def _m_getScanStatus(self, params):
         return {"scanStatus": {"scanning": False, "count": len(self.index().songs)}}
+
+    def _m_startScan(self, params):
+        return {"scanStatus": {"scanning": False, "count": len(self.index(fresh=True).songs)}}
+
+    # Files: the music, the covers, and what the phone says of them
+
+    def _file(self, params) -> tuple[Path, dict]:
+        """A song's file by its id; nothing else on the computer can be asked for."""
+        song = self.index().songs.get(required(params, "id"))
+        path = Path(song["path"]) if song else None
+        if path is None or not path.is_file():
+            raise Failure(NOT_FOUND, "Song not found")
+        return path, song["view"]
+
+    def _m_stream(self, params, headers=None):
+        path, view = self._file(params)
+        ffmpeg = self.source.ffmpeg() if params.get("format") == "mp3" and view["suffix"] != "mp3" else None
+        if ffmpeg:  # a player that takes only mp3: the iPhone's own plays no opus
+            bitrate = min(320, _number(params, "maxBitRate", 0)) or 256
+            return Response(200, "audio/mpeg", stream=_converted(ffmpeg, path, bitrate))
+        return _send_file(path, view["contentType"], (headers or {}).get("Range") or "")
+
+    def _m_download(self, params, headers=None):
+        path, view = self._file(params)
+        return _send_file(path, view["contentType"], (headers or {}).get("Range") or "")
+
+    def _m_getCoverArt(self, params):
+        index = self.index()
+        wanted = required(params, "id")
+        song = index.songs.get(wanted)
+        album = index.albums.get(song["view"]["albumId"] if song else wanted)
+        data = self.source.cover(album["path"]) if album else None
+        if not data:
+            return Response(404, "text/plain", b"no cover")
+        kind = "png" if data.startswith(b"\x89PNG") else "webp" if data.startswith(b"RIFF") else "jpeg"
+        return Response(200, f"image/{kind}", data, headers={"Cache-Control": "private, max-age=86400"})
+
+    def _star(self, params, on: bool):
+        """A star on an album puts it among the favourites; songs and artists have none to keep it in."""
+        index = self.index()
+        for wanted in (params.get("albumId"), params.get("id")):
+            album = index.albums.get(wanted or "")
+            if album is not None:
+                self.source.set_favourite(album["path"], on)
+                self.forget()
+        return {}
+
+    def _m_star(self, params):
+        return self._star(params, True)
+
+    def _m_unstar(self, params):
+        return self._star(params, False)
+
+    def _m_scrobble(self, params):
+        if params.get("submission", "true") == "false":
+            return {}  # "now playing": nothing is counted for it
+        path, view = self._file(params)
+        self.source.listened({"path": str(path), "title": view["title"], "artists": view["artist"],
+                              "album": view["album"], "album_artist": self.index().albums[view["albumId"]]["artist"],
+                              "duration": view["duration"]})
+        return {}
+
+
+_RANGE = re.compile(r"bytes=(\d*)-(\d*)$")
+
+
+def _send_file(path: Path, content_type: str, asked: str) -> Response:
+    """A file, whole or the bytes a seeking player asks for."""
+    size = path.stat().st_size
+    headers = {"Accept-Ranges": "bytes"}
+    match = _RANGE.match(asked.strip())
+    if not match or not (match[1] or match[2]):
+        return Response(200, content_type, path=path, start=0, length=size, headers=headers)
+    if match[1]:
+        start = int(match[1])
+        end = min(int(match[2]), size - 1) if match[2] else size - 1
+    else:  # "bytes=-500": the last 500
+        start, end = max(0, size - int(match[2])), size - 1
+    if start > end:
+        return Response(416, "text/plain", b"", headers={**headers, "Content-Range": f"bytes */{size}"})
+    return Response(206, content_type, path=path, start=start, length=end - start + 1,
+                    headers={**headers, "Content-Range": f"bytes {start}-{end}/{size}"})
+
+
+def _converted(ffmpeg: str, path: Path, bitrate: int) -> Iterable[bytes]:
+    """The file as an mp3, made while it is sent; ffmpeg goes when the player stops listening."""
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    process = subprocess.Popen([ffmpeg, "-hide_banner", "-nostdin", "-loglevel", "error", "-i", str(path),
+                                "-map", "0:a:0", "-vn", "-c:a", "libmp3lame", "-b:a", f"{bitrate}k", "-ar", "44100",
+                                "-f", "mp3", "pipe:1"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                               creationflags=flags)
+    try:
+        while chunk := process.stdout.read(64 * 1024):
+            yield chunk
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+        process.stdout.close()
 
 
 def _number(params: dict[str, str], name: str, default: int) -> int:

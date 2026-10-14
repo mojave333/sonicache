@@ -251,3 +251,103 @@ class TestLibrary:
         now[0] += subsonic.INDEX_FOR + 1
         call(full, "getArtists")
         assert source.reads == 2
+
+
+def raw(api, method, headers=None, **params):
+    """A method whose answer is a file or a picture, not parsed."""
+    sent = {"u": "sonicache", "p": PASSWORD, "v": "1.16.1", "c": "test", **params}
+    return api.handle("GET", f"/rest/{method}", {key: str(value) for key, value in sent.items()}, headers or {})
+
+
+def first_album(api):
+    return call(api, "getAlbumList2", type="alphabeticalByName", size=10)["albumList2"]["album"]
+
+
+class TestFiles:
+    def in_rainbows(self, api):
+        album = next(album for album in first_album(api) if album["name"] == "In Rainbows")
+        return call(api, "getAlbum", id=album["id"])["album"]
+
+    def test_stream_sends_the_file(self, full, source):
+        song = self.in_rainbows(full)["song"][0]
+        response = raw(full, "stream", id=song["id"])
+        assert (response.status, response.content_type, response.path, response.start, response.length) == (
+            200, "audio/mpeg", subsonic.Path(source.tracks[0]["path"]), 0, 54)
+        assert response.headers["Accept-Ranges"] == "bytes"
+        assert raw(full, "download", id=song["id"]).path == response.path
+
+    def test_stream_answers_a_range(self, full):
+        song = self.in_rainbows(full)["song"][0]
+        response = raw(full, "stream", {"Range": "bytes=2-5"}, id=song["id"])
+        assert (response.status, response.start, response.length) == (206, 2, 4)
+        assert response.headers["Content-Range"] == "bytes 2-5/54"
+        tail = raw(full, "stream", {"Range": "bytes=50-"}, id=song["id"])
+        assert (tail.start, tail.length, tail.headers["Content-Range"]) == (50, 4, "bytes 50-53/54")
+        assert raw(full, "stream", {"Range": "bytes=90-"}, id=song["id"]).status == 416
+
+    def test_an_unknown_id_reads_no_file(self, full):
+        for wanted in ("tr-000000000000", "C:\\Windows\\win.ini", "../../etc/passwd"):
+            response = raw(full, "stream", id=wanted, f="json")
+            assert response.path is None and json.loads(response.body)["subsonic-response"]["error"]["code"] == 70
+        assert raw(full, "getCoverArt", id="C:\\Windows").status == 404
+
+    def test_a_file_gone_since_the_index_was_read_is_not_found(self, full, source):
+        song = self.in_rainbows(full)["song"][0]
+        subsonic.Path(source.tracks[0]["path"]).unlink()
+        response = raw(full, "stream", id=song["id"], f="json")
+        assert json.loads(response.body)["subsonic-response"]["error"]["code"] == 70
+
+    def test_cover_art_of_an_album_and_of_a_song(self, full, source):
+        album = self.in_rainbows(full)
+        picture = raw(full, "getCoverArt", id=album["id"], size=300)
+        assert picture.status == 200 and picture.content_type == "image/jpeg"
+        assert picture.body.endswith(source.items[0]["path"].encode())
+        assert raw(full, "getCoverArt", id=album["song"][1]["id"]).body == picture.body
+
+    def test_star_and_unstar_change_the_favourites(self, full, source):
+        album = self.in_rainbows(full)
+        assert call(full, "star", albumId=album["id"])["status"] == "ok"
+        assert source.items[0]["path"] in source.stars
+        assert "In Rainbows" in names(call(full, "getStarred2")["starred2"]["album"])
+        call(full, "unstar", id=album["id"])
+        assert source.items[0]["path"] not in source.stars
+        assert call(full, "star", id=album["song"][0]["id"])["status"] == "ok"  # a song's star is taken, not kept
+
+    def test_scrobble_counts_a_listen(self, full, source):
+        song = self.in_rainbows(full)["song"][1]
+        call(full, "scrobble", id=song["id"], submission="false")
+        assert source.heard == []
+        call(full, "scrobble", id=song["id"])
+        assert [(heard["path"], heard["title"], heard["album"]) for heard in source.heard] == [
+            (source.tracks[1]["path"], "Bodysnatchers", "In Rainbows")]
+
+    def test_start_scan_builds_the_index_again(self, full, source):
+        call(full, "getArtists")
+        assert call(full, "startScan")["scanStatus"]["count"] == 5
+        assert source.reads == 2
+
+
+FFMPEG = __import__("sonicache.engine.downloader", fromlist=["find_tool"]).find_tool("ffmpeg")
+
+
+@pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
+def test_stream_as_mp3_is_converted(tmp_path, source):
+    import subprocess
+    from mutagen.mp3 import MP3
+
+    song_file = tmp_path / "Kid A" / "01 Everything In Its Right Place.mp3"
+    opus = song_file.with_suffix(".opus")
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                    "sine=frequency=440:duration=2", "-c:a", "libopus", str(opus)], check=True)
+    source.tracks[2]["path"] = str(opus)
+    base = source.as_source()
+    api = subsonic.Api(subsonic.Source(**{**base.__dict__, "ffmpeg": lambda: FFMPEG}), PASSWORD)
+    album = next(album for album in first_album(api) if album["name"] == "Kid A")
+    song = call(api, "getAlbum", id=album["id"])["album"]["song"][0]
+    assert song["suffix"] == "opus"
+    response = raw(api, "stream", id=song["id"], format="mp3", maxBitRate=128)
+    assert response.content_type == "audio/mpeg" and response.path is None
+    made = tmp_path / "made.mp3"
+    made.write_bytes(b"".join(response.stream))
+    assert abs(MP3(made).info.bitrate - 128_000) <= 16_000
+    assert raw(api, "stream", id=song["id"], format="raw").path == opus
