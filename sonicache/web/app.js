@@ -981,6 +981,7 @@ function bindUi() {
   $("#library-delete").addEventListener("click", deleteSelected);
   $("#library-again").addEventListener("click", () => downloadAgain(selectedItems().filter(hasMissing)));
   $("#library-tidy").addEventListener("click", () => {
+    setMoreMenuOpen(false);
     const picked = selectedItems().filter(hasGaps);
     tidyLibrary(picked.length ? picked : state.library.items.filter(hasGaps), { ask: !picked.length });
   });
@@ -3050,23 +3051,12 @@ function onSortPick() {
 
 /* Views and the pages drawn over them */
 
-// Material's "fade through": what leaves fades out quickly, what arrives fades
-// in while growing from just under its size
+// Another of the library's views is there at once and fades in: it used to wait for the last one to fade
+// out first, which every click in the side list paid for
 function fadeThrough(change) {
-  const panel = $("#library-panel");
-  if (reduceMotion()) {
-    change();
-    return;
-  }
-  // The swap waits on a timer, not on the animation: a window in the
-  // background may hold animations still, and the tab must change regardless
-  const out = panel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 90, easing: "ease-in", fill: "forwards" });
-  setTimeout(() => {
-    change();
-    out.cancel();
-    panel.animate([{ opacity: 0, transform: "scale(0.985)" }, { opacity: 1, transform: "none" }],
-                  { duration: 240, easing: EMPHASIZED });
-  }, 90);
+  change();
+  if (reduceMotion()) return;
+  $("#library-panel").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
 }
 
 /* The library's list of views, genres and playlists: at the side in a wide window, and in a narrower one
@@ -3271,11 +3261,13 @@ function morphBack(element, to, { duration = 360 } = {}) {
 }
 
 // Everything on the page but the moving picture rises in a little after it
-function riseIn(elements, delay = 90) {
+// Pages are opened all day long: what is on them comes up at once and only settles into place, a short rise with
+// no wait before it. It took over half a second for the last part of an album's page to show.
+function riseIn(elements, delay = 0) {
   if (reduceMotion()) return;
   elements.forEach((element, index) => element?.animate(
-    [{ opacity: 0, transform: "translateY(16px)" }, { opacity: 1, transform: "none" }],
-    { duration: 320, delay: delay + index * 45, easing: EMPHASIZED, fill: "backwards" }));
+    [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }],
+    { duration: 220, delay: delay + Math.min(index, 4) * 25, easing: EASE_OUT, fill: "backwards" }));
 }
 
 /* The band at the top of a page takes the colour of the cover, as in Harmonoid */
@@ -6649,6 +6641,9 @@ async function onListenbrainzClick() {
 function openNowPlaying() {
   if (!player.info) return;
   if (state.view !== "now") player.previousView = state.view;
+  // The back button is named after the section it goes back to, as the bar names it
+  const back = $(`.nav-item[data-view="${player.previousView}"]`);
+  $("#now-close-label").textContent = back ? ($(".nav-label", back)?.textContent || back.getAttribute("aria-label")) : t("Назад");
   showView("now");
   renderNowPlaying();
   scrollToLyric(true);
@@ -6853,12 +6848,12 @@ function renderTidy() {
   const { running, done, total, paths, gaps } = state.tidy;
   const button = $("#library-tidy");
   button.hidden = !running && !gaps.size; // nothing to fill in, nothing to offer
-  // An icon alone: how far it has come is said above the list
+  // How far it has come is said above the list; the button says what a click does
   swapIcon($("use", button), running ? "#i-stop" : "#i-tag");
+  $("span", button).textContent = running ? t("Остановить") : t("Дописать теги");
   button.title = running
     ? t("Остановить после текущей записи · {done} из {total}", { done: Math.min(done + 1, total), total })
     : t("Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново");
-  button.setAttribute("aria-label", running ? t("Остановить") : t("Дописать теги"));
   const page = $("#album-page");
   const onPage = $("[data-page-action=tidy]", page);
   onPage.hidden = !gaps.has(page.dataset.path) && !(running && paths.has(page.dataset.path));

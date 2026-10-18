@@ -115,11 +115,11 @@
   --selected: rgb(233 232 237 / 0.09);
   --selected-hover: rgb(233 232 237 / 0.15);
   --divider: #3B3847;
-  --border: #77738C;
+  --border: #7E7A93; /* 3:1 on a field, so a field's edge is seen */
   --border-strong: #9592A5;
   --text: #E9E8ED;
   --text-muted: #B3B0BF;
-  --text-subtle: #9694A4;
+  --text-subtle: #9C9AAA; /* 4.7:1 on a field, for the hints in it */
   --accent: #E8736A;
   --accent-hover: #EE8A82;
   --accent-edge: transparent;
@@ -231,7 +231,7 @@ p { margin: 0; }
    and --ink-w), and fades where the view is none of the sections */
 .topnav::after {
   content: ""; position: absolute; left: 0; bottom: -1px; width: var(--ink-w, 0); height: 3px; opacity: var(--ink-o, 0);
-  border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: var(--accent-fg);
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: var(--text); /* ink: red is for the main action and what plays */
   transform: translateX(var(--ink-x, 0)); pointer-events: none;
 }
 .topnav.ink-ready::after {
@@ -309,7 +309,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 }
 .field { transition: border-color var(--press) ease-out, box-shadow var(--quick) var(--ease-out); }
 .field:hover { border-color: var(--border-strong); }
-.field:focus-within { border-color: var(--border-strong); box-shadow: inset 0 -2px 0 var(--accent-fg); }
+.field:focus-within { border-color: var(--border-strong); box-shadow: inset 0 -2px 0 var(--text); }
 .field.invalid { border-color: var(--danger); box-shadow: inset 0 -2px 0 var(--danger); }
 .field input {
   flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: none; background: transparent;
@@ -581,14 +581,14 @@ html.window-full .topbar-right { padding-right: 24px; }
 }
 .status-text { overflow: hidden; text-overflow: ellipsis; }
 .tone-muted .status-line { color: var(--text-subtle); }
-.tone-primary .status-line { color: var(--accent-fg); }
+.tone-primary .status-line { color: var(--text); }
 .tone-success .status-line { color: var(--success); }
 .tone-warning .status-line { color: var(--warning); }
 .tone-danger .status-line { color: var(--danger); }
 .bar { position: relative; height: 5px; overflow: hidden; border-radius: var(--radius-pill); background: var(--divider); }
 .bar-fill {
   position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%);
-  background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-edge);
+  background: var(--bar-fill); /* the ink of the player's line and the bar's ring */
   clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 0 100%);
   /* Updates come twice a second: an even glide between them reads as one motion */
   transition: width 520ms linear;
@@ -878,6 +878,8 @@ html.window-full .topbar-right { padding-right: 24px; }
 .cards.entering .card:nth-child(-n + 48) { animation: card-in 360ms var(--ease) both; animation-delay: calc(var(--i, 0) * 18ms); }
 @keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } }
 .cover img:not([hidden]) { animation: img-in 260ms ease-out; }
+/* The note stands for a missing picture: it goes as soon as the picture comes, not seen through its fade */
+.cover > img:not([hidden]) ~ .icon { visibility: hidden; }
 @keyframes img-in { from { opacity: 0; } }
 
 /* Search */
@@ -941,17 +943,19 @@ html.window-full .topbar-right { padding-right: 24px; }
 }
 .card:hover .play-btn, .card:focus-within .play-btn { opacity: 1; transform: none; }
 .playlist-card .play-btn, .card.is-downloading .play-btn { display: none; }
-/* What the library holds already, so it is not downloaded twice by mistake */
+/* What the library holds already, so it is not downloaded twice by mistake: in ink, as the library's own marks
+   are; and its cover offers no Download, which its page still has for another edition */
 .in-library {
   position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px 2px 4px; border-radius: var(--radius); background: var(--accent); color: var(--on-accent);
-  box-shadow: inset 0 0 0 1px var(--accent-edge), var(--shadow-xs); font-size: var(--fs-2xs); font-weight: 600;
+  padding: 2px 8px 2px 4px; border-radius: var(--radius); background: var(--text); color: var(--bg);
+  box-shadow: var(--shadow-xs); font-size: var(--fs-xs); font-weight: 600;
 }
+.card-cover:has(.in-library:not([hidden])) .queue-btn:not(.is-queued) { display: none; }
 .in-library .icon { width: 13px; height: 13px; --icon-weight: 10px; }
 /* On a cover in the library: downloaded within the week, or with tracks still missing */
 .cover-mark {
   position: absolute; top: 8px; z-index: 1; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
-  border-radius: var(--radius); font-size: var(--fs-2xs); font-weight: 600; box-shadow: var(--shadow-xs);
+  border-radius: var(--radius); font-size: var(--fs-xs); font-weight: 600; box-shadow: var(--shadow-xs);
 }
 .cover-mark.new { left: 8px; background: var(--field); color: var(--text); }
 .cover-mark.gap { right: 8px; padding-left: 4px; background: var(--field); color: var(--text); }
@@ -963,7 +967,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 #album-page[data-kind="playlist"] [data-page-action="favourite"] { display: none; }
 .search-track .title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .search-track .title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.in-library-tag { flex: none; color: var(--accent-fg); font-size: var(--fs-xs); font-weight: 600; }
+.in-library-tag { flex: none; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 600; }
 .search-tracks { padding: 8px 8px 24px; }
 .search-track {
   grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 52px 34px; cursor: default;
@@ -1030,7 +1034,7 @@ html.window-full .topbar-right { padding-right: 24px; }
    a long name; Now playing's is the arrow alone */
 #page-back, #search-back { max-width: min(320px, 100%); margin: 0 0 12px -8px; padding: 0 12px 0 8px; }
 #page-back span, #search-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
+.now-close { margin: 0 0 12px -8px; padding: 0 12px 0 8px; }
 .page-back:hover { background: var(--hover); color: var(--text); }
 /* Synchronisation, laid out as the library is: the devices and the other ways to a phone in its list (beside the
    page in a wide window, the menu of the name in a narrower one), the bar with the name and the Sync button, and
@@ -1060,14 +1064,14 @@ html.window-full .topbar-right { padding-right: 24px; }
 .sync-pane { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr) clamp(260px, 30%, 320px); min-width: 0; min-height: 0; }
 .device-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 14px 20px 0; }
 .device-side {
-  display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 18px 20px 16px; overflow-y: auto;
+  display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 16px 20px 14px; overflow-y: auto;
   border-left: 1px solid var(--divider);
 }
 .pane-label {
   margin: 0 0 10px; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.device-side > .pane-label:not(:first-child) { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--divider); }
+.device-side > .pane-label:not(:first-child) { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--divider); }
 
 /* What to take: the whole library or what is ticked, the lists in tabs as the library's views are, and a filter */
 .device-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--divider); }
@@ -1122,7 +1126,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .device-notes:empty { display: none; }
 .device-result { margin-bottom: 4px !important; color: var(--success); font-size: var(--fs-sm); }
 .sync-progress { height: 6px; margin-top: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--divider); }
-.sync-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--settle) var(--ease); }
+.sync-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--bar-fill); transition: width var(--settle) var(--ease); }
 
 /* How the files are written: the switch beside its name, the bitrate under the words */
 .setting.device-transcode {
@@ -1134,6 +1138,12 @@ html.window-full .topbar-right { padding-right: 24px; }
 #device-bitrate:disabled, #device-transcode:disabled { opacity: 0.5; }
 .setting.toggle:has(.switch:disabled) { cursor: default; }
 .setting.toggle:has(.switch:disabled):hover { background: none; }
+/* A short window keeps the column whole: what converting is for goes, the switch and the bitrate stay */
+@media (max-height: 640px) {
+  .device-transcode .setting-desc { display: none; }
+  .space-legend { gap: 2px; margin-top: 10px; }
+  .device-plan { margin-top: 12px; }
+}
 
 /* Phones over Wi-Fi: rows between hairlines as in the settings, and what to type set apart to be copied */
 .wifi-rows { margin: 0 -8px; }
@@ -1142,8 +1152,23 @@ html.window-full .topbar-right { padding-right: 24px; }
 .wifi-value { margin: 4px 0 0; font-family: ui-monospace, Consolas, monospace; font-size: var(--fs-sm); user-select: text;
   overflow-wrap: anywhere; }
 .wifi-row .tool-btn { flex: none; }
-.wifi-steps { margin: 0 0 12px; padding-left: 20px; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.5; }
-.wifi-steps li + li { margin-top: 4px; }
+/* The Wi-Fi page is one column the page's width: the rows, then the three steps side by side and the note */
+#wifi-page { grid-template-columns: minmax(0, 1fr); }
+#wifi-page .device-main { padding-bottom: 16px; overflow-y: auto; }
+.wifi-how { margin-top: 28px; }
+.wifi-steps {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 28px; margin: 0 0 16px; padding: 0;
+  color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.5; list-style: none; counter-reset: step;
+}
+.wifi-steps li { position: relative; padding-left: 30px; counter-increment: step; }
+.wifi-steps li::before {
+  content: counter(step); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 22px; height: 22px;
+  border-radius: 50%; background: var(--selected); color: var(--text); font-size: var(--fs-xs); font-weight: 600;
+}
+.wifi-note { max-width: 760px; }
+@container content (width < 820px) {
+  .wifi-steps { grid-template-columns: minmax(0, 1fr); }
+}
 .wifi-error { margin: 12px 0 0; color: var(--danger); }
 @container content (width < 820px) {
   .sync-tips { grid-template-columns: minmax(0, 300px); }

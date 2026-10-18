@@ -394,9 +394,6 @@
           <button type="button" id="library-delete" class="tool-btn icon-only danger" hidden title="Удалить (Delete)" aria-label="Удалить">
             <svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg>
           </button>
-          <button type="button" id="library-tidy" class="tool-btn icon-only" hidden title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново" aria-label="Дописать теги">
-            <svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg>
-          </button>
           <button type="button" id="playlist-new" class="tool-btn" title="Новый плейлист" hidden>
             <svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Новый плейлист</span>
           </button>
@@ -432,6 +429,8 @@
             <div id="library-more-menu" class="menu more-menu" role="menu" aria-label="Ещё" hidden>
               <button type="button" role="menuitem" id="library-folder"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span class="menu-name">Открыть папку в проводнике</span></button>
               <button type="button" role="menuitem" id="library-refresh"><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span class="menu-name">Обновить</span><span class="menu-note">F5</span></button>
+              <!-- A tag alone in the bar did not say what it does: here it is named, and offered only when there is something to fill in -->
+              <button type="button" role="menuitem" id="library-tidy" hidden title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span class="menu-name">Дописать теги</span></button>
             </div>
           </div>
         </div>
@@ -476,7 +475,7 @@
                   <button type="button" class="tool-btn icon-only heart" data-page-action="favourite" aria-pressed="false" title="В избранное" aria-label="В избранное"><svg class="icon sm" aria-hidden="true"><use href="#i-heart"/></svg></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="open" title="Открыть папку в проводнике" aria-label="Открыть папку"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
                   <button type="button" class="tool-btn" data-page-action="again"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Докачать недостающее</span></button>
-                  <button type="button" class="tool-btn icon-only" data-page-action="tidy" title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново" aria-label="Дописать теги"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg></button>
+                  <button type="button" class="tool-btn" data-page-action="tidy" title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span>Дописать теги</span></button>
                   <button type="button" class="tool-btn" data-page-action="watch" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg><span>Следить</span></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="shuffle" title="Слушать вперемешку" aria-label="Слушать вперемешку"><svg class="icon sm" aria-hidden="true"><use href="#i-shuffle"/></svg></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="rename" title="Переименовать" aria-label="Переименовать"><svg class="icon sm" aria-hidden="true"><use href="#i-edit"/></svg></button>
@@ -635,16 +634,16 @@
                 </div>
               </div>
               <p id="wifi-error" class="device-preview wifi-error" hidden></p>
-            </div>
-            <aside class="device-side">
-              <h3 class="pane-label">Как подключить телефон</h3>
+              <!-- How to connect follows the rows, the three steps side by side: in a column of its own beside them
+                   it left the rows' side half empty -->
+              <h3 class="pane-label wifi-how">Как подключить телефон</h3>
               <ol class="wifi-steps">
                 <li>Поставьте на телефон плеер, который умеет Subsonic: на iPhone — Amperfy (бесплатно), на Android — Ultrasonic (бесплатно) или Symfonium.</li>
                 <li>Добавьте в нём сервер Subsonic с адресом, логином и паролем отсюда.</li>
                 <li>Альбомы и плейлисты, которые нужны без сети, скачайте в самом плеере.</li>
               </ol>
-              <p class="setting-desc">Телефон и компьютер должны быть в одной сети Wi-Fi, а Sonicache — открыт: его можно свернуть в область уведомлений. Если Windows спросит про брандмауэр, разрешите доступ в частных сетях.</p>
-            </aside>
+              <p class="setting-desc wifi-note">Телефон и компьютер должны быть в одной сети Wi-Fi, а Sonicache — открыт: его можно свернуть в область уведомлений. Если Windows спросит про брандмауэр, разрешите доступ в частных сетях.</p>
+            </div>
           </div>
         </div>
       </section>
@@ -1061,8 +1060,9 @@
 
       <section id="view-now" class="view now-view" aria-label="Сейчас играет" hidden>
         <img class="now-backdrop" alt="" aria-hidden="true" hidden>
-        <button type="button" class="page-back now-close" id="now-close" title="Назад (Esc)" aria-label="Назад">
-          <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg>
+        <!-- The way out says where it leads, as an album's back button does: an arrow alone in the corner was missed -->
+        <button type="button" class="page-back now-close" id="now-close" title="Назад (Esc)">
+          <svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span id="now-close-label"></span>
         </button>
         <div class="now-side">
           <div class="now-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
