@@ -722,7 +722,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .library-head .tool-btn.icon-only:focus-visible { outline-offset: 0; }
 
 /* The library's own list: its views, its genres and its playlists. A window wide enough stands it beside the
-   library; in a narrower one it is the menu of the name in the bar. */
+   library; in a narrower one it is the menu of the name in the bar. Synchronisation has its devices in one the same. */
 .lib-side { display: none; }
 .side-head {
   margin: 0 8px 4px; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em;
@@ -748,19 +748,19 @@ html.window-full .topbar-right { padding-right: 24px; }
 .side-sub .side-item { height: var(--h-sm); font-size: var(--fs-sm); font-weight: 400; }
 .side-add { color: var(--text-subtle); }
 @container content (min-width: 1000px) {
-  #view-library { display: grid; grid-template-columns: 232px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #view-library, #view-sync { display: grid; grid-template-columns: 232px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .lib-side {
     display: block; grid-column: 1; grid-row: 1 / 3; min-height: 0; padding: 16px 12px 24px; overflow-y: auto;
     border-right: 1px solid var(--divider); background: var(--chrome);
   }
-  #view-library > .library-head { grid-column: 2; grid-row: 1; }
-  #view-library > .library-body { grid-column: 2; grid-row: 2; }
+  :is(#view-library, #view-sync) > .library-head { grid-column: 2; grid-row: 1; }
+  #view-library > .library-body, #view-sync > .sync-body { grid-column: 2; grid-row: 2; }
   .library-title { padding-right: 8px; }
   .library-title .icon { display: none; }
 }
 /* Narrower, the list opens under the name as a menu does, and the order is told by its icon alone */
 @container content (width < 1000px) {
-  #view-library { position: relative; }
+  #view-library, #view-sync { position: relative; }
   /* Where it will stand is set before it is shown, so that it can fade from there as the other menus do */
   .lib-side {
     position: absolute; top: 50px; left: 12px; z-index: 10; width: 264px; max-height: calc(100% - 62px);
@@ -769,10 +769,10 @@ html.window-full .topbar-right { padding-right: 24px; }
     opacity: 0; transform: scale(0.96); transform-origin: top left; pointer-events: none;
     transition: opacity var(--exit) var(--ease-out), transform var(--exit) var(--ease-out), display var(--exit) allow-discrete;
   }
-  #view-library.side-open .lib-side {
+  :is(#view-library, #view-sync).side-open .lib-side {
     display: block; opacity: 1; transform: none; pointer-events: auto; transition-duration: var(--pop);
   }
-  @starting-style { #view-library.side-open .lib-side { opacity: 0; transform: scale(0.96); } }
+  @starting-style { :is(#view-library, #view-sync).side-open .lib-side { opacity: 0; transform: scale(0.96); } }
   .lib-side .side-head:first-child { display: none; }
   .lib-side .side-head { margin-top: 12px; }
   #library-sort-label { display: none; }
@@ -1027,118 +1027,57 @@ html.window-full .topbar-right { padding-right: 24px; }
 #page-back span, #search-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .now-close { justify-content: center; width: 32px; margin: 0 0 12px; padding: 0; }
 .page-back:hover { background: var(--hover); color: var(--text); }
-/* Synchronisation. Nothing here sits in a box: the overview is rows between hairlines, a device row carries its
-   free space and state across the line, and the page of a device is two columns, what to take and how to write it
-   on the left, the space and the button on the right. On a narrow window the right column runs under the title
-   and the button stays on a bar at the bottom. */
-.sync { --px: 32px; --pb: 40px; max-width: 1040px; margin: 0 auto; padding: 24px var(--px) var(--pb); }
-.sync .settings-hero { margin-bottom: 4px; padding: 0; background: none; box-shadow: none; }
-.sync-art .ascii { font-size: var(--fs-2xs); }
-.sync-heading { display: flex; align-items: baseline; gap: 8px; margin: 32px 0 8px; font: 700 var(--fs-md)/1.3 var(--font-display); }
-.sync-count { color: var(--text-subtle); font: 400 var(--fs-sm) var(--font); }
-.sync-count:empty { display: none; }
-.sync-list { border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
-.sync-list:empty { display: none; }
-.sync-row {
-  display: grid; grid-template-columns: 44px minmax(0, 1.2fr) minmax(0, 1fr) 190px 16px; align-items: center; gap: 4px 16px;
-  width: 100%; min-width: 0; padding: 12px 8px; color: var(--text); text-align: left; cursor: pointer;
-  transition: background-color var(--press) ease-out;
-}
-.sync-row + .sync-row { border-top: 1px solid var(--divider); }
-.sync-row:hover { background: var(--hover); }
-.sync-row:active { background: var(--selected); }
-.sync-row:focus-visible { outline-offset: -2px; }
-.sync-icon {
-  display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: var(--radius-md);
-  background: var(--selected); color: var(--text-muted);
-}
-.sync-icon .icon { width: 24px; height: 24px; }
-.sync-icon.big { width: 56px; height: 56px; border-radius: var(--radius-lg); }
-.sync-icon.big .icon { width: 30px; height: 30px; }
-.sync-row-body { display: grid; gap: 2px; min-width: 0; }
-.sync-row-name { overflow: hidden; font-size: var(--fs-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.sync-row-kind { overflow: hidden; color: var(--text-subtle); font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap; }
-.sync-way .sync-row-body { grid-column: 2 / 4; }
-.sync-way .sync-row-kind { white-space: normal; line-height: 1.4; }
-.sync-meter { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
-.sync-free { overflow: hidden; color: var(--text-subtle); font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap; }
-.sync-chevron { color: var(--text-subtle); }
-.sync-state { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--text-subtle); font-size: var(--fs-sm); text-align: right; }
-.sync-state:empty { display: none; }
-.sync-state .icon { flex: none; width: 16px; height: 16px; }
-.sync-state.ok { color: var(--success); }
-.sync-state.warn { color: var(--warning); text-align: left; }
-.sync-row.not-ready .sync-state { grid-column: 3 / 5; justify-content: flex-start; }
-.sync-row.not-ready .sync-icon { background: var(--warn-bg); color: var(--warning); }
-.sync-row.working .sync-icon { background: var(--accent); color: var(--on-accent); }
-.sync-none { padding: 4px 0 0; }
-.sync-none-title { margin: 0 0 16px; color: var(--text-muted); }
-.sync-tips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 40px; margin: 0; padding: 0; list-style: none; }
-.sync-tips li { display: flex; align-items: flex-start; gap: 12px; color: var(--text-muted); line-height: 1.45; }
-.sync-tips .icon { flex: none; width: 22px; height: 22px; margin-top: 1px; color: var(--text-subtle); }
-.sync-tips b { color: var(--text); font-weight: 600; }
+/* Synchronisation, laid out as the library is: the devices and the other ways to a phone in its list (beside the
+   page in a wide window, the menu of the name in a narrower one), the bar with the name and the Sync button, and
+   under it a page that fits the window. A device's page is what it gets on the left and, in a column on the right,
+   its room, what a sync would do and how the files are written. Nothing scrolls but the list chosen from. */
+.sync-body { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+#sync-title-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sync-head .library-title { max-width: min(440px, 60%); }
+.side-none { display: flex; align-items: center; height: var(--h); margin: 0; padding: 0 8px; color: var(--text-subtle); font-size: var(--fs-sm); }
+#sync-side .not-ready .side-n { color: var(--warning); }
+#sync-side .working .side-n, #sync-wifi-state.ok { color: var(--success); }
+#sync-side .side-n .icon { display: block; }
 
-/* A device's page */
-.sync-back { margin-bottom: 8px; }
-.device-head { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
-.device-what { flex: 1; min-width: 0; }
-.device-actions { display: flex; flex: none; gap: 8px; }
-.device-head .album-title { margin: 0; font-size: var(--fs-3xl); line-height: 1.15; overflow-wrap: anywhere; }
-.device-head .album-sub { margin: 4px 0 0; overflow-wrap: anywhere; user-select: text; }
-.device-layout { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 16px; }
-.device-main { min-width: 0; }
-.device-side { display: grid; align-content: start; gap: 12px; min-width: 0; }
-.side-head { margin: 24px 0 0; color: var(--text-subtle); font: 600 var(--fs-sm) var(--font); }
-.space-bar { display: flex; height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--divider); }
-.space-taken { background: var(--text-subtle); transition: width var(--settle) var(--ease); }
-.space-after { background: var(--accent); transition: width var(--settle) var(--ease); }
-.space-legend { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--fs-sm); }
-.space-legend li { display: flex; align-items: center; gap: 8px; }
-.space-legend b { margin-left: auto; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
-.dot.taken { background: var(--text-subtle); }
-.dot.added { background: var(--accent); }
-.dot.free { background: var(--divider); box-shadow: inset 0 0 0 1px var(--border); }
-.step-head { display: flex; align-items: center; gap: 10px; margin: 24px 0 8px; font: 700 var(--fs-md)/1.3 var(--font-display); }
-.step-n {
-  display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%;
-  background: var(--text); color: var(--bg); font: 600 var(--fs-xs) var(--font);
+/* Nothing plugged in: the empty screen the other tabs have, with what to do under it */
+.sync-empty.waiting { visibility: hidden; }
+.sync-tips {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 260px)); gap: 16px 32px; margin: 20px 0 0; padding: 0;
+  list-style: none; font-size: var(--fs-sm); line-height: 1.45; text-align: left;
 }
-.scope { display: grid; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
-.scope-opt {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 14px; row-gap: 2px; align-items: center;
-  padding: 12px 8px; color: var(--text-muted); text-align: left;
-  transition: background-color var(--press) ease-out;
+.sync-tips li { display: flex; align-items: flex-start; gap: 10px; }
+.sync-tips .icon { flex: none; margin-top: 1px; }
+.sync-tips b { color: var(--text-muted); font-weight: 600; }
+[data-scene="sync"] .crayon { background-image: url("art/crayon-nothing.webp"); }
+[data-theme="dark"] [data-scene="sync"] .crayon { background-image: url("art/crayon-nothing-dark.webp"); }
+
+/* A device's page and the Wi-Fi one: two columns the height of the window */
+.sync-pane { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr) clamp(260px, 30%, 320px); min-width: 0; min-height: 0; }
+.device-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 14px 20px 0; }
+.device-side {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 18px 20px 16px; overflow-y: auto;
+  border-left: 1px solid var(--divider);
 }
-.scope-opt + .scope-opt { border-top: 1px solid var(--divider); }
-.scope-opt .icon { grid-row: 1 / 3; width: 22px; height: 22px; color: var(--text-subtle); }
-.scope-opt::after {
-  content: ""; grid-column: 3; grid-row: 1 / 3; width: 18px; height: 18px; border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--border-strong);
+.pane-label {
+  margin: 0 0 10px; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
-.scope-t { color: var(--text); font-weight: 600; }
-.scope-d { color: var(--text-subtle); font-size: var(--fs-sm); line-height: 1.35; }
-.scope-opt:hover { background: var(--hover); }
-.scope-opt[aria-checked="true"] .icon { color: var(--text); }
-.scope-opt[aria-checked="true"]::after { background: radial-gradient(circle, var(--text) 0 4.5px, transparent 5px); box-shadow: inset 0 0 0 2px var(--text); }
-.scope-opt:active { background: var(--selected); }
-.scope-opt:focus-visible { outline-offset: -2px; }
-.sync .settings-card { overflow: visible; border-radius: 0; background: none; box-shadow: none; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
-.sync .setting { padding-left: 8px; padding-right: 8px; }
-.device-card { margin-bottom: 16px; }
-.device-lists { display: grid; margin-top: 12px; margin-bottom: 16px; border-top: 1px solid var(--divider); }
-.device-list { border-bottom: 1px solid var(--divider); }
-.device-list > summary {
-  display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 8px;
-  font-weight: 600; cursor: pointer; list-style: none;
+.device-side > .pane-label:not(:first-child) { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--divider); }
+
+/* What to take: the whole library or what is ticked, the lists in tabs as the library's views are, and a filter */
+.device-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--divider); }
+.device-bar .segmented button .icon { flex: none; }
+.device-tabs { display: flex; gap: 2px; }
+.device-tabs button {
+  display: inline-flex; align-items: center; gap: 6px; height: var(--h); padding: 0 10px; border-radius: var(--radius);
+  color: var(--text-muted); font-weight: 500; transition: background-color var(--press) ease-out;
 }
-.device-list > summary::-webkit-details-marker { display: none; }
-.device-list > summary:hover { color: var(--text); }
-.device-count { margin-left: auto; color: var(--text-subtle); font-size: var(--fs-sm); font-weight: 400; }
-.device-chevron { color: var(--text-subtle); transition: transform var(--settle) var(--ease); }
-.device-list[open] .device-chevron { transform: rotate(180deg); }
-.device-filter { margin: 0 8px 8px; }
-.device-items { max-height: 320px; overflow-y: auto; padding: 0 0 8px; }
+.device-tabs button:hover { background: var(--hover); color: var(--text); }
+.device-tabs button[aria-selected="true"] { background: var(--selected); color: var(--text); }
+.device-tabs .count { color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 400; font-variant-numeric: tabular-nums; }
+.device-tabs .count:empty { display: none; }
+.device-filter { flex: 0 1 220px; min-width: 140px; margin-left: auto; }
+.device-items { flex: 1; min-height: 0; margin: 0 -12px; padding: 6px 4px 16px; overflow-y: auto; }
 .device-item {
   display: flex; align-items: center; gap: 12px; min-height: var(--h); padding: 4px 8px;
   border-radius: var(--radius); cursor: pointer;
@@ -1148,60 +1087,64 @@ html.window-full .topbar-right { padding-right: 24px; }
 .device-item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .device-item-sub { flex: none; max-width: 45%; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--text-subtle); font-size: var(--fs-sm); }
-/* The bar of a device: sticky at the bottom of a narrow window, a block of the right column on a wide one */
-.device-foot {
-  position: sticky; bottom: 16px; z-index: 2; display: flex; align-items: center; gap: 16px; margin: 8px 0 0;
-  padding: 12px 12px 12px 20px; border-radius: var(--radius-lg); background: var(--field);
-  box-shadow: inset 0 0 0 1px var(--border), var(--menu-shadow);
+.device-all { display: none; }
+.whole :is(.device-tabs, .device-filter, .device-items) { display: none; }
+.whole .device-all {
+  display: grid; flex: 1; place-content: center; justify-items: center; gap: 4px; padding: 0 28px 28px;
+  color: var(--text-subtle); text-align: center;
 }
-.device-foot-text { flex: 1; min-width: 0; }
-.device-foot-text > p { margin: 0; }
-.device-foot .btn { flex: none; }
+.device-all .icon { width: 26px; height: 26px; margin-bottom: 8px; }
+
+/* How full the device is, now and after the sync */
+.device-warn { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 16px; color: var(--warning); font-size: var(--fs-sm); line-height: 1.45; }
+.device-warn .icon { flex: none; margin-top: 1px; }
+.space-bar { display: flex; height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--divider); }
+.space-taken { background: var(--text-subtle); transition: width var(--settle) var(--ease); }
+.space-after { background: var(--accent); transition: width var(--settle) var(--ease); }
+.space-legend { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--fs-sm); }
+.space-legend li { display: flex; align-items: center; gap: 8px; }
+.space-legend b { margin-left: auto; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.dot.taken { background: var(--text-subtle); }
+.dot.added { background: var(--accent); }
+.dot.free { background: var(--divider); box-shadow: inset 0 0 0 1px var(--border); }
+
+/* What a sync would do, and how it goes */
+.device-plan { margin-top: 16px; }
+.device-plan > p { margin: 0; }
 .device-preview { min-height: 1.5em; color: var(--text); font-weight: 600; line-height: 1.5; }
-.device-notes { color: var(--text-subtle); font-size: var(--fs-sm); line-height: 1.45; }
+.device-notes { margin-top: 2px !important; color: var(--text-subtle); font-size: var(--fs-sm); line-height: 1.45; }
 .device-notes:empty { display: none; }
 .device-result { margin-bottom: 4px !important; color: var(--success); font-size: var(--fs-sm); }
 .sync-progress { height: 6px; margin-top: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--divider); }
 .sync-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--settle) var(--ease); }
-@container content (width >= 820px) {
-  .device-layout { grid-template-columns: minmax(0, 1fr) 300px; column-gap: 0; row-gap: 0; }
-  .device-main { padding-right: 32px; }
-  .device-side { position: sticky; top: 16px; align-self: start; gap: 0; padding: 0 0 0 32px; border-left: 1px solid var(--divider); }
-  .side-head { margin: 24px 0 12px; }
-  .device-foot { position: static; display: grid; gap: 12px; margin: 24px 0 0; padding: 0; border-radius: 0; background: none; box-shadow: none; }
-  .device-foot .btn { width: 100%; justify-content: center; }
+
+/* How the files are written: the switch beside its name, the bitrate under the words */
+.setting.device-transcode {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 12px;
+  min-height: 0; margin: 0 -8px; padding: 8px; border-radius: var(--radius);
 }
-@container content (width < 820px) {
-  #device-page .device-side { display: contents; }
-  #device-page .side-head, #device-page .space-card { order: -1; }
-  #device-page .side-head { margin: 8px 0 -4px; }
-}
-@container content (width < 720px) {
-  .sync { --px: 16px; --pb: 24px; }
-  .sync-row { grid-template-columns: 44px minmax(0, 1fr) 16px; }
-  .sync-row .sync-meter, .sync-row .sync-state { grid-column: 2 / 4; justify-content: flex-start; text-align: left; }
-  .sync-way .sync-row-body { grid-column: 2; }
-  .sync-way .sync-state { grid-column: 2 / 3; }
-  .sync-row .sync-chevron { grid-column: 3; grid-row: 1; }
-  .sync-row.not-ready .sync-state { grid-column: 2 / 4; }
-  .sync-tips { grid-template-columns: 1fr; }
-  .device-head { flex-wrap: wrap; }
-  .device-foot { flex-wrap: wrap; }
-  .device-foot .btn { width: 100%; justify-content: center; }
-}
-#device-bitrate { flex: none; }
-/* Phones over Wi-Fi: what to type into the player, set apart so it reads as something to copy */
-.wifi-value { margin: 4px 0 0; font-family: ui-monospace, Consolas, monospace; font-size: var(--fs-sm); user-select: text;
-  overflow-wrap: anywhere; }
-.wifi-row .tool-btn { flex: none; }
-.wifi-steps { margin: 8px 0 12px; padding-left: 20px; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.5; }
-.wifi-steps li + li { margin-top: 4px; }
-.wifi-error { color: var(--danger); }
+.device-transcode .switch { margin-top: 1px; }
+#device-bitrate { grid-column: 1 / -1; justify-self: start; }
 #device-bitrate:disabled, #device-transcode:disabled { opacity: 0.5; }
 .setting.toggle:has(.switch:disabled) { cursor: default; }
 .setting.toggle:has(.switch:disabled):hover { background: none; }
+
+/* Phones over Wi-Fi: rows between hairlines as in the settings, and what to type set apart to be copied */
+.wifi-rows { margin: 0 -8px; }
+.wifi-rows .setting { padding: 12px 8px; border-bottom: 1px solid var(--divider); }
+.wifi-rows .setting.toggle { border-radius: var(--radius) var(--radius) 0 0; }
+.wifi-value { margin: 4px 0 0; font-family: ui-monospace, Consolas, monospace; font-size: var(--fs-sm); user-select: text;
+  overflow-wrap: anywhere; }
+.wifi-row .tool-btn { flex: none; }
+.wifi-steps { margin: 0 0 12px; padding-left: 20px; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.5; }
+.wifi-steps li + li { margin-top: 4px; }
+.wifi-error { margin: 12px 0 0; color: var(--danger); }
+@container content (width < 820px) {
+  .sync-tips { grid-template-columns: minmax(0, 300px); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .space-after, .device-chevron { transition: none; }
+  .space-after { transition: none; }
 }
 .album-page { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; align-items: start; max-width: 1100px; }
 .album-page .album-cover { width: 240px; height: 240px; border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
@@ -1849,7 +1792,6 @@ button.lyric-line:hover { opacity: 1; }
 .crayon { display: none; width: 100%; height: 100%; background: center / contain no-repeat; }
 [data-art="crayon"] .crayon { display: block; }
 [data-art="none"] :is(.scene, .settings-art) { display: none; }
-[data-art="crayon"] .sync-art { display: none; }
 [data-scene="cassette"] .crayon { background-image: url("art/crayon-downloads.webp"); }
 [data-scene="turntable"] .crayon { background-image: url("art/crayon-library.webp"); }
 [data-scene="radio"] .crayon { background-image: url("art/crayon-nothing.webp"); }

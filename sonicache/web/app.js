@@ -113,7 +113,8 @@ const state = {
   plays: new Map(), // path → how many times it was listened to
   playlists: { items: [], stale: true, loading: false, token: 0 }, // the cards of the Playlists tab
   // Players and phones the library is synced to: those there now, what the open one gets, how its sync goes
-  devices: { items: [], open: null, timer: 0, selection: null, plan: null, planToken: 0, planTimer: 0, saving: null, shown: "", sideRows: "",
+  devices: { items: [], loaded: false, open: null, timer: 0, selection: null, plan: null, planToken: 0, planTimer: 0, saving: null, shown: "", sideRows: "",
+             tab: "playlists", entries: null, // the list chosen from on a device's page, and what each list offers
              wifi: null, // the library over Wi-Fi: on or off, the address, the login and the password
 
              sync: { running: false, device: "", done: 0, total: 0, title: "", note: "", timer: 0 } },
@@ -1081,9 +1082,8 @@ function onShortcut(event) {
   } else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.code === "KeyK") {
     event.preventDefault();
     showView("search");
-  } else if (event.key === "Escape" && state.view === "sync" && state.devices.open
-             && !(event.target instanceof Element && event.target.closest("input, select"))) {
-    closeSyncPage();
+  } else if (event.key === "Escape" && state.view === "sync" && $("#view-sync").classList.contains("side-open")) {
+    setSyncSideOpen(false);
   } else if (event.key === "Escape" && state.view === "now") {
     closeNowPlaying();
   } else if (event.key === "Escape" && state.view === "search" && !$("#search-page").hidden) {
@@ -7017,37 +7017,79 @@ function openWifi() {
   loadWifi();
 }
 
-// The overview, or the page of the device or of the Wi-Fi server opened from it
+// The page of the device or of the Wi-Fi server chosen in the list; with nothing plugged in, what to do about it
 function showSyncPage() {
   const open = state.devices.open;
   const page = open?.kind === "wifi" ? $("#wifi-page") : open?.kind === "device" ? $("#device-page") : $("#sync-home");
   const changed = page.hidden;
-  $("#sync-home").hidden = page.id !== "sync-home";
-  $("#device-page").hidden = page.id !== "device-page";
-  $("#wifi-page").hidden = page.id !== "wifi-page";
-  if (changed) {
-    $("#sync-page").scrollTop = 0;
-    riseIn([...page.children]);
-  }
+  for (const other of [$("#sync-home"), $("#device-page"), $("#wifi-page")]) other.hidden = other !== page;
+  // Until the drives have been looked for once, "no devices" would only flash up
+  $("#sync-home").classList.toggle("waiting", !state.devices.loaded);
+  if (changed) riseIn([...page.children]);
   renderDeviceSide();
+}
+
+// With nothing chosen the first device is opened, as the library opens on its albums
+function openFirstDevice() {
+  const { open, items } = state.devices;
+  if (open || !items.length || state.view !== "sync") return false;
+  openDevice(items[0].id);
+  return true;
 }
 
 function closeSyncPage() {
   state.devices.open = null;
-  showSyncPage();
+  if (!openFirstDevice()) showSyncPage();
+}
+
+// The name of what is open and where it is, and the buttons for it
+function renderSyncHead() {
+  const open = state.devices.open;
+  const device = open?.kind === "device" ? state.devices.items.find((entry) => entry.id === open.id) : null;
+  const wifi = open?.kind === "wifi";
+  $("#sync-title-name").textContent = device ? device.name : wifi ? t("Телефон по Wi-Fi") : t("Синхронизация");
+  // What keeps a device from syncing is said on its page, beside where its room would be
+  $("#sync-summary").textContent = device ? [deviceWhere(device), device.note ? "" : deviceState(device)].filter(Boolean).join(" · ")
+    : wifi ? t("iPhone и Android слушают библиотеку по домашней сети") : t("Музыка из библиотеки — на плеер, iPod или телефон");
+  $("#device-open").hidden = !device || device.kind === "mtp"; // a phone over a cable has no path to open in Explorer
+  $("#device-forget").hidden = !device || device.kind !== "folder";
+  $("#device-sync").hidden = !device;
+}
+
+// The width from which the list stands beside the page is the library's
+function setSyncSideOpen(open, restoreFocus = true) {
+  const view = $("#view-sync");
+  const title = $("#sync-title");
+  const wasOpen = view.classList.contains("side-open");
+  open = open && $(".main").clientWidth < LIBRARY_SIDE_FROM;
+  view.classList.toggle("side-open", open);
+  title.setAttribute("aria-expanded", String(open));
+  if (open) ($("[aria-current=page]", $("#sync-side")) || $(".side-item", $("#sync-side"))).focus();
+  else if (wasOpen && restoreFocus) title.focus();
 }
 
 function bindSyncSide() {
-  $("#sync-page").addEventListener("click", async (event) => {
+  const title = $("#sync-title");
+  title.addEventListener("click", () => setSyncSideOpen(title.getAttribute("aria-expanded") !== "true"));
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest("#sync-side, #sync-title")) setSyncSideOpen(false, false);
+  });
+  new ResizeObserver(([entry]) => {
+    title.disabled = entry.contentRect.width >= LIBRARY_SIDE_FROM;
+    if (title.disabled) setSyncSideOpen(false, false);
+  }).observe($(".main"));
+  $("#sync-side").addEventListener("click", async (event) => {
     const target = event.target;
     const device = target.closest("[data-device]");
-    if (target.closest("[data-sync-back]")) {
-      closeSyncPage();
-    } else if (device) {
-      openDevice(device.dataset.device);
+    const open = state.devices.open;
+    if (device) {
+      setSyncSideOpen(false);
+      if (open?.kind !== "device" || open.id !== device.dataset.device) openDevice(device.dataset.device);
     } else if (target.closest("#sync-wifi")) {
-      openWifi();
+      setSyncSideOpen(false);
+      if (open?.kind !== "wifi") openWifi();
     } else if (target.closest("#sync-folder")) {
+      setSyncSideOpen(false);
       const added = await api().add_device_folder();
       if (!added) return;
       await loadDevices();
@@ -7128,6 +7170,10 @@ async function loadDevices() {
     console.error(error);
   }
   state.devices.items = items;
+  const first = !state.devices.loaded;
+  state.devices.loaded = true;
+  if (openFirstDevice()) return; // the drives were read for the first time, or one was plugged in while there were none
+  if (first && state.view === "sync") showSyncPage();
   renderDeviceSide();
   const id = openDeviceId();
   if (!id) return;
@@ -7154,65 +7200,68 @@ function deviceKind(device) {
 
 function renderDeviceSide() {
   const id = openDeviceId();
-  const wifi = state.devices.wifi;
+  const { open, wifi, items, sync } = state.devices;
   const wifiState = $("#sync-wifi-state");
   wifiState.textContent = wifi?.running ? t("Включено") : "";
   wifiState.classList.toggle("ok", Boolean(wifi?.running));
-  // The drives are looked for every few seconds: cards drawn again for nothing would take the focus away
-  const sync = state.devices.sync;
-  const cards = JSON.stringify([language(), state.devices.items.map((device) => [device.id, device.name, device.note, device.free,
+  // The drives are looked for every few seconds: rows drawn again for nothing would take the focus away
+  const rows = JSON.stringify([language(), items.map((device) => [device.id, device.name, device.note, device.free,
     device.synced, sync.running && sync.device === device.id ? sync.done : -1])]);
-  if (cards !== state.devices.sideRows) {
-    state.devices.sideRows = cards;
-    renderDeviceCards();
+  if (rows !== state.devices.sideRows) {
+    state.devices.sideRows = rows;
+    renderDeviceRows();
   }
+  for (const item of $$("#sync-side .side-item")) {
+    const current = item.id === "sync-wifi" ? open?.kind === "wifi" : open?.kind === "device" && item.dataset.device === open.id;
+    if (current) item.setAttribute("aria-current", "page");
+    else item.removeAttribute("aria-current");
+  }
+  renderSyncHead();
   // What the lists offer comes from the library and the playlists, which may be read only now
   const shown = `${state.library.items.length}|${state.playlists.items.length}`;
   if (id && shown !== state.devices.shown) renderDeviceChoice();
 }
 
-function renderDeviceCards() {
+// Where a device is, as its page names it: a phone over a cable has no path to show
+function deviceWhere(device) {
+  return device.kind === "mtp" ? t("По кабелю · папка Music/Sonicache")
+    : device.kind === "ipod" ? t("iPod · {root}", { root: device.root }) : device.root;
+}
+
+// What there is to know before opening it: what keeps it from syncing, how its sync goes, or whether it had one
+function deviceState(device) {
+  const sync = state.devices.sync;
+  if (device.note) return device.note;
+  if (sync.running && sync.device === device.id) {
+    return t("Синхронизация: {done} из {total}", { done: Math.min(sync.done + 1, sync.total), total: sync.total });
+  }
+  return device.synced ? t("Уже синхронизировалось") : t("Ещё не синхронизировалось");
+}
+
+// The devices in the list, each with the room left on it, as the library's list has its counts
+function renderDeviceRows() {
   const { items, sync } = state.devices;
-  $("#sync-count").textContent = items.length ? String(items.length) : "";
-  $("#sync-none").hidden = items.length > 0;
+  $("#sync-none-side").hidden = items.length > 0;
   $("#sync-devices").replaceChildren(...items.map((device) => {
-    const { icon, name } = deviceKind(device);
+    const { icon } = deviceKind(device);
     const working = sync.running && sync.device === device.id;
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "sync-row" + (device.note ? " not-ready" : "") + (working ? " working" : "");
-    card.dataset.device = device.id;
-    card.innerHTML = `<span class="sync-icon"><svg class="icon" aria-hidden="true"><use href="#${icon}"/></svg></span>
-      <span class="sync-row-body"><span class="sync-row-name"></span><span class="sync-row-kind"></span></span>
-      <svg class="icon sm sync-chevron" aria-hidden="true"><use href="#i-chevron-right"/></svg>`;
-    $(".sync-row-name", card).textContent = device.name;
-    $(".sync-row-kind", card).textContent = device.kind === "mtp" ? name : `${name} · ${device.root.replace(/[\\/]+$/, "") || device.root}`;
-    const stateLine = document.createElement("span");
-    stateLine.className = "sync-state";
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "side-item" + (device.note ? " not-ready" : "") + (working ? " working" : "");
+    row.dataset.device = device.id;
+    row.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#${icon}"/></svg><span class="side-name"></span><span class="side-n"></span>`;
+    $(".side-name", row).textContent = device.name;
+    const count = $(".side-n", row);
+    const free = device.note ? "" : t("Свободно {free} из {total}", { free: formatSize(device.free), total: formatSize(device.total) });
+    row.title = [device.name, deviceWhere(device), free, deviceState(device)].filter(Boolean).join("\n");
     if (device.note) {
-      stateLine.classList.add("warn");
-      stateLine.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span></span>';
-      $("span", stateLine).textContent = device.note;
-      $(".sync-chevron", card).before(stateLine);
+      count.innerHTML = '<svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg>';
+    } else if (working) {
+      count.textContent = `${Math.min(sync.done + 1, sync.total)}/${sync.total}`;
     } else {
-      const meter = document.createElement("span");
-      meter.className = "sync-meter";
-      meter.innerHTML = '<span class="space-bar" aria-hidden="true"><span class="space-taken"></span></span><span class="sync-free"></span>';
-      $(".space-taken", meter).style.width = `${(100 * (device.total - device.free)) / Math.max(1, device.total)}%`;
-      $(".sync-free", meter).textContent = t("Свободно {free} из {total}", { free: formatSize(device.free), total: formatSize(device.total) });
-      if (working) {
-        stateLine.classList.add("ok");
-        stateLine.textContent = t("Синхронизация: {done} из {total}", { done: Math.min(sync.done + 1, sync.total), total: sync.total });
-      } else if (device.synced) {
-        stateLine.classList.add("ok");
-        stateLine.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span></span>';
-        $("span", stateLine).textContent = t("Уже синхронизировалось");
-      } else {
-        stateLine.textContent = t("Ещё не синхронизировалось");
-      }
-      $(".sync-chevron", card).before(meter, stateLine);
+      count.textContent = formatSize(device.free);
     }
-    return card;
+    return row;
   }));
 }
 
@@ -7223,7 +7272,7 @@ function openDevice(id) {
   state.devices.open = { kind: "device", id };
   state.devices.selection = structuredClone(device.selection);
   state.devices.plan = null;
-  for (const input of $$("#device-page .device-filter input")) input.value = "";
+  $("#device-filter").value = "";
   fillDevicePage(device);
   showSyncPage(); // its row in the list is marked once the page is there
   // The lists are made of the library and the playlists: they are read if they were not yet
@@ -7233,14 +7282,6 @@ function openDevice(id) {
 }
 
 function fillDevicePage(device) {
-  const page = $("#device-page");
-  $(".device-name", page).textContent = device.name;
-  // A phone over a cable has no path to show or to open in Explorer
-  $(".device-root", page).textContent = device.kind === "mtp" ? t("По кабелю · папка Music/Sonicache")
-    : device.kind === "ipod" ? t("iPod · {root}", { root: device.root }) : device.root;
-  swapIcon($(".sync-icon use", page), `#${deviceKind(device).icon}`);
-  $("#device-open").hidden = device.kind === "mtp";
-  $("#device-forget").hidden = device.kind !== "folder";
   $("#device-transcode").disabled = !device.ffmpeg;
   // An iPod plays mp3 and m4a only: anything else is made mp3 whether this is on or not
   $("#device-transcode-desc").textContent = !device.ffmpeg ? t("Для пережатия нужен ffmpeg")
@@ -7254,8 +7295,10 @@ function fillDevicePage(device) {
 // How full the device is now, and how full it will be after the sync
 function renderDeviceSpace(device) {
   const page = $("#device-page");
-  // A locked phone shows no storage yet: what to do about it is said where the preview would be
-  for (const part of $$(".space-card, .side-head", page)) part.hidden = Boolean(device.note);
+  // A locked phone shows no storage yet: what to do about it is said in its place
+  $(".device-space", page).hidden = Boolean(device.note);
+  $("#device-warn").hidden = !device.note;
+  $("#device-warn span").textContent = device.note;
   if (device.note) return;
   const total = Math.max(1, device.total);
   const taken = device.total - device.free;
@@ -7286,26 +7329,45 @@ function deviceEntries(kind) {
     .map((item) => ({ key: item.path, name: item.title, sub: [item.artist, item.album ? item.year : t("трек")].filter(Boolean).join(" · ") }));
 }
 
+const DEVICE_LISTS = ["playlists", "artists", "albums"];
+
 function renderDeviceChoice() {
   const selection = state.devices.selection;
   if (!selection) return;
   state.devices.shown = `${state.library.items.length}|${state.playlists.items.length}`;
+  state.devices.entries = Object.fromEntries(DEVICE_LISTS.map((kind) => [kind, deviceEntries(kind)]));
   const transcode = $("#device-transcode");
   syncRadios($("#device-scope"), "data-scope", selection.all ? "all" : "pick");
   syncSwitch(transcode, selection.transcode && !transcode.disabled);
   $("#device-bitrate").value = String(selection.bitrate);
   $("#device-bitrate").disabled = transcode.disabled || !selection.transcode;
-  $("#device-lists").hidden = selection.all;
-  for (const kind of ["playlists", "artists", "albums"]) renderDeviceList(kind);
+  // The whole library needs no lists: the place says so instead
+  $("#device-page").classList.toggle("whole", selection.all);
+  renderDeviceCounts();
+  renderDeviceItems();
 }
 
-function renderDeviceList(kind) {
-  const box = $(`#device-lists [data-list="${kind}"]`);
-  const chosen = new Set(state.devices.selection[kind]);
-  const entries = deviceEntries(kind);
-  const needle = ($(".device-filter input", box)?.value || "").trim().toLocaleLowerCase();
-  const shown = needle ? entries.filter((entry) => `${entry.name} ${entry.sub}`.toLocaleLowerCase().includes(needle)) : entries;
-  $(".device-items", box).replaceChildren(...shown.map((entry) => {
+// Each tab says how much of its list is chosen
+function renderDeviceCounts() {
+  const { selection, entries, tab } = state.devices;
+  for (const button of $$("#device-tabs [data-list]")) {
+    const kind = button.dataset.list;
+    const chosen = new Set(selection[kind]);
+    const total = entries[kind].length;
+    const picked = entries[kind].filter((entry) => chosen.has(entry.key)).length;
+    $(".count", button).textContent = picked ? t("{chosen} из {total}", { chosen: picked, total }) : String(total || "");
+    button.setAttribute("aria-selected", String(kind === tab));
+    button.tabIndex = kind === tab ? 0 : -1;
+  }
+}
+
+// The list of the tab open, narrowed by the filter
+function renderDeviceItems() {
+  const { selection, entries, tab } = state.devices;
+  const chosen = new Set(selection[tab]);
+  const needle = $("#device-filter").value.trim().toLocaleLowerCase();
+  const shown = needle ? entries[tab].filter((entry) => `${entry.name} ${entry.sub}`.toLocaleLowerCase().includes(needle)) : entries[tab];
+  $("#device-lists").replaceChildren(...shown.map((entry) => {
     const row = document.createElement("label");
     row.className = "device-item";
     const check = document.createElement("input");
@@ -7322,9 +7384,6 @@ function renderDeviceList(kind) {
     row.append(check, name, sub);
     return row;
   }));
-  const picked = entries.filter((entry) => chosen.has(entry.key)).length;
-  $(".device-count", box).textContent = picked ? t("{chosen} из {total}", { chosen: picked, total: entries.length })
-    : String(entries.length || "");
 }
 
 // Every change is kept at once, and what a sync would do is worked out again a moment later
@@ -7439,6 +7498,7 @@ function onSyncEvent(event) {
     loadDevices();
     if (openDeviceId() === event.device) previewDevice();
   }
+  if (state.view === "sync") renderDeviceSide(); // the row of the device and the bar count the files too
   renderDevicePreview();
   renderStatus();
 }
@@ -7474,18 +7534,22 @@ function bindDevices() {
   $("#device-lists").addEventListener("change", (event) => {
     const box = event.target.closest("input[type=checkbox]");
     if (!box) return;
-    const kind = box.closest("[data-list]").dataset.list;
+    const kind = state.devices.tab;
     const chosen = new Set(state.devices.selection[kind]);
     if (box.checked) chosen.add(box.dataset.key);
     else chosen.delete(box.dataset.key);
     state.devices.selection[kind] = [...chosen];
-    renderDeviceList(kind);
+    renderDeviceCounts();
     changeDevice();
   });
-  $("#device-lists").addEventListener("input", (event) => {
-    const list = event.target.closest(".device-filter") && event.target.closest("[data-list]");
-    if (list) renderDeviceList(list.dataset.list);
+  radioGroup($("#device-tabs"), "data-list", (kind) => {
+    if (kind === state.devices.tab) return;
+    state.devices.tab = kind;
+    $("#device-lists").scrollTop = 0;
+    renderDeviceCounts();
+    renderDeviceItems();
   });
+  $("#device-filter").addEventListener("input", renderDeviceItems);
   $("#device-sync").addEventListener("click", syncDevice);
   $("#device-open").addEventListener("click", () => {
     const device = state.devices.items.find((entry) => entry.id === openDeviceId());

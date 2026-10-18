@@ -504,186 +504,142 @@
 
 
       <section id="view-sync" class="view" aria-label="Синхронизация" hidden>
-        <div id="sync-page" class="list-scroll">
-          <div class="sync">
-            <!-- The overview: the devices there are, other ways to a phone, and what to do when none shows -->
-            <div id="sync-home">
-              <header class="settings-hero">
-                <div>
-                  <h1 class="settings-title">Синхронизация</h1>
-                  <p class="settings-lead">Музыка из библиотеки — на плеер, iPod или телефон</p>
+        <!-- Laid out as the library is: the devices and the other ways to a phone in a list, which a wide window
+             stands beside the page of the one chosen and a narrower one opens as a menu under the name in the bar -->
+        <nav id="sync-side" class="lib-side" aria-label="Устройства">
+          <h4 class="side-head">Устройства</h4>
+          <div id="sync-devices"></div>
+          <p id="sync-none-side" class="side-none">Не подключено</p>
+          <h4 class="side-head">Другие способы</h4>
+          <button type="button" class="side-item" id="sync-wifi" title="iPhone и Android слушают библиотеку по домашней сети">
+            <svg class="icon sm" aria-hidden="true"><use href="#i-wifi-high"/></svg><span class="side-name">Телефон по Wi-Fi</span><span class="side-n" id="sync-wifi-state"></span>
+          </button>
+          <button type="button" class="side-item side-add" id="sync-folder" title="Для телефона или плеера, который не виден как съёмный диск">
+            <svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span class="side-name">Выбрать папку…</span>
+          </button>
+        </nav>
+        <!-- One bar: what is open and where it is, then its buttons, the sync one last as Download has its own -->
+        <div class="library-head sync-head">
+          <div class="library-what">
+            <button type="button" id="sync-title" class="library-title" aria-haspopup="true" aria-expanded="false" aria-controls="sync-side">
+              <span id="sync-title-name">Синхронизация</span><svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </button>
+            <span id="sync-summary" class="library-summary"></span>
+          </div>
+          <button type="button" class="tool-btn icon-only" id="device-open" title="Открыть папку в проводнике" aria-label="Открыть папку" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
+          <button type="button" class="tool-btn" id="device-forget" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg><span>Убрать из списка</span></button>
+          <button type="button" class="btn primary" id="device-sync" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span>Синхронизировать</span></button>
+        </div>
+
+        <div id="sync-page" class="sync-body">
+          <!-- Nothing plugged in: what to do so that something shows -->
+          <div id="sync-home" class="empty sync-empty">
+            <div class="scene" data-scene="sync" aria-hidden="true"><pre class="ascii"></pre><span class="crayon"></span></div>
+            <p class="empty-title">Устройств не видно</p>
+            <ul class="sync-tips">
+              <li><svg class="icon sm" aria-hidden="true"><use href="#i-usb"/></svg><span><b>Плеер, SD-карта, флешка</b> — вставьте, и они появятся здесь сами</span></li>
+              <li><svg class="icon sm" aria-hidden="true"><use href="#i-hard-drive"/></svg><span><b>iPod</b> — подключите кабелем в режиме диска, iTunes не нужен</span></li>
+              <li><svg class="icon sm" aria-hidden="true"><use href="#i-device-mobile"/></svg><span><b>Android</b> — по кабелю; разблокируйте телефон и выберите в уведомлении «Передача файлов»</span></li>
+              <li><svg class="icon sm" aria-hidden="true"><use href="#i-wifi-high"/></svg><span><b>iPhone</b> — по Wi-Fi, без кабеля: откройте «Телефон по Wi-Fi» в списке</span></li>
+            </ul>
+          </div>
+
+          <!-- A device: what it gets on the left, how full it is and how it is written on the right -->
+          <div id="device-page" class="sync-pane" hidden>
+            <div class="device-main">
+              <div class="device-bar">
+                <div id="device-scope" class="segmented" role="radiogroup" aria-label="Что взять">
+                  <button type="button" role="radio" aria-checked="false" data-scope="all"><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg>Всю библиотеку</button>
+                  <button type="button" role="radio" aria-checked="false" data-scope="pick"><svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg>Выбрать</button>
                 </div>
-                <div class="settings-art sync-art" data-scene="sync" aria-hidden="true"><pre class="ascii"></pre><span class="crayon"></span></div>
-              </header>
-              <h2 class="sync-heading">Подключено<span id="sync-count" class="sync-count"></span></h2>
-              <div id="sync-devices" class="sync-list"></div>
-              <div id="sync-none" class="sync-none" hidden>
-                <p class="sync-none-title">Устройств не видно</p>
-                <ul class="sync-tips">
-                  <li><svg class="icon" aria-hidden="true"><use href="#i-usb"/></svg><span><b>Плеер, SD-карта, флешка</b> — вставьте, и они появятся здесь сами</span></li>
-                  <li><svg class="icon" aria-hidden="true"><use href="#i-hard-drive"/></svg><span><b>iPod</b> — подключите кабелем в режиме диска, iTunes не нужен</span></li>
-                  <li><svg class="icon" aria-hidden="true"><use href="#i-device-mobile"/></svg><span><b>Android</b> — по кабелю; разблокируйте телефон и выберите в уведомлении «Передача файлов»</span></li>
-                  <li><svg class="icon" aria-hidden="true"><use href="#i-wifi-high"/></svg><span><b>iPhone</b> — по Wi-Fi, без кабеля: откройте «Телефон по Wi-Fi» ниже</span></li>
+                <div id="device-tabs" class="device-tabs" role="tablist" aria-label="Что выбрать">
+                  <button type="button" role="tab" aria-selected="true" data-list="playlists">Плейлисты<span class="count"></span></button>
+                  <button type="button" role="tab" aria-selected="false" data-list="artists">Исполнители<span class="count"></span></button>
+                  <button type="button" role="tab" aria-selected="false" data-list="albums">Альбомы<span class="count"></span></button>
+                </div>
+                <div class="field device-filter">
+                  <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
+                  <input id="device-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр">
+                </div>
+              </div>
+              <div id="device-lists" class="device-items" role="tabpanel"></div>
+              <div id="device-all" class="device-all">
+                <svg class="icon" aria-hidden="true"><use href="#i-library"/></svg>
+                <p class="empty-title">Вся библиотека</p>
+                <p class="empty-text">Все альбомы, треки и плейлисты — и всё, что появится в библиотеке потом</p>
+              </div>
+            </div>
+            <aside class="device-side">
+              <p id="device-warn" class="device-warn" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg><span></span></p>
+              <div class="device-space">
+                <h3 class="pane-label">Память устройства</h3>
+                <div class="space-bar" aria-hidden="true"><span class="space-taken"></span><span class="space-after"></span></div>
+                <ul class="space-legend">
+                  <li><i class="dot taken"></i><span>Занято</span><b id="space-taken-n"></b></li>
+                  <li id="space-added" hidden><i class="dot added"></i><span>Добавится</span><b id="space-added-n"></b></li>
+                  <li><i class="dot free"></i><span>Свободно</span><b id="space-free-n"></b></li>
                 </ul>
               </div>
-              <h2 class="sync-heading">Другие способы</h2>
-              <div class="sync-list">
-                <button type="button" class="sync-row sync-way" id="sync-wifi">
-                  <span class="sync-icon"><svg class="icon" aria-hidden="true"><use href="#i-wifi-high"/></svg></span>
-                  <span class="sync-row-body"><span class="sync-row-name">Телефон по Wi-Fi</span><span class="sync-row-kind">iPhone и Android слушают библиотеку по домашней сети</span></span>
-                  <span class="sync-state" id="sync-wifi-state"></span>
-                  <svg class="icon sm sync-chevron" aria-hidden="true"><use href="#i-chevron-right"/></svg>
-                </button>
-                <button type="button" class="sync-row sync-way" id="sync-folder">
-                  <span class="sync-icon"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg></span>
-                  <span class="sync-row-body"><span class="sync-row-name">Выбрать папку</span><span class="sync-row-kind">Для телефона или плеера, который не виден как съёмный диск</span></span>
-                  <span class="sync-state"></span>
-                  <svg class="icon sm sync-chevron" aria-hidden="true"><use href="#i-plus"/></svg>
-                </button>
+              <!-- What a sync would do and how it goes -->
+              <div class="device-plan">
+                <p id="device-result" class="device-result" hidden></p>
+                <p id="device-preview" class="device-preview" aria-live="polite"></p>
+                <p id="device-notes" class="device-notes"></p>
+                <div id="device-progress" class="sync-progress" hidden><span></span></div>
               </div>
+              <h3 class="pane-label">Как записать</h3>
+              <div class="setting toggle device-transcode">
+                <div class="setting-label">
+                  <p id="device-transcode-label">Пережимать в MP3</p>
+                  <p class="setting-desc" id="device-transcode-desc"></p>
+                </div>
+                <button type="button" id="device-transcode" class="switch" role="switch" aria-checked="false" aria-labelledby="device-transcode-label"></button>
+                <select id="device-bitrate" class="select" aria-label="Битрейт MP3">
+                  <option value="128">128 кбит/с</option>
+                  <option value="192">192 кбит/с</option>
+                  <option value="256">256 кбит/с</option>
+                  <option value="320">320 кбит/с</option>
+                </select>
+              </div>
+            </aside>
+          </div>
+
+          <!-- Phones over Wi-Fi: the library as a Subsonic server that phone players play and download from -->
+          <div id="wifi-page" class="sync-pane" hidden>
+            <div class="device-main">
+              <div class="wifi-rows">
+                <div class="setting toggle">
+                  <div class="setting-label">
+                    <p id="wifi-on-label">Открыть библиотеку по Wi-Fi</p>
+                    <p class="setting-desc">Пока включено и Sonicache открыт, телефоны в этой сети могут слушать библиотеку с логином и паролем ниже</p>
+                  </div>
+                  <button type="button" id="wifi-on" class="switch" role="switch" aria-checked="false" aria-labelledby="wifi-on-label"></button>
+                </div>
+                <div class="setting wifi-row">
+                  <div class="setting-label"><p>Адрес сервера</p><p class="wifi-value" id="wifi-address"></p></div>
+                  <button type="button" class="tool-btn" data-wifi-copy="address">Скопировать</button>
+                </div>
+                <div class="setting wifi-row">
+                  <div class="setting-label"><p>Логин</p><p class="wifi-value" id="wifi-user"></p></div>
+                  <button type="button" class="tool-btn" data-wifi-copy="user">Скопировать</button>
+                </div>
+                <div class="setting wifi-row">
+                  <div class="setting-label"><p>Пароль</p><p class="wifi-value" id="wifi-password"></p></div>
+                  <button type="button" class="tool-btn" id="wifi-new">Новый пароль</button>
+                  <button type="button" class="tool-btn" data-wifi-copy="password">Скопировать</button>
+                </div>
+              </div>
+              <p id="wifi-error" class="device-preview wifi-error" hidden></p>
             </div>
-
-            <!-- A device: how full it is, what it gets, and the bar that syncs it -->
-            <div id="device-page" class="device-page" hidden>
-              <button type="button" class="page-back sync-back" data-sync-back><svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span>Все устройства</span></button>
-              <div class="device-head">
-                <div class="sync-icon big"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg></div>
-                <div class="device-what">
-                  <h2 class="album-title device-name"></h2>
-                  <p class="album-sub device-root"></p>
-                </div>
-                <div class="device-actions">
-                  <button type="button" class="tool-btn icon-only" id="device-open" title="Открыть папку в проводнике" aria-label="Открыть папку"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
-                  <button type="button" class="tool-btn" id="device-forget" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg><span>Убрать из списка</span></button>
-                </div>
-              </div>
-              <div class="device-layout">
-                <div class="device-main">
-                  <h3 class="step-head"><span class="step-n">1</span>Что взять</h3>
-                  <div id="device-scope" class="scope" role="radiogroup" aria-label="Что взять">
-                    <button type="button" class="scope-opt" role="radio" aria-checked="false" data-scope="all">
-                      <svg class="icon" aria-hidden="true"><use href="#i-library"/></svg>
-                      <span class="scope-t">Всю библиотеку</span>
-                      <span class="scope-d">Все альбомы, треки и плейлисты</span>
-                    </button>
-                    <button type="button" class="scope-opt" role="radio" aria-checked="false" data-scope="pick">
-                      <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>
-                      <span class="scope-t">Выбрать</span>
-                      <span class="scope-d">Плейлисты, исполнители и альбомы по отдельности</span>
-                    </button>
-                  </div>
-                  <div id="device-lists" class="device-lists">
-                    <details class="device-list" data-list="playlists" open>
-                      <summary><span>Плейлисты</span><span class="device-count"></span><svg class="icon sm device-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
-                      <div class="device-items"></div>
-                    </details>
-                    <details class="device-list" data-list="artists">
-                      <summary><span>Исполнители</span><span class="device-count"></span><svg class="icon sm device-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
-                      <div class="field device-filter">
-                        <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
-                        <input type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр исполнителей">
-                      </div>
-                      <div class="device-items"></div>
-                    </details>
-                    <details class="device-list" data-list="albums">
-                      <summary><span>Альбомы</span><span class="device-count"></span><svg class="icon sm device-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
-                      <div class="field device-filter">
-                        <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
-                        <input type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр альбомов">
-                      </div>
-                      <div class="device-items"></div>
-                    </details>
-                  </div>
-
-                  <h3 class="step-head"><span class="step-n">2</span>Как записать</h3>
-                  <div class="settings-card device-card">
-                    <div class="setting toggle">
-                      <div class="setting-label">
-                        <p id="device-transcode-label">Пережимать в MP3</p>
-                        <p class="setting-desc" id="device-transcode-desc"></p>
-                      </div>
-                      <select id="device-bitrate" class="select" aria-label="Битрейт MP3">
-                        <option value="128">128 кбит/с</option>
-                        <option value="192">192 кбит/с</option>
-                        <option value="256">256 кбит/с</option>
-                        <option value="320">320 кбит/с</option>
-                      </select>
-                      <button type="button" id="device-transcode" class="switch" role="switch" aria-checked="false" aria-labelledby="device-transcode-label"></button>
-                    </div>
-                  </div>
-                </div>
-                <aside class="device-side">
-                  <h3 class="side-head">Память устройства</h3>
-                  <div class="space-card">
-                    <div class="space-bar" aria-hidden="true"><span class="space-taken"></span><span class="space-after"></span></div>
-                    <ul class="space-legend">
-                      <li><i class="dot taken"></i><span>Занято</span><b id="space-taken-n"></b></li>
-                      <li id="space-added" hidden><i class="dot added"></i><span>Добавится</span><b id="space-added-n"></b></li>
-                      <li><i class="dot free"></i><span>Свободно</span><b id="space-free-n"></b></li>
-                    </ul>
-                  </div>
-
-                  <!-- Always in sight: what a sync would do, how it goes, and the button -->
-                  <div class="device-foot">
-                    <div class="device-foot-text">
-                      <p id="device-result" class="device-result" hidden></p>
-                      <p id="device-preview" class="device-preview" aria-live="polite"></p>
-                      <p id="device-notes" class="device-notes"></p>
-                      <div id="device-progress" class="sync-progress" hidden><span></span></div>
-                    </div>
-                    <button type="button" class="btn primary" id="device-sync"><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span>Синхронизировать</span></button>
-                  </div>
-                </aside>
-              </div>
-            </div>
-
-            <!-- Phones over Wi-Fi: the library as a Subsonic server that phone players play and download from -->
-            <div id="wifi-page" class="device-page" hidden>
-              <button type="button" class="page-back sync-back" data-sync-back><svg class="icon sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span>Все устройства</span></button>
-              <div class="device-head">
-                <div class="sync-icon big"><svg class="icon" aria-hidden="true"><use href="#i-wifi-high"/></svg></div>
-                <div class="device-what">
-                  <h2 class="album-title">Телефон по Wi-Fi</h2>
-                  <p class="album-sub">iPhone и Android слушают библиотеку по домашней сети и сохраняют альбомы, чтобы слушать без неё</p>
-                </div>
-              </div>
-              <div class="device-layout">
-                <div class="device-main">
-                  <div class="settings-card device-card">
-                    <div class="setting toggle">
-                      <div class="setting-label">
-                        <p id="wifi-on-label">Открыть библиотеку по Wi-Fi</p>
-                        <p class="setting-desc">Пока включено и Sonicache открыт, телефоны в этой сети могут слушать библиотеку с логином и паролем ниже</p>
-                      </div>
-                      <button type="button" id="wifi-on" class="switch" role="switch" aria-checked="false" aria-labelledby="wifi-on-label"></button>
-                    </div>
-                    <div class="setting wifi-row">
-                      <div class="setting-label"><p>Адрес сервера</p><p class="wifi-value" id="wifi-address"></p></div>
-                      <button type="button" class="tool-btn" data-wifi-copy="address">Скопировать</button>
-                    </div>
-                    <div class="setting wifi-row">
-                      <div class="setting-label"><p>Логин</p><p class="wifi-value" id="wifi-user"></p></div>
-                      <button type="button" class="tool-btn" data-wifi-copy="user">Скопировать</button>
-                    </div>
-                    <div class="setting wifi-row">
-                      <div class="setting-label"><p>Пароль</p><p class="wifi-value" id="wifi-password"></p></div>
-                      <button type="button" class="tool-btn" id="wifi-new">Новый пароль</button>
-                      <button type="button" class="tool-btn" data-wifi-copy="password">Скопировать</button>
-                    </div>
-                  </div>
-                  <p id="wifi-error" class="device-preview wifi-error" hidden></p>
-                </div>
-                <aside class="device-side">
-                  <h3 class="side-head">Как подключить телефон</h3>
-                  <ol class="wifi-steps">
-                    <li>Поставьте на телефон плеер, который умеет Subsonic: на iPhone — Amperfy (бесплатно), на Android — Ultrasonic (бесплатно) или Symfonium.</li>
-                    <li>Добавьте в нём сервер Subsonic с адресом, логином и паролем отсюда.</li>
-                    <li>Альбомы и плейлисты, которые нужны без сети, скачайте в самом плеере.</li>
-                  </ol>
-                  <p class="setting-desc">Телефон и компьютер должны быть в одной сети Wi-Fi, а Sonicache — открыт: его можно свернуть в область уведомлений. Если Windows спросит про брандмауэр, разрешите доступ в частных сетях.</p>
-                </aside>
-              </div>
-            </div>
+            <aside class="device-side">
+              <h3 class="pane-label">Как подключить телефон</h3>
+              <ol class="wifi-steps">
+                <li>Поставьте на телефон плеер, который умеет Subsonic: на iPhone — Amperfy (бесплатно), на Android — Ultrasonic (бесплатно) или Symfonium.</li>
+                <li>Добавьте в нём сервер Subsonic с адресом, логином и паролем отсюда.</li>
+                <li>Альбомы и плейлисты, которые нужны без сети, скачайте в самом плеере.</li>
+              </ol>
+              <p class="setting-desc">Телефон и компьютер должны быть в одной сети Wi-Fi, а Sonicache — открыт: его можно свернуть в область уведомлений. Если Windows спросит про брандмауэр, разрешите доступ в частных сетях.</p>
+            </aside>
           </div>
         </div>
       </section>
