@@ -245,12 +245,14 @@ p { margin: 0; }
 /* How far the downloads have come, seen from any section: a small ring after the word Download, in the room the
    word leaves to its right, so that nothing moves when it comes. A line under the word was taken for a second
    section in use. Yellow on pause, red once something failed, a turning arc before the count. */
-@property --p { syntax: "<number>"; inherits: false; initial-value: 0; }
+/* A name of its own: --p is how full every bar and slider is, read by their inner parts, and registered here as
+   not inherited it emptied them all */
+@property --ring-p { syntax: "<number>"; inherits: false; initial-value: 0; }
 .nav-ring {
   position: absolute; top: calc(50% - 6px); right: 0; width: 12px; height: 12px; border-radius: 50%; pointer-events: none;
-  background: conic-gradient(var(--ring, var(--text)) calc(var(--p) * 360deg), var(--border) 0);
+  background: conic-gradient(var(--ring, var(--text)) calc(var(--ring-p) * 360deg), var(--border) 0);
   mask: radial-gradient(circle, transparent 3px, #000 3.5px);
-  transition: --p var(--settle) var(--ease);
+  transition: --ring-p var(--settle) var(--ease);
 }
 .nav-ring[data-state="paused"] { --ring: var(--warning); }
 .nav-ring[data-state="error"] { --ring: var(--danger); }

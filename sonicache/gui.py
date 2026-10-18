@@ -1445,9 +1445,34 @@ class Api:
             self._window.evaluate_js(f"taskbarAction({json.dumps(name)})")
 
     def fullscreen(self) -> None:
-        """Now playing asks for the whole screen, and gives it back."""
-        if self._window is not None:
-            self._window.toggle_fullscreen()
+        """Now playing asks for the whole screen, and gives it back as it was.
+
+        pywebview takes the whole screen by dropping the window's frame style and
+        gives it back as a window of the screen's size that is not maximized, a
+        little past every edge. Without a frame of the system's (FRAMELESS) the
+        style is put back here, and a window that filled the screen fills it again."""
+        if self._window is None:
+            return
+        entering = not self._in_fullscreen()
+        if entering:
+            self._was_maximized = self.window_state()
+        self._window.toggle_fullscreen()
+        if entering or not FRAMELESS or not self._handle():
+            return
+        try:
+            winframe.restore_frame_style(self._handle())
+            if getattr(self, "_was_maximized", False):
+                winframe.centre(self._handle(), WINDOW_SIZE)  # what it goes back to when it is un-maximized
+                self._window.maximize()
+        except Exception:
+            logs.log.debug("окно: рамка после полного экрана не возвращена", exc_info=True)
+
+    def _in_fullscreen(self) -> bool:
+        return bool(getattr(self._window.native, "is_fullscreen", False)) if self._window is not None else False
+
+    def page_error(self, text: str) -> None:
+        """An error in the page's script, kept in the log: a window that stops answering leaves nothing else."""
+        logs.log.warning("страница: %s", str(text)[:2000])
 
     # The window's own buttons and edges, for a window without a frame (FRAMELESS):
     # the page draws them and reports a press here
@@ -1466,8 +1491,8 @@ class Api:
     def window_maximize(self) -> bool:
         """Fills the screen, or gives the window back its size; answers whether it fills it now."""
         form = self._window.native if self._window is not None else None
-        if form is None:
-            return False
+        if form is None or self._in_fullscreen():  # the whole screen is left by Now playing's own button
+            return self.window_state()
         try:
             from System import Func, Type
             from System.Windows.Forms import FormWindowState
@@ -1495,12 +1520,12 @@ class Api:
 
     def window_drag(self) -> None:
         """The top bar was pressed: the window follows the cursor until the button is let go."""
-        if FRAMELESS and self._handle():
+        if FRAMELESS and self._handle() and not self._in_fullscreen():
             winframe.in_background(winframe.drag, self._handle())
 
     def window_resize(self, edge: str) -> None:
         """An edge or a corner was pressed: the window is sized by it until the button is let go."""
-        if FRAMELESS and self._handle():
+        if FRAMELESS and self._handle() and not self._in_fullscreen():
             winframe.in_background(winframe.resize, self._handle(), edge, MIN_SIZE)
 
     def _keep_frame_style(self) -> None:

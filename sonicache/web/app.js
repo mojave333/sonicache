@@ -273,6 +273,14 @@ const FONTS = ["source-serif", "comic", "system"];
 const ARTS = ["crayon", "ascii", "none"];
 applyTheme();
 
+// What goes wrong in the script is kept in the program's log, so that a window that stopped answering can be traced
+window.addEventListener("error", (event) => {
+  window.pywebview?.api?.page_error?.(`${event.message} (${event.filename}:${event.lineno})`);
+});
+window.addEventListener("unhandledrejection", (event) => {
+  window.pywebview?.api?.page_error?.(`${event.reason?.stack || event.reason}`);
+});
+
 let booted = false;
 function boot() {
   if (booted) return;
@@ -594,12 +602,13 @@ function refreshMaximized() {
 }
 
 function toggleMaximized() {
+  if (player.fullscreen) return; // the whole screen is left by its own button, or by leaving Now playing
   Promise.resolve(api().window_maximize()).then((on) => setMaximized(Boolean(on))).catch(() => {});
 }
 
 // A press on bare ground in the top bar (or the top of Now playing) takes the window by it; a second one fills the screen
 function onFrameDown(event) {
-  if (event.button !== 0 || event.clientY > 56) return;
+  if (event.button !== 0 || event.clientY > 56 || player.fullscreen) return;
   if (!event.target.closest(".topbar, .now-view")) return;
   if (event.target.closest("button, input, select, textarea, a, label, [role=button], [role=radio], .field")) return;
   if (event.detail === 2) {
@@ -2392,7 +2401,7 @@ function reportProgress() {
   const ring = $("#download-ring");
   ring.hidden = name === "none";
   ring.dataset.state = name;
-  ring.style.setProperty("--p", name === "indeterminate" ? 0.25 : ratio);
+  ring.style.setProperty("--ring-p", name === "indeterminate" ? 0.25 : ratio);
   const reported = `${name} ${Math.floor(ratio * 100)}`;
   if (reported === state.reported) return;
   state.reported = reported;

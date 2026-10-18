@@ -122,6 +122,31 @@ if sys.platform == "win32":
     SWP_NOMOVE, SWP_FRAMECHANGED = 0x0002, 0x0020
     _hooks: dict[int, tuple] = {}  # a procedure the system calls into must be kept alive
 
+    class _Margins(ctypes.Structure):
+        """MARGINS: how far the system's frame is drawn into the window, side by side."""
+        _fields_ = [("left", ctypes.c_int), ("right", ctypes.c_int), ("top", ctypes.c_int), ("bottom", ctypes.c_int)]
+
+    def _frame_style(hwnd: int) -> None:
+        """The marks of a framed window, and a frame one pixel into the page.
+
+        The system draws a window's shadow, and on Windows 11 its thin edge and round
+        corners, only round a frame. With none, a window that did not fill the screen
+        had no edge at all and was lost against what lay behind it. The pixel is
+        under the page, which covers it."""
+        style = _user32.GetWindowLongW(hwnd, GWL_STYLE) & 0xFFFFFFFF
+        wanted = style | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+        _user32.SetWindowLongW(hwnd, GWL_STYLE, ctypes.c_long(wanted).value)
+        _user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
+                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)
+        try:
+            ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(hwnd, ctypes.byref(_Margins(1, 1, 1, 1)))
+        except (AttributeError, OSError):  # no desktop composition: the window goes without
+            pass
+
+    def restore_frame_style(hwnd: int) -> None:
+        """Puts the frame's marks back after something took them off: pywebview's whole screen does."""
+        _frame_style(hwnd)
+
     def keep_system_frame_style(hwnd: int) -> None:
         """Gives a window that has no frame the style of one that has, and draws none of it.
 
@@ -140,7 +165,10 @@ if sys.platform == "win32":
 
         def window_proc(handle, message, wparam, lparam):
             if message == WM_NCCALCSIZE:
-                if wparam and _user32.IsZoomed(handle):
+                # Maximized past the screen's edges by a frame's width, it is taken back in; the whole screen
+                # (pywebview's, which drops the caption) is the screen itself and keeps every pixel
+                captioned = (_user32.GetWindowLongW(handle, GWL_STYLE) & WS_CAPTION) == WS_CAPTION
+                if wparam and _user32.IsZoomed(handle) and captioned:
                     rect = ctypes.cast(lparam, ctypes.POINTER(_CalcSize)).contents.rects[0]
                     across = _user32.GetSystemMetrics(SM_CXSIZEFRAME) + _user32.GetSystemMetrics(SM_CXPADDEDBORDER)
                     down = _user32.GetSystemMetrics(SM_CYSIZEFRAME) + _user32.GetSystemMetrics(SM_CXPADDEDBORDER)
@@ -154,11 +182,7 @@ if sys.platform == "win32":
         proc = _WNDPROC(window_proc)
         chain[0] = _user32.SetWindowLongPtrW(hwnd, GWLP_WNDPROC, ctypes.cast(proc, ctypes.c_void_p))
         _hooks[hwnd] = (proc, chain)
-        style = _user32.GetWindowLongW(hwnd, GWL_STYLE) & 0xFFFFFFFF
-        wanted = style | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
-        _user32.SetWindowLongW(hwnd, GWL_STYLE, ctypes.c_long(wanted).value)
-        _user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
-                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)
+        _frame_style(hwnd)
 
     def is_maximized(hwnd: int) -> bool:
         return bool(_user32.IsZoomed(hwnd))
@@ -215,6 +239,9 @@ if sys.platform == "win32":
 
 else:  # a window with a frame of its own needs none of this
     def keep_system_frame_style(hwnd: int) -> None:
+        return None
+
+    def restore_frame_style(hwnd: int) -> None:
         return None
 
     def is_maximized(hwnd: int) -> bool:
