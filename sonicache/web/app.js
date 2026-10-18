@@ -2071,6 +2071,7 @@ function onJobEvent(job, event) {
     setExpanded(job, event.failed > 0 || Boolean(event.dry_run));
     announce(`${job.title}: ${job.summary}`);
   }
+  sinkFinished(job);
   // The card says it on the Download view; anywhere else the toast does
   if (["done", "partial", "error"].includes(job.state) && !job.dryRun && state.view !== "download") toastFinished(job);
   // Tracks that never started get no event of their own
@@ -2084,6 +2085,14 @@ function onJobEvent(job, event) {
     state.library.stale = true;
     if (state.view === "library") loadLibrary();
   }
+}
+
+// The downloads under way stay at the head of the list: one that ends goes down below them, to the head of those
+// that are over. A short single added later used to finish above a long album and push it out of sight.
+function sinkFinished(job) {
+  const active = new Set([...state.jobs.values()].filter((other) => ACTIVE.has(other.state)).map((other) => other.node));
+  const last = [...$("#jobs").children].filter((node) => active.has(node)).pop();
+  if (last && job.node.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING) last.after(job.node);
 }
 
 function toastFinished(job) {
@@ -4117,7 +4126,7 @@ async function onPageAction(event) {
   else if (action === "favourite") toggleFavourite(item);
   else if (action === "again") downloadAgain([item]);
   else if (action === "tidy") tidyLibrary([item]);
-  else if (action === "play") playAlbumPage(0);
+  else if (action === "play") pagePlaying() ? togglePlay() : playAlbumPage(0);
   else if (action === "watch") {
     const list = isWatched(item.link) ? await api().unwatch(item.link) : await api().watch_album(item.path);
     setWatched(list);
@@ -5305,6 +5314,7 @@ function renderPlayerButton() {
   const playing = !player.audio.paused;
   const button = $("#player-play");
   swapIcon($("use", button), playing ? "#i-pause" : "#i-play");
+  renderPagePlay();
   button.title = t(playing ? "Пауза" : "Слушать");
   button.setAttribute("aria-label", button.title);
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
@@ -5396,12 +5406,32 @@ function fillRange(input) {
 
 // The row of the track that plays, wherever it is on screen
 function markPlayingRows() {
+  renderPagePlay();
   const path = player.info?.path;
   for (const row of $$(".album-track.is-playing, .track-item.is-playing")) row.classList.remove("is-playing");
   if (!path) return;
   for (const row of $$(".album-list .album-track[data-path], #library-tracks .track-item")) {
     if (row.dataset.path === path) row.classList.add("is-playing");
   }
+}
+
+// Whether the queue is the album or the playlist whose page is open, in any order (a shuffle changes it)
+function pagePlaying() {
+  const page = $("#album-page");
+  if (!player.info || $("#library-page").hidden) return false;
+  const paths = new Set(page.dataset.kind === "playlist" // a playlist may hold a track twice
+    ? (page.playlist?.tracks || []).filter((track) => !track.missing).map((track) => track.path)
+    : [...$$(".album-list .album-track[data-path]", page)].map((row) => row.dataset.path));
+  const queued = new Set(player.queue);
+  return paths.size > 0 && paths.size === queued.size && [...paths].every((path) => queued.has(path));
+}
+
+// The page's own button pauses what it started, as the player's does, and plays it on from where it stopped
+function renderPagePlay() {
+  const button = $('#album-page [data-page-action="play"]');
+  const playing = pagePlaying() && !player.audio.paused;
+  swapIcon($("use", button), playing ? "#i-pause" : "#i-play");
+  $("span", button).textContent = playing ? t("Пауза") : t("Слушать");
 }
 
 /* Sound: the equaliser and the crossfade */
@@ -6358,7 +6388,7 @@ async function changePlaylistCover(data, reset) {
 async function onPlaylistAction(action) {
   const data = $("#album-page").playlist;
   if (!data) return;
-  if (action === "play") playPlaylistPage(null);
+  if (action === "play") pagePlaying() ? togglePlay() : playPlaylistPage(null);
   else if (action === "shuffle") playPlaylistPage(null, true);
   else if (action === "cover" || action === "uncover") changePlaylistCover(data, action === "uncover");
   else if (action === "export") {

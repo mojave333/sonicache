@@ -242,20 +242,19 @@ p { margin: 0; }
 .nav-icon { width: var(--h-lg); height: var(--h-lg); padding: 0; border-radius: var(--radius); }
 .nav-icon:hover { background: var(--hover); }
 .nav-icon[aria-current="page"] { background: var(--selected); }
-/* How far the downloads have come, a line under the word Download, seen from any
-   section; yellow on pause, red once something failed, a sliding piece before the count */
+/* How far the downloads have come, seen from any section: a small ring after the word Download, in the room the
+   word leaves to its right, so that nothing moves when it comes. A line under the word was taken for a second
+   section in use. Yellow on pause, red once something failed, a turning arc before the count. */
+@property --p { syntax: "<number>"; inherits: false; initial-value: 0; }
 .nav-ring {
-  position: absolute; left: 16px; right: 16px; bottom: 10px; height: 3px; overflow: hidden;
-  border-radius: var(--radius-pill); background: var(--divider); pointer-events: none;
-}
-.nav-ring::after {
-  content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--p, 0) * 100%);
-  border-radius: inherit; background: var(--ring, var(--bar-fill)); transition: width var(--settle) var(--ease);
+  position: absolute; top: calc(50% - 6px); right: 0; width: 12px; height: 12px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(var(--ring, var(--text)) calc(var(--p) * 360deg), var(--border) 0);
+  mask: radial-gradient(circle, transparent 3px, #000 3.5px);
+  transition: --p var(--settle) var(--ease);
 }
 .nav-ring[data-state="paused"] { --ring: var(--warning); }
 .nav-ring[data-state="error"] { --ring: var(--danger); }
-.nav-ring[data-state="indeterminate"]::after { width: 30%; animation: slide 1.2s var(--ease) infinite; }
-@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.nav-ring[data-state="indeterminate"] { animation: spin 1s linear infinite; }
 .nav-dot {
   position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
   border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--chrome);
@@ -288,7 +287,7 @@ html.window-full .topbar-right { padding-right: 24px; }
   .brand { margin-right: 8px; }
   .brand-name { display: none; }
   .nav-item { padding: 0 12px; }
-  .nav-ring { left: 12px; right: 12px; }
+  .nav-ring { right: -4px; }
 }
 
 /* Columns react to the content width, which a widened side panel narrows */
@@ -1151,50 +1150,44 @@ html.window-full .topbar-right { padding-right: 24px; }
 /* The cover stays in sight while a long tracklist scrolls past it */
 .album-page .album-cover { position: sticky; top: 14px; }
 .album-side { display: contents; }
-/* An album opens over the library: the library's bars step aside, the cover
-   sits on a panel in its own colour, and only the tracklist scrolls, under the
-   title and the buttons that stay in place. The rail stays, so the way to
-   every other section is still one click away, as it is on an artist's page. */
+/* An album opens over the library: the library's bars step aside, and the page scrolls as a whole, as every
+   other page does. At its head the cover, and beside it the name, the artist and the buttons, on a blur of the
+   cover's own colours; under them the tracklist, the whole width of the page, with its column names kept in
+   sight. It used to be a panel half taken by the cover, its tracklist narrow and scrolling inside it. The rail
+   stays, so the way to every other section is still one click away, as it is on an artist's page. */
 /* The grid is behind the page, so it is not drawn at all while the page is
    open: the grid keeps its place and its scroll, and is not laid out again. */
 .album-full #library-panel { content-visibility: hidden; }
 .album-full #view-library > .library-head { display: none; }
-.album-full .library-page { display: flex; flex-direction: column; padding: 16px 32px 24px; overflow-y: auto; }
+.album-full .library-page { padding: 16px 32px 24px; }
 .album-full .library-page .page-band { display: none; }
 .album-full .album-panel {
-  flex: 1; min-height: 0; max-width: none; gap: 0; align-items: stretch;
-  grid-template-columns: minmax(240px, 40%) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
-  border-radius: var(--radius-lg); overflow: hidden; background: var(--field); box-shadow: var(--shadow-lg);
+  position: relative; max-width: none; align-items: end; column-gap: 28px; row-gap: 0;
+  grid-template-columns: 232px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "cover title" "cover sub" "cover actions" "tracks tracks";
 }
-/* The panel under the cover takes the cover's own colours, as Now playing does:
-   a blur of the picture itself under two soft pools of its main colour */
-.album-full .album-side {
-  position: relative; display: grid; place-items: center; min-width: 0; padding: 36px; overflow: hidden;
-}
-.album-full .album-side::before {
-  --wash: hsl(var(--tint-h, 0) clamp(0%, var(--tint-s, 0%), var(--band-s-max)) var(--band-l) / var(--tint-a, 0));
-  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: radial-gradient(95% 80% at 18% 10%, var(--wash), transparent 74%),
-              radial-gradient(85% 70% at 90% 100%, var(--wash), transparent 72%);
-}
-.album-full .album-side > :not(.album-backdrop) { position: relative; z-index: 1; }
+.album-full .album-info { display: contents; }
+.album-full .album-panel :is(.album-cover, .album-title, .album-sub, .album-actions, .album-tracks) { position: relative; z-index: 1; }
+.album-full .page-back { z-index: 2; }
+.album-full .album-panel .album-cover { grid-area: cover; width: 232px; height: 232px; box-shadow: var(--shadow-lg); }
+.album-full .album-panel .album-title { grid-area: title; }
+.album-full .album-panel .album-sub { grid-area: sub; margin-bottom: 14px; }
+.album-full .album-panel .album-actions { grid-area: actions; margin-bottom: 0; }
+.album-full .album-panel .album-tracks { grid-area: tracks; margin-top: 28px; }
+/* The cover's colours behind the head: a blur of the picture itself, fading out before the tracks begin */
 .album-backdrop { display: none; }
 .album-full .album-backdrop {
-  display: block; position: absolute; inset: -60px; width: calc(100% + 120px); height: calc(100% + 120px);
+  display: block; position: absolute; top: -66px; left: -32px; width: calc(100% + 64px); height: 400px; /* from the window's top, over the back button */
   object-fit: cover; filter: blur(60px) saturate(1.3); opacity: 0.4; pointer-events: none;
+  mask-image: linear-gradient(#000 30%, transparent 80%); /* gone before the column names, which keep the page's own colour */
 }
 /* On a light page the blur only darkens the colours it is laid over; on a dark
-   one a pale cover would lay a grey fog over the panel, so it is dimmed first
+   one a pale cover would lay a grey fog over the head, so it is dimmed first
    and left to carry the colour that is in it */
 :root[data-theme="light"] .album-backdrop { mix-blend-mode: multiply; opacity: 0.5; }
 :root[data-theme="dark"].album-full .album-backdrop { filter: blur(60px) saturate(1.6) brightness(0.62); opacity: var(--backdrop-a, 0.6); }
-.album-full .album-panel .album-cover {
-  position: relative; width: min(100%, 460px, 62vh); height: auto; aspect-ratio: 1;
-  border-radius: var(--radius-md); box-shadow: var(--shadow-lg); /* rounded as on every other page */
-}
-.album-full .album-panel .album-info { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 32px 28px 0; }
-.album-full .album-panel .album-tracks { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -28px; padding: 0 28px 16px; }
-.album-full .album-panel .album-head { position: sticky; top: 0; z-index: 1; background: var(--field); }
+/* The column names stay at the top of the page's window as the tracks go under them: past its padding */
+.album-full .album-panel .album-head { position: sticky; top: -16px; z-index: 2; background: var(--bg); }
 .setting-path { overflow-wrap: anywhere; user-select: text; }
 .album-cover .icon { width: 44px; height: 44px; --icon-weight: 0px; }
 /* On a playlist's page the cover is the way to change it, as it is in Spotify: a click asks for a picture */
@@ -1230,6 +1223,8 @@ html.window-full .topbar-right { padding-right: 24px; }
 .album-more-cards { padding: 12px 0 0; }
 #album-page[data-kind="playlist"] .album-more { display: none; }
 .album-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+/* Play turns to Pause in place: the width is kept, so the buttons beside it do not move */
+.album-actions [data-page-action="play"] { min-width: 120px; justify-content: center; }
 .album-actions .tool-btn[aria-pressed="true"] { border-color: var(--border-strong); background: var(--selected); color: var(--text); }
 .album-track {
   display: grid; grid-template-columns: 34px minmax(0, 1.6fr) minmax(0, 1fr) 56px 32px; gap: 12px; align-items: center;
@@ -1257,12 +1252,9 @@ html.window-full .topbar-right { padding-right: 24px; }
   .album-page { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .page-band { height: 148px; }
   .album-page .album-cover { position: static; width: 180px; height: 180px; }
-  /* A narrow window stacks the cover over the tracks, and the page scrolls as a whole */
-  .album-full .album-panel { display: block; overflow: visible; box-shadow: none; background: none; }
-  .album-full .album-side { display: block; padding: 20px 0; }
-  .album-full .album-panel .album-cover { width: 180px; }
-  .album-full .album-panel .album-info { padding: 0; }
-  .album-full .album-panel .album-tracks { overflow: visible; margin: 0; padding: 0; }
+  /* A narrow window keeps the head, with a smaller cover */
+  .album-full .album-panel { grid-template-columns: 140px minmax(0, 1fr); column-gap: 20px; }
+  .album-full .album-panel .album-cover { width: 140px; height: 140px; }
   .album-track, .album-tracks.no-artists .album-track { grid-template-columns: 28px minmax(0, 1fr) 48px 32px; }
   .album-track.search-album-track, .album-tracks.no-artists .album-track.search-album-track { grid-template-columns: 28px minmax(0, 1fr) 48px 32px; }
   .album-track .artists { display: none; }
@@ -1482,9 +1474,17 @@ html.window-full .topbar-right { padding-right: 24px; }
 .player-extra .icon-btn .icon { width: 20px; height: 20px; }
 /* The volume stands apart from the panels: a gap before the mute button */
 #player-mute { margin-left: 12px; }
-/* A straight line apart from the volume: the button's own border would curve with its corners */
-#player-stop { position: relative; margin-left: 8px; }
-#player-stop::before { content: ""; position: absolute; left: -5px; top: 6px; bottom: 6px; border-left: 1px solid var(--border); }
+/* Closing the player stood right after the volume, where a slip of the pointer stopped the music. It is a small
+   round button on the plate's corner now, shown while the pointer is over the plate or the keys reach it */
+.player { position: relative; }
+#player-stop {
+  position: absolute; top: -10px; right: -10px; z-index: 1; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--field); box-shadow: inset 0 0 0 1px var(--border), var(--shadow-xs); color: var(--text-muted);
+  opacity: 0; transition: opacity var(--quick) ease-out;
+}
+#player-stop .icon { width: 12px; height: 12px; }
+.player:hover #player-stop, #player-stop:focus-visible { opacity: 1; }
+#player-stop:hover { background: var(--field); color: var(--text); }
 .player-extra input { width: 90px; }
 /* Thin lines, as Harmonoid draws them: the part played, or the volume, filled
    up to a small knob that grows under the pointer */
@@ -1627,6 +1627,15 @@ button.lyric-line:hover { opacity: 1; }
 .now-mode .player-mode, .now-mode .player-extra #player-lyrics { display: grid; }
 #player-full { display: none; }
 .now-mode #player-full { display: grid; }
+/* Over Now playing the dock is all buttons: closing stays one of them, last, after the full screen and a line
+   apart, so that it is not the volume's neighbour there either */
+.now-mode #player-stop {
+  position: relative; top: auto; right: auto; order: 1; width: var(--h); height: var(--h); margin-left: 8px; border-radius: var(--radius);
+  background: none; box-shadow: none; color: var(--text-subtle); opacity: 1;
+}
+.now-mode #player-stop:hover { background: var(--hover); color: var(--text); }
+.now-mode #player-stop .icon { width: 20px; height: 20px; }
+.now-mode #player-stop::before { content: ""; position: absolute; left: -5px; top: 6px; bottom: 6px; border-left: 1px solid var(--border); }
 @container content (max-width: 820px) {
   .now-mode #player { left: 12px; right: 12px; bottom: 12px; gap: 12px; }
   /* The keys and the mute button still set the volume: the seek bar needs the room more */
