@@ -258,7 +258,8 @@
             <input id="search-input" type="search" autocomplete="off" spellcheck="false"
                    placeholder="Исполнитель, альбом или трек" aria-label="Поиск в каталоге">
           </div>
-          <button type="button" id="search-refresh" class="tool-btn icon-only" title="Обновить (F5)" aria-label="Обновить">
+          <!-- Only on the first screen, where it fetches the rows afresh; what a search found needs no such button -->
+          <button type="button" id="search-refresh" class="tool-btn icon-only" title="Обновить подборки (F5)" aria-label="Обновить подборки">
             <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg>
           </button>
         </div>
@@ -420,16 +421,18 @@
             <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
             <input id="library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Фильтр" aria-label="Фильтр библиотеки" title="Показать в библиотеке только то, что подходит">
           </div>
-          <div class="btn-group">
-            <button type="button" id="library-shuffle" class="tool-btn icon-only" title="Слушать всю библиотеку вперемешку" aria-label="Слушать всю библиотеку вперемешку" hidden>
-              <svg class="icon sm" aria-hidden="true"><use href="#i-shuffle"/></svg>
+          <button type="button" id="library-shuffle" class="tool-btn icon-only" title="Слушать всю библиотеку вперемешку" aria-label="Слушать всю библиотеку вперемешку" hidden>
+            <svg class="icon sm" aria-hidden="true"><use href="#i-shuffle"/></svg>
+          </button>
+          <!-- What is wanted now and then waits behind one button, so the bar has room to say what the library holds -->
+          <div class="more-wrap">
+            <button type="button" id="library-more" class="tool-btn icon-only" aria-haspopup="menu" aria-expanded="false" aria-controls="library-more-menu" title="Ещё" aria-label="Ещё">
+              <svg class="icon sm" aria-hidden="true"><use href="#i-more"/></svg>
             </button>
-            <button type="button" id="library-folder" class="tool-btn icon-only" title="Открыть папку в проводнике" aria-label="Открыть папку">
-              <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>
-            </button>
-            <button type="button" id="library-refresh" class="tool-btn icon-only" title="Обновить (F5)" aria-label="Обновить">
-              <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg>
-            </button>
+            <div id="library-more-menu" class="menu more-menu" role="menu" aria-label="Ещё" hidden>
+              <button type="button" role="menuitem" id="library-folder"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span class="menu-name">Открыть папку в проводнике</span></button>
+              <button type="button" role="menuitem" id="library-refresh"><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span class="menu-name">Обновить</span><span class="menu-note">F5</span></button>
+            </div>
           </div>
         </div>
         <div class="library-body">
@@ -647,16 +650,27 @@
       </section>
 
       <section id="view-settings" class="view" aria-label="Настройки" hidden>
+        <!-- Laid out as the library is: the subjects in a list at the side (a strip under the bar in a narrower
+             window), the bar with the name, and under it the settings as rows between lines, a heading per subject -->
+        <nav class="settings-nav" id="settings-nav" aria-label="Разделы настроек">
+          <a href="#set-look"><svg class="icon sm" aria-hidden="true"><use href="#i-sun"/></svg>Внешний вид</a>
+          <a href="#set-save"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Куда сохранять</a>
+          <a href="#set-sound"><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg>Звук и тексты</a>
+          <a href="#set-library"><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg>Библиотека</a>
+          <a href="#set-player"><svg class="icon sm" aria-hidden="true"><use href="#i-headphones"/></svg>Плеер</a>
+          <a href="#set-watch"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg>Слежение и фон</a>
+          <a href="#set-profiles"><svg class="icon sm" aria-hidden="true"><use href="#i-bookmark"/></svg>Профили</a>
+          <a href="#set-advanced"><svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg>Продвинутые</a>
+          <a href="#set-about"><svg class="icon sm" aria-hidden="true"><use href="#i-settings"/></svg>О программе</a>
+        </nav>
+        <div class="library-head settings-head">
+          <div class="library-what">
+            <h1 class="settings-title">Настройки</h1>
+            <span class="library-summary">Всё сохраняется сразу, отдельная кнопка не нужна</span>
+          </div>
+        </div>
         <div class="list-scroll" id="settings-scroll">
           <div class="settings">
-            <header class="settings-hero">
-              <div>
-                <h1 class="settings-title">Настройки</h1>
-                <p class="settings-lead">Всё сохраняется сразу, отдельная кнопка не нужна</p>
-              </div>
-              <div class="settings-art" data-scene="mixer" aria-hidden="true"><pre class="ascii"></pre><span class="crayon"></span></div>
-            </header>
-
             <!-- A new version comes first: it is the one thing here that asks for a click -->
             <div class="settings-update" id="update" hidden>
               <span class="card-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></span>
@@ -672,18 +686,6 @@
                 </button>
               </div>
             </div>
-
-            <nav class="settings-nav" id="settings-nav" aria-label="Разделы настроек">
-              <a href="#set-look"><svg class="icon sm" aria-hidden="true"><use href="#i-sun"/></svg>Внешний вид</a>
-              <a href="#set-save"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Куда сохранять</a>
-              <a href="#set-sound"><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg>Звук и тексты</a>
-              <a href="#set-library"><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg>Библиотека</a>
-              <a href="#set-player"><svg class="icon sm" aria-hidden="true"><use href="#i-headphones"/></svg>Плеер</a>
-              <a href="#set-watch"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg>Слежение и фон</a>
-              <a href="#set-profiles"><svg class="icon sm" aria-hidden="true"><use href="#i-bookmark"/></svg>Профили</a>
-              <a href="#set-advanced"><svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg>Продвинутые</a>
-              <a href="#set-about"><svg class="icon sm" aria-hidden="true"><use href="#i-settings"/></svg>О программе</a>
-            </nav>
 
             <div class="settings-cards">
               <section class="settings-card" id="set-look" aria-labelledby="set-look-title">

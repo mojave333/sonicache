@@ -242,16 +242,6 @@ const ASCII_SCENES = {
     asciiPut(lines, 4, 52, tick % 2 ? "(o)" : "( )");
     return lines;
   },
-  mixer(tick, accents) {
-    const lines = [" .---------------------------. ", ...Array(6).fill(" |                           | "),
-                   " |   1    2    3    4    5   | ", " '---------------------------' "];
-    for (let fader = 0; fader < 5; fader++) {
-      const col = 5 + fader * 5;
-      for (let row = 1; row <= 6; row++) asciiPut(lines, row, col, "|");
-      asciiPut(lines, 1 + Math.round(2.5 + 2.5 * Math.sin(tick / 14 + fader * 1.7)), col - 1, "[=]", accents);
-    }
-    return lines;
-  },
 };
 let asciiTick = 0;
 // Draws the scenes on screen, where the settings ask for ASCII
@@ -977,8 +967,16 @@ function bindUi() {
   $("#library-filter").addEventListener("input", renderLibrary);
   bindSearch();
   bindPlayer();
-  $("#library-refresh").addEventListener("click", loadLibrary);
-  $("#library-folder").addEventListener("click", () => api().open_folder(state.settings.folder));
+  $("#library-refresh").addEventListener("click", () => {
+    setMoreMenuOpen(false);
+    loadLibrary();
+  });
+  $("#library-folder").addEventListener("click", () => {
+    setMoreMenuOpen(false);
+    api().open_folder(state.settings.folder);
+  });
+  $("#library-more").addEventListener("click", () => setMoreMenuOpen($("#library-more-menu").hidden));
+  $("#library-more-menu").addEventListener("keydown", onMenuKey);
   $("#library-shuffle").addEventListener("click", shuffleLibrary);
   $("#library-delete").addEventListener("click", deleteSelected);
   $("#library-again").addEventListener("click", () => downloadAgain(selectedItems().filter(hasMissing)));
@@ -1016,6 +1014,7 @@ function bindUi() {
   $("#library-sort-menu").addEventListener("keydown", onMenuKey);
   document.addEventListener("pointerdown", (event) => {
     if (!event.target.closest(".sort-wrap")) setSortMenuOpen(false, false);
+    if (!event.target.closest(".more-wrap")) setMoreMenuOpen(false, false);
   });
   $("#page-back").addEventListener("click", () => closePage());
   $("#album-page").addEventListener("click", onPageAction);
@@ -1153,9 +1152,13 @@ async function renderHome() {
     recent: albumsOf(lists[0]?.tracks),
     top: albumsOf(lists[1]?.tracks),
   };
+  // The album at the head is not shown again first thing in the row it was taken from
+  const from = rows.recent[0] ? "recent" : rows.favourites[0] ? "favourites" : "added";
+  const lead = rows[from][0];
   let shown = 0;
   for (const section of $$("#view-home .home-row")) {
-    const row = rows[section.dataset.row].slice(0, 16);
+    const key = section.dataset.row;
+    const row = rows[key].filter((item) => key !== from || item !== lead).slice(0, 16);
     section.hidden = !row.length;
     shown += row.length;
     $(".cards", section).replaceChildren(...row.map((item, index) => createCard(item, index)));
@@ -1186,7 +1189,7 @@ function renderHomeTop(rows) {
   const changed = feature.dataset.path !== lead.path;
   feature.dataset.path = lead.path;
   $(".home-feature-kicker", feature).textContent = t(rows.recent[0] ? "Продолжить слушать"
-    : rows.favourites[0] ? "Из избранного" : "Недавно добавлено");
+    : rows.favourites[0] ? "Из избранного" : "Новое в библиотеке"); // not the name of the row of the newest below
   $(".home-feature-title", feature).textContent = lead.title;
   const tracks = lead.tracks ? t("{tracks} {trackWord}", { tracks: lead.tracks, trackWord: plural(lead.tracks, "трек", "трека", "треков") }) : "";
   $(".home-feature-sub", feature).textContent = [lead.artist, lead.album ? lead.year : t("трек"), tracks].filter(Boolean).join(" · ");
@@ -1203,6 +1206,8 @@ function renderHomeTop(rows) {
     if (item !== lead && !quick.includes(item)) quick.push(item);
     if (quick.length === 6) break;
   }
+  // One tile alone under the album at the head looked left over: they come two or more
+  if (quick.length < 2) quick.length = 0;
   $(".home-quick", top).replaceChildren(...quick.map((item, index) => {
     const card = createCard(item, index);
     card.classList.add("quick");
@@ -1699,6 +1704,7 @@ function addJob(id, link, dryRun, format) {
     done: 0, total: 0, result: null, summary: "", tracks: new Map(), expanded: false,
   };
   $(".tag", node).textContent = dryRun ? t("проверка") : format;
+  $(".tag", node).classList.toggle("trial", dryRun);
   $(".job-row", node).addEventListener("click", (event) => {
     if (!event.target.closest(".cell-actions") && job.tracks.size) setExpanded(job, !job.expanded);
   });
@@ -2351,6 +2357,7 @@ function renderChrome() {
   const active = jobs.some((job) => ACTIVE.has(job.state));
   $("#empty").hidden = jobs.length > 0;
   $("#jobs-count").textContent = jobs.length || "";
+  $("#jobs").classList.toggle("one-format", new Set(jobs.filter((job) => !job.dryRun).map((job) => job.format)).size < 2);
   for (const button of $$(".stop")) button.hidden = !active;
   for (const button of $$(".pause")) button.hidden = !active;
   if (!active && state.paused) setPaused(false); // nothing left to hold back
@@ -2996,6 +3003,16 @@ function setSortMenuOpen(open, restoreFocus = true) {
   $("#library-sort-button").setAttribute("aria-expanded", String(open));
   if (open) ($("[aria-checked=true]", menu) || $("button", menu)).focus();
   else if (wasOpen && restoreFocus) $("#library-sort-button").focus();
+}
+
+// The library's "more": opening its folder and reading it again, wanted now and then
+function setMoreMenuOpen(open, restoreFocus = true) {
+  const menu = $("#library-more-menu");
+  const wasOpen = !menu.hidden;
+  menu.hidden = !open;
+  $("#library-more").setAttribute("aria-expanded", String(open));
+  if (open) $("button", menu).focus();
+  else if (wasOpen && restoreFocus) $("#library-more").focus();
 }
 
 function onSortMenuClick(event) {
@@ -3760,9 +3777,24 @@ function finishClose(page) {
 // What a cover says of its album at a glance: downloaded within the week, and
 // how many of its tracks are still missing
 const NEW_FOR = 7 * 24 * 3600;
+function isNew(item, now = Date.now() / 1000) {
+  return Boolean(item.modified) && now - item.modified < NEW_FOR && !(state.seen && state.seen.has(item.path));
+}
+// Right after the first scan, or a big import, every album is new, and a mark on every cover tells nothing:
+// the new ones are marked only while they are fewer than half the library. Counted once per library read.
+let newCount = { items: null, seen: -1, few: false };
+function fewNew() {
+  const { items } = state.library;
+  const seen = state.seen ? state.seen.size : 0;
+  if (newCount.items !== items || newCount.seen !== seen) {
+    const now = Date.now() / 1000;
+    newCount = { items, seen, few: items.filter((item) => isNew(item, now)).length * 2 < items.length };
+  }
+  return newCount.few;
+}
 function markCover(card, item) {
   const cover = $(".card-cover", card);
-  if (item.modified && Date.now() / 1000 - item.modified < NEW_FOR && !(state.seen && state.seen.has(item.path))) {
+  if (isNew(item) && fewNew()) {
     const mark = document.createElement("span");
     mark.className = "cover-mark new";
     mark.textContent = t("Новое");
@@ -6034,6 +6066,7 @@ function onMenuKey(event) {
     event.preventDefault();
     if (menu.id === "library-menu") closeLibraryMenu();
     else if (menu.id === "library-sort-menu") setSortMenuOpen(false);
+    else if (menu.id === "library-more-menu") setMoreMenuOpen(false);
     else closeMenu(menu);
     return;
   }
@@ -6648,17 +6681,13 @@ function renderNowPlaying() {
   $(".now-title", view).textContent = info.title;
   $(".now-artist", view).textContent = info.artists || info.album_artist || "";
   $(".now-sub", view).textContent = [info.album, info.year].filter(Boolean).join(" · ");
-  // The file's make, a label per fact: the format first, then how it sounds
-  $(".now-format", view).replaceChildren(...[
+  // The file's make on one line: the format first, then how it sounds; stereo goes without saying, mono does not
+  $(".now-format", view).textContent = [
     (info.format || "").toUpperCase(),
     info.bitrate ? t("{kbps} кбит/с", { kbps: info.bitrate }) : "",
     info.sample_rate ? t("{khz} кГц", { khz: (info.sample_rate / 1000).toLocaleString(LANGUAGE, { maximumFractionDigits: 1 }) }) : "",
-    { 1: t("Моно"), 2: t("Стерео") }[info.channels] || "",
-  ].filter(Boolean).map((fact) => {
-    const label = document.createElement("span");
-    label.textContent = fact;
-    return label;
-  }));
+    info.channels === 1 ? t("Моно") : "",
+  ].filter(Boolean).join(" · ");
   setPlayerPicture($(".now-cover", view), info.cover);
   const backdrop = $(".now-backdrop", view);
   if (backdrop.dataset.src !== info.cover) {
