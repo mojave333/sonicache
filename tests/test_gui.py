@@ -911,6 +911,29 @@ class TestBackground:
         api = self.api(monkeypatch, watched=[{"link": "x"}], tray_on=False)
         assert api._on_closing() is None
 
+    def test_the_window_s_own_close_button_ends_the_program_without_asking_the_window_s_thread(self, monkeypatch):
+        """The form's Close handed to the window's thread was now and then never taken up, and the button did
+        nothing: it ends the program as the tray's Quit does, with the exit made sure of."""
+        api = self.api(monkeypatch)
+        api._window = object()  # a window that would fail any call made to it
+        ended = []
+        monkeypatch.setattr(api, "_close_window", lambda: ended.append(True))
+        api.window_close()
+        assert ended == [True]
+
+    def test_the_window_s_own_close_button_with_work_left_hides_the_window(self, monkeypatch):
+        api = self.api(monkeypatch, watched=[{"link": "x"}])
+        api._window = object()
+        hidden, ended = [], []
+        monkeypatch.setattr(api, "_hide", lambda: hidden.append(True))
+        monkeypatch.setattr(api, "_close_window", lambda: ended.append(True))
+        api.window_close()
+        for _ in range(500):  # up to 5 s: the hiding runs on a thread of its own
+            if hidden:
+                break
+            time.sleep(0.01)
+        assert hidden and not ended
+
     def test_a_close_for_an_update_is_never_caught(self, monkeypatch):
         api = self.api(monkeypatch, watched=[{"link": "x"}])
         api._quitting = True

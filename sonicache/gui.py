@@ -1509,16 +1509,21 @@ class Api:
         return self.window_state()
 
     def window_close(self) -> None:
-        """What the system's close button did: into the tray while there is work, else the end."""
-        form = self._window.native if self._window is not None else None
-        if form is None:
+        """The window's own close button: into the tray while there is work, else the end, as the tray's
+        Quit is, made sure of a moment later.
+
+        It used to hand the window's thread the form's Close and wait for it. Now and then the window's thread
+        never took the call up (seen on 2026-10-19 in a window open for a while: the press reached the page and
+        this call, the closing handler never ran, the window stayed), and the program could not be closed by
+        its button at all; the system's own ways of closing it (Alt+F4, the taskbar) still go through the form.
+        """
+        if self._window is None:
             return
-        try:
-            from System import Func, Type
-            form.Invoke(Func[Type](form.Close))
-        except Exception:
-            logs.log.debug("окно: закрыть не вышло", exc_info=True)
-            self._window.destroy()
+        if self._keeps_running():
+            threading.Thread(target=self._hide, daemon=True).start()
+            return
+        logs.log.info("окно: закрыто кнопкой")
+        self._close_window()
 
     def window_drag(self) -> None:
         """The top bar was pressed: the window follows the cursor until the button is let go."""
