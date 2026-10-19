@@ -227,19 +227,10 @@ html:not(.frameless) .side-pane > .side-views:first-child { padding-top: 12px; }
 .side-lists { flex: 1; min-height: 0; padding: 0 12px; overflow-y: auto; }
 .side-lists .lib-side { display: block; }
 #side-library .lib-side { padding-top: 16px; }
-/* Synchronisation is a row, and its list of devices and ways to a phone unfolds under it as the genres' does:
-   the row says what the headings and "nothing connected" said in the page's own menu. Folded, the list draws in
-   and fades, and is out of reach of the keys once it has. */
+/* Synchronisation is a row, and its list of devices and ways to a phone unfolds under it as the genres' does (the
+   script opens and closes it): the row says what the headings and "nothing connected" said in the page's own menu */
 #side-devices { padding: 20px 0 8px; }
-#side-device-list {
-  display: grid; grid-template-rows: 1fr;
-  transition: grid-template-rows var(--settle) var(--ease), opacity var(--settle) ease-out, visibility 0s;
-}
-.side.devices-off #side-device-list {
-  grid-template-rows: 0fr; opacity: 0; visibility: hidden;
-  transition: grid-template-rows var(--settle) var(--ease), opacity var(--quick) ease-out, visibility 0s var(--settle);
-}
-.side #sync-side { min-height: 0; overflow: hidden; margin-left: 17px; padding-left: 8px; border-left: 1px solid var(--divider); }
+.side #sync-side { margin: 2px 0 4px 17px; padding-left: 8px; border-left: 1px solid var(--divider); }
 .side #sync-side :is(.side-head, #sync-none-side) { display: none; }
 .side #sync-side .side-item { height: var(--h-sm); font-size: var(--fs-sm); font-weight: 400; }
 /* The library's counts are its page's to give: here they were a column of figures beside every word */

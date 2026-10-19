@@ -1314,7 +1314,11 @@ function renderSidePane() {
 function foldDevices() {
   const { items, wifi, open } = state.devices;
   const page = state.view === "sync";
-  $("#side").classList.toggle("devices-off", !items.length && !wifi?.on && !page);
+  const list = $("#side-device-list");
+  const shown = items.length > 0 || Boolean(wifi?.on) || page;
+  // At the start it is as it is, with no movement; after that it opens and closes as the genres do
+  if (shown === list.hidden) unfold(list, shown, list.dataset.placed === "true");
+  list.dataset.placed = "true";
   const row = $("#side-sync");
   if (page && !open) row.setAttribute("aria-current", "page");
   else row.removeAttribute("aria-current");
@@ -2314,39 +2318,45 @@ function setExpanded(job, expanded, animate = true) {
   toggle.setAttribute("aria-label", expanded ? "Скрыть треки" : "Показать треки");
 }
 
-// Only the part of the list that is on screen moves. Growing a 300-track
-// playlist to its full height in the same 220 ms would cover the visible part
-// in a frame or two and read as a snap; the rows past the bottom edge are out
-// of sight either way, so they simply arrive (or leave) with the last frame.
 function foldTracks(job, animate) {
-  const tracks = $(".tracks", job.node);
-  const running = tracks.getAnimations();
-  const current = running.length ? tracks.getBoundingClientRect().height : null;
+  unfold($(".tracks", job.node), job.expanded, animate);
+}
+
+// What opens under a row, the same way everywhere: a download's tracks, the genres and the devices in the column
+// at the side. Its height grows or draws in over --settle on the window's own curve, its contents cut at the edge
+// as it goes, and closed it is [hidden], out of the tab order. Only the part of the list that is on screen moves.
+// Growing a 300-track playlist to its full height in the same 220 ms would cover the visible part in a frame or
+// two and read as a snap; the rows past the bottom edge are out of sight either way, so they simply arrive (or
+// leave) with the last frame.
+function unfold(element, open, animate = true) {
+  const running = element.getAnimations();
+  const current = running.length ? element.getBoundingClientRect().height : null;
   running.forEach((animation) => animation.cancel());
 
-  const quiet = !animate || matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (job.expanded) tracks.hidden = false;
+  const quiet = !animate || reduceMotion();
+  element.hidden = false; // measured at its own height, a max-height included; closed again below if it is to be
+  const full = element.getBoundingClientRect().height;
   // The room between the top of the list and the bottom of the scrolling area;
-  // a hidden view measures zero here and gets no animation.
-  const room = Math.max(0, tracks.closest(".list-scroll").getBoundingClientRect().bottom
-                           - tracks.getBoundingClientRect().top);
-  const visible = Math.min(tracks.scrollHeight, room);
-  const from = current ?? (job.expanded ? 0 : visible);
-  const to = job.expanded ? visible : 0;
+  // a hidden view or a closed menu measures zero here and gets no animation.
+  const scroller = element.closest(".list-scroll, .side-lists");
+  const room = scroller ? Math.max(0, scroller.getBoundingClientRect().bottom - element.getBoundingClientRect().top) : full;
+  const visible = Math.min(full, room);
+  const from = current ?? (open ? 0 : visible);
+  const to = open ? visible : 0;
   if (quiet || from === to) {
-    tracks.hidden = !job.expanded;
+    element.hidden = !open;
     return;
   }
   const style = getComputedStyle(document.documentElement);
-  const animation = tracks.animate(
-    { height: [`${Math.min(from, room)}px`, `${to}px`] },
+  const animation = element.animate(
+    { height: [`${Math.min(from, room)}px`, `${to}px`], overflow: ["hidden", "hidden"] },
     { duration: parseFloat(style.getPropertyValue("--settle")) || 220,
       easing: style.getPropertyValue("--ease").trim() || "ease-out" },
   );
   // Out of the tab order once it is really closed; hidden first, so the
   // cancelled animation never lets the full height flash back.
   animation.finished.then(() => {
-    if (!job.expanded) tracks.hidden = true;
+    if (!open) element.hidden = true;
     animation.cancel();
   }, () => {});
 }
@@ -3168,13 +3178,13 @@ function renderLibrarySide() {
   group.setAttribute("aria-expanded", String(open));
   $(".side-n", group).textContent = genres.length || "";
   const list = $("#side-genre-list");
-  list.hidden = !open;
   if (open) {
     list.replaceChildren(...genres.map((genre) => sideItem({
       icon: "", name: genre.name, count: genre.count,
       attributes: { "data-genre": genre.key, "aria-pressed": String(library.genre === genre.key) },
     })));
   }
+  if (open === list.hidden) unfold(list, open); // filled first, so it opens to its own height
   const entries = state.playlists.items || [];
   const rows = [...entries.filter((entry) => entry.smart && entry.count),
     ...entries.filter((entry) => !entry.smart).sort((a, b) => COLLATOR.compare(a.name, b.name))];
