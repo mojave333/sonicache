@@ -310,6 +310,7 @@ async function init() {
   state.favourites = new Set(data.favourites || []);
   restoreHistory(data.history || []);
   showView("home");
+  loadPlaylists(); // they are in the column at the side from the start
   restorePlayer();
   renderChrome();
   setInterval(renderStatus, 1000);
@@ -906,9 +907,7 @@ function bindUi() {
   for (const button of $$("[data-view]")) {
     button.addEventListener("click", () => showView(button.dataset.view));
   }
-  // Another language, another face or a narrower window is another width, and the line goes to its new place.
-  // (The word in use is heavier, so every change of section is a new width too: the slide must outlast it.)
-  new ResizeObserver(() => placeNavInk()).observe($(".topnav"));
+  bindSide();
   bindToast();
   bindProfiles();
   bindWatch();
@@ -1260,27 +1259,63 @@ function onHomeClick(event) {
   openAlbum(item);
 }
 
-// The line under the section in use, slid to where its word is; where the view is none of the bar's
-// sections (the settings, Now playing) it fades and waits where it was
-let navInkPlaced = false;
-function placeNavInk(animate = true) {
-  const nav = $(".topnav");
-  const label = $('[aria-current="page"] .nav-label', nav);
-  nav.classList.toggle("ink-ready", animate && navInkPlaced && !reduceMotion());
-  nav.style.setProperty("--ink-o", label ? "1" : "0");
-  if (!label || !label.offsetWidth) return;
-  nav.style.setProperty("--ink-x", `${label.parentElement.offsetLeft + label.offsetLeft}px`);
-  nav.style.setProperty("--ink-w", `${label.offsetWidth}px`);
-  navInkPlaced = true;
+/* The column at the side: the sections, and in a wide window the library's list and the devices under them. A
+   narrower window keeps the sections' icons only, and the lists go back into their pages, where they are the menus
+   under the names in the bars. The settings take the column over with their subjects and a way back. */
+
+const railMedia = matchMedia("(max-width: 999px)"); // the stylesheet's own figure
+const sideWide = () => !railMedia.matches;
+
+function bindSide() {
+  railMedia.addEventListener("change", () => placeSideLists());
+  placeSideLists(false); // the first section looks for the devices
+  $("#settings-back").addEventListener("click", () => showView(state.settingsFrom || "home"));
+}
+
+// The lists go where the window's width puts them: into the column, or back to the head of their pages
+function placeSideLists(watch = true) {
+  const wide = sideWide();
+  setLibrarySideOpen(false, false);
+  setSyncSideOpen(false, false);
+  if (wide) {
+    $("#side-library").append($("#library-side"));
+    $("#side-devices").append($("#sync-side"));
+    $("#side-settings").append($("#settings-nav"));
+  } else {
+    $("#view-library").prepend($("#library-side"));
+    $("#view-sync").prepend($("#sync-side"));
+    $("#view-settings").prepend($("#settings-nav"));
+  }
+  // Beside the lists the names in the bars are only headings; without them they open the lists as menus
+  $("#library-title").disabled = wide;
+  $("#sync-title").disabled = wide;
+  renderSidePane();
+  if (watch) watchDevices();
+}
+
+// The sections, or the settings' subjects while the settings are on screen; which page is up is told to the
+// stylesheet, which lights the library's and the devices' rows only while theirs is
+function renderSidePane() {
+  const side = $("#side");
+  const settings = state.view === "settings" && sideWide();
+  const pane = settings ? $("#side-settings") : $("#side-main");
+  const left = document.activeElement?.closest(".side-pane") && !pane.contains(document.activeElement);
+  $("#side-main").hidden = settings;
+  $("#side-settings").hidden = !settings;
+  side.dataset.view = state.view;
+  // A key that changed the pane leaves the focus in it, on what is now in use
+  if (left) [...$$("#settings-back, [aria-current=page]", pane)].find((item) => item.offsetParent)?.focus();
 }
 
 function showView(name) {
+  // The way back from the settings goes to where they were opened from
+  if (name === "settings" && state.view !== "settings") state.settingsFrom = state.view === "now" ? player.previousView : state.view;
   state.view = name;
   for (const button of $$("[data-view]")) {
     if (button.dataset.view === name) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   }
-  placeNavInk();
+  renderSidePane();
   for (const view of $$(".view")) view.hidden = view.id !== `view-${name}`;
   setMenuOpen(false, false);
   setLibrarySideOpen(false, false);
@@ -1320,7 +1355,7 @@ function showView(name) {
     if (state.playlists.stale && !state.playlists.loading) loadPlaylists();
     showSyncPage();
   }
-  watchDevices(name === "sync");
+  watchDevices();
   renderStatus();
 }
 
@@ -2375,7 +2410,7 @@ function renderChrome() {
 
   // How many tracks are under way, said by the bar's button; its line shows how far (reportProgress)
   const underWay = state.tracks.filter((track) => TRACK_ACTIVE.has(track.state)).length;
-  const button = $('.nav-item[data-view="download"]');
+  const button = $('.side-view[data-view="download"]');
   const count = underWay ? t("в работе: {count}", { count: underWay }) : "";
   button.title = [t("Загрузка (Ctrl+1)"), count].filter(Boolean).join(" · ");
   button.setAttribute("aria-label", [t("Загрузка"), count].filter(Boolean).join(", "));
@@ -3068,18 +3103,15 @@ function fadeThrough(change) {
   $("#library-panel").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
 }
 
-/* The library's list of views, genres and playlists: at the side in a wide window, and in a narrower one
-   the menu of the name in the bar */
-
-// The width from which the list stands at the side: the stylesheet's own figure
-const LIBRARY_SIDE_FROM = 1000;
+/* The library's list of views, genres and playlists: in the column at the side in a wide window, and in a
+   narrower one the menu of the name in the bar */
 
 function setLibrarySideOpen(open, restoreFocus = true) {
   const view = $("#view-library");
   const title = $("#library-title");
   const side = $("#library-side");
   const wasOpen = view.classList.contains("side-open");
-  open = open && $(".main").clientWidth < LIBRARY_SIDE_FROM; // beside the library it has nothing to open
+  open = open && !sideWide(); // in the column it has nothing to open
   view.classList.toggle("side-open", open);
   title.setAttribute("aria-expanded", String(open));
   if (open) ($("[aria-pressed=true]", side) || $("[aria-current=page]", side) || $(".side-item", side)).focus();
@@ -3168,16 +3200,15 @@ function bindLibrarySide() {
   document.addEventListener("pointerdown", (event) => {
     if (!event.target.closest("#library-side, #library-title")) setLibrarySideOpen(false, false);
   });
-  // Beside the library the list is always there, and the name is only a heading
-  new ResizeObserver(([entry]) => {
-    title.disabled = entry.contentRect.width >= LIBRARY_SIDE_FROM;
-    if (title.disabled) setLibrarySideOpen(false, false);
-  }).observe($(".main"));
   side.addEventListener("click", async (event) => {
     const library = state.library;
     const target = event.target;
-    // Opening the genres is a step on the way; anything else chosen closes the menu
-    if (target.closest("button, [data-side]") && !target.closest("#side-genres")) setLibrarySideOpen(false);
+    // Opening the genres is a step on the way; anything else chosen closes the menu, and from another section in
+    // the column at the side it opens the library at what was chosen
+    if (target.closest("button, [data-side]") && !target.closest("#side-genres")) {
+      setLibrarySideOpen(false);
+      if (state.view !== "library") showView("library");
+    }
     const genre = target.closest("[data-genre]");
     if (genre) {
       while (!$("#library-page").hidden) await closePage({ instant: true });
@@ -6189,7 +6220,7 @@ async function loadPlaylists(force = false) {
   if (token !== list.token) return list.items;
   Object.assign(list, { items, stale: false, loading: false });
   if (state.view === "library" && state.library.tab === "playlists") renderLibrary();
-  else if (state.view === "library") renderLibrarySide();
+  else renderLibrarySide(); // the playlists are in the column at the side, whatever is on screen
   return items;
 }
 
@@ -6650,9 +6681,9 @@ async function onListenbrainzClick() {
 function openNowPlaying() {
   if (!player.info) return;
   if (state.view !== "now") player.previousView = state.view;
-  // The back button is named after the section it goes back to, as the bar names it
-  const back = $(`.nav-item[data-view="${player.previousView}"]`);
-  $("#now-close-label").textContent = back ? ($(".nav-label", back)?.textContent || back.getAttribute("aria-label")) : t("Назад");
+  // The back button is named after the section it goes back to, as the column at the side names it
+  const back = $(`.side-view[data-view="${player.previousView}"]`);
+  $("#now-close-label").textContent = back ? ($(".side-name", back)?.textContent || back.getAttribute("aria-label")) : t("Назад");
   showView("now");
   renderNowPlaying();
   scrollToLyric(true);
@@ -7059,15 +7090,18 @@ function formatLength(seconds) {
    the page here says what the device is to get and what a sync would change. */
 
 const DEVICE_POLL = 3000; // how often the drives are looked for while the synchronisation page is open
+const DEVICE_POLL_SIDE = 10000; // and while only the column at the side shows them
 
-// Drives come and go while the page is on screen: they are looked for again every few seconds
-function watchDevices(on) {
+// Drives come and go: they are looked for again every few seconds while the page is on screen, and less often
+// while they are only rows in the column at the side. A narrow window's column has no rows to keep.
+function watchDevices() {
   clearInterval(state.devices.timer);
   state.devices.timer = 0;
-  if (!on) return;
-  loadDevices();
-  if (!state.devices.wifi) loadWifi(); // the side list says whether it is on
-  state.devices.timer = setInterval(() => { if (!document.hidden) loadDevices(); }, DEVICE_POLL);
+  const every = state.view === "sync" ? DEVICE_POLL : sideWide() ? DEVICE_POLL_SIDE : 0;
+  if (!every) return;
+  if (state.view === "sync" || !state.devices.loaded) loadDevices();
+  if (!state.devices.wifi) loadWifi(); // the list says whether it is on
+  state.devices.timer = setInterval(() => { if (!document.hidden) loadDevices(); }, every);
 }
 
 /* Phones over Wi-Fi: the library as a Subsonic server (subsonic.py), which phone
@@ -7119,12 +7153,12 @@ function renderSyncHead() {
   $("#device-sync").hidden = !device;
 }
 
-// The width from which the list stands beside the page is the library's
+// In the column at the side, as the library's is, the list has nothing to open
 function setSyncSideOpen(open, restoreFocus = true) {
   const view = $("#view-sync");
   const title = $("#sync-title");
   const wasOpen = view.classList.contains("side-open");
-  open = open && $(".main").clientWidth < LIBRARY_SIDE_FROM;
+  open = open && !sideWide();
   view.classList.toggle("side-open", open);
   title.setAttribute("aria-expanded", String(open));
   if (open) ($("[aria-current=page]", $("#sync-side")) || $(".side-item", $("#sync-side"))).focus();
@@ -7137,15 +7171,15 @@ function bindSyncSide() {
   document.addEventListener("pointerdown", (event) => {
     if (!event.target.closest("#sync-side, #sync-title")) setSyncSideOpen(false, false);
   });
-  new ResizeObserver(([entry]) => {
-    title.disabled = entry.contentRect.width >= LIBRARY_SIDE_FROM;
-    if (title.disabled) setSyncSideOpen(false, false);
-  }).observe($(".main"));
   $("#sync-side").addEventListener("click", async (event) => {
     const target = event.target;
     const device = target.closest("[data-device]");
     const open = state.devices.open;
-    if (device) {
+    // From another section in the column at the side, the heading, "nothing connected" and every row lead here
+    if (state.view !== "sync" && target.closest("button, .side-link")) showView("sync");
+    if (target.closest(".side-link, #sync-none-side")) {
+      setSyncSideOpen(false);
+    } else if (device) {
       setSyncSideOpen(false);
       if (open?.kind !== "device" || open.id !== device.dataset.device) openDevice(device.dataset.device);
     } else if (target.closest("#sync-wifi")) {
@@ -7158,6 +7192,12 @@ function bindSyncSide() {
       await loadDevices();
       openDevice(added.id);
     }
+  });
+  // The heading is a way to the page, and answers the keys of a button
+  $("#sync-side .side-link").addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.currentTarget.click();
   });
 }
 
@@ -7561,7 +7601,7 @@ function onSyncEvent(event) {
     loadDevices();
     if (openDeviceId() === event.device) previewDevice();
   }
-  if (state.view === "sync") renderDeviceSide(); // the row of the device and the bar count the files too
+  renderDeviceSide(); // the row of the device, in the column at the side, and the bar count the files too
   renderDevicePreview();
   renderStatus();
 }

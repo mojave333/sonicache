@@ -201,53 +201,50 @@ p { margin: 0; }
 .icon.sm { width: 16px; height: 16px; }
 
 /* Frame */
-/* The top bar, then the single row capped at the window height, so long lists
-   scroll inside .list-scroll instead of stretching the whole frame past the bottom edge. */
-.app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 100vh; }
-/* A bar of the window's own height, as a program's title bar with tabs is, and the sections first in it: the
-   first word stands over the pages' own left edge (4 of the bar and 16 of the word's room make the pages' 20) */
-.topbar {
-  position: relative; display: flex; align-items: center; height: 44px; padding: 0;
-  background: var(--chrome); border-bottom: 1px solid var(--divider);
+/* The strip the window is held by across the top, then the column of sections at the side and the page beside it,
+   one row capped at the window height, so long lists scroll inside .list-scroll instead of stretching the whole
+   frame past the bottom edge. The strip and the column are the window's own colour round the page, as a frame,
+   and the page lies in it with a rounded corner, as a program's pane does. */
+:root { --side-w: 232px; }
+.app {
+  display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh; background: var(--chrome);
 }
-.topbar-left { display: flex; flex: none; align-items: center; align-self: stretch; padding-left: 4px; }
-.topbar-right { display: flex; align-items: center; justify-content: flex-end; margin-left: auto; padding-right: 24px; }
-.topnav { position: relative; display: flex; align-items: stretch; align-self: stretch; gap: 4px; }
-/* The sections are words, and the one in use is told by a line under it; the line
-   sits on the bar's own edge, so the bar and the page below it share it */
-.nav-item {
-  position: relative; display: flex; align-items: center; justify-content: center; flex: none;
-  padding: 0 16px; color: var(--text-subtle); font-size: var(--fs-md); font-weight: 500;
+.topbar { grid-column: 1 / -1; height: 44px; }
+/* With the system's frame there are no window's buttons to stand under, and nothing to hold the window by */
+html:not(.frameless) .topbar { display: none; }
+
+/* The sections: a word and its icon, the one in use on a shade, as the library's views are */
+.side { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.side-pane { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.side-pane[hidden] { display: none; }
+.side-views { display: grid; gap: 2px; padding: 4px 12px 0; }
+html:not(.frameless) .side-pane > .side-views:first-child { padding-top: 12px; }
+.side-foot { padding: 8px 12px 12px; }
+.side-view { position: relative; }
+.side .rail-only { display: none; }
+/* The library's list and the devices under the sections, scrolling between them and the settings */
+.side-lists { flex: 1; min-height: 0; padding: 0 12px; overflow-y: auto; }
+.side-lists .lib-side { display: block; }
+#side-library .lib-side { padding-top: 16px; }
+#side-devices .lib-side { padding: 20px 0 8px; }
+/* There the other ways to a phone follow the devices under their one heading */
+.side #sync-side .side-head:not(:first-child) { display: none; }
+/* Their rows are lit only while their page is on screen */
+.side:not([data-view="library"]) #library-side :is([aria-current="page"], [aria-pressed="true"]):not(:hover),
+.side:not([data-view="sync"]) #sync-side [aria-current="page"]:not(:hover) {
+  background: none; color: var(--text-muted); font-weight: 500;
 }
-.nav-item:hover { color: var(--text); }
-/* The ring sits inside the bar: drawn outside it, it is a box as tall as the bar and cut off at the window's top edge */
-.topnav .nav-item:focus-visible { border-radius: var(--radius); outline-offset: -8px; }
-/* The one in use is told by its colour and the line, never by a heavier word: that is wider, and the sections
-   beside it would move over when it is pressed */
-.nav-item[aria-current="page"] { color: var(--text); }
-/* One line for the whole bar: it slides to the section chosen (the script measures the word and sets --ink-x
-   and --ink-w), and fades where the view is none of the sections */
-.topnav::after {
-  content: ""; position: absolute; left: 0; bottom: -1px; width: var(--ink-w, 0); height: 3px; opacity: var(--ink-o, 0);
-  border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: var(--text); /* ink: red is for the main action and what plays */
-  transform: translateX(var(--ink-x, 0)); pointer-events: none;
-}
-.topnav.ink-ready::after {
-  transition: transform var(--settle) var(--ease), width var(--settle) var(--ease), opacity var(--quick) ease-out;
-}
-.nav-label { text-align: left; white-space: nowrap; }
-/* The settings are an icon at the far end */
-.nav-icon { width: var(--h-lg); height: var(--h-lg); padding: 0; border-radius: var(--radius); }
-.nav-icon:hover { background: var(--hover); }
-.nav-icon[aria-current="page"] { background: var(--selected); }
-/* How far the downloads have come, seen from any section: a small ring after the word Download, in the room the
-   word leaves to its right, so that nothing moves when it comes. A line under the word was taken for a second
-   section in use. Yellow on pause, red once something failed, a turning arc before the count. */
+/* The settings' subjects, under the way back */
+#side-settings .settings-nav { min-height: 0; padding: 16px 12px 12px; overflow-y: auto; }
+/* How far the downloads have come, seen from any section: a small ring at the end of Download's row, where the
+   library's rows have their counts, so that nothing moves when it comes. Yellow on pause, red once something
+   failed, a turning arc before the count. */
 /* A name of its own: --p is how full every bar and slider is, read by their inner parts, and registered here as
    not inherited it emptied them all */
 @property --ring-p { syntax: "<number>"; inherits: false; initial-value: 0; }
 .nav-ring {
-  position: absolute; top: calc(50% - 6px); right: 0; width: 12px; height: 12px; border-radius: 50%; pointer-events: none;
+  flex: none; width: 12px; height: 12px; margin: 0 2px 0 auto; border-radius: 50%; pointer-events: none;
   background: conic-gradient(var(--ring, var(--text)) calc(var(--ring-p) * 360deg), var(--border) 0);
   mask: radial-gradient(circle, transparent 3px, #000 3.5px);
   transition: --ring-p var(--settle) var(--ease);
@@ -255,18 +252,30 @@ p { margin: 0; }
 .nav-ring[data-state="paused"] { --ring: var(--warning); }
 .nav-ring[data-state="error"] { --ring: var(--danger); }
 .nav-ring[data-state="indeterminate"] { animation: spin 1s linear infinite; }
+/* Something in the settings asks to be seen: a problem, or a new version */
 .nav-dot {
-  position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
+  flex: none; width: 8px; height: 8px; margin: 0 4px 0 auto;
   border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--chrome);
 }
+/* A narrower window keeps the sections' icons only, in a strip, their names as tips. The library's list and the
+   devices go back to their pages, as the menus under the names in the bars (the script moves them). */
+@media (max-width: 999px) {
+  :root { --side-w: 60px; }
+  .side-views, .side-foot { padding-left: 10px; padding-right: 10px; }
+  .side .rail-only { display: flex; }
+  .side-view { justify-content: center; width: 40px; height: 40px; padding: 0; }
+  .side-view .icon { width: 20px; height: 20px; }
+  .side-view .side-name { display: none; }
+  .side-view .nav-ring { position: absolute; top: 4px; right: 4px; margin: 0; }
+  .side-view .nav-dot { position: absolute; top: 7px; right: 7px; margin: 0; }
+}
 /* The window's own buttons and edges, drawn when the program has no system frame (Windows).
-   They stand over every view, Now playing included, and the bar leaves them room. */
+   They stand over every view, Now playing included, at the end of the strip at the top. */
 .window-controls { position: fixed; top: 0; right: 0; z-index: 60; display: flex; align-items: stretch; height: 44px; }
 .win-btn { display: grid; place-items: center; width: 46px; height: 100%; color: var(--text-subtle); }
 .win-btn .icon { width: 16px; height: 16px; }
 .win-btn:hover { background: var(--hover); color: var(--text); }
 .win-close:hover { background: var(--danger); color: var(--on-danger); }
-html.frameless .topbar-right { padding-right: 150px; }
 .win-edge { position: fixed; z-index: 70; }
 .win-edge[data-edge="n"] { top: 0; left: 8px; right: 8px; height: 4px; cursor: ns-resize; }
 .win-edge[data-edge="s"] { bottom: 0; left: 8px; right: 8px; height: 4px; cursor: ns-resize; }
@@ -278,18 +287,15 @@ html.frameless .topbar-right { padding-right: 150px; }
 .win-edge[data-edge="sw"] { bottom: 0; left: 0; width: 8px; height: 8px; cursor: nesw-resize; }
 /* Filling the screen or the whole of it for Now playing, there is nothing to size by and no room for the buttons */
 html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-controls { display: none; }
-html.window-full .topbar-right { padding-right: 24px; }
-/* A narrow window tightens the sections, so the four of them fit beside the window's buttons */
-@media (max-width: 860px) {
-  .topbar-left { padding-left: 8px; }
-  .topbar-right { padding-right: 16px; }
-  .nav-item { padding: 0 12px; }
-  .nav-ring { right: -4px; }
-}
 
-/* Columns react to the content width, which a widened side panel narrows */
-.main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0;
-  container: content / inline-size; }
+/* The page. Columns react to its width, which the column at the side and a widened side panel narrow */
+.main {
+  grid-column: 2; grid-row: 2;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0; min-height: 0; overflow: clip;
+  border-left: 1px solid var(--divider); background: var(--bg); container: content / inline-size;
+}
+html.frameless .main { border-top: 1px solid var(--divider); border-top-left-radius: var(--radius-lg); }
 .view { display: flex; flex-direction: column; min-height: 0; animation: view-in 180ms var(--ease-out); }
 @keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
 
@@ -365,15 +371,13 @@ html.window-full .topbar-right { padding-right: 24px; }
 }
 /* Feedback belongs to the press, not the release. It is a shade, not a smaller button: a scaled button redraws
    its words at another sub-pixel position, and that is what read as a twitch. */
-.btn, .tool-btn, .icon-btn, .nav-item, .segmented button, .stepper button, .menu button, .side-item, .page-back {
+.btn, .tool-btn, .icon-btn, .segmented button, .stepper button, .menu button, .side-item, .page-back {
   transition: background-color var(--press) ease-out, color var(--press) ease-out, border-color var(--press) ease-out;
 }
 .tool-btn:active, .icon-btn:active, .btn.ghost:active, .stepper button:active, .sort-button:active, .page-back:active,
 .library-title:not(:disabled):active, .genre-chip:active, .side-item:active, .menu button:active,
 .segmented button:not([aria-checked="true"]):active, .chips button:not([aria-checked="true"]):active,
 .library-head .tool-btn.icon-only:active, .library-head > .tool-btn:active { background: var(--selected); }
-.nav-item:active { color: var(--text); }
-.nav-icon:active { background: var(--selected-hover); }
 .btn.primary:active:not(:disabled), .btn.danger:active:not(:disabled) { filter: brightness(0.92); }
 .btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; box-shadow: inset 0 0 0 1px var(--accent-edge); }
 .btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
@@ -719,8 +723,8 @@ html.window-full .topbar-right { padding-right: 24px; }
 .library-head .tool-btn.icon-only:hover { border-color: transparent; background: var(--hover); }
 .library-head .tool-btn.icon-only:focus-visible { outline-offset: 0; }
 
-/* The library's own list: its views, its genres and its playlists. A window wide enough stands it beside the
-   library; in a narrower one it is the menu of the name in the bar. Synchronisation has its devices in one the same. */
+/* The library's own list: its views, its genres and its playlists. A window wide enough has it in the column at
+   the side; in a narrower one it is the menu of the name in the bar. Synchronisation has its devices in one the same. */
 .lib-side { display: none; }
 .side-head {
   margin: 0 8px 4px; color: var(--text-subtle); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em;
@@ -745,34 +749,29 @@ html.window-full .topbar-right { padding-right: 24px; }
 .side-sub { margin: 2px 0 4px 17px; padding-left: 8px; border-left: 1px solid var(--divider); max-height: 224px; overflow-y: auto; }
 .side-sub .side-item { height: var(--h-sm); font-size: var(--fs-sm); font-weight: 400; }
 .side-add { color: var(--text-subtle); }
-@container content (min-width: 1000px) {
-  #view-library, #view-sync { display: grid; grid-template-columns: 232px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .lib-side {
-    display: block; grid-column: 1; grid-row: 1 / 3; min-height: 0; padding: 16px 12px 24px; overflow-y: auto;
-    border-right: 1px solid var(--divider); background: var(--chrome);
-  }
-  :is(#view-library, #view-sync) > .library-head { grid-column: 2; grid-row: 1; }
-  #view-library > .library-body, #view-sync > .sync-body { grid-column: 2; grid-row: 2; }
+/* A wide window has the lists in the column at the side, and the names in the bars are only headings */
+@media (min-width: 1000px) {
   .library-title { padding-right: 8px; }
   .library-title .icon { display: none; }
 }
-/* Narrower, the list opens under the name as a menu does, and the order is told by its icon alone */
+/* Narrower, the list is in its page again and opens under the name as a menu does */
+:is(#view-library, #view-sync) { position: relative; }
+/* Where it will stand is set before it is shown, so that it can fade from there as the other menus do */
+:is(#view-library, #view-sync) > .lib-side {
+  position: absolute; top: 50px; left: 12px; z-index: 10; width: 264px; max-height: calc(100% - 62px);
+  padding: 8px; overflow-y: auto; border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  background: var(--field); box-shadow: var(--menu-shadow);
+  opacity: 0; transform: scale(0.96); transform-origin: top left; pointer-events: none;
+  transition: opacity var(--exit) var(--ease-out), transform var(--exit) var(--ease-out), display var(--exit) allow-discrete;
+}
+:is(#view-library, #view-sync).side-open > .lib-side {
+  display: block; opacity: 1; transform: none; pointer-events: auto; transition-duration: var(--pop);
+}
+@starting-style { :is(#view-library, #view-sync).side-open > .lib-side { opacity: 0; transform: scale(0.96); } }
+:is(#view-library, #view-sync) > .lib-side .side-head:first-child { display: none; }
+:is(#view-library, #view-sync) > .lib-side .side-head { margin-top: 12px; }
+/* A page narrower than that tells the order by its icon alone */
 @container content (width < 1000px) {
-  #view-library, #view-sync { position: relative; }
-  /* Where it will stand is set before it is shown, so that it can fade from there as the other menus do */
-  .lib-side {
-    position: absolute; top: 50px; left: 12px; z-index: 10; width: 264px; max-height: calc(100% - 62px);
-    padding: 8px; overflow-y: auto; border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
-    background: var(--field); box-shadow: var(--menu-shadow);
-    opacity: 0; transform: scale(0.96); transform-origin: top left; pointer-events: none;
-    transition: opacity var(--exit) var(--ease-out), transform var(--exit) var(--ease-out), display var(--exit) allow-discrete;
-  }
-  :is(#view-library, #view-sync).side-open .lib-side {
-    display: block; opacity: 1; transform: none; pointer-events: auto; transition-duration: var(--pop);
-  }
-  @starting-style { :is(#view-library, #view-sync).side-open .lib-side { opacity: 0; transform: scale(0.96); } }
-  .lib-side .side-head:first-child { display: none; }
-  .lib-side .side-head { margin-top: 12px; }
   #library-sort-label { display: none; }
   .library-search { flex-basis: 160px; }
   /* An action with a name on it is its icon too, so that what is shown and chosen keeps some room to be told in */
@@ -1316,7 +1315,7 @@ html.window-full .topbar-right { padding-right: 24px; }
 .empty-text { font-size: var(--fs-sm); }
 .empty-text:empty { display: none; }
 
-/* Settings, laid out as the library is: the subjects in a list at the side, on the window's own colour, the bar
+/* Settings, laid out as the library is: the subjects in the column at the side, in place of the sections, the bar
    with the name, and under it the settings as rows between lines, a heading per subject, no cards and no icon
    tiles. On a narrower window the list runs across under the bar. Everything is saved as it changes. */
 #view-settings { display: flex; flex-direction: column; }
@@ -1362,24 +1361,16 @@ html.window-full .topbar-right { padding-right: 24px; }
 /* The rows' words stand under the heading's: the lines run the full width, the hover a little past the words */
 .card-head { padding-left: 8px; }
 .settings-card :is(.setting, .naming-preview, .setting-empty) { padding-left: 8px; padding-right: 8px; }
-@container content (min-width: 1000px) {
-  #view-settings { display: grid; grid-template-columns: 232px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .settings-nav {
-    grid-column: 1; grid-row: 1 / 3; min-height: 0; padding: 16px 12px 24px; overflow-y: auto;
-    border-right: 1px solid var(--divider); background: var(--chrome);
-  }
-  #view-settings > .settings-head { grid-column: 2; grid-row: 1; }
-  #view-settings > #settings-scroll { grid-column: 2; grid-row: 2; }
+/* Narrower, the subjects are in the page again, a strip under the bar. Its width is the window's, whatever the
+   subjects add up to: they scroll across it */
+#view-settings > .settings-nav {
+  display: flex; flex: none; gap: 8px; padding: 8px 20px; overflow-x: auto; scrollbar-width: none; contain: inline-size;
+  border-bottom: 1px solid var(--divider);
 }
+#view-settings > .settings-nav a { flex: none; height: var(--h-sm); padding: 0 12px; font-size: var(--fs-sm); box-shadow: inset 0 0 0 1px var(--divider); }
+/* The bar first, then the strip of subjects under it */
+.settings-head { order: -1; }
 @container content (width < 1000px) {
-  /* Its width is the window's, whatever the subjects add up to: they scroll across it */
-  .settings-nav {
-    display: flex; flex: none; gap: 8px; padding: 8px 20px; overflow-x: auto; scrollbar-width: none; contain: inline-size;
-    border-bottom: 1px solid var(--divider);
-  }
-  .settings-nav a { flex: none; height: var(--h-sm); padding: 0 12px; font-size: var(--fs-sm); box-shadow: inset 0 0 0 1px var(--divider); }
-  /* The bar first, then the strip of subjects under it */
-  .settings-head { order: -1; }
   .settings { padding: 4px 20px 32px; }
 }
 .setting-group { border-top: 1px solid var(--divider); }
