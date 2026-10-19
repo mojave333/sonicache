@@ -126,7 +126,7 @@
                on screen, folded away otherwise. The list is moved in by the script in a wide window. -->
           <div id="side-devices">
             <button type="button" class="side-item" id="side-sync" data-view="sync">
-              <svg class="icon sm" aria-hidden="true"><use href="#i-device-mobile"/></svg><span class="side-name">Синхронизация</span>
+              <span class="side-name">Синхронизация</span>
             </button>
             <div id="side-device-list"></div>
           </div>
@@ -206,7 +206,6 @@
           <div class="split">
             <button type="button" id="profile" class="tool-btn" aria-haspopup="dialog" aria-expanded="false"
                     title="Формат, папка и профили">
-              <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>
               <span id="profile-name"></span>
               <svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg>
             </button>
@@ -219,7 +218,6 @@
               </div>
               <p class="menu-label">Папка для музыки</p>
               <button type="button" id="folder">
-                <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>
                 <span id="folder-name" class="menu-name"></span><span class="menu-note">Изменить…</span>
               </button>
               <div class="menu-divider" role="separator"></div>
@@ -229,7 +227,7 @@
           </div>
           <div class="split">
             <button type="submit" id="submit" class="btn primary">
-              <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span id="submit-label">Скачать</span>
+              <span id="submit-label">Скачать</span>
             </button>
             <button type="button" id="mode" class="btn primary split-arrow" aria-haspopup="menu" aria-expanded="false" aria-label="Режим" title="Режим">
               <svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg>
@@ -243,13 +241,13 @@
               </button>
               <div class="menu-divider" role="separator"></div>
               <button type="button" role="menuitem" data-action="import">
-                <svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg>Скачать список из файла…
+                Скачать список из файла…
               </button>
             </div>
           </div>
         </form>
         <p id="link-note" class="strip" role="status" hidden>
-          <svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg><span id="link-note-text"></span>
+          <span id="link-note-text"></span>
         </p>
         <p id="link-error" class="strip danger" role="alert" hidden>
           <svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg><span id="link-error-text"></span>
@@ -353,8 +351,8 @@
                   <h2 class="album-title artist-name"></h2>
                   <p class="album-sub artist-sub"></p>
                   <div class="album-actions">
-                    <button type="button" class="btn primary" data-search-action="discography"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Скачать дискографию</span></button>
-                    <button type="button" class="tool-btn" data-search-action="watch-artist" aria-pressed="false" title="Новые альбомы, EP и синглы скачаются сами: раз в 12 часов программа смотрит, что вышло"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg><span>Следить за новыми релизами</span></button>
+                    <button type="button" class="btn primary" data-search-action="discography"><span>Скачать дискографию</span></button>
+                    <button type="button" class="tool-btn" data-search-action="watch-artist" aria-pressed="false" title="Новые альбомы, EP и синглы скачаются сами: раз в 12 часов программа смотрит, что вышло"><span>Следить за новыми релизами</span></button>
                   </div>
                 </div>
               </div>
@@ -371,8 +369,8 @@
                 <h2 class="album-title"></h2>
                 <p class="album-sub"></p>
                 <div class="album-actions">
-                  <button type="button" class="btn primary" data-search-action="download"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Скачать</span></button>
-                  <button type="button" class="tool-btn" data-search-action="open-library" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg><span>Уже в библиотеке</span></button>
+                  <button type="button" class="btn primary" data-search-action="download"><span>Скачать</span></button>
+                  <button type="button" class="tool-btn" data-search-action="open-library" hidden><span>Уже в библиотеке</span></button>
                 </div>
                 <div class="album-tracks" role="table" aria-label="Треки альбома">
                   <div class="album-track search-album-track album-head" role="row"><span role="columnheader" class="n">#</span><span role="columnheader">Трек</span><span role="columnheader" class="artists">Исполнители</span><span role="columnheader" class="num">Время</span><span></span></div>
@@ -390,11 +388,11 @@
              the side, under the sections; a narrower one opens it here as a menu under the name in the bar. -->
         <nav id="library-side" class="lib-side" aria-label="Библиотека">
           <h4 class="side-head">Библиотека</h4>
-          <button type="button" class="side-item" data-side="albums"><svg class="icon sm" aria-hidden="true"><use href="#i-grid"/></svg><span class="side-name">Альбомы</span><span class="side-n"></span></button>
-          <button type="button" class="side-item" data-side="favourites"><svg class="icon sm" aria-hidden="true"><use href="#i-heart"/></svg><span class="side-name">Избранное</span><span class="side-n"></span></button>
-          <button type="button" class="side-item" data-side="tracks"><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg><span class="side-name">Треки</span><span class="side-n"></span></button>
-          <button type="button" class="side-item" data-side="artists"><svg class="icon sm" aria-hidden="true"><use href="#i-headphones"/></svg><span class="side-name">Исполнители</span><span class="side-n"></span></button>
-          <button type="button" class="side-item" id="side-genres" aria-expanded="false" aria-controls="side-genre-list"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span class="side-name">Жанры</span><svg class="icon sm side-chevron" aria-hidden="true"><use href="#i-chevron"/></svg><span class="side-n"></span></button>
+          <button type="button" class="side-item" data-side="albums"><span class="side-name">Альбомы</span><span class="side-n"></span></button>
+          <button type="button" class="side-item" data-side="favourites"><span class="side-name">Избранное</span><span class="side-n"></span></button>
+          <button type="button" class="side-item" data-side="tracks"><span class="side-name">Треки</span><span class="side-n"></span></button>
+          <button type="button" class="side-item" data-side="artists"><span class="side-name">Исполнители</span><span class="side-n"></span></button>
+          <button type="button" class="side-item" id="side-genres" aria-expanded="false" aria-controls="side-genre-list"><span class="side-name">Жанры</span><svg class="icon sm side-chevron" aria-hidden="true"><use href="#i-chevron"/></svg><span class="side-n"></span></button>
           <div id="side-genre-list" class="side-sub" hidden></div>
           <!-- A new playlist is the plus by the heading, not a row of its own under the list -->
           <div class="side-head-row">
@@ -456,10 +454,10 @@
               <svg class="icon sm" aria-hidden="true"><use href="#i-more"/></svg>
             </button>
             <div id="library-more-menu" class="menu more-menu" role="menu" aria-label="Ещё" hidden>
-              <button type="button" role="menuitem" id="library-folder"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span class="menu-name">Открыть папку в проводнике</span></button>
-              <button type="button" role="menuitem" id="library-refresh"><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span class="menu-name">Обновить</span><span class="menu-note">F5</span></button>
+              <button type="button" role="menuitem" id="library-folder"><span class="menu-name">Открыть папку в проводнике</span></button>
+              <button type="button" role="menuitem" id="library-refresh"><span class="menu-name">Обновить</span><span class="menu-note">F5</span></button>
               <!-- A tag alone in the bar did not say what it does: here it is named, and offered only when there is something to fill in -->
-              <button type="button" role="menuitem" id="library-tidy" hidden title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span class="menu-name">Дописать теги</span></button>
+              <button type="button" role="menuitem" id="library-tidy" hidden title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново"><span class="menu-name">Дописать теги</span></button>
             </div>
           </div>
         </div>
@@ -493,7 +491,7 @@
               <div class="album-side">
                 <img class="album-backdrop" alt="" aria-hidden="true" hidden>
                 <div class="album-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg>
-                  <button type="button" class="cover-edit" data-page-action="cover" aria-label="Сменить обложку"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg><span>Сменить обложку</span></button>
+                  <button type="button" class="cover-edit" data-page-action="cover" aria-label="Сменить обложку"><span>Сменить обложку</span></button>
                 </div>
               </div>
               <div class="album-info">
@@ -503,13 +501,13 @@
                   <button type="button" class="btn primary" data-page-action="play"><svg class="icon sm" aria-hidden="true"><use href="#i-play"/></svg><span>Слушать</span></button>
                   <button type="button" class="tool-btn icon-only heart" data-page-action="favourite" aria-pressed="false" title="В избранное" aria-label="В избранное"><svg class="icon sm" aria-hidden="true"><use href="#i-heart"/></svg></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="open" title="Открыть папку в проводнике" aria-label="Открыть папку"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
-                  <button type="button" class="tool-btn" data-page-action="again"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span>Докачать недостающее</span></button>
-                  <button type="button" class="tool-btn" data-page-action="tidy" title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span>Дописать теги</span></button>
-                  <button type="button" class="tool-btn" data-page-action="watch" aria-pressed="false"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg><span>Следить</span></button>
+                  <button type="button" class="tool-btn" data-page-action="again"><span>Докачать недостающее</span></button>
+                  <button type="button" class="tool-btn" data-page-action="tidy" title="Дописать жанры, обложки, тексты и недостающие теги, ничего не скачивая заново"><span>Дописать теги</span></button>
+                  <button type="button" class="tool-btn" data-page-action="watch" aria-pressed="false"><span>Следить</span></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="shuffle" title="Слушать вперемешку" aria-label="Слушать вперемешку"><svg class="icon sm" aria-hidden="true"><use href="#i-shuffle"/></svg></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="rename" title="Переименовать" aria-label="Переименовать"><svg class="icon sm" aria-hidden="true"><use href="#i-edit"/></svg></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="uncover" title="Вернуть обложку по умолчанию" aria-label="Вернуть обложку по умолчанию" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg></button>
-                  <button type="button" class="tool-btn" data-page-action="keep"><svg class="icon sm" aria-hidden="true"><use href="#i-playlist-add"/></svg><span>Сохранить как плейлист</span></button>
+                  <button type="button" class="tool-btn" data-page-action="keep"><span>Сохранить как плейлист</span></button>
                   <button type="button" class="tool-btn icon-only" data-page-action="export" title="Сохранить как .m3u8 для других плееров" aria-label="Сохранить как .m3u8"><svg class="icon sm" aria-hidden="true"><use href="#i-export"/></svg></button>
                   <button type="button" class="tool-btn icon-only danger" data-page-action="delete" title="Удалить плейлист" aria-label="Удалить плейлист"><svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg></button>
                 </div>
@@ -543,13 +541,13 @@
         <nav id="sync-side" class="lib-side" aria-label="Устройства">
           <h4 class="side-head side-link" role="button" tabindex="0">Устройства</h4>
           <div id="sync-devices"></div>
-          <button type="button" id="sync-none-side" class="side-item side-none"><svg class="icon sm" aria-hidden="true"><use href="#i-usb"/></svg><span class="side-name">Не подключено</span></button>
+          <button type="button" id="sync-none-side" class="side-item side-none"><span class="side-name">Не подключено</span></button>
           <h4 class="side-head">Другие способы</h4>
           <button type="button" class="side-item" id="sync-wifi" title="iPhone и Android слушают библиотеку по домашней сети">
-            <svg class="icon sm" aria-hidden="true"><use href="#i-wifi-high"/></svg><span class="side-name">Телефон по Wi-Fi</span><span class="side-n" id="sync-wifi-state"></span>
+            <span class="side-name">Телефон по Wi-Fi</span><span class="side-n" id="sync-wifi-state"></span>
           </button>
           <button type="button" class="side-item side-add" id="sync-folder" title="Для телефона или плеера, который не виден как съёмный диск">
-            <svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span class="side-name">Выбрать папку…</span>
+            <span class="side-name">Выбрать папку…</span>
           </button>
         </nav>
         <!-- One bar: what is open and where it is, then its buttons, the sync one last as Download has its own -->
@@ -562,7 +560,7 @@
           </div>
           <button type="button" class="tool-btn icon-only" id="device-open" title="Открыть папку в проводнике" aria-label="Открыть папку" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg></button>
           <button type="button" class="tool-btn" id="device-forget" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg><span>Убрать из списка</span></button>
-          <button type="button" class="btn primary" id="device-sync" hidden><svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span>Синхронизировать</span></button>
+          <button type="button" class="btn primary" id="device-sync" hidden><span>Синхронизировать</span></button>
         </div>
 
         <div id="sync-page" class="sync-body">
@@ -571,10 +569,10 @@
             <div class="scene" data-scene="sync" aria-hidden="true"><pre class="ascii"></pre><span class="crayon"></span></div>
             <p class="empty-title">Устройств не видно</p>
             <ul class="sync-tips">
-              <li><svg class="icon sm" aria-hidden="true"><use href="#i-usb"/></svg><span><b>Плеер, SD-карта, флешка</b> — вставьте, и они появятся здесь сами</span></li>
-              <li><svg class="icon sm" aria-hidden="true"><use href="#i-hard-drive"/></svg><span><b>iPod</b> — подключите кабелем в режиме диска, iTunes не нужен</span></li>
-              <li><svg class="icon sm" aria-hidden="true"><use href="#i-device-mobile"/></svg><span><b>Android</b> — по кабелю; разблокируйте телефон и выберите в уведомлении «Передача файлов»</span></li>
-              <li><svg class="icon sm" aria-hidden="true"><use href="#i-wifi-high"/></svg><span><b>iPhone</b> — по Wi-Fi, без кабеля: откройте «Телефон по Wi-Fi» в списке</span></li>
+              <li><span><b>Плеер, SD-карта, флешка</b> — вставьте, и они появятся здесь сами</span></li>
+              <li><span><b>iPod</b> — подключите кабелем в режиме диска, iTunes не нужен</span></li>
+              <li><span><b>Android</b> — по кабелю; разблокируйте телефон и выберите в уведомлении «Передача файлов»</span></li>
+              <li><span><b>iPhone</b> — по Wi-Fi, без кабеля: откройте «Телефон по Wi-Fi» в списке</span></li>
             </ul>
           </div>
 
@@ -583,8 +581,8 @@
             <div class="device-main">
               <div class="device-bar">
                 <div id="device-scope" class="segmented" role="radiogroup" aria-label="Что взять">
-                  <button type="button" role="radio" aria-checked="false" data-scope="all"><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg>Всю библиотеку</button>
-                  <button type="button" role="radio" aria-checked="false" data-scope="pick"><svg class="icon sm" aria-hidden="true"><use href="#i-list"/></svg>Выбрать</button>
+                  <button type="button" role="radio" aria-checked="false" data-scope="all">Всю библиотеку</button>
+                  <button type="button" role="radio" aria-checked="false" data-scope="pick">Выбрать</button>
                 </div>
                 <div id="device-tabs" class="device-tabs" role="tablist" aria-label="Что выбрать">
                   <button type="button" role="tab" aria-selected="true" data-list="playlists">Плейлисты<span class="count"></span></button>
@@ -683,15 +681,15 @@
              way back); in a narrower one they are a strip under the bar. The bar with the name, and under it the
              settings as rows between lines, a heading per subject -->
         <nav class="settings-nav" id="settings-nav" aria-label="Разделы настроек">
-          <a href="#set-look"><svg class="icon sm" aria-hidden="true"><use href="#i-sun"/></svg>Внешний вид</a>
-          <a href="#set-save"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Куда сохранять</a>
-          <a href="#set-sound"><svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg>Звук и тексты</a>
-          <a href="#set-library"><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg>Библиотека</a>
-          <a href="#set-player"><svg class="icon sm" aria-hidden="true"><use href="#i-headphones"/></svg>Плеер</a>
-          <a href="#set-watch"><svg class="icon sm" aria-hidden="true"><use href="#i-eye"/></svg>Слежение и фон</a>
-          <a href="#set-profiles"><svg class="icon sm" aria-hidden="true"><use href="#i-bookmark"/></svg>Профили</a>
-          <a href="#set-advanced"><svg class="icon sm" aria-hidden="true"><use href="#i-alert"/></svg>Продвинутые</a>
-          <a href="#set-about"><svg class="icon sm" aria-hidden="true"><use href="#i-settings"/></svg>О программе</a>
+          <a href="#set-look">Внешний вид</a>
+          <a href="#set-save">Куда сохранять</a>
+          <a href="#set-sound">Звук и тексты</a>
+          <a href="#set-library">Библиотека</a>
+          <a href="#set-player">Плеер</a>
+          <a href="#set-watch">Слежение и фон</a>
+          <a href="#set-profiles">Профили</a>
+          <a href="#set-advanced">Продвинутые</a>
+          <a href="#set-about">О программе</a>
         </nav>
         <div class="library-head settings-head">
           <div class="library-what">
@@ -711,7 +709,7 @@
               <div class="update-actions">
                 <button type="button" id="update-open" class="tool-btn">Страница релиза</button>
                 <button type="button" id="update-install" class="btn primary">
-                  <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span
+                  <span
                     id="update-install-label">Обновить программу</span>
                 </button>
               </div>
@@ -729,15 +727,15 @@
                     <div id="theme" class="theme-choices" role="radiogroup" aria-labelledby="theme-label">
                       <button type="button" role="radio" class="theme-choice" data-theme-choice="system">
                         <span class="theme-preview system" aria-hidden="true"><span class="half light"><i></i><b></b><b></b></span><span class="half dark"><i></i><b></b><b></b></span></span>
-                        <span class="theme-name"><svg class="icon sm" aria-hidden="true"><use href="#i-monitor"/></svg>Как в системе</span>
+                        <span class="theme-name">Как в системе</span>
                       </button>
                       <button type="button" role="radio" class="theme-choice" data-theme-choice="light">
                         <span class="theme-preview light" aria-hidden="true"><i></i><b></b><b></b></span>
-                        <span class="theme-name"><svg class="icon sm" aria-hidden="true"><use href="#i-sun"/></svg>Светлая</span>
+                        <span class="theme-name">Светлая</span>
                       </button>
                       <button type="button" role="radio" class="theme-choice" data-theme-choice="dark">
                         <span class="theme-preview dark" aria-hidden="true"><i></i><b></b><b></b></span>
-                        <span class="theme-name"><svg class="icon sm" aria-hidden="true"><use href="#i-moon"/></svg>Тёмная</span>
+                        <span class="theme-name">Тёмная</span>
                       </button>
                     </div>
                   </div>
@@ -785,7 +783,7 @@
                       <p class="setting-desc setting-path" id="music-folder"></p>
                     </div>
                     <button type="button" id="music-folder-change" class="tool-btn">
-                      <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Изменить…</span>
+                      <span>Изменить…</span>
                     </button>
                   </div>
                   <div class="setting">
@@ -852,7 +850,7 @@
                       <p class="setting-desc">Библиотека покажет музыку и из этих папок. Файлы остаются там, где лежат</p>
                     </div>
                     <button type="button" id="library-folder-add" class="tool-btn">
-                      <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Добавить папку…</span>
+                      <span>Добавить папку…</span>
                     </button>
                   </div>
                 </div>
@@ -886,7 +884,7 @@
                       <p>Эквалайзер</p>
                       <p class="setting-desc" id="eq-state"></p>
                     </div>
-                    <button type="button" id="eq-open" class="tool-btn"><svg class="icon sm" aria-hidden="true"><use href="#i-eq"/></svg><span>Настроить…</span></button>
+                    <button type="button" id="eq-open" class="tool-btn"><span>Настроить…</span></button>
                   </div>
                 </div>
                 <div class="setting-group">
@@ -929,7 +927,7 @@
                       <p class="setting-desc">Раз в 12 часов программа снова открывает ссылку и докачивает в ту же папку только новое. Чтобы следить за релизом, нажмите на глаз на его карточке загрузки. За исполнителем можно следить с его страницы в поиске</p>
                     </div>
                     <button type="button" id="watch-check" class="tool-btn">
-                      <svg class="icon sm" aria-hidden="true"><use href="#i-retry"/></svg><span>Проверить сейчас</span>
+                      <span>Проверить сейчас</span>
                     </button>
                   </div>
                   <p class="setting-empty" id="watch-empty">Пока ни за чем не следим</p>
@@ -1159,48 +1157,48 @@
     </section>
     <div id="track-menu" class="menu context-menu" role="menu" aria-label="Действия с треком" hidden>
       <button type="button" role="menuitem" data-action="next">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-queue-next"/></svg>Играть следующим
+        Играть следующим
       </button>
       <button type="button" role="menuitem" data-action="queue">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-playlist"/></svg>Добавить в очередь
+        Добавить в очередь
       </button>
       <button type="button" role="menuitem" data-action="playlist">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-playlist-add"/></svg>Добавить в плейлист…
+        Добавить в плейлист…
       </button>
       <div class="menu-divider" data-group="more"></div>
       <button type="button" role="menuitem" data-action="album">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-note"/></svg>Открыть альбом
+        Открыть альбом
       </button>
       <button type="button" role="menuitem" data-action="open">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Показать в проводнике
+        Показать в проводнике
       </button>
       <button type="button" role="menuitem" data-action="remove" class="danger-item">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg>Убрать из плейлиста
+        Убрать из плейлиста
       </button>
     </div>
     <div id="playlist-menu" class="menu context-menu playlist-menu" role="menu" aria-label="В какой плейлист" hidden></div>
     <div id="library-menu" class="menu context-menu" role="menu" aria-label="Действия с выделенным" hidden>
       <button type="button" role="menuitem" data-action="next">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-queue-next"/></svg>Играть следующим
+        Играть следующим
       </button>
       <button type="button" role="menuitem" data-action="queue">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-playlist"/></svg>Добавить в очередь
+        Добавить в очередь
       </button>
       <button type="button" role="menuitem" data-action="playlist">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-playlist-add"/></svg>Добавить в плейлист…
+        Добавить в плейлист…
       </button>
       <div class="menu-divider"></div>
       <button type="button" role="menuitem" data-action="again">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg>Докачать недостающее
+        Докачать недостающее
       </button>
       <button type="button" role="menuitem" data-action="tidy">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg>Дописать теги
+        Дописать теги
       </button>
       <button type="button" role="menuitem" data-action="open">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg>Показать в проводнике
+        Показать в проводнике
       </button>
       <button type="button" role="menuitem" data-action="delete" class="danger-item">
-        <svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg>Удалить
+        Удалить
       </button>
     </div>
     <dialog id="welcome" class="confirm welcome" aria-labelledby="welcome-title">
@@ -1210,16 +1208,16 @@
         <p class="confirm-text">Ваша музыка в одном месте.</p>
         <!-- The sections of the bar, one line each: what each is for -->
         <div class="welcome-what">
-          <div class="welcome-row"><svg class="icon sm" aria-hidden="true"><use href="#i-library"/></svg><span class="welcome-name">Библиотека</span><span class="welcome-text">Показывает музыку из ваших папок и играет её.</span></div>
-          <div class="welcome-row"><svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg><span class="welcome-name">Каталог</span><span class="welcome-text">Ищет исполнителей и альбомы, показывает новинки и чарт.</span></div>
-          <div class="welcome-row"><svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg><span class="welcome-name">Загрузка</span><span class="welcome-text">Принимает ссылку или название, находит запись в открытом доступе и сохраняет с тегами, обложкой и текстом песни.</span></div>
+          <div class="welcome-row"><span class="welcome-name">Библиотека</span><span class="welcome-text">Показывает музыку из ваших папок и играет её.</span></div>
+          <div class="welcome-row"><span class="welcome-name">Каталог</span><span class="welcome-text">Ищет исполнителей и альбомы, показывает новинки и чарт.</span></div>
+          <div class="welcome-row"><span class="welcome-name">Загрузка</span><span class="welcome-text">Принимает ссылку или название, находит запись в открытом доступе и сохраняет с тегами, обложкой и текстом песни.</span></div>
         </div>
         <div class="welcome-folder">
           <div class="welcome-where">
             <p class="welcome-label">Музыка будет здесь</p>
             <p id="welcome-path" class="welcome-path"></p>
           </div>
-          <button type="button" class="tool-btn" id="welcome-folder"><svg class="icon sm" aria-hidden="true"><use href="#i-folder"/></svg><span>Изменить…</span></button>
+          <button type="button" class="tool-btn" id="welcome-folder"><span>Изменить…</span></button>
         </div>
         <p class="confirm-text">Формат, названия файлов, прокси и остальное — в настройках.</p>
       </div>

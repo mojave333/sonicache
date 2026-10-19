@@ -190,10 +190,12 @@ p { margin: 0; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .col-date { text-align: left; font-variant-numeric: tabular-nums; }
 
-/* The icons are filled outlines on a grid of 256 (Phosphor's). A line round the outline, of --icon-weight in
-   the grid's units, sets how heavy they are: a little at the size of the words beside them, more where one is
-   drawn very small, none where it is a picture. The few that are lines take it as their own. */
-:root { --icon-weight: 4px; }
+/* The icons are filled outlines on a grid of 256 (Phosphor's), drawn at their own thin line, which goes with the
+   hairlines of the serif. A line round the outline, of --icon-weight in the grid's units, makes heavier the few
+   drawn very small, so that they still read. The few that are lines take it as their own. An icon stands only
+   where there are no words: a name says what a row, a subject or a button is, and an icon beside it was a second
+   way of saying it. */
+:root { --icon-weight: 0px; }
 .icon {
   width: 18px; height: 18px; flex: none;
   fill: currentColor; stroke: currentColor; stroke-width: var(--icon-weight); stroke-linecap: round; stroke-linejoin: round;
@@ -222,6 +224,7 @@ html:not(.frameless) .topbar { display: none; }
 html:not(.frameless) .side-pane > .side-views:first-child { padding-top: 12px; }
 .side-foot { padding: 8px 12px 12px; }
 .side-view { position: relative; }
+.side-view > .icon { display: none; }
 .side .rail-only { display: none; }
 /* The library's list and the devices under the sections, scrolling between them and the settings */
 .side-lists { flex: 1; min-height: 0; padding: 0 12px; overflow-y: auto; }
@@ -269,7 +272,7 @@ html:not(.frameless) .side-pane > .side-views:first-child { padding-top: 12px; }
   .side-views, .side-foot { padding-left: 10px; padding-right: 10px; }
   .side .rail-only { display: flex; }
   .side-view { justify-content: center; width: 40px; height: 40px; padding: 0; }
-  .side-view .icon { width: 20px; height: 20px; }
+  .side-view > .icon { display: block; width: 20px; height: 20px; }
   .side-view .side-name { display: none; }
   .side-lists { visibility: hidden; } /* the room between the sections and the settings stays */
   .side-view .nav-ring { position: absolute; top: 4px; right: 4px; margin: 0; }
@@ -504,10 +507,9 @@ html.frameless .main { border-top: 1px solid var(--divider); border-top-left-rad
 /* The empty download list keeps its own picture back: one on screen at a time */
 .welcoming #empty .scene { visibility: hidden; }
 .welcome-title { font-size: var(--fs-lg); font-weight: 650; }
-/* What the sections are for, a line each, with the sign each has in the bar */
+/* What the sections are for, a line each */
 .welcome-what { display: grid; gap: 12px; margin: 4px 0; }
-.welcome-row { display: grid; grid-template-columns: 16px minmax(0, 1fr); column-gap: 12px; row-gap: 1px; }
-.welcome-row .icon { grid-row: 1 / 3; margin-top: 3px; color: var(--accent-fg); }
+.welcome-row { display: grid; row-gap: 1px; }
 .welcome-name { font-weight: 600; }
 .welcome-text { color: var(--text-subtle); font-size: var(--fs-sm); }
 .welcome-folder {
@@ -712,6 +714,8 @@ html.frameless .main { border-top: 1px solid var(--divider); border-top-left-rad
 .sort-button:hover { background: var(--hover); color: var(--text); }
 .sort-button[aria-expanded="true"] { background: var(--selected); color: var(--text); }
 .sort-button .icon { flex: none; color: var(--text-subtle); }
+/* The order is told by its words; its own icon stands for them only where they do not fit (below) */
+.sort-button > .icon:first-child { display: none; }
 #library-sort-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* The sorts are written in lower case after "by", so the menu begins them with a capital */
 .sort-menu { min-width: 230px; }
@@ -785,12 +789,16 @@ html.frameless .main { border-top: 1px solid var(--divider); border-top-left-rad
 @starting-style { :is(#view-library, #view-sync).side-open > .lib-side { opacity: 0; transform: scale(0.96); } }
 :is(#view-library, #view-sync) > .lib-side > .side-head:first-child { display: none; }
 :is(#view-library, #view-sync) > .lib-side > :is(.side-head, .side-head-row) { margin-top: 12px; }
+/* A button of the bar with a name shows the name; its icon is for a page too narrow for it (below) */
+.library-head > .tool-btn:not(.icon-only) > .icon { display: none; }
 /* A page narrower than that tells the order by its icon alone */
 @container content (width < 1000px) {
   #library-sort-label { display: none; }
+  .sort-button > .icon:first-child { display: block; }
   .library-search { flex-basis: 160px; }
   /* An action with a name on it is its icon too, so that what is shown and chosen keeps some room to be told in */
   .library-head > .tool-btn span { display: none; }
+  .library-head > .tool-btn:not(.icon-only) > .icon { display: block; }
   .library-head > .tool-btn { flex: none; justify-content: center; width: var(--h); padding: 0; border-color: transparent; background: none; }
   .library-head > .tool-btn:hover { background: var(--hover); }
 }
@@ -1074,7 +1082,6 @@ html.frameless .main { border-top: 1px solid var(--divider); border-top-left-rad
   list-style: none; font-size: var(--fs-sm); line-height: 1.45; text-align: left;
 }
 .sync-tips li { display: flex; align-items: flex-start; gap: 10px; }
-.sync-tips .icon { flex: none; margin-top: 1px; }
 .sync-tips b { color: var(--text-muted); font-weight: 600; }
 [data-scene="sync"] .crayon { background-image: url("art/crayon-nothing.webp"); }
 [data-theme="dark"] [data-scene="sync"] .crayon { background-image: url("art/crayon-nothing-dark.webp"); }
@@ -1246,7 +1253,6 @@ html.frameless .main { border-top: 1px solid var(--divider); border-top-left-rad
   gap: 8px; background: rgb(0 0 0 / 0.55); color: #fff; font-size: var(--fs-sm); font-weight: 600; opacity: 0;
   transition: opacity var(--quick) ease-out;
 }
-.album-cover .cover-edit .icon { width: 28px; height: 28px; --icon-weight: 4px; }
 #album-page[data-kind="playlist"] .cover-edit { display: flex; }
 .album-cover:hover .cover-edit, .cover-edit:focus-visible { opacity: 1; }
 .cover-edit:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: -4px; }
@@ -1357,7 +1363,6 @@ html.frameless .main { border-top: 1px solid var(--divider); border-top-left-rad
 }
 .settings-nav a:hover { background: var(--hover); color: var(--text); }
 .settings-nav a[aria-current="true"] { background: var(--selected); color: var(--text); }
-.settings-nav .icon { flex: none; color: var(--text-subtle); }
 .settings-cards { display: grid; min-width: 0; }
 .settings-card { padding-top: 28px; scroll-margin-top: 0; }
 .card-head { display: flex; align-items: center; gap: 12px; padding: 0 0 12px; }

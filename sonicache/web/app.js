@@ -457,7 +457,6 @@ function renderSettings() {
   applyPlayerSettings(settings);
   $("#naming-preview").textContent = namingExample(settings);
   $("#submit-label").textContent = t(settings.dry_run ? "Проверить" : "Скачать");
-  swapIcon($("#submit use"), settings.dry_run ? "#i-search" : "#i-download");
   renderStatus();
 }
 
@@ -3180,7 +3179,7 @@ function renderLibrarySide() {
   const list = $("#side-genre-list");
   if (open) {
     list.replaceChildren(...genres.map((genre) => sideItem({
-      icon: "", name: genre.name, count: genre.count,
+      name: genre.name, count: genre.count,
       attributes: { "data-genre": genre.key, "aria-pressed": String(library.genre === genre.key) },
     })));
   }
@@ -3189,19 +3188,18 @@ function renderLibrarySide() {
   const rows = [...entries.filter((entry) => entry.smart && entry.count),
     ...entries.filter((entry) => !entry.smart).sort((a, b) => COLLATOR.compare(a.name, b.name))];
   $("#side-playlists").replaceChildren(...rows.map((entry) => sideItem({
-    icon: entry.id === "recent" ? "i-history" : entry.id === "top" ? "i-trend" : "i-playlist",
     name: playlistName(entry), count: entry.smart ? 0 : entry.count,
     attributes: { "data-playlist": entry.id, ...(top?.kind === "playlist" && top.id === entry.id ? { "aria-current": "page" } : {}) },
   })));
   renderDeviceSide();
 }
 
-function sideItem({ icon, name, count, attributes }) {
+// A row of the list: its name and, beside it, a count; no icon, the name says it
+function sideItem({ name, count, attributes }) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "side-item";
   for (const [key, value] of Object.entries(attributes)) button.setAttribute(key, value);
-  if (icon) button.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#${icon}"/></svg>`;
   const label = document.createElement("span");
   label.className = "side-name";
   label.textContent = name;
@@ -6521,7 +6519,7 @@ async function openPlaylistMenu(x, y, tracks) {
     button.type = "button";
     button.setAttribute("role", "menuitem");
     button.dataset.playlist = entry.id;
-    button.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#i-playlist"/></svg><span class="menu-name"></span><span class="menu-note"></span>`;
+    button.innerHTML = '<span class="menu-name"></span><span class="menu-note"></span>';
     $(".menu-name", button).textContent = entry.name;
     $(".menu-note", button).textContent = String(entry.count);
     return button;
@@ -6530,7 +6528,7 @@ async function openPlaylistMenu(x, y, tracks) {
   create.type = "button";
   create.setAttribute("role", "menuitem");
   create.dataset.playlist = "";
-  create.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span></span>`;
+  create.innerHTML = "<span></span>";
   $("span", create).textContent = t("Новый плейлист…");
   const divider = document.createElement("div");
   divider.className = "menu-divider";
@@ -6914,7 +6912,6 @@ function renderTidy() {
   const button = $("#library-tidy");
   button.hidden = !running && !gaps.size; // nothing to fill in, nothing to offer
   // How far it has come is said above the list; the button says what a click does
-  swapIcon($("use", button), running ? "#i-stop" : "#i-tag");
   $("span", button).textContent = running ? t("Остановить") : t("Дописать теги");
   button.title = running
     ? t("Остановить после текущей записи · {done} из {total}", { done: Math.min(done + 1, total), total })
@@ -7315,17 +7312,6 @@ function openDeviceId() {
   return open?.kind === "device" && state.view === "sync" ? open.id : "";
 }
 
-// What a device is called and drawn as, by the kind of connection it has
-const DEVICE_KINDS = {
-  ipod: ["i-hard-drive", "iPod"], drive: ["i-usb", "Съёмный диск"], mtp: ["i-device-mobile", "Телефон по кабелю"],
-  folder: ["i-folder", "Папка"],
-};
-
-function deviceKind(device) {
-  const [icon, name] = DEVICE_KINDS[device.kind] || DEVICE_KINDS.drive;
-  return { icon, name: t(name) };
-}
-
 function renderDeviceSide() {
   const id = openDeviceId();
   const { open, wifi, items, sync } = state.devices;
@@ -7375,13 +7361,12 @@ function renderDeviceRows() {
   const { items, sync } = state.devices;
   $("#sync-none-side").hidden = items.length > 0;
   $("#sync-devices").replaceChildren(...items.map((device) => {
-    const { icon } = deviceKind(device);
     const working = sync.running && sync.device === device.id;
     const row = document.createElement("button");
     row.type = "button";
     row.className = "side-item" + (device.note ? " not-ready" : "") + (working ? " working" : "");
     row.dataset.device = device.id;
-    row.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#${icon}"/></svg><span class="side-name"></span><span class="side-n"></span>`;
+    row.innerHTML = '<span class="side-name"></span><span class="side-n"></span>';
     $(".side-name", row).textContent = device.name;
     const count = $(".side-n", row);
     const free = device.note ? "" : t("Свободно {free} из {total}", { free: formatSize(device.free), total: formatSize(device.total) });
@@ -7599,7 +7584,6 @@ function renderDevicePreview() {
   if (running) $("span", progress).style.width = `${(100 * Math.min(sync.done, sync.total)) / Math.max(1, sync.total)}%`;
   const button = $("#device-sync");
   button.disabled = !running && (sync.running || !plan || Boolean(plan.error) || !plan.fits);
-  swapIcon($("use", button), running ? "#i-stop" : "#i-retry");
   $("span", button).textContent = running ? t("Остановить") : t("Синхронизировать");
 }
 
