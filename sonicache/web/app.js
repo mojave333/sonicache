@@ -244,11 +244,13 @@ const ASCII_SCENES = {
   },
 };
 let asciiTick = 0;
-// Draws the scenes on screen, where the settings ask for ASCII
+// Draws the scenes on screen where the settings ask for ASCII, and the settings' own sample of it whatever they
+// ask. One out of sight is drawn once, so that it shows a picture even where nothing moves, and then left alone.
 function drawAscii() {
-  if (document.documentElement.dataset.art !== "ascii") return;
+  const ascii = document.documentElement.dataset.art === "ascii";
   for (const node of document.querySelectorAll("[data-scene] > .ascii")) {
-    if (!node.offsetParent) continue;
+    if (!ascii && !node.closest(".art-preview")) continue;
+    if (!node.offsetParent && node.innerHTML) continue;
     const scene = ASCII_SCENES[node.parentElement.dataset.scene];
     if (!scene) continue;
     const accents = new Set();
@@ -428,8 +430,8 @@ function renderSettings() {
   const settings = state.settings;
   applyTheme();
   syncRadios($("#theme"), "data-theme-choice", settings.theme);
-  $("#font").value = FONTS.includes(settings.font) ? settings.font : FONTS[0];
-  $("#art").value = ARTS.includes(settings.art) ? settings.art : ARTS[0];
+  syncRadios($("#font"), "data-font-choice", FONTS.includes(settings.font) ? settings.font : FONTS[0]);
+  syncRadios($("#art"), "data-art-choice", ARTS.includes(settings.art) ? settings.art : ARTS[0]);
   syncSwitch($("#replaygain"), settings.replaygain);
   syncSwitch($("#lyrics"), settings.lyrics);
   syncSwitch($("#tray"), settings.tray);
@@ -916,8 +918,8 @@ function bindUi() {
   bindWatch();
   for (const button of $$("#formats [data-format]")) button.title = t(FORMAT_HINTS[button.dataset.format]);
   radioGroup($("#theme"), "data-theme-choice", (theme) => updateSettings({ theme }));
-  $("#font").addEventListener("change", (event) => updateSettings({ font: event.target.value }));
-  $("#art").addEventListener("change", (event) => updateSettings({ art: event.target.value }));
+  radioGroup($("#font"), "data-font-choice", (font) => updateSettings({ font }));
+  radioGroup($("#art"), "data-art-choice", (art) => updateSettings({ art }));
   bindSwitch($("#replaygain"), (on) => updateSettings({ replaygain: on }));
   bindSwitch($("#lyrics"), (on) => updateSettings({ lyrics: on }));
   bindSwitch($("#tray"), (on) => updateSettings({ tray: on }));

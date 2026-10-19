@@ -81,7 +81,10 @@
   --band-l: 89%;
   --band-s-max: 70%;
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  /* The faces the names can be set in, by name, so the settings can show each */
+  --face-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --face-comic: "Comic Sans MS", "Comic Sans", "Comic Neue", "Chalkboard SE", cursive;
+  --font-display: var(--face-serif);
 
   /* Motion settles like a critically damped spring: quick, no overshoot.
      Nothing here bounces — a flick would earn that, a state change does not.
@@ -158,7 +161,7 @@
   src: url("fonts/source-serif-600-latin.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-:root[data-font="comic"] { --font-display: "Comic Sans MS", "Comic Sans", "Comic Neue", "Chalkboard SE", cursive; }
+:root[data-font="comic"] { --font-display: var(--face-comic); }
 :root[data-font="system"] { --font-display: var(--font); }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -1358,13 +1361,14 @@ html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-c
 
 /* Settings, laid out as the library is: the subjects in the column at the side, in place of the sections, the bar
    with the name, and under it the settings as rows between lines, a heading per subject, no cards and no icon
-   tiles. On a narrower window the list runs across under the bar. Everything is saved as it changes. */
+   tiles. The rows keep a reading width and stand in the middle of a wide page, the name in the bar over their
+   headings. On a narrower window the list runs across under the bar. Everything is saved as it changes. */
 #view-settings { display: flex; flex-direction: column; }
 .settings-title {
   display: flex; align-items: center; height: var(--h); margin: 0; color: var(--text);
   font: 600 var(--fs-xl)/1.3 var(--font-display); letter-spacing: -0.01em; white-space: nowrap;
 }
-.settings { max-width: 920px; padding: 4px 32px 40px; }
+.settings { max-width: 920px; margin: 0 auto; padding: 4px 32px 40px; }
 .settings-update {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
   margin: 20px 0 0; padding: 16px 20px; border-radius: var(--radius-lg); background: var(--selected);
@@ -1408,10 +1412,12 @@ html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-c
   border-bottom: 1px solid var(--divider);
 }
 #view-settings > .settings-nav a { flex: none; height: var(--h-sm); padding: 0 12px; font-size: var(--fs-sm); box-shadow: inset 0 0 0 1px var(--divider); }
-/* The bar first, then the strip of subjects under it */
-.settings-head { order: -1; }
+/* The bar first, then the strip of subjects under it. Its name stands over the headings of the rows: the column is
+   920 wide in what the scroll bar (12) leaves, the headings 40 into it, or 28 where the page is narrower */
+.settings-head { order: -1; padding-left: max(20px, calc((100% - 932px) / 2 + 40px)); }
 @container content (width < 1000px) {
   .settings { padding: 4px 20px 32px; }
+  .settings-head { padding-left: max(20px, calc((100% - 932px) / 2 + 28px)); }
 }
 .setting-group { border-top: 1px solid var(--divider); }
 .setting { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; min-height: 56px; padding: 12px 20px; }
@@ -1465,6 +1471,30 @@ html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-c
 }
 .theme-preview.system::after { display: none; }
 .theme-preview .half.dark b, .theme-preview .half.dark::after { left: 8px; }
+/* The faces and the pictures are chosen as the themes are, but their samples are in the page's own colours: an
+   album's name in the face over its artist in the small text, which is the system's whatever the face; the
+   drawing, the ASCII scene and an empty screen's words, its heading in the face now chosen */
+.font-preview, .art-preview {
+  display: grid; height: 64px; overflow: hidden; border-radius: var(--radius); background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--divider);
+}
+[data-font-choice="source-serif"] { --face: var(--face-serif); }
+[data-font-choice="comic"] { --face: var(--face-comic); }
+[data-font-choice="system"] { --face: var(--font); }
+.font-preview { align-content: center; gap: 2px; padding: 0 12px; }
+.font-preview b {
+  overflow: hidden; color: var(--text); font: 600 var(--fs-2xl)/1.25 var(--face); letter-spacing: -0.01em;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.font-preview small { color: var(--text-subtle); font-size: var(--fs-xs); }
+.art-preview { height: 104px; place-items: center; }
+.art-crayon { background: var(--field) url("art/crayon-library.webp") center / contain no-repeat; }
+[data-theme="dark"] .art-crayon { background-image: url("art/crayon-library-dark.webp"); }
+.art-preview .ascii { display: block; font-size: 8px; line-height: 1.18; white-space: pre; }
+.art-words { align-content: center; justify-items: center; gap: 6px; }
+.art-words b { color: var(--text); font: 600 var(--fs-base)/1.3 var(--font-display); }
+.art-words i { width: 56%; height: 6px; border-radius: var(--radius-sm); background: var(--divider); }
+.art-words i + i { width: 36%; }
 /* What the album and its first file will be called, with the rules above */
 .naming-preview {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 12px 20px 16px;
@@ -1475,6 +1505,11 @@ html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-c
 .setting-empty { margin: 0; padding: 16px 20px; color: var(--text-subtle); font-size: var(--fs-sm); border-top: 1px solid var(--divider); }
 @container content (max-width: 560px) {
   .theme-choices { grid-template-columns: minmax(0, 1fr); }
+}
+/* Three to a row on a page this narrow, the album's name and the scene are set smaller to fit their cards */
+@container content (560px < width < 760px) {
+  .font-preview b { font-size: var(--fs-lg); }
+  .art-preview .ascii { font-size: 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .switch, .switch::after { transition: none; }

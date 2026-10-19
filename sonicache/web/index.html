@@ -767,27 +767,48 @@
                       </button>
                     </div>
                   </div>
-                  <div class="setting">
+                  <!-- The faces and the pictures are chosen as the themes are, each by a sample of itself: an album's
+                       name in the face over its artist in the small text, which stays the system's; the drawing, the
+                       ASCII scene going round and an empty screen's words alone -->
+                  <div class="setting stacked">
                     <div class="setting-label">
-                      <p><label for="font">Шрифт названий</label></p>
+                      <p id="font-label">Шрифт названий</p>
                       <p class="setting-desc">Им набраны заголовки, названия альбомов и вкладки. Мелкий текст остаётся системным, чтобы легко читался</p>
                     </div>
-                    <select id="font" class="select">
-                      <option value="source-serif">Source Serif</option>
-                      <option value="comic">Comic Sans</option>
-                      <option value="system">Системный</option>
-                    </select>
-                  </div>
-                  <div class="setting">
-                    <div class="setting-label">
-                      <p><label for="art">Картинки на пустых экранах</label></p>
-                      <p class="setting-desc">Что показывать, пока список пуст: рисунок мелком, ASCII-арт с анимацией или только текст</p>
+                    <div id="font" class="theme-choices" role="radiogroup" aria-labelledby="font-label">
+                      <button type="button" role="radio" class="theme-choice" data-font-choice="source-serif">
+                        <span class="font-preview" aria-hidden="true"><b>Группа крови</b><small>Кино · 1988</small></span>
+                        <span class="theme-name">Source Serif</span>
+                      </button>
+                      <button type="button" role="radio" class="theme-choice" data-font-choice="comic">
+                        <span class="font-preview" aria-hidden="true"><b>Группа крови</b><small>Кино · 1988</small></span>
+                        <span class="theme-name">Comic Sans</span>
+                      </button>
+                      <button type="button" role="radio" class="theme-choice" data-font-choice="system">
+                        <span class="font-preview" aria-hidden="true"><b>Группа крови</b><small>Кино · 1988</small></span>
+                        <span class="theme-name">Системный</span>
+                      </button>
                     </div>
-                    <select id="art" class="select">
-                      <option value="crayon">Рисунок</option>
-                      <option value="ascii">ASCII-арт</option>
-                      <option value="none">Ничего</option>
-                    </select>
+                  </div>
+                  <div class="setting stacked">
+                    <div class="setting-label">
+                      <p id="art-label">Картинки на пустых экранах</p>
+                      <p class="setting-desc">Что показывать, пока список пуст</p>
+                    </div>
+                    <div id="art" class="theme-choices" role="radiogroup" aria-labelledby="art-label">
+                      <button type="button" role="radio" class="theme-choice" data-art-choice="crayon">
+                        <span class="art-preview art-crayon" aria-hidden="true"></span>
+                        <span class="theme-name">Рисунок мелком</span>
+                      </button>
+                      <button type="button" role="radio" class="theme-choice" data-art-choice="ascii">
+                        <span class="art-preview" data-scene="turntable" aria-hidden="true"><span class="ascii"></span></span>
+                        <span class="theme-name">ASCII-арт</span>
+                      </button>
+                      <button type="button" role="radio" class="theme-choice" data-art-choice="none">
+                        <span class="art-preview art-words" aria-hidden="true"><b>Музыки пока нет</b><i></i><i></i></span>
+                        <span class="theme-name">Только текст</span>
+                      </button>
+                    </div>
                   </div>
                   <div class="setting">
                     <span class="setting-label" id="language-label">Язык</span>
