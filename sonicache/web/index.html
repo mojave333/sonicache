@@ -151,12 +151,14 @@
 
     <div class="main">
       <section id="view-home" class="view" aria-label="Главная" hidden>
-        <!-- The greeting is the page's name in a bar like every page's, so the window's buttons stand in a bar here
-             too and what scrolls passes under the bar, not under them -->
+        <!-- A bar as every page has, so the window's buttons stand in a bar here too and what scrolls passes under the
+             bar, not under them. The greeting opens the page in large type; the bar is bare until it has scrolled
+             away, then it takes the greeting small and its line, as a page's name does in Apple Music -->
         <div class="library-head home-head">
-          <h1 class="settings-title home-greeting"></h1>
+          <p class="settings-title home-greeting" aria-hidden="true"></p>
         </div>
         <div class="home list-scroll">
+          <h1 class="home-hello home-greeting"></h1>
           <header class="home-top" hidden>
             <div class="home-feature" role="group" aria-labelledby="home-feature-title">
               <div class="home-feature-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>

@@ -1002,6 +1002,7 @@ function bindUi() {
   $("#library").addEventListener("keydown", onLibraryKey);
   $("#library").addEventListener("contextmenu", onLibraryContextMenu);
   $("#view-home").addEventListener("click", onHomeClick);
+  bindHomeBar();
   $("#search-library").addEventListener("click", onHomeClick);
   $(".album-more").addEventListener("click", onCardsClick);
   $("#library-cards").addEventListener("click", onCardsClick);
@@ -1177,7 +1178,8 @@ async function renderHome() {
     shown += row.length;
     $(".cards", section).replaceChildren(...row.map((item, index) => createCard(item, index)));
   }
-  $("#view-home .home-greeting").textContent = homeGreeting(); // the page's name in its bar, whatever the library holds
+  // The greeting opens the page, and stands small in its bar once scrolled away, whatever the library holds
+  for (const greeting of $$("#view-home .home-greeting")) greeting.textContent = homeGreeting();
   renderHomeTop(rows);
   $(".home-empty").hidden = shown > 0 || state.library.loading;
   drawAscii();
@@ -1237,6 +1239,16 @@ async function tintHomeFeature(feature, item) {
   feature.style.setProperty("--tint-h", tint.hue);
   feature.style.setProperty("--tint-s", `${tint.saturation}%`);
   feature.style.setProperty("--tint-a", "1");
+}
+
+// The Home's bar is bare while the greeting is in sight. Its line comes once the greeting starts under it, and the
+// greeting small in it once the large one has gone
+function bindHomeBar() {
+  const bar = $("#view-home .home-head");
+  new IntersectionObserver(([entry]) => {
+    bar.classList.toggle("lined", entry.intersectionRatio < 1);
+    bar.classList.toggle("titled", !entry.isIntersecting);
+  }, { root: $("#view-home .home"), threshold: [0, 1] }).observe($("#view-home .home-hello"));
 }
 
 function onHomeClick(event) {

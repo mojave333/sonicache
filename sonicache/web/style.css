@@ -838,7 +838,14 @@ html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-c
 .home-heading { margin: 16px 20px 0; font: 600 var(--fs-xl)/1.3 var(--font-display); }
 .home-cards { grid-template-rows: auto; grid-auto-rows: 0; row-gap: 0; overflow: hidden; padding: 12px 20px 0; margin-bottom: 8px; }
 .home-empty { position: static; min-height: 70vh; }
-/* Over the rows: the album to go on with, and a few to start from. The greeting is the page's name in its bar. */
+/* The greeting opens the page in large type, as an album's name does, and its bar is bare: no name and no line
+   until the page has scrolled under it (the script lights them) */
+.home-hello { margin: 8px 20px 0; font: 600 var(--fs-title)/1.15 var(--font-display); letter-spacing: -0.015em; }
+.home-head { border-bottom-color: transparent; transition: border-color var(--quick) ease-out; }
+.home-head.lined { border-bottom-color: var(--divider); }
+.home-head .home-greeting { opacity: 0; transition: opacity var(--quick) ease-out; }
+.home-head.titled .home-greeting { opacity: 1; }
+/* Over the rows: the album to go on with, and a few to start from */
 .home-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 12px; padding: 20px 20px 4px; }
 .home-feature {
   --wash: hsl(var(--tint-h, 0) clamp(0%, var(--tint-s, 0%), var(--band-s-max)) var(--band-l) / var(--tint-a, 0));
