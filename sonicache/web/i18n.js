@@ -621,9 +621,8 @@ const TRANSLATIONS = {
   "Рисунок мелком": "Crayon drawing",
   "ASCII-арт": "ASCII art",
   "Только текст": "Words only",
-  // The album the faces are shown on
-  "Группа крови": "In Rainbows",
-  "Кино · 1988": "Radiohead · 2007",
+  // The name the faces are shown on
+  "Джан Жарок": "In Rainbows",
   "Продвинутые": "Advanced",
   "Избранное": "Favourites",
   "Каталог (Ctrl+2)": "Catalogue (Ctrl+2)",
