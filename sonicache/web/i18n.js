@@ -621,8 +621,9 @@ const TRANSLATIONS = {
   "Рисунок мелком": "Crayon drawing",
   "ASCII-арт": "ASCII art",
   "Только текст": "Words only",
-  // The name the faces are shown on
-  "Джан Жарок": "In Rainbows",
+  // The song the faces are shown on
+  "Джан": "In Rainbows",
+  "Жарок · 2017": "Radiohead · 2007",
   "Продвинутые": "Advanced",
   "Избранное": "Favourites",
   "Каталог (Ctrl+2)": "Catalogue (Ctrl+2)",
