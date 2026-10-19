@@ -203,25 +203,24 @@ p { margin: 0; }
 .icon.sm { width: 16px; height: 16px; }
 
 /* Frame */
-/* The strip the window is held by across the top, then the column of sections at the side and the page beside it,
-   one row capped at the window height, so long lists scroll inside .list-scroll instead of stretching the whole
-   frame past the bottom edge. The strip and the column are the window's own colour round the page, as a frame,
-   and the page lies in it with a rounded corner, as a program's pane does. */
-:root { --side-w: 232px; }
+/* The column of sections at the side and the page beside it, both from the window's top edge to its foot, as in
+   Apple Music: one row capped at the window height, so long lists scroll inside .list-scroll instead of stretching
+   the whole frame past the bottom edge. The column is the window's own colour, the page the paper's, a line
+   between them. The pages' bars are all as tall (--bar-h, their line included), and the window's buttons stand at
+   the end of whichever bar is at the top. */
+:root { --side-w: 232px; --bar-h: 55px; }
 .app {
-  display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+  display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
   height: 100vh; background: var(--chrome);
 }
-.topbar { grid-column: 1 / -1; height: 44px; }
-/* With the system's frame there are no window's buttons to stand under, and nothing to hold the window by */
-html:not(.frameless) .topbar { display: none; }
 
-/* The sections: a word and its icon, the one in use on a shade, as the library's views are */
-.side { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* The sections: a word, the one in use on a shade, as the library's views are. The first stands level with the
+   words in the page's bar. */
+.side { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .side-pane { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .side-pane[hidden] { display: none; }
 .side-views { display: grid; gap: 2px; padding: 4px 12px 0; }
-html:not(.frameless) .side-pane > .side-views:first-child { padding-top: 12px; }
+.side-pane > .side-views:first-child { padding-top: calc((var(--bar-h) - 1px - var(--h)) / 2); }
 .side-foot { padding: 8px 12px 12px; }
 .side-view { position: relative; }
 .side-view > .icon { display: none; }
@@ -279,8 +278,12 @@ html:not(.frameless) .side-pane > .side-views:first-child { padding-top: 12px; }
   .side-view .nav-dot { position: absolute; top: 7px; right: 7px; margin: 0; }
 }
 /* The window's own buttons and edges, drawn when the program has no system frame (Windows).
-   They stand over every view, Now playing included, at the end of the strip at the top. */
-.window-controls { position: fixed; top: 0; right: 0; z-index: 60; display: flex; align-items: stretch; height: 44px; }
+   They stand over every view, Now playing included, at the end of the page's bar and as tall as it above its line;
+   the bars leave them room. */
+.window-controls {
+  position: fixed; top: 0; right: 0; z-index: 60; display: flex; align-items: stretch; height: calc(var(--bar-h) - 1px);
+}
+html.frameless :is(.library-head, .toolbar) { padding-right: calc(3 * 46px + 12px); }
 .win-btn { display: grid; place-items: center; width: 46px; height: 100%; color: var(--text-subtle); }
 .win-btn .icon { width: 16px; height: 16px; }
 .win-btn:hover { background: var(--hover); color: var(--text); }
@@ -299,20 +302,19 @@ html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-c
 
 /* The page. Columns react to its width, which the column at the side and a widened side panel narrow */
 .main {
-  grid-column: 2; grid-row: 2;
+  grid-column: 2; grid-row: 1;
   display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0; min-height: 0; overflow: clip;
   border-left: 1px solid var(--divider); background: var(--bg); container: content / inline-size;
 }
-html.frameless .main { border-top: 1px solid var(--divider); border-top-left-radius: var(--radius-lg); }
 .view { display: flex; flex-direction: column; min-height: 0; animation: view-in 180ms var(--ease-out); }
 @keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
 
 /* Toolbar */
 /* Controls keep their size and wrap onto a second line rather than being cut
-   off the right edge of a narrow window. */
+   off the right edge of a narrow window. As tall as the library's bar, so the window's buttons fit either. */
 .toolbar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px;
   border-bottom: 1px solid var(--divider);
 }
 .field {

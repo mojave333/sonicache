@@ -606,11 +606,15 @@ function toggleMaximized() {
   Promise.resolve(api().window_maximize()).then((on) => setMaximized(Boolean(on))).catch(() => {});
 }
 
-// A press on bare ground in the top bar (or the top of Now playing) takes the window by it; a second one fills the screen
+// The band across the top of the window, as tall as the pages' bars, is where a title bar would be, as in Apple
+// Music: a press on its bare ground (the column's head, a page's bar, the head of a page without one, the top of
+// Now playing) takes the window by it, and a second one fills the screen. What is clicked, typed in or dragged
+// keeps its own press; a click on bare ground still lands, the window moves only once the pointer does.
 function onFrameDown(event) {
-  if (event.button !== 0 || event.clientY > 44 || player.fullscreen) return; // the bar's height
-  if (!event.target.closest(".topbar, .now-view")) return;
-  if (event.target.closest("button, input, select, textarea, a, label, [role=button], [role=radio], .field")) return;
+  const band = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--bar-h")) || 55;
+  if (event.button !== 0 || event.clientY > band || player.fullscreen) return;
+  if (event.target.closest("button, input, select, textarea, a, label, img, dialog, [role=button], [role=radio], "
+    + "[role=option], .field, .menu, .card, .job, .track-item, .album-track, .library-row, .win-edge")) return;
   if (event.detail === 2) {
     toggleMaximized();
     return;
