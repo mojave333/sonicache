@@ -608,7 +608,7 @@ function toggleMaximized() {
 
 // A press on bare ground in the top bar (or the top of Now playing) takes the window by it; a second one fills the screen
 function onFrameDown(event) {
-  if (event.button !== 0 || event.clientY > 56 || player.fullscreen) return;
+  if (event.button !== 0 || event.clientY > 44 || player.fullscreen) return; // the bar's height
   if (!event.target.closest(".topbar, .now-view")) return;
   if (event.target.closest("button, input, select, textarea, a, label, [role=button], [role=radio], .field")) return;
   if (event.detail === 2) {

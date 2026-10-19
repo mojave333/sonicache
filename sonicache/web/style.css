@@ -163,8 +163,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 /* Where a name or a heading is written, not a row of data */
-.brand-name, .list-title, .empty-title, .card-title, .album-title,
-.artist-name, .confirm-title, .welcome-title { font-family: var(--font-display); }
+.list-title, .empty-title, .card-title, .album-title, .artist-name, .confirm-title, .welcome-title { font-family: var(--font-display); }
 [hidden] { display: none !important; }
 
 html, body { height: 100%; overflow: hidden; }
@@ -205,17 +204,14 @@ p { margin: 0; }
 /* The top bar, then the single row capped at the window height, so long lists
    scroll inside .list-scroll instead of stretching the whole frame past the bottom edge. */
 .app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 100vh; }
+/* A bar of the window's own height, as a program's title bar with tabs is, and the sections first in it: the
+   first word stands over the pages' own left edge (4 of the bar and 16 of the word's room make the pages' 20) */
 .topbar {
-  position: relative; display: flex; align-items: center; height: 56px; padding: 0;
+  position: relative; display: flex; align-items: center; height: 44px; padding: 0;
   background: var(--chrome); border-bottom: 1px solid var(--divider);
 }
-.topbar-left { display: flex; flex: none; align-items: center; align-self: stretch; padding-left: 24px; }
+.topbar-left { display: flex; flex: none; align-items: center; align-self: stretch; padding-left: 4px; }
 .topbar-right { display: flex; align-items: center; justify-content: flex-end; margin-left: auto; padding-right: 24px; }
-.brand { display: flex; align-items: center; gap: 12px; margin-right: 24px; }
-.logo { display: grid; place-items: center; flex: none; color: var(--text); }
-:root[data-theme="dark"] .logo { color: #FFFFFF; }
-.logo img { width: 48px; height: 48px; }
-.brand-name { font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.02em; }
 .topnav { position: relative; display: flex; align-items: stretch; align-self: stretch; gap: 4px; }
 /* The sections are words, and the one in use is told by a line under it; the line
    sits on the bar's own edge, so the bar and the page below it share it */
@@ -265,7 +261,7 @@ p { margin: 0; }
 }
 /* The window's own buttons and edges, drawn when the program has no system frame (Windows).
    They stand over every view, Now playing included, and the bar leaves them room. */
-.window-controls { position: fixed; top: 0; right: 0; z-index: 60; display: flex; align-items: stretch; height: 56px; }
+.window-controls { position: fixed; top: 0; right: 0; z-index: 60; display: flex; align-items: stretch; height: 44px; }
 .win-btn { display: grid; place-items: center; width: 46px; height: 100%; color: var(--text-subtle); }
 .win-btn .icon { width: 16px; height: 16px; }
 .win-btn:hover { background: var(--hover); color: var(--text); }
@@ -283,13 +279,10 @@ html.frameless .topbar-right { padding-right: 150px; }
 /* Filling the screen or the whole of it for Now playing, there is nothing to size by and no room for the buttons */
 html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-controls { display: none; }
 html.window-full .topbar-right { padding-right: 24px; }
-/* A narrow window drops the name and tightens the sections, so the four of them fit beside the
-   window's buttons: the mark stays */
+/* A narrow window tightens the sections, so the four of them fit beside the window's buttons */
 @media (max-width: 860px) {
-  .topbar-left { padding-left: 16px; }
+  .topbar-left { padding-left: 8px; }
   .topbar-right { padding-right: 16px; }
-  .brand { margin-right: 8px; }
-  .brand-name { display: none; }
   .nav-item { padding: 0 12px; }
   .nav-ring { right: -4px; }
 }
