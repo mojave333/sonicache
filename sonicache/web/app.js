@@ -1279,7 +1279,7 @@ function placeSideLists(watch = true) {
   setSyncSideOpen(false, false);
   if (wide) {
     $("#side-library").append($("#library-side"));
-    $("#side-devices").append($("#sync-side"));
+    $("#side-device-list").append($("#sync-side"));
     $("#side-settings").append($("#settings-nav"));
   } else {
     $("#view-library").prepend($("#library-side"));
@@ -1308,11 +1308,16 @@ function renderSidePane() {
   if (left) [...$$("#settings-back, [aria-current=page]", pane)].find((item) => item.offsetParent)?.focus();
 }
 
-// With nothing plugged in and the phone server off, the devices are one row in the column; their list comes back
-// with the first of them, and on their page, where the ways to a phone are chosen from it
+// Synchronisation's row in the column, and its list unfolded under it while a device is plugged in, the phone
+// server is on or the page is on screen. The row is lit while the page says what to plug in; a device's or the
+// phone's own page lights its row in the list instead.
 function foldDevices() {
-  const { items, wifi } = state.devices;
-  $("#side").classList.toggle("devices-off", !items.length && !wifi?.on && state.view !== "sync");
+  const { items, wifi, open } = state.devices;
+  const page = state.view === "sync";
+  $("#side").classList.toggle("devices-off", !items.length && !wifi?.on && !page);
+  const row = $("#side-sync");
+  if (page && !open) row.setAttribute("aria-current", "page");
+  else row.removeAttribute("aria-current");
 }
 
 function showView(name) {

@@ -121,12 +121,14 @@
         </div>
         <div class="side-lists">
           <div id="side-library"></div>
-          <!-- With nothing plugged in and the phone server off, the devices are this one row; their list comes
-               back with the first of them, and on their page, where its ways to a phone are chosen -->
+          <!-- Synchronisation is a row, and the devices with the ways to a phone a list that unfolds under it, as
+               the genres do under theirs: open while a device is plugged in, the phone server is on or the page is
+               on screen, folded away otherwise. The list is moved in by the script in a wide window. -->
           <div id="side-devices">
             <button type="button" class="side-item" id="side-sync" data-view="sync">
               <svg class="icon sm" aria-hidden="true"><use href="#i-device-mobile"/></svg><span class="side-name">Синхронизация</span>
             </button>
+            <div id="side-device-list"></div>
           </div>
         </div>
         <div class="side-views side-foot">
