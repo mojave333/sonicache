@@ -1216,8 +1216,8 @@ function renderHomeTop(rows) {
     if (item !== lead && !quick.includes(item)) quick.push(item);
     if (quick.length === 6) break;
   }
-  // One tile alone under the album at the head looked left over: they come two or more
-  if (quick.length < 2) quick.length = 0;
+  // One tile alone under the album at the head looked left over: they come in twos, so their rows are whole
+  quick.length -= quick.length % 2;
   $(".home-quick", top).replaceChildren(...quick.map((item, index) => {
     const card = createCard(item, index);
     card.classList.add("quick");
