@@ -121,7 +121,13 @@
         </div>
         <div class="side-lists">
           <div id="side-library"></div>
-          <div id="side-devices"></div>
+          <!-- With nothing plugged in and the phone server off, the devices are this one row; their list comes
+               back with the first of them, and on their page, where its ways to a phone are chosen -->
+          <div id="side-devices">
+            <button type="button" class="side-item" id="side-sync" data-view="sync">
+              <svg class="icon sm" aria-hidden="true"><use href="#i-device-mobile"/></svg><span class="side-name">Синхронизация</span>
+            </button>
+          </div>
         </div>
         <div class="side-views side-foot">
           <button type="button" class="side-item side-view" data-view="settings" title="Настройки (Ctrl+4)" aria-label="Настройки">
@@ -388,9 +394,12 @@
           <button type="button" class="side-item" data-side="artists"><svg class="icon sm" aria-hidden="true"><use href="#i-headphones"/></svg><span class="side-name">Исполнители</span><span class="side-n"></span></button>
           <button type="button" class="side-item" id="side-genres" aria-expanded="false" aria-controls="side-genre-list"><svg class="icon sm" aria-hidden="true"><use href="#i-tag"/></svg><span class="side-name">Жанры</span><svg class="icon sm side-chevron" aria-hidden="true"><use href="#i-chevron"/></svg><span class="side-n"></span></button>
           <div id="side-genre-list" class="side-sub" hidden></div>
-          <h4 class="side-head side-link" data-side="playlists" role="button" tabindex="0">Плейлисты</h4>
+          <!-- A new playlist is the plus by the heading, not a row of its own under the list -->
+          <div class="side-head-row">
+            <h4 class="side-head side-link" data-side="playlists" role="button" tabindex="0">Плейлисты</h4>
+            <button type="button" class="side-head-add" id="side-playlist-new" title="Новый плейлист" aria-label="Новый плейлист"><svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg></button>
+          </div>
           <div id="side-playlists"></div>
-          <button type="button" class="side-item side-add" id="side-playlist-new"><svg class="icon sm" aria-hidden="true"><use href="#i-plus"/></svg><span class="side-name">Новый плейлист</span></button>
         </nav>
         <!-- One bar: what is on the screen and how much of it, then the order, the view, the filter and the buttons -->
         <div class="library-head">

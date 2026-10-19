@@ -1303,8 +1303,16 @@ function renderSidePane() {
   $("#side-main").hidden = settings;
   $("#side-settings").hidden = !settings;
   side.dataset.view = state.view;
+  foldDevices();
   // A key that changed the pane leaves the focus in it, on what is now in use
   if (left) [...$$("#settings-back, [aria-current=page]", pane)].find((item) => item.offsetParent)?.focus();
+}
+
+// With nothing plugged in and the phone server off, the devices are one row in the column; their list comes back
+// with the first of them, and on their page, where the ways to a phone are chosen from it
+function foldDevices() {
+  const { items, wifi } = state.devices;
+  $("#side").classList.toggle("devices-off", !items.length && !wifi?.on && state.view !== "sync");
 }
 
 function showView(name) {
@@ -3204,10 +3212,11 @@ function bindLibrarySide() {
     const library = state.library;
     const target = event.target;
     // Opening the genres is a step on the way; anything else chosen closes the menu, and from another section in
-    // the column at the side it opens the library at what was chosen
+    // the column at the side it opens the library at what was chosen. A new playlist asks its name where it is,
+    // and goes to the library once it has one.
     if (target.closest("button, [data-side]") && !target.closest("#side-genres")) {
       setLibrarySideOpen(false);
-      if (state.view !== "library") showView("library");
+      if (state.view !== "library" && !target.closest("#side-playlist-new")) showView("library");
     }
     const genre = target.closest("[data-genre]");
     if (genre) {
@@ -6280,6 +6289,7 @@ function bindPlaylists() {
     const entry = await api().save_playlist(null, name, []);
     state.playlists.stale = true;
     await loadPlaylists(true);
+    if (state.view !== "library") showView("library"); // asked from the column at the side, over another section
     openPlaylist(entry.id);
   });
   $("#playlist-import").addEventListener("click", async () => {
@@ -7315,10 +7325,14 @@ function renderDeviceSide() {
     renderDeviceRows();
   }
   for (const item of $$("#sync-side .side-item")) {
-    const current = item.id === "sync-wifi" ? open?.kind === "wifi" : open?.kind === "device" && item.dataset.device === open.id;
+    // With nothing plugged in, the page says what to plug in, and "nothing connected" is its row
+    const current = item.id === "sync-wifi" ? open?.kind === "wifi"
+      : item.id === "sync-none-side" ? !open
+      : open?.kind === "device" && item.dataset.device === open.id;
     if (current) item.setAttribute("aria-current", "page");
     else item.removeAttribute("aria-current");
   }
+  foldDevices();
   renderSyncHead();
   // What the lists offer comes from the library and the playlists, which may be read only now
   const shown = `${state.library.items.length}|${state.playlists.items.length}`;

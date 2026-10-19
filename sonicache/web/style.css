@@ -230,6 +230,12 @@ html:not(.frameless) .side-pane > .side-views:first-child { padding-top: 12px; }
 #side-devices .lib-side { padding: 20px 0 8px; }
 /* There the other ways to a phone follow the devices under their one heading */
 .side #sync-side .side-head:not(:first-child) { display: none; }
+/* With nothing plugged in and the phone server off, one row stands for them, where their heading would be */
+#side-sync { display: none; margin-top: 20px; }
+.side.devices-off #side-sync { display: flex; }
+.side.devices-off #side-devices .lib-side { display: none; }
+/* The library's counts are its page's to give: here they were a column of figures beside every word */
+.side #library-side .side-n { display: none; }
 /* Their rows are lit only while their page is on screen */
 .side:not([data-view="library"]) #library-side :is([aria-current="page"], [aria-pressed="true"]):not(:hover),
 .side:not([data-view="sync"]) #sync-side [aria-current="page"]:not(:hover) {
@@ -266,6 +272,7 @@ html:not(.frameless) .side-pane > .side-views:first-child { padding-top: 12px; }
   .side-view { justify-content: center; width: 40px; height: 40px; padding: 0; }
   .side-view .icon { width: 20px; height: 20px; }
   .side-view .side-name { display: none; }
+  .side-lists { visibility: hidden; } /* the room between the sections and the settings stays */
   .side-view .nav-ring { position: absolute; top: 4px; right: 4px; margin: 0; }
   .side-view .nav-dot { position: absolute; top: 7px; right: 7px; margin: 0; }
 }
@@ -731,6 +738,15 @@ html.frameless .main { border-top: 1px solid var(--divider); border-top-left-rad
   text-transform: uppercase;
 }
 .side-head:not(:first-child) { margin-top: 20px; }
+/* A heading with its action at the end of the line: the playlists' plus */
+.side-head-row { display: flex; align-items: center; margin: 20px 0 4px; }
+.side-head-row > .side-head { flex: 1; margin: 0 0 0 8px; }
+.side-head-add {
+  display: grid; place-items: center; flex: none; width: 24px; height: 24px; margin-right: 4px;
+  border-radius: var(--radius-sm); color: var(--text-subtle); transition: background-color var(--press) ease-out;
+}
+.side-head-add:hover { background: var(--hover); color: var(--text); }
+.side-head-add:active { background: var(--selected); }
 .side-link { border-radius: var(--radius-sm); }
 .side-link:hover, .side-link[aria-current="page"] { color: var(--text); }
 .side-item {
@@ -768,8 +784,8 @@ html.frameless .main { border-top: 1px solid var(--divider); border-top-left-rad
   display: block; opacity: 1; transform: none; pointer-events: auto; transition-duration: var(--pop);
 }
 @starting-style { :is(#view-library, #view-sync).side-open > .lib-side { opacity: 0; transform: scale(0.96); } }
-:is(#view-library, #view-sync) > .lib-side .side-head:first-child { display: none; }
-:is(#view-library, #view-sync) > .lib-side .side-head { margin-top: 12px; }
+:is(#view-library, #view-sync) > .lib-side > .side-head:first-child { display: none; }
+:is(#view-library, #view-sync) > .lib-side > :is(.side-head, .side-head-row) { margin-top: 12px; }
 /* A page narrower than that tells the order by its icon alone */
 @container content (width < 1000px) {
   #library-sort-label { display: none; }
