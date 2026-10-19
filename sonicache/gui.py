@@ -161,6 +161,9 @@ class Api:
         self._tray: tray.Tray | None = None
         self._thumbbar: thumbbar.ThumbBar | None = None  # the player's buttons under the taskbar picture
         self._media: mediacontrols.MediaControls | None = None  # the track in Windows' own media controls
+        # Each of the two is made once: the page's calls come on threads of their own, two at once at the start,
+        # and a second one made and dropped left Windows calling into its freed procedures, which ended the program
+        self._extras_lock = threading.Lock()
         self._presence = presence.Presence(self._web_cover)  # what plays, on the Discord profile
         self._discord = False  # whether the person wants it shown there
         self._now: dict | None = None  # what plays, as the player last said
@@ -1169,19 +1172,19 @@ class Api:
         The same goes to Windows' media controls, with the title and the cover."""
         if not thumbbar.SUPPORTED or self._window is None:
             return
-        if self._media is None and buttons and mediacontrols.SUPPORTED:
-            self._media = mediacontrols.MediaControls(self._window.native.Handle.ToInt64(), self._media_button)
-        if self._media is not None:
-            self._media.show(buttons)
-        if self._thumbbar is None:
-            if not buttons:
-                return
-            try:
-                self._thumbbar = thumbbar.ThumbBar(self._window.native.Handle.ToInt64(), self._thumbbar_click)
-            except Exception as e:  # a picture on the taskbar is never worth a failed call
-                logs.log.debug("кнопки на панели задач: %s", e)
-                return
-        self._thumbbar.show(buttons)
+        with self._extras_lock:
+            if self._media is None and buttons and mediacontrols.SUPPORTED:
+                self._media = mediacontrols.MediaControls(self._window.native.Handle.ToInt64(), self._media_button)
+            if self._thumbbar is None and buttons:
+                try:
+                    self._thumbbar = thumbbar.ThumbBar(self._window.native.Handle.ToInt64(), self._thumbbar_click)
+                except Exception as e:  # a picture on the taskbar is never worth a failed call
+                    logs.log.debug("кнопки на панели задач: %s", e)
+            media, bar = self._media, self._thumbbar
+        if media is not None:
+            media.show(buttons)
+        if bar is not None:
+            bar.show(buttons)
 
     def now_playing(self, track: dict | None) -> None:
         """What plays, for the Discord profile: the track with how far into it
