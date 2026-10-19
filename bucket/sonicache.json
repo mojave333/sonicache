@@ -1,0 +1,35 @@
+{
+    "version": "1.0.0",
+    "description": "Downloads albums, playlists and tracks from Spotify, Apple Music, Deezer, YouTube, SoundCloud and Bandcamp links, or by name, with tags, covers and lyrics; also a library and player for the whole collection",
+    "homepage": "https://github.com/mojave333/sonicache",
+    "license": "GPL-2.0-or-later",
+    "notes": "The program updates itself only when installed from its own installer; here, run: scoop update sonicache",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/mojave333/sonicache/releases/download/v1.0.0/Sonicache-v1.0.0-windows-x64.zip",
+            "hash": "1bc226b47a9bdeab67cc773f6cf02d2d3f81de6437887d5b5c3c1151e750dc69"
+        }
+    },
+    "bin": [
+        [
+            "Sonicache-cli.exe",
+            "sonicache"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "Sonicache.exe",
+            "Sonicache"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/mojave333/sonicache"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/mojave333/sonicache/releases/download/v$version/Sonicache-v$version-windows-x64.zip"
+            }
+        }
+    }
+}

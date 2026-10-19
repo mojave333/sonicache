@@ -1,0 +1,35 @@
+# Maintainer: mojave333 <https://github.com/mojave333>
+pkgname=sonicache-bin
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Music downloader, library and player: albums, playlists and tracks by link or by name, with tags, covers and lyrics"
+arch=('x86_64')
+url="https://github.com/mojave333/sonicache"
+license=('GPL-2.0-or-later')
+provides=('sonicache')
+conflicts=('sonicache')
+depends=('alsa-lib' 'libglvnd' 'libxcomposite' 'libxdamage' 'libxkbcommon-x11' 'libxkbfile' 'libxrandr' 'libxtst' 'nss' 'xcb-util-cursor' 'xcb-util-image' 'xcb-util-keysyms' 'xcb-util-renderutil' 'xcb-util-wm')
+options=('!strip' '!debug')
+source=("Sonicache-v${pkgver}-linux-x64.tar.xz::${url}/releases/download/v${pkgver}/Sonicache-v${pkgver}-linux-x64.tar.xz"
+        "sonicache.png::https://raw.githubusercontent.com/mojave333/sonicache/v${pkgver}/docs/logo.png")
+sha256sums=('835c88216e2502b87021577bfe096b085755d2758ffe8cc78c87d61f54b6e341'
+            'e60bc0f81f392448bd2961f393e47ed2b5e580021a8ff0cc61e51ad286edebeb')
+
+package() {
+  install -d "$pkgdir/opt"
+  cp -a Sonicache "$pkgdir/opt/sonicache"
+  install -d "$pkgdir/usr/bin"
+  ln -s /opt/sonicache/Sonicache-cli "$pkgdir/usr/bin/sonicache"
+  ln -s /opt/sonicache/Sonicache "$pkgdir/usr/bin/sonicache-window"
+  install -Dm644 sonicache.png "$pkgdir/usr/share/pixmaps/sonicache.png"
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/sonicache.desktop" <<END
+[Desktop Entry]
+Type=Application
+Name=Sonicache
+Comment=Music downloader, library and player
+Exec=/opt/sonicache/Sonicache
+Icon=sonicache
+Categories=AudioVideo;Audio;Player;Network;
+Terminal=false
+END
+}
