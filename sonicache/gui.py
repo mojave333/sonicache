@@ -495,7 +495,9 @@ class Api:
         Deezer cannot be reached.
         """
         names = [str(name) for name in artists or [] if str(name).strip()][:catalog.HOME_ARTISTS]
-        key = "|".join(name.casefold() for name in names)
+        # "2": the first screen has the chart's tracks and artists and the editors' picks too, and an
+        # answer kept from before them is asked again rather than shown without them
+        key = "|".join(["2", *(name.casefold() for name in names)])
         path = logs.data_dir() / CATALOGUE_FILE
         with _ARTIST_LOCK:
             kept = logs.read_json(path)

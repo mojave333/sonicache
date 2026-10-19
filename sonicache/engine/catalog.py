@@ -31,10 +31,13 @@ from .sources import _names, _thumbnail
 
 LIMITS = {"album": 24, "track": 20, "artist": 8}
 # The Catalogue before anything is asked: the albums in a row, how many of the library's artists
-# are looked up for what is new from them, and how far back "new" goes
+# are looked up for what is new from them, and how far back "new" goes; the chart's tracks and
+# artists shown beside the albums
 HOME_ALBUMS = 24
 HOME_ARTISTS = 12
 FRESH_DAYS = 365
+HOME_TRACKS = 12
+HOME_CHART_ARTISTS = 16
 _KINDS = {"album": "album", "single": "single", "ep": "ep", "compile": "compilation", "compilation": "compilation"}
 _log = log.getChild("search")
 # The kinds of release a discography download takes: singles are mostly songs
@@ -65,31 +68,50 @@ def search(query: str) -> dict:
                              error=e) from e
 
 
+# Deezer's lists on the Catalogue's first screen, beside what is new from the library's artists:
+# where each comes from, what it holds and how many of it are shown
+_HOME_LISTS = {
+    "popular": ("chart/0/albums", "album", HOME_ALBUMS),
+    "picks": ("editorial/0/selection", "album", HOME_ALBUMS),
+    "tracks": ("chart/0/tracks", "track", HOME_TRACKS),
+    "artists": ("chart/0/artists", "artist", HOME_CHART_ARTISTS),
+}
+
+
 def home(artists: list[str], known: dict[str, str] | None = None, today: datetime.date | None = None) -> dict:
-    """What the Catalogue shows before a word is typed: the albums Deezer's chart lists, and
-    the newest releases of the artists the library has, the ones it does not hold yet.
+    """What the Catalogue shows before a word is typed: the newest releases of the artists the
+    library has, the ones it does not hold yet; the albums, tracks and artists Deezer's chart
+    lists; and the albums Deezer's editors pick.
 
     `known` maps an artist's name, as _norm writes it, to the id Deezer gave it; it is
     filled in here as artists are found, so the caller can keep it and not ask again.
-    Where Deezer does not answer at all there is nothing to show, and the answer says so.
-    The chart is the one Deezer draws for the country the request comes from.
+    A list Deezer does not give is left empty and the rest are shown; where it does not
+    answer at all there is nothing to show, and the answer says so. The chart is the one
+    Deezer draws for the country the request comes from.
     """
     known = known if known is not None else {}
     today = today or datetime.date.today()
     names = list(dict.fromkeys(str(name).strip() for name in artists if str(name).strip()))[:HOME_ARTISTS]
-    try:
-        popular = [_deezer_album(item) for item in _deezer("chart/0/albums", limit=HOME_ALBUMS)]
-    except (OSError, ValueError) as e:
-        _log.warning("Deezer не отдал чарт: %s", e)
-        popular = None
     cutoff = (today - datetime.timedelta(days=FRESH_DAYS)).isoformat()
     ceiling = (today + datetime.timedelta(days=7)).isoformat()  # an album announced for next week is news too
     with ThreadPoolExecutor(max_workers=4) as pool:
+        asked = {key: pool.submit(_home_list, *source) for key, source in _HOME_LISTS.items()}
         found = list(pool.map(lambda name: _fresh_of(name, known, cutoff, ceiling), names))
+        lists = {key: future.result() for key, future in asked.items()}
     fresh = _newest_first([release for releases in found for release in releases])[:HOME_ALBUMS]
-    if popular is None and not fresh:
+    if all(items is None for items in lists.values()) and not fresh:
         raise SourceError.of("offline", "Каталог не открылся: Deezer не ответил")
-    return {"service": "Deezer", "popular": popular or [], "fresh": fresh}
+    return {"service": "Deezer", **{key: items or [] for key, items in lists.items()}, "fresh": fresh}
+
+
+def _home_list(path: str, kind: str, limit: int) -> list[dict] | None:
+    """One of Deezer's lists for the first screen, as cards; None where Deezer does not give it."""
+    shape = {"album": _deezer_album, "track": _deezer_track, "artist": _deezer_artist}[kind]
+    try:
+        return [shape(item) for item in _deezer(path, limit=limit)]
+    except (OSError, ValueError) as e:
+        _log.warning("Deezer не отдал %s: %s", path, e)
+        return None
 
 
 def _fresh_of(name: str, known: dict[str, str], cutoff: str, ceiling: str) -> list[dict]:

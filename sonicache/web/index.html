@@ -151,9 +151,13 @@
 
     <div class="main">
       <section id="view-home" class="view" aria-label="Главная" hidden>
+        <!-- The greeting is the page's name in a bar like every page's, so the window's buttons stand in a bar here
+             too and what scrolls passes under the bar, not under them -->
+        <div class="library-head home-head">
+          <h1 class="settings-title home-greeting"></h1>
+        </div>
         <div class="home list-scroll">
           <header class="home-top" hidden>
-            <h1 class="home-greeting"></h1>
             <div class="home-feature" role="group" aria-labelledby="home-feature-title">
               <div class="home-feature-cover cover"><img alt="" hidden><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></div>
               <div class="home-feature-text">
@@ -276,8 +280,10 @@
       </section>
 
       <section id="view-search" class="view" aria-label="Каталог" hidden>
-        <!-- The Catalogue's own field, as the Download has its link and the Library its filter -->
-        <div class="toolbar">
+        <!-- The page's name, as every page's bar has it, and the Catalogue's own field, as the Download has its link
+             and the Library its filter -->
+        <div class="toolbar catalogue-bar">
+          <h1 class="settings-title">Каталог</h1>
           <div class="field" role="search">
             <svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg>
             <input id="search-input" type="search" autocomplete="off" spellcheck="false"
@@ -311,6 +317,27 @@
                   <button type="button" class="btn ghost search-more" data-more="fresh">Все</button>
                 </div>
                 <div class="cards home-cards" id="home-fresh"></div>
+              </section>
+              <!-- The chart's songs, a few to a column, as rows to download one by one -->
+              <section class="search-section" id="home-tracks-section" hidden>
+                <div class="search-row-head">
+                  <h3 class="search-head">Популярные треки <span class="search-note">чарт Deezer</span></h3>
+                </div>
+                <ol class="rows search-tracks catalogue-tracks" id="home-tracks"></ol>
+              </section>
+              <section class="search-section" id="home-picks-section" hidden>
+                <div class="search-row-head">
+                  <h3 class="search-head">Выбор редакции <span class="search-note">Deezer</span></h3>
+                  <button type="button" class="btn ghost search-more" data-more="picks">Все</button>
+                </div>
+                <div class="cards home-cards" id="home-picks"></div>
+              </section>
+              <section class="search-section" id="home-artists-section" hidden>
+                <div class="search-row-head">
+                  <h3 class="search-head">Популярные исполнители <span class="search-note">чарт Deezer</span></h3>
+                  <button type="button" class="btn ghost search-more" data-more="artists">Все</button>
+                </div>
+                <div class="cards artists search-artists home-cards" id="home-artists"></div>
               </section>
               <section class="search-section" id="home-popular-section" hidden>
                 <div class="search-row-head">

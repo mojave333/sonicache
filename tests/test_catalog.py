@@ -169,10 +169,18 @@ class TestHome:
                           "release_date": date, "record_type": kind, "cover_medium": "https://cdn.test/c.jpg"}
                          for number, title, date, kind in items]}
 
+    TRACKS = {"data": [{"id": 7, "title": "Hit", "duration": 200, "link": "https://www.deezer.com/track/7",
+                        "artist": {"name": "Singer"}, "album": {"title": "Hits", "cover_small": "s"}}]}
+    ARTISTS = {"data": [{"id": 8, "name": "Singer", "picture_medium": "p", "link": "https://www.deezer.com/artist/8"}]}
+    PICKS = {"data": [{"id": 9, "title": "Picked", "record_type": "album", "artist": {"name": "Band"}}]}
+
     @pytest.fixture
     def answered(self, deezer):
         answers, asked = deezer
         answers["chart/0/albums"] = self.CHART
+        answers["chart/0/tracks"] = self.TRACKS
+        answers["chart/0/artists"] = self.ARTISTS
+        answers["editorial/0/selection"] = self.PICKS
         answers["search/artist"] = lambda name: {"data": [
             {"id": 399, "name": name, "link": "x", "nb_fan": 10}]}
         answers["artist/399/albums"] = self.releases(
@@ -219,15 +227,29 @@ class TestHome:
         catalog.home([f"Artist {number}" for number in range(30)], today=self.TODAY)
         assert sum(1 for path, _ in asked if path == "search/artist") == catalog.HOME_ARTISTS
 
+    def test_the_chart_s_tracks_and_artists_and_the_editors_picks_come_beside_the_albums(self, answered):
+        home = catalog.home([], today=self.TODAY)
+        assert [(track["title"], track["artist"], track["album"]) for track in home["tracks"]] == [("Hit", "Singer", "Hits")]
+        assert [artist["name"] for artist in home["artists"]] == ["Singer"]
+        assert [(album["title"], album["artist"], album["link"]) for album in home["picks"]] == [
+            ("Picked", "Band", "https://www.deezer.com/album/9")]
+
     def test_with_the_chart_down_what_is_new_is_still_shown(self, answered):
         answers, _ = answered
         answers["chart/0/albums"] = urllib.error.URLError("down")
         home = catalog.home(["Radiohead"], today=self.TODAY)
         assert home["popular"] == [] and len(home["fresh"]) == 3
 
+    def test_a_list_deezer_does_not_give_is_empty_and_the_others_are_shown(self, answered):
+        answers, _ = answered
+        answers["chart/0/tracks"] = urllib.error.URLError("down")
+        home = catalog.home([], today=self.TODAY)
+        assert home["tracks"] == [] and home["popular"] and home["artists"] and home["picks"]
+
     def test_with_nothing_at_all_the_answer_is_an_error_not_an_empty_page(self, answered):
         answers, _ = answered
-        answers["chart/0/albums"] = urllib.error.URLError("down")
+        for path in ("chart/0/albums", "chart/0/tracks", "chart/0/artists", "editorial/0/selection"):
+            answers[path] = urllib.error.URLError("down")
         with pytest.raises(SourceError):
             catalog.home([], today=self.TODAY)
 

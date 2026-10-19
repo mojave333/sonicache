@@ -1175,6 +1175,7 @@ async function renderHome() {
     shown += row.length;
     $(".cards", section).replaceChildren(...row.map((item, index) => createCard(item, index)));
   }
+  $("#view-home .home-greeting").textContent = homeGreeting(); // the page's name in its bar, whatever the library holds
   renderHomeTop(rows);
   $(".home-empty").hidden = shown > 0 || state.library.loading;
   drawAscii();
@@ -1196,7 +1197,6 @@ function renderHomeTop(rows) {
   const lead = rows.recent[0] || rows.favourites[0] || rows.added[0];
   top.hidden = !lead;
   if (!lead) return;
-  $(".home-greeting", top).textContent = homeGreeting();
   const feature = $(".home-feature", top);
   const changed = feature.dataset.path !== lead.path;
   feature.dataset.path = lead.path;
@@ -4364,21 +4364,27 @@ function refreshCatalogue() {
   else loadCatalogueHome({ force: true });
 }
 
-// The rows are cards like the search's own, so a click on one does what a click there does; what the
-// library holds already is left out of what is new. Under a cover here only whose it is and the year:
-// the kind and the tracks are on the album's page
+// The rows are cards and rows like the search's own, so a click on one does what a click there does; what
+// the library holds already is left out of what is new. Under a cover here only whose it is and the year:
+// the kind and the tracks are on the album's page. In order: what is new from one's own artists, the chart's
+// songs, the editors' picks, the chart's artists and its albums.
 function renderCatalogueHome() {
   const data = state.search.home.data;
-  const rows = { fresh: (data?.fresh || []).filter((item) => !inLibrary(item)), popular: data?.popular || [] };
-  let shown = 0;
-  for (const [kind, items] of Object.entries(rows)) {
-    $(`#home-${kind}-section`).hidden = !items.length;
-    $(`#home-${kind}`).replaceChildren(...items.map((item, index) => {
+  const albums = { fresh: (data?.fresh || []).filter((item) => !inLibrary(item)), picks: data?.picks || [], popular: data?.popular || [] };
+  const lists = {
+    ...Object.fromEntries(Object.entries(albums).map(([kind, items]) => [kind, items.map((item, index) => {
       const card = createSearchAlbum(item, index);
       $(".card-sub", card).textContent = [item.artist, item.year].filter(Boolean).join(" · ");
       return card;
-    }));
-    shown += items.length;
+    })])),
+    tracks: (data?.tracks || []).map(createSearchTrack),
+    artists: (data?.artists || []).map(createSearchArtist),
+  };
+  let shown = 0;
+  for (const [kind, nodes] of Object.entries(lists)) {
+    $(`#home-${kind}-section`).hidden = !nodes.length;
+    $(`#home-${kind}`).replaceChildren(...nodes);
+    shown += nodes.length;
   }
   return shown;
 }
