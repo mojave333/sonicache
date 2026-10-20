@@ -16,7 +16,7 @@ No command line is needed.
 
 1. Sign up at [dash.cloudflare.com](https://dash.cloudflare.com); the free plan is enough
    (100,000 requests a day, where an album takes one or two).
-2. **Workers & Pages → Create → Create Worker**, name it `trackhound-relay`, and
+2. **Workers & Pages → Create → Create Worker**, name it `sonicache-relay`, and
    **Deploy** the "Hello World" it offers.
 3. **Edit code**, replace everything with the contents of `worker.js`, and **Deploy**.
 4. In the worker's settings, set **Placement** to **Region → Amazon Web Services →
@@ -24,7 +24,7 @@ No command line is needed.
    comes in, so Spotify sees it coming from Germany and never from the country it refuses.
    Its answers say so in a `cf-placement: remote-FRA` header. **Smart** placement also
    moves it, but only once Cloudflare has watched some traffic.
-5. Open `https://trackhound-relay.<your-subdomain>.workers.dev/?kind=album&id=2noRn2Aes5aoNVsU6iWThc`.
+5. Open `https://sonicache-relay.<your-subdomain>.workers.dev/?kind=album&id=2noRn2Aes5aoNVsU6iWThc`.
    A JSON with `"entity"` and Daft Punk's *Discovery* in it means it works.
 
 With Node.js the same takes one command in this folder, with [`wrangler.toml`](wrangler.toml)
