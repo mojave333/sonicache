@@ -6,7 +6,6 @@ download events. Downloads run one link at a time in a background thread.
 
 from __future__ import annotations
 
-import base64
 import ctypes
 import hashlib
 import datetime
@@ -33,7 +32,6 @@ import webview
 from mutagen import File as MutagenFile
 from mutagen.id3 import Frames
 from mutagen.mp3 import MP3
-from mutagen.flac import Picture
 
 from . import (__version__, logs, mediacontrols, playlists, presence, relay_for, scrobble, subsonic, thumbbar, tray,
                watch, winframe)
@@ -2187,36 +2185,14 @@ def _cover_bytes(path: Path) -> bytes | None:
         if path.parent == playlists.covers_dir():  # a picture chosen for a playlist is the cover itself
             return path.read_bytes()
         if not path.is_dir():
-            return _embedded_cover(path)
+            return folders.embedded_cover(path)
         picture = folders.cover_file(path)
         if picture is not None:
             return picture.read_bytes()
         first = next(iter(folders.album_files(path)[0]), None)
-        return _embedded_cover(first) if first else None
+        return folders.embedded_cover(first) if first else None
     except OSError:
         return None
-
-
-def _embedded_cover(path: Path) -> bytes | None:
-    """The front cover stored inside an mp3, m4a or opus file."""
-    try:
-        audio = MutagenFile(path)
-    except Exception:
-        return None
-    tags = getattr(audio, "tags", None)
-    if not tags:
-        return None
-    if hasattr(tags, "getall"):  # ID3
-        pictures = tags.getall("APIC")
-        return pictures[0].data if pictures else None
-    if "covr" in tags:  # MP4
-        return bytes(tags["covr"][0])
-    for block in tags.get("metadata_block_picture", []) if hasattr(tags, "get") else []:
-        try:
-            return Picture(base64.b64decode(block)).data
-        except (ValueError, TypeError):
-            continue
-    return None
 
 
 def _normalize(settings: dict) -> dict:

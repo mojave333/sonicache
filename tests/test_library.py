@@ -8,7 +8,7 @@ import pytest
 from mutagen import File as MutagenFile
 
 from sonicache import gui
-from sonicache.engine import downloader, sources
+from sonicache.engine import downloader, folders, sources
 from sonicache.engine.models import Album, SourceError, Track
 
 FFMPEG = downloader.find_tool("ffmpeg")
@@ -43,7 +43,7 @@ class TestTags:
     @pytest.mark.parametrize("ext", ["m4a", "mp3", "opus"])
     def test_the_cover_inside_a_file_is_found(self, tmp_path, ext):
         path = tagged(tmp_path, ext, 1, "15 Step", cover=PNG)
-        assert gui._embedded_cover(path) == PNG
+        assert folders.embedded_cover(path) == PNG
         assert gui._cover_bytes(path) == PNG  # what the cover's address serves for a single track
 
     def test_a_file_without_tags_is_named_after_itself(self, tmp_path):
@@ -52,7 +52,7 @@ class TestTags:
                         "-i", "sine=duration=1", "-map_metadata", "-1", *CODECS["mp3"], str(path)], check=True)
         info = gui._tags(path)
         assert (info["title"], info["number"], info["artists"]) == ("Loose Song", 0, "")
-        assert gui._embedded_cover(path) is None
+        assert folders.embedded_cover(path) is None
 
     def test_the_album_page_lists_the_tracks_in_order_and_the_missing_ones(self, tmp_path):
         folder = tmp_path / "Radiohead - In Rainbows (2007)"

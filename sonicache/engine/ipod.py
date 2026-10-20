@@ -14,12 +14,13 @@ import plistlib
 import posixpath
 import random
 import re
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import devices, itunesdb
+from . import artworkdb, devices, itunesdb
 from .i18n import t
 from .logs import log
 
@@ -57,6 +58,7 @@ class IpodInfo:
     checksum: str  # "none" or "hash58"
     guid: bytes | None  # the FireWire GUID hash58 is keyed by
     note: str = ""  # why it cannot be synced; nothing when it can
+    generation: str = ""  # a key of _GENERATIONS, "" when the model is not known
 
 
 def is_ipod(root: Path) -> bool:
@@ -119,11 +121,12 @@ def inspect(root: Path) -> IpodInfo:
     if isinstance(version, int) and version > 3 or signs == "locked":
         return IpodInfo(model, "none", None, locked)
     if not (generation in HASH58 or version == 3 or signs == "hash58"):
-        return IpodInfo(model, "none", None)
+        return IpodInfo(model, "none", None, generation=generation)
     guid = _guid(extended.get("FireWireGUID")) or _guid(info.get("FirewireGuid")) or _guid(_usb_serial(root))
     if guid is None:
-        return IpodInfo(model, "hash58", None, t("Не удалось узнать FireWire ID этого iPod: без него он не примет базу"))
-    return IpodInfo(model, "hash58", guid)
+        return IpodInfo(model, "hash58", None, t("Не удалось узнать FireWire ID этого iPod: без него он не примет базу"),
+                        generation)
+    return IpodInfo(model, "hash58", guid, generation=generation)
 
 
 def _usb_serial(root: Path) -> str:
@@ -286,6 +289,8 @@ class IpodTarget(devices.Target):
                 part.unlink(missing_ok=True)
         for name in ("iTunesDB.part", "sonicache-sync.json.part"):
             (self.root / CONTROL / "iTunes" / name).unlink(missing_ok=True)
+        for name in ("ArtworkDB.part", "sonicache-art.json.part"):
+            (self.root / artworkdb.ARTWORK / name).unlink(missing_ok=True)
 
     def begin(self, plan: devices.Plan) -> None:
         """The database without what is about to be deleted, before it is: the iPod never lists a file that is gone."""
@@ -345,6 +350,7 @@ class IpodTarget(devices.Target):
             if kept:  # made on the iPod: the person's own playlist from now on, as iTunes does it
                 db.add_playlist(f"On-The-Go {number}", random.getrandbits(63) | 1, kept)
         db.finish()
+        self._write_covers(db, tracks, ours)
         data = db.to_bytes()
         if self.info.checksum == "hash58":
             if self.info.guid is None:
@@ -353,6 +359,25 @@ class IpodTarget(devices.Target):
         self.drive.write_bytes(DATABASE, data)
         for path in [counts, *itunes.glob("OTGPlaylistInfo*")]:
             path.unlink(missing_ok=True)
+
+    def _write_covers(self, db: itunesdb.Database, tracks: dict[str, dict], ours: set[int]) -> None:
+        """The covers of the tracks, taken from the files in the library they were made of. A model that shows
+        none, or a library file that has gone, leaves its track without one; the songs are written either way."""
+        if self.info.generation not in artworkdb.FORMATS:
+            return
+        from .downloader import find_tool
+
+        seen: dict = {}
+        unique: dict[str, artworkdb.Cover] = {}
+        covers = {}
+        for entry in tracks.values():
+            source = entry.get("source")
+            cover = artworkdb.cover_of(Path(source), seen) if isinstance(source, str) and source else None
+            covers[entry["dbid"]] = unique.setdefault(cover.key, cover) if cover else None
+        try:
+            artworkdb.Artwork(self.root, self.info.generation).write(db, covers, ours, find_tool("ffmpeg"))
+        except (OSError, subprocess.SubprocessError) as e:
+            _log.warning("обложки на %s не записаны: %s", self.root, e)
 
 
 def _number(value) -> bool:

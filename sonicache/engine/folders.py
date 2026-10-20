@@ -17,12 +17,14 @@ slow or watched disk the larger part of opening the library.
 
 from __future__ import annotations
 
+import base64
 import os
 import threading
 from contextlib import contextmanager
 from pathlib import Path
 
 from mutagen import File as MutagenFile
+from mutagen.flac import Picture
 from mutagen.id3 import ID3, TALB
 
 from .downloader import FORMATS
@@ -174,6 +176,28 @@ def cover_file(folder: Path) -> Path | None:
         for suffix in IMAGE_SUFFIXES:
             if f"{name}{suffix}" in pictures:
                 return pictures[f"{name}{suffix}"]
+    return None
+
+
+def embedded_cover(path: Path) -> bytes | None:
+    """The front cover stored inside an mp3, m4a or opus file."""
+    try:
+        audio = MutagenFile(path)
+    except Exception:
+        return None
+    tags = getattr(audio, "tags", None)
+    if not tags:
+        return None
+    if hasattr(tags, "getall"):  # ID3
+        pictures = tags.getall("APIC")
+        return pictures[0].data if pictures else None
+    if "covr" in tags:  # MP4
+        return bytes(tags["covr"][0])
+    for block in tags.get("metadata_block_picture", []) if hasattr(tags, "get") else []:
+        try:
+            return Picture(base64.b64decode(block)).data
+        except (ValueError, TypeError):
+            continue
     return None
 
 
