@@ -188,6 +188,9 @@ The tests run offline, on service pages saved in `tests/fixtures`:
 .venv\Scripts\python.exe -m pytest
 ```
 
+`python scripts/preview.py` serves the window's page at http://127.0.0.1:8765 with a stub in place of the
+program, for checking the interface in a browser.
+
 ## Building
 
 ```bat

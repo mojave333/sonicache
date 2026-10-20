@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <!-- A stand-in cover for the preview stand: two colours, so the album pages have something to take theirs from -->
+  <defs>
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2F5D8A"/>
+      <stop offset="1" stop-color="#C02932"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#wash)"/>
+  <circle cx="300" cy="300" r="150" fill="none" stroke="#F6F0DE" stroke-width="18" opacity="0.8"/>
+  <circle cx="300" cy="300" r="22" fill="#F6F0DE" opacity="0.8"/>
+</svg>
