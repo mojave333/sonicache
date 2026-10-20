@@ -24,3 +24,6 @@ output/
 
 # Build: ffmpeg.exe and deno.exe fetched by scripts/fetch-vendor.ps1
 vendor/
+
+# What wrangler keeps for itself after a deploy of relay/
+.wrangler/
