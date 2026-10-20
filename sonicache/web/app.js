@@ -271,8 +271,8 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
 
 // The faces the names can be set in; the first is the one a new installation has
 const FONTS = ["source-serif", "comic", "system"];
-// What an empty screen shows: a crayon drawing, ASCII or no picture
-const ARTS = ["crayon", "ascii", "none"];
+// What an empty screen shows: no picture, a crayon drawing or ASCII; the first is a new installation's
+const ARTS = ["none", "crayon", "ascii"];
 applyTheme();
 
 // What goes wrong in the script is kept in the program's log, so that a window that stopped answering can be traced

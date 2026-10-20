@@ -60,8 +60,8 @@ WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 THEMES = ("system", "light", "dark")
 # The faces the names can be set in (web/style.css); the first is a new installation's
 FONTS = ("source-serif", "comic", "system")
-# What an empty screen shows: a crayon drawing, ASCII art or no picture
-ARTS = ("crayon", "ascii", "none")
+# What an empty screen shows: no picture, a crayon drawing or ASCII art; the first is a new installation's
+ARTS = ("none", "crayon", "ascii")
 # Browsers yt-dlp can read cookies from; "" means it takes none
 COOKIE_BROWSERS = ("", "chrome", "edge", "firefox", "brave", "chromium", "opera", "vivaldi")
 # Speeds offered in the settings, bytes per second; 0 is no limit

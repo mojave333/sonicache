@@ -24,7 +24,7 @@ class TestNormalize:
             "threads": 3,
             "theme": "light",
             "font": "source-serif",
-            "art": "crayon",
+            "art": "none",
             "dry_run": False,
             "cookies_browser": "",
             "rate_limit": 0,
@@ -91,7 +91,7 @@ class TestNormalize:
         assert len(bound) > 10
         assert [name for name in bound if f'id="{name}"' not in page] == []
 
-    @pytest.mark.parametrize("given, expected", [("ascii", "ascii"), ("none", "none"), ("photo", "crayon"), (None, "crayon")])
+    @pytest.mark.parametrize("given, expected", [("ascii", "ascii"), ("crayon", "crayon"), ("photo", "none"), (None, "none")])
     def test_only_known_pictures_survive(self, given, expected):
         assert gui._normalize({"art": given})["art"] == expected
 
