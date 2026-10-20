@@ -506,7 +506,7 @@ html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-c
 
 .welcome { width: min(480px, calc(100vw - 32px)); }
 .welcome-body { gap: 12px; padding: 24px 24px 20px; }
-/* The logo as it was drawn, in pencil: the welcome of its own */
+/* The logo, the cube in full: the welcome of its own */
 .welcome-scene { display: block; width: 112px; height: auto; margin: -4px auto 0; }
 /* In a window too short for it the picture gives way, so that the words and the button need no scrolling */
 @media (max-height: 640px) { .welcome-scene { display: none; } }
