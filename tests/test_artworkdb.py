@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from sonicache.engine import artworkdb, ipod, itunesdb
+from sonicache.engine import artworkdb, downloader, ipod, itunesdb
 from sonicache.engine.artworkdb import Artwork, Cover
 from sonicache.engine.devices import Source
 from sonicache.engine.downloader import find_tool
@@ -146,6 +146,7 @@ def test_an_unreadable_artworkdb_is_left_as_it_is(tmp_path, drawn):
 def test_a_synced_album_brings_its_cover(tmp_path, drawn, monkeypatch):
     """The whole way: the picture beside the album in the library reaches the iPod's database."""
     monkeypatch.setattr(ipod, "_usb_serial", lambda root: "")
+    monkeypatch.setattr(downloader, "find_tool", lambda name: "ffmpeg")  # drawn by the fixture, wherever it runs
     root = tmp_path / "pod"
     (root / "iPod_Control" / "iTunes").mkdir(parents=True)
     (root / "iPod_Control" / "Device").mkdir()
