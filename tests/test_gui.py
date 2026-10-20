@@ -23,7 +23,7 @@ class TestNormalize:
             "format": "mp3",
             "threads": 3,
             "theme": "light",
-            "font": "source-serif",
+            "font": "onest",
             "art": "none",
             "dry_run": False,
             "cookies_browser": "",
@@ -67,8 +67,9 @@ class TestNormalize:
     def test_only_known_themes_survive(self, given, expected):
         assert gui._normalize({"theme": given})["theme"] == expected
 
-    @pytest.mark.parametrize("given, expected", [("comic", "comic"), ("system", "system"), ("lora", "source-serif"),
-                                                 (None, "source-serif")])
+    # "system" was an option once; a settings file that still says so gets the default
+    @pytest.mark.parametrize("given, expected", [("comic", "comic"), ("source-serif", "source-serif"),
+                                                 ("system", "onest"), ("lora", "onest"), (None, "onest")])
     def test_only_known_fonts_survive(self, given, expected):
         assert gui._normalize({"font": given})["font"] == expected
 

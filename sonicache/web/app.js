@@ -270,7 +270,7 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
 }
 
 // The faces the names can be set in; the first is the one a new installation has
-const FONTS = ["source-serif", "comic", "system"];
+const FONTS = ["onest", "source-serif", "comic"];
 // What an empty screen shows: no picture, a crayon drawing or ASCII; the first is a new installation's
 const ARTS = ["none", "crayon", "ascii"];
 applyTheme();

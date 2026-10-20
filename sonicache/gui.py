@@ -59,7 +59,7 @@ RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 WEBVIEW2_SETUP_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 THEMES = ("system", "light", "dark")
 # The faces the names can be set in (web/style.css); the first is a new installation's
-FONTS = ("source-serif", "comic", "system")
+FONTS = ("onest", "source-serif", "comic")
 # What an empty screen shows: no picture, a crayon drawing or ASCII art; the first is a new installation's
 ARTS = ("none", "crayon", "ascii")
 # Browsers yt-dlp can read cookies from; "" means it takes none

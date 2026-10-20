@@ -615,7 +615,6 @@ const TRANSLATIONS = {
   "Часто слушаю": "Most played",
   "Шрифт названий": "Font for titles",
   "Им набраны заголовки, названия альбомов и вкладки. Мелкий текст остаётся системным, чтобы легко читался": "Headings, album titles and tabs are set in it. Small text stays in the system font, which reads easily",
-  "Системный": "System",
   "Картинки на пустых экранах": "Pictures on empty screens",
   "Что показывать, пока список пуст": "What to show while a list is empty",
   "Рисунок мелком": "Crayon drawing",

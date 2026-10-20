@@ -211,8 +211,9 @@ The window is `sonicache/gui.py` and `sonicache/web/`.
 ## Licence
 
 [GPL-2.0-or-later](LICENSE), because the program links mutagen, which is under the same licence. yt-dlp is
-under the Unlicense, ytmusicapi under MIT and pywebview under BSD-3-Clause. The heading font, Source Serif 4,
-is under the SIL Open Font License, and the [Phosphor](https://phosphoricons.com) icons under MIT.
+under the Unlicense, ytmusicapi under MIT and pywebview under BSD-3-Clause. The heading fonts, Onest and
+Source Serif 4, are under the SIL Open Font License, and the [Phosphor](https://phosphoricons.com) icons under
+MIT.
 
 The release builds also carry ffmpeg (GPL, sources at [ffmpeg.org](https://ffmpeg.org/download.html)) and
 Deno (MIT) as separate programs. ffmpeg comes from [BtbN's builds](https://github.com/BtbN/FFmpeg-Builds) on
