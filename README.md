@@ -128,8 +128,8 @@ good match is reported as failed, and nothing random is saved in its place.
 
 None of the free sources is lossless, so no format can sound better than the stream it came from.
 
-Spotify playlists come with their first 100 tracks and Apple Music playlists with their first 50; Deezer
-playlists come whole.
+Playlists from Spotify, Apple Music and Deezer come whole, up to 1000 tracks. A Spotify playlist read through
+the relay stops at its first 100.
 
 ## Where the files go
 

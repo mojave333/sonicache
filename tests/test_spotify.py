@@ -164,6 +164,60 @@ class TestFetchPlaylist:
         monkeypatch.setattr(spotify, "PLAYLIST_LIMIT", 3)
         assert "первые 3" in spotify.fetch_playlist("x").note
 
+    @pytest.fixture
+    def long_playlist(self, monkeypatch):
+        """The embed page with the player's token in it, its first 3 tracks a full page, and the services behind
+        it: a list of 6 with a local file among the rest, and a description of each track."""
+        embed = (FIXTURES / "spotify_embed_playlist.html").read_text(encoding="utf-8")
+        data = json.loads(embed.split('type="application/json">', 1)[1].split("</script>", 1)[0])
+        data["props"]["pageProps"]["state"]["settings"] = {"session": {"accessToken": "tok"}}
+        embed = f'<script id="__NEXT_DATA__" type="application/json">{json.dumps(data)}</script>'
+        meta = (FIXTURES / "spotify_meta_playlist.html").read_text(encoding="utf-8")
+        monkeypatch.setattr(spotify, "fetch_text", lambda url, **kwargs: embed if "/embed/" in url else meta)
+        monkeypatch.setattr(spotify, "PLAYLIST_LIMIT", 3)
+        asked = []
+
+        def fetch_json(url, *, service, headers=None, **kwargs):
+            asked.append((url, headers))
+            if "/playlist/v2/" in url:
+                return {"length": 6, "contents": {"items": [{"uri": "spotify:track:05RgAMGypEvqhNs5hPCbMS"},
+                                                            {"uri": "spotify:local:a:b:c:200"},
+                                                            {"uri": "spotify:track:43btz2xjMKpcmjkuRsvxyg"}]}}
+            if url.split("/track/")[1].startswith("031ae4e5"):
+                return {"name": "Panama", "artist": [{"name": "Van Halen"}], "duration": 211000,
+                        "explicit": False, "external_id": [{"type": "isrc", "id": "usrh11500001"}]}
+            raise SourceError("Spotify ответил HTTP 503")
+
+        monkeypatch.setattr(spotify, "fetch_json", fetch_json)
+        return asked
+
+    def test_the_rest_comes_from_the_players_services(self, long_playlist):
+        album = spotify.fetch_playlist("P1")
+        panama = album.tracks[3]
+        assert (panama.id, panama.title, panama.artists, panama.duration) == (
+            "05RgAMGypEvqhNs5hPCbMS", "Panama", "Van Halen", 211)
+        assert (panama.track_number, panama.isrc) == (4, "USRH11500001")
+        url, headers = long_playlist[0]
+        assert url == f"{spotify._SPCLIENT}/playlist/v2/playlist/P1?from=3&length={spotify.PLAYLIST_MAX - 3}"
+        assert headers["Authorization"] == "Bearer tok"
+
+    def test_what_did_not_come_is_counted_in_the_note(self, long_playlist):
+        """The local file has no audio and the last track's description failed: 4 of 6."""
+        album = spotify.fetch_playlist("P1")
+        assert len(album.tracks) == 4
+        assert "4 треков из 6" in album.note
+
+    def test_a_refused_list_falls_back_to_the_first_page(self, long_playlist, monkeypatch):
+        def refuse(url, **kwargs):
+            raise SourceError("Spotify ответил HTTP 401")
+
+        monkeypatch.setattr(spotify, "fetch_json", refuse)
+        album = spotify.fetch_playlist("P1")
+        assert len(album.tracks) == 3 and "первые 3" in album.note
+
+    def test_ids_become_the_players_hex(self):
+        assert spotify._gid("05RgAMGypEvqhNs5hPCbMS") == "031ae4e5e4ad4ef6b90980e668af0122"
+
     def test_an_empty_playlist_is_an_error(self, monkeypatch):
         empty = ('<script id="__NEXT_DATA__" type="application/json">'
                  '{"props":{"pageProps":{"state":{"data":{"entity":{"name":"X","trackList":[]}}}}}}</script>')

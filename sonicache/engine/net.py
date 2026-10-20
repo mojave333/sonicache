@@ -16,8 +16,10 @@ BROWSER_UA = (
 )
 
 
-def fetch_text(url: str, *, service: str, user_agent: str = BROWSER_UA, retries: int = 3) -> str:
-    request = urllib.request.Request(url, headers={"User-Agent": user_agent, "Accept-Language": "en"})
+def fetch_text(url: str, *, service: str, user_agent: str = BROWSER_UA, retries: int = 3,
+               headers: dict[str, str] | None = None) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": user_agent, "Accept-Language": "en",
+                                                   **(headers or {})})
     for attempt in range(1, retries + 1):
         try:
             with urllib.request.urlopen(request, timeout=20) as resp:
@@ -50,9 +52,10 @@ def follow_short_link(link: str, pattern: re.Pattern) -> str | None:
     return found.group(0) if found else None
 
 
-def fetch_json(url: str, *, service: str, user_agent: str = BROWSER_UA) -> dict:
+def fetch_json(url: str, *, service: str, user_agent: str = BROWSER_UA,
+               headers: dict[str, str] | None = None) -> dict:
     try:
-        return json.loads(fetch_text(url, service=service, user_agent=user_agent))
+        return json.loads(fetch_text(url, service=service, user_agent=user_agent, headers=headers))
     except ValueError as e:
         raise SourceError.of("unreadable", "{service} вернул непонятный ответ: {url}",
                              service=service, url=url) from e

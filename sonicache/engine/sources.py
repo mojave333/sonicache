@@ -8,6 +8,7 @@ Deezer, Last.fm) the audio is matched on YouTube Music and SoundCloud later.
 
 from __future__ import annotations
 
+import base64
 import html
 import json
 import re
@@ -21,15 +22,16 @@ import yt_dlp
 
 from . import spotify
 from .i18n import t
-from .logs import YtdlpLogger
+from .logs import YtdlpLogger, log
 from .matcher import _NOISE_RE, _VERSION_WORDS, _artist_score, _norm, _similarity, ytmusic
-from .models import Album, Release, SourceError, Track
+from .models import PLAYLIST_MAX, Album, Release, SourceError, Track
 from .net import BROWSER_UA, fetch_json, fetch_text, follow_short_link
 
 SUPPORTED = "Spotify, Apple Music, Deezer, YouTube, SoundCloud, Last.fm и сайтов вроде Bandcamp"
 
 _APPLE_PATH_RE = re.compile(r"^/(?:([a-z]{2})/)?([\w-]+)/(?:[^/]+/)?(?:id)?(\d+)", re.I)
 _APPLE_DATA_RE = re.compile(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', re.S)
+_APPLE_PLAYLIST_RE = re.compile(r"^/(?:([a-z]{2})/)?playlist/(?:[^/]+/)?(pl\.[\w.-]+)", re.I)
 _DEEZER_PATH_RE = re.compile(r"^/(?:[a-z]{2}(?:-[a-z]{2})?/)?(album|track|playlist)/(\d+)", re.I)
 _DEEZER_LINK_RE = re.compile(r"https://www\.deezer\.com/(?:[a-z]{2}(?:-[a-z]{2})?/)?(?:album|track|playlist)/\d+",
                              re.I)
@@ -167,9 +169,12 @@ def _apple_playlist(url: str) -> Release:
     """Apple has no public API for playlists, so the page's own data is read.
 
     The page hands over its first tracks only; the header says how many the
-    playlist really has, and the release notes the difference.
+    playlist really has. The rest, up to PLAYLIST_MAX, come from Apple's
+    catalogue API with the token music.apple.com itself plays with, and what
+    still could not be read is noted.
     """
-    sections = _apple_sections(fetch_text(url, service="Apple Music"))
+    page = fetch_text(url, service="Apple Music")
+    sections = _apple_sections(page)
     items = (sections.get("trackLockup") or {}).get("items") or []
     header = ((sections.get("containerDetailHeaderLockup") or {}).get("items") or [{}])[0]
     tracks = [Track(
@@ -183,10 +188,12 @@ def _apple_playlist(url: str) -> Release:
         raise SourceError.of("empty", "В плейлисте Apple Music нет доступных песен")
 
     total = header.get("trackCount") or len(tracks)
+    if total > len(tracks):
+        tracks += _apple_playlist_rest(url, page, len(tracks), min(total, PLAYLIST_MAX))
     note = ""
     if total > len(tracks):
-        note = t("Страница Apple Music отдаёт первые {shown} треков из {total}. "
-                 "Остальные придётся добавить отдельно", shown=len(tracks), total=total)
+        note = t("Из плейлиста прочитано {count} треков из {total}. Остальные придётся добавить отдельно",
+                 count=len(tracks), total=total)
     curator = next((link.get("title") for link in header.get("subtitleLinks") or [] if link.get("title")), "")
     album = Album(
         id=url.rstrip("/").rsplit("/", 1)[-1],
@@ -199,6 +206,75 @@ def _apple_playlist(url: str) -> Release:
         note=note,
     )
     return Release(album, tracks)
+
+
+def _apple_playlist_rest(url: str, page: str, start: int, end: int) -> list[Track]:
+    """The playlist's tracks from `start` up to `end`, a hundred at a time; [] when they do not come."""
+    m = _APPLE_PLAYLIST_RE.match(urllib.parse.urlsplit(url).path)
+    token = _apple_token(page) if m else ""
+    if not token:
+        return []
+    storefront, playlist_id = (m.group(1) or "us").lower(), m.group(2)
+    headers = {"Authorization": f"Bearer {token}", "Origin": "https://music.apple.com"}
+    tracks: list[Track] = []
+    while start + len(tracks) < end:
+        try:
+            data = fetch_json(f"https://amp-api.music.apple.com/v1/catalog/{storefront}/playlists/{playlist_id}"
+                              f"/tracks?offset={start + len(tracks)}&limit=100", service="Apple Music", headers=headers)
+        except SourceError as e:
+            log.warning("Apple Music: плейлист %s после %d-го трека не отдан: %s", playlist_id, start + len(tracks), e)
+            break
+        songs = data.get("data") or []
+        for song in songs:
+            attributes = song.get("attributes") or {}
+            tracks.append(Track(
+                id=str(song.get("id") or start + len(tracks) + 1),
+                title=attributes.get("name", ""),
+                artists=attributes.get("artistName", ""),
+                duration=(attributes.get("durationInMillis") or 0) / 1000,
+                track_number=start + len(tracks) + 1,
+                explicit=attributes.get("contentRating") == "explicit",
+                isrc=attributes.get("isrc", ""),
+            ))
+        if not songs or not data.get("next"):
+            break
+    log.info("Apple Music: плейлист %s, после первых %d прочитано ещё %d", playlist_id, start, len(tracks))
+    return tracks[:end - start]
+
+
+def _apple_token(page: str) -> str:
+    """The token music.apple.com's own player sends to the catalogue API.
+
+    It is written into the page's main script; the one kept from before
+    serves until it expires. "" when the script has none.
+    """
+    if _apple_web_token["until"] > time.time() + 60:
+        return _apple_web_token["token"]
+    for script in re.findall(r'<script[^>]+src="(/assets/index[^"]*\.js)"', page):
+        try:
+            code = fetch_text(f"https://music.apple.com{script}", service="Apple Music")
+        except SourceError:
+            continue
+        for token in re.findall(r'"(eyJ[\w-]+\.[\w-]+\.[\w-]+)"', code):
+            claims = _jwt_claims(token)
+            if claims.get("iss") == "AMPWebPlay" and claims.get("exp", 0) > time.time():
+                _apple_web_token.update(token=token, until=claims["exp"])
+                return token
+    log.warning("Apple Music: в скриптах страницы нет ключа для каталога")
+    return ""
+
+
+_apple_web_token = {"token": "", "until": 0.0}
+
+
+def _jwt_claims(token: str) -> dict:
+    """What a JSON Web Token says about itself, unverified; {} when it is not one."""
+    payload = token.split(".")[1]
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except ValueError:
+        return {}
+    return claims if isinstance(claims, dict) else {}
 
 
 def _apple_sections(page: str) -> dict[str, dict]:

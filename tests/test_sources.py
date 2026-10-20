@@ -1,5 +1,8 @@
 """Link routing and the shapes each service answers with."""
 
+import base64
+import json
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -155,9 +158,45 @@ class TestApplePlaylist:
     def test_the_artwork_template_is_filled_in(self, page):
         assert sources.resolve(self.url()).album.cover_url == "https://is1.test/image/1000x1000bb.jpg"
 
-    def test_a_cut_short_playlist_says_so(self, page):
+    def test_a_cut_short_playlist_says_so(self, page, monkeypatch):
+        monkeypatch.setattr(sources, "_apple_token", lambda page: "")
         note = sources.resolve(self.url()).album.note
-        assert "первые 3 треков из 5" in note
+        assert "прочитано 3 треков из 5" in note
+
+    def test_the_rest_comes_from_the_catalogue(self, page, monkeypatch):
+        """The page has 3 of the 5; Apple's catalogue API, asked as music.apple.com asks it, has the other two."""
+        asked = []
+
+        def fetch_json(url, *, service, headers=None, **kwargs):
+            asked.append((url, headers))
+            return {"data": [{"id": str(n), "attributes": {"name": f"Song {n}", "artistName": "Artist",
+                                                            "durationInMillis": 200000, "isrc": f"USXX{n}",
+                                                            "contentRating": "explicit" if n == 5 else ""}}
+                             for n in (4, 5)]}
+
+        monkeypatch.setattr(sources, "_apple_token", lambda page: "tok")
+        monkeypatch.setattr(sources, "fetch_json", fetch_json)
+        release = sources.resolve(self.url())
+        assert [t.title for t in release.tracks][3:] == ["Song 4", "Song 5"]
+        assert [t.track_number for t in release.tracks] == [1, 2, 3, 4, 5]
+        assert (release.tracks[3].isrc, release.tracks[4].explicit) == ("USXX4", True)
+        assert release.album.note == ""
+        url, headers = asked[0]
+        assert url.startswith("https://amp-api.music.apple.com/v1/catalog/us/playlists/"
+                              "pl.f4d106fed2bd41149aaacabb233eb5eb/tracks?offset=3")
+        assert headers == {"Authorization": "Bearer tok", "Origin": "https://music.apple.com"}
+
+    def test_the_token_is_the_web_players_own(self, monkeypatch):
+        def jwt(claims):
+            encode = lambda part: base64.urlsafe_b64encode(json.dumps(part).encode()).decode().rstrip("=")
+            return f"{encode({'alg': 'ES256'})}.{encode(claims)}.c2ln"
+
+        other, player = jwt({"iss": "someone"}), jwt({"iss": "AMPWebPlay", "exp": time.time() + 3600})
+        script = f'const a="{other}",qa="{player}";'
+        page = '<script type="module" crossorigin src="/assets/index~abc.js"></script>'
+        monkeypatch.setattr(sources, "fetch_text", lambda url, **kwargs: script)
+        monkeypatch.setattr(sources, "_apple_web_token", {"token": "", "until": 0.0})
+        assert sources._apple_token(page) == player
 
     def test_a_changed_page_is_named_as_such(self, monkeypatch):
         monkeypatch.setattr(sources, "fetch_text", lambda url, **kwargs: "<html>no data</html>")

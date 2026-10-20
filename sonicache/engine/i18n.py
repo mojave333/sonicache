@@ -75,10 +75,8 @@ ENGLISH = {
         "This Apple Music playlist has no songs available",
     "Не удалось прочитать страницу Apple Music: ссылка неверна или страница изменила формат":
         "Could not read the Apple Music page: the link is wrong, or the page changed shape",
-    "Страница Apple Music отдаёт первые {shown} треков из {total}. "
-    "Остальные придётся добавить отдельно":
-        "The Apple Music page hands over the first {shown} tracks of {total}. "
-        "The rest have to be added separately",
+    "Из плейлиста прочитано {count} треков из {total}. Остальные придётся добавить отдельно":
+        "{count} of the playlist's {total} tracks were read. The rest have to be added separately",
     "Из Deezer поддерживаются ссылки на альбомы, треки и плейлисты":
         "From Deezer, links to albums, tracks and playlists are supported",
     "Короткая ссылка Deezer никуда не ведёт: {link}": "This Deezer short link leads nowhere: {link}",

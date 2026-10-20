@@ -9,6 +9,9 @@ from .i18n import t
 # What an error's code means. The codes are for programs: they stay the same
 # in every language and across minor versions, while the sentence in
 # str(error) is for a person and may be reworded in any release.
+# The most tracks read from one playlist; a longer one says in its note how many it left out
+PLAYLIST_MAX = 1000
+
 ERROR_CODES = {
     # Reading a link
     "unsupported_link": "the link leads to no music, or to a kind of page the service is not read from",

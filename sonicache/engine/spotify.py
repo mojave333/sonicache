@@ -19,8 +19,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .i18n import t
 from .logs import log
-from .models import Album, SourceError, Track
-from .net import BROWSER_UA, fetch_text, follow_short_link
+from .models import PLAYLIST_MAX, Album, SourceError, Track
+from .net import BROWSER_UA, fetch_json, fetch_text, follow_short_link
 
 # Spotify renders meta tags only for link-preview bots, not for browsers.
 PREVIEW_UA = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
@@ -29,8 +29,11 @@ _LINK_RE = re.compile(
     r"(?:open\.spotify\.com/(?:intl-[\w-]+/)?(?:embed/)?(album|track|playlist)/"
     r"|spotify:(album|track|playlist):)([A-Za-z0-9]{22})"
 )
-# The embed page hands over this many playlist tracks and no more
+# The embed page hands over this many playlist tracks; the rest come from the
+# player's own services, which take the embed page's anonymous token
 PLAYLIST_LIMIT = 100
+_SPCLIENT = "https://spclient.wg.spotify.com"
+_BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _SHORT_LINK_RE = re.compile(r"https?://(?:spotify\.link|spoti\.fi)/\S+")
 _NEXT_DATA_RE = re.compile(
     r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.S
@@ -112,9 +115,10 @@ def fetch_album(album_id: str, whole: bool = True) -> Album:
 def fetch_playlist(playlist_id: str) -> Album:
     """A playlist as a release: tracks in playlist order, artists per track.
 
-    The embed page stops at PLAYLIST_LIMIT tracks and nothing else on the
-    public pages lists the rest, so a longer playlist comes back cut short and
-    says so in its note.
+    The embed page stops at PLAYLIST_LIMIT tracks. The rest, up to
+    PLAYLIST_MAX, are read with the token the embed page carries; a playlist
+    read through the relay or the preview pages has none, so it comes back cut
+    short, and the note says so.
     """
     entity, meta = _release("playlist", playlist_id)
 
@@ -133,8 +137,17 @@ def fetch_playlist(playlist_id: str) -> Album:
         raise SourceError.of("empty", "В плейлисте {id} не найдено треков или он закрыт",
                              id=playlist_id)
 
+    total = 0
+    if len(tracks) >= PLAYLIST_LIMIT and entity.get("_token"):
+        rest, total = _playlist_rest(playlist_id, entity["_token"], len(tracks))
+        for number, track in enumerate(rest, len(tracks) + 1):
+            track.track_number = number
+        tracks += rest
     note = _short_note(entity, len(tracks))
-    if not note and len(tracks) >= PLAYLIST_LIMIT:
+    if not note and total > len(tracks):
+        note = t("Из плейлиста прочитано {count} треков из {total}. Остальные придётся добавить отдельно",
+                 count=len(tracks), total=total)
+    elif not note and not total and len(tracks) >= PLAYLIST_LIMIT:
         note = t("Spotify отдаёт по ссылке первые {limit} треков плейлиста. Если их больше, "
                  "остальные придётся добавить отдельно", limit=PLAYLIST_LIMIT)
     return Album(
@@ -300,6 +313,61 @@ def _preview_entity(kind: str, meta: list[tuple[str, str]], whole: bool = True) 
             "previewTotal": int(count.group()) if count else 0}
 
 
+def _playlist_rest(playlist_id: str, token: str, start: int) -> tuple[list[Track], int]:
+    """The playlist's tracks from `start` on, up to PLAYLIST_MAX in all, and how many it has.
+
+    The playlist service lists them by id only, so each track's name, artists,
+    length and ISRC come from the metadata service, a few at a time. A track
+    that does not come is left out; ([], 0) when the list itself does not.
+    """
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    try:
+        data = fetch_json(f"{_SPCLIENT}/playlist/v2/playlist/{playlist_id}?from={start}"
+                          f"&length={max(PLAYLIST_MAX - start, 0)}", service="Spotify", headers=headers)
+    except SourceError as e:
+        log.warning("Spotify: список плейлиста %s после %d-го трека не отдан: %s", playlist_id, start, e)
+        return [], 0
+    items = (data.get("contents") or {}).get("items") or []
+    # Local files and podcast episodes have no audio to look for
+    ids = [item["uri"].rsplit(":", 1)[-1] for item in items
+           if str(item.get("uri", "")).startswith("spotify:track:")]
+    with ThreadPoolExecutor(max_workers=_PREVIEW_WORKERS) as pool:
+        tracks = [track for track in pool.map(lambda track_id: _track_metadata(track_id, headers), ids) if track]
+    log.info("Spotify: плейлист %s, после первых %d прочитано ещё %d из %d", playlist_id, start, len(tracks),
+             data.get("length") or 0)
+    return tracks, data.get("length") or 0
+
+
+def _track_metadata(track_id: str, headers: dict[str, str]) -> Track | None:
+    """A track as the player's metadata service describes it; None when it does not answer."""
+    try:
+        data = fetch_json(f"{_SPCLIENT}/metadata/4/track/{_gid(track_id)}?market=from_token",
+                          service="Spotify", headers=headers)
+    except SourceError as e:
+        log.warning("Spotify: трек %s не описан: %s", track_id, e)
+        return None
+    if not data.get("name"):
+        return None
+    isrc = next((code.get("id", "") for code in data.get("external_id") or [] if code.get("type") == "isrc"), "")
+    return Track(
+        id=track_id,
+        title=data["name"],
+        artists=", ".join(artist["name"] for artist in data.get("artist") or [] if artist.get("name")),
+        duration=(data.get("duration") or 0) / 1000,
+        track_number=0,
+        explicit=bool(data.get("explicit")),
+        isrc=isrc.upper(),
+    )
+
+
+def _gid(track_id: str) -> str:
+    """A track's id as the player's services spell it: the base-62 id as 32 hex digits."""
+    number = 0
+    for char in track_id:
+        number = number * 62 + _BASE62.index(char)
+    return f"{number:032x}"
+
+
 def _short_note(entity: dict, count: int) -> str:
     """Said of a release rebuilt from preview pages that list fewer tracks than it has."""
     total = entity.get("previewTotal") or 0
@@ -327,6 +395,10 @@ def _embed_entity(kind: str, spotify_id: str) -> dict:
         props = {}
     entity = ((props.get("state") or {}).get("data") or {}).get("entity")
     if entity:
+        # The anonymous token the embed player runs on: a long playlist's rest is read with it
+        session = ((props.get("state") or {}).get("settings") or {}).get("session") or {}
+        if session.get("accessToken"):
+            entity["_token"] = session["accessToken"]
         return entity
     # The page came and the release did not. In its place Spotify puts its own
     # error page, sent with HTTP 200: a status, a title, a description. It does
