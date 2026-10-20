@@ -1,442 +1,98 @@
 <div align="center">
 
-<!-- A paragraph and not a heading: GitHub draws a rule under a heading, and the banner carries the name itself -->
-<p align="center"><img src="docs/banner.webp" width="100%" alt="Sonicache. Your personal music archive."></p>
+# Sonicache
+
+Your personal music archive.
 
 [![Build](https://img.shields.io/github/actions/workflow/status/mojave333/sonicache/ci.yml?label=build&color=BE3237)](https://github.com/mojave333/sonicache/actions/workflows/ci.yml)
 [![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-BE3237)](LICENSE)
 ![Platforms](https://img.shields.io/badge/Windows%20%7C%20macOS%20%7C%20Linux-BE3237)
 
-[Install](#install) &nbsp;·&nbsp;
-[Use it](#using-it) &nbsp;·&nbsp;
-[Command line](#command-line) &nbsp;·&nbsp;
-[Links](#links-it-understands) &nbsp;·&nbsp;
-[Files](#where-the-files-go) &nbsp;·&nbsp;
-[Build](#building) &nbsp;·&nbsp;
-[Licence](#licence)
-
 </div>
 
----
+Sonicache saves music to your own folder. Give it a link from a music service or just a name, like
+"Daft Punk - Discovery", and the release arrives tagged, with its cover, genre and lyrics. It also keeps a
+library of everything in your music folders and plays it. Everything runs on your computer, with no
+accounts or API keys, and the interface is in Russian and English.
 
-Sonicache is a desktop program for a music collection that is kept as files. It reads a link
-or a name from a music service for what the release is (the titles, the artists, the year,
-the cover), finds the audio in open sources, and saves it in your folder, tagged, with the
-cover, the genre and the lyrics. Around that it keeps a library that shows the whole
-collection and plays it, a catalogue to search and to see what is new, and a player with
-synced lyrics, a queue and an equalizer.
+## What it does
 
-Everything runs on your own machine. There are no accounts and no API keys.
-
-**The library and the player**
-
-- The library shows every music folder you add, not only what the program saved, and plays it:
-  an album, the Tracks view, or everything shuffled, with the lyrics on screen.
-- Favourites, playlists of your own (to and from `.m3u8`), and two made from what you
-  listen to: recently played and most played.
-- A queue to reorder, albums without gaps, a crossfade and a ten-band equalizer.
-- Sync to a player, an SD card, an Android phone by cable or a classic iPod: the whole library
-  or the playlists, artists and albums you tick, converted to MP3 if the player wants it.
-- An iPhone or an Android phone plays the library over Wi-Fi, and keeps albums offline, in a
-  free Subsonic player such as Amperfy or Ultrasonic.
-- ReplayGain tags make a shuffled library play at one volume.
-- Listens go to Last.fm or ListenBrainz if you connect them; Discord can show what plays.
-
-**Tags**
-
-- Every file gets its title, artists, album, track and disc numbers, year, genre and cover.
-- Genres come from MusicBrainz, up to three of the most voted ones.
-- Lyrics from LRCLIB go into the tags, and synced ones into an `.lrc` beside the track.
-- "Fill in tags" gives albums from elsewhere the genre, cover and lyrics they lack, without
-  fetching anything again.
-
-**The catalogue and getting music**
-
-- The catalogue searches Deezer, shows what is new from the artists you have and the chart,
-  and marks the albums you already own.
-- A link or a name ("Daft Punk - Discovery") is enough to ask for a release. A text file of
-  links or a playlist exported as CSV can be queued in one go.
-- Watched playlists and artists are checked twice a day, and only what is new is fetched.
-- A folder, a format and the naming rules can be saved as a profile.
-- The program updates itself, checks the installer's hash and keeps running in the
-  background while there is work to do.
-
-The window and the terminal version are the same program. The interface is in Russian and
-English, in a light theme on cream paper or a dark one.
-
-<p align="center"><img src="docs/download.webp" width="100%" alt="A name typed into the Download field, and the album opened to its tracks, each with its own progress, until all are done"></p>
-<p align="center"><sub>A name typed into the Download field, and the album arriving track by track. The start and
-the finish of one real download, shown at the pace it ran; the minute and a half between them is skipped with a dissolve.</sub></p>
-
-<p align="center"><img src="docs/library.webp" width="100%" alt="The library: the albums as a grid, with the sections and the playlists on the left"></p>
-
-<p align="center"><img src="docs/catalogue.webp" width="100%" alt="The catalogue after a search for Sonic Youth: the top result, what is already in the library, and the artists"></p>
+- Reads links from Spotify, Apple Music, Deezer and Last.fm to learn what the release is, then finds the
+  audio on YouTube Music, SoundCloud or YouTube. Links to YouTube, SoundCloud and Bandcamp are downloaded
+  directly.
+- Tags every file with its title, artists, album, track number, year and cover. Genres come from
+  MusicBrainz and lyrics from LRCLIB; synced lyrics go into an `.lrc` beside the track.
+- Shows every folder you add as one library, including music it did not download, and fills in the tags
+  older albums lack.
+- Plays the library with a queue, gapless albums, crossfade, a ten-band equalizer, ReplayGain and synced lyrics on
+  screen.
+- Searches the Deezer catalogue, lists new releases from the artists you have and marks the albums you own.
+- Checks watched playlists and artists every 12 hours and downloads only what is new.
+- Syncs to a player, an SD card, an Android phone over a cable or a classic iPod. A phone can also play the
+  library over Wi-Fi in a Subsonic app such as Amperfy or Ultrasonic.
+- Sends your listens to Last.fm or ListenBrainz, and can show the current track on Discord.
 
 ## Install
 
 > [!NOTE]
-> There are no builds on the Releases page at the moment. Until there are, the program runs
-> from source (see [Running from source](#running-from-source)).
+> The Releases page has no builds at the moment. Until it does, run Sonicache [from source](#from-source).
 
-**Windows 10 and 11, 64-bit.** Download `Sonicache-vX.Y.Z-windows-x64-setup.exe` from
-[Releases](https://github.com/mojave333/sonicache/releases) and run it. The installer asks where to
-put the program and offers a desktop shortcut and `Sonicache-cli` on the `PATH`. It needs no
-administrator rights: by default the program goes into `%LOCALAPPDATA%\Programs\Sonicache`.
-It uninstalls like any other program, through Settings → Apps, and asks on the way out whether
-to delete the settings and the log. Your music is left alone either way.
+### Windows
 
-Without an installer, unpack `Sonicache-vX.Y.Z-windows-x64.zip` anywhere and run
-`Sonicache.exe`. With [Scoop](https://scoop.sh):
+Download `Sonicache-vX.Y.Z-windows-x64-setup.exe` from
+[Releases](https://github.com/mojave333/sonicache/releases) and run it. It needs no administrator rights and
+can put `Sonicache-cli` on `PATH`. The `.zip` from the same page runs without installing, and Scoop works
+too:
 
 ```powershell
 scoop bucket add sonicache https://github.com/mojave333/sonicache
 scoop install sonicache/sonicache
 ```
 
-Python, ffmpeg and Deno are inside, so nothing else has to be installed; the folder takes
-about 320 MB because of them. `Sonicache-cli.exe --check` prints the version and the tools it
-found. A program installed through Scoop does not update itself; `scoop update sonicache` does.
+Python, ffmpeg and Deno are bundled, about 320 MB in all. The program updates itself after checking the
+installer's SHA-256; under Scoop, run `scoop update sonicache` instead.
 
-**macOS and Linux** have builds of their own, see [macOS and Linux](#macos-and-linux).
+The builds are unsigned, so SmartScreen may say "Windows protected your PC": click "More info", then "Run
+anyway". Windows Defender sometimes wrongly flags `Sonicache.exe` as `Trojan:Win32/Sabsik.EN.D!ml`. The
+`!ml` means a machine-learning model guessed, and it guesses the same about most PyInstaller builds. Open
+Windows Security → Protection history, choose "Allow on device" and unpack the archive again.
 
-### First run on Windows
+The window needs Microsoft Edge WebView2. Windows 11 has it; on Windows 10 the program offers to install it
+if it is missing.
 
-> [!NOTE]
-> **SmartScreen.** Neither the installer nor the program is signed with a certificate, so
-> Windows may show its blue "Windows protected your PC" window. Click "More info", then "Run
-> anyway". Only a certificate from an authority removes that window, and a new signature still
-> has to earn its reputation through downloads.
+### macOS
 
-> [!WARNING]
-> **Antivirus.** Windows Defender sometimes flags `Sonicache.exe` as
-> `Trojan:Win32/Sabsik.EN.D!ml`. The `!ml` suffix means the file matched no known signature:
-> a machine-learning model flagged it on circumstantial evidence, namely an unsigned exe that
-> unpacks a bundled Python of several hundred files as it starts. Nearly everything built with
-> PyInstaller gets caught the same way. It is a false positive, but while the file sits in
-> quarantine the archive will not finish unpacking, and `Sonicache.exe` disappears from the
-> folder right after extraction.
->
-> To fix it, open Windows Security → Virus & threat protection → Protection history, find the
-> Sonicache entry, expand it, choose "Allow on device", then unpack the archive again. To check
-> the file instead, upload the archive to [VirusTotal](https://www.virustotal.com/) and compare
-> its SHA-256 with the one in the release notes using `Get-FileHash <file>`. Reporting the
-> detection through Microsoft's [file submission form](https://www.microsoft.com/en-us/wdsi/filesubmission)
-> usually gets it cleared for everyone within a day or two.
+Open the `.dmg` for your Mac (`macos-arm64` for Apple Silicon, `macos-x64` for Intel) and drag Sonicache to
+Applications. Apple has not signed the app, so the first launch is blocked. Allow it in System Settings →
+Privacy & Security → "Open Anyway", or run:
 
-> [!NOTE]
-> **WebView2.** The window is drawn by the Microsoft Edge WebView2 component. Windows 11 always
-> has it and Windows 10 usually does; if it is missing, the program offers to install it from
-> Microsoft.
+```sh
+xattr -dr com.apple.quarantine /Applications/Sonicache.app
+```
 
-## Using it
+Homebrew picks the right build and adds a `sonicache` command (the first launch still needs the step
+above):
 
-The sections are along the top: Home, Download, Catalogue and Library, with the settings behind
-the gear at the right end. Ctrl+1 to Ctrl+4 open Download, Catalogue, Library and Settings;
-Ctrl+K opens the Catalogue too. While something downloads, a line under the word Download shows
-how far it has come, whichever section is open.
+```sh
+brew tap mojave333/sonicache https://github.com/mojave333/sonicache
+brew install --cask mojave333/sonicache/sonicache
+```
 
-### Home
+### Linux
 
-A greeting, then the album to go on with: the one played last, or else a favourite, or else the
-newest, set in the colours of its cover, with six more to start from. Under it come rows of
-what was added recently, your favourites, what you played recently and what you play most.
+Unpack `Sonicache-vX.Y.Z-linux-x64.tar.xz` and run `./Sonicache/Sonicache`. It needs glibc 2.35 or newer
+(Ubuntu 22.04, Debian 12, Fedora 36 and later). If the window does not open, start it from a terminal to see
+which library is missing.
 
-### Download
-
-Paste a link with the button, with Ctrl+V, or drag it into the window; several at once is fine.
-Without a link, write a name instead, "Artist - Album" or "Artist - Track", and the release is
-looked up on YouTube Music or Apple Music. The format and the folder sit next to the field. The
-arrow beside "Download" switches to "only check what would be found", which saves nothing.
-
-Each link becomes a row with its cover and overall progress. Clicking it opens the tracks and
-their state: searching, saving with percentages, trying another source when the first one
-refused, done, already in the folder, not found or failed, and where the audio came from. Links
-added while a run is going join the queue. "Pause" holds the queue between tracks; "Stop"
-interrupts, and the retry button on a row picks up what is left. Closing the window loses
-nothing: unfinished links and the list of what was saved come back on the next run.
-
-The percentages count a track's whole way, not only its bytes. Most of the time goes where
-nothing is transferred: preparing the stream takes several seconds, and turning it into mp3
-takes longer than the transfer itself. So each step's remaining time is estimated, from ffmpeg's
-own report during the conversion and from how long the step took on the tracks before, and the
-bar moves at an even pace. The window title shows the percentage, and on Windows the taskbar
-button fills with it, yellow while paused and red once something has failed.
-
-### Catalogue
-
-For when there is no link at hand. With nothing typed it shows two rows: what is new from the
-artists the library holds most albums of (leaving out what you already have), and Deezer's chart
-for the country the network is in. "All" opens a whole row. Type an artist, an album or a track
-and the answer replaces them as the typing pauses: artists with their photos, albums as covers,
-tracks as a list, with chips to show only one kind. The results come from Deezer, which needs no
-account; where Deezer does not answer, YouTube Music is asked instead, and the corner says which
-one is shown. The refresh button, or F5, asks again.
-
-The arrow on a cover or a track puts it into the queue at once and turns into a tick; the view
-stays, so more can be picked. A click on an album opens its page, the same panel an album of the
-library has: the large cover on a wash of its own colours, the tracklist under the title, and the
-count and length under the tracks. From there the whole album or any one track can be queued.
-What the library holds already carries an "In the library" mark, found by the link it came from
-or by its artist and title, editions and remasters aside.
-
-A click on an artist opens their page: the photo, and every release newest first, split into
-albums, singles and EPs, and compilations. "Download the discography" queues their albums and
-EPs, oldest first. "Watch for new releases" adds the artist to Settings → Watching and background:
-from then on the checks every 12 hours fetch whatever comes out, singles included. What the artist
-had when the watch began is never fetched by it.
-
-A link to an artist pasted into the Download field, or given on the command line, stands for the
-same discography. Deezer and YouTube Music list an artist's releases openly; Spotify and Apple
-Music do not, so their artist links are followed to the artist of the same name on Deezer.
-
-### Library
-
-The library shows what is in the music folder and in any other folders added under Settings →
-Library, so a collection kept elsewhere shows up without being moved. A folder with music in it
-counts as an album, named after its files' own tags; where they say nothing, the folder's name
-does, and the folder above it names the artist, whether that is the "nested" naming's
-Artist/Album or a collection arranged by hand as Genre/Artist/Album. Folders inside an album
-belong to it when their tracks carry the same album tag: a disc per folder, or a title with a
-slash in it ("Weird Fishes/Arpeggi") that some programs saved as folders. Loose tracks of
-different albums side by side are single tracks. The cover is the picture beside the files
-(`cover.jpg`, `Folder.jpg`, `front.png` and the like), or else the one inside the first file.
-
-A list stands at the side of the window: the views (Albums, Favourites, Tracks, Artists), the
-genres, and the playlists. In a narrower window the page's heading is a button that opens the same
-list as a menu. The bar above the library says what is on the screen and how much of it; it holds
-the order, a switch between a grid of covers and a table with sortable columns, a filter, the
-shuffle button, and the folder and refresh buttons. A genre picked from the list stands beside the
-heading as a mark that a click takes off; "Alternative Rock; Rock" counts as two genres.
-
-The folders are read again each time the library opens, and whatever they held last time is shown
-at once meanwhile. The tags read from the files are kept between runs with each file's size and
-time, so only files changed since are opened again.
-
-A click on a cover opens the album's page: a large cover on a panel washed in its own colours, and
-the title, the year, the genre, and the tracks read from the files' own tags. Only the tracklist
-scrolls; the title and the buttons stay in place. For an album this program saved, the tracks that
-never arrived are listed too, greyed out, since the `.sonicache.json` file in the album's folder
-keeps the link and the whole tracklist. From the page the album can be opened in the file manager,
-completed ("Fetch what is missing" asks for the same link again and skips what is on disk) or
-watched for new tracks. The heart adds it to the favourites. Escape, Backspace or the mouse's back
-button returns to the grid.
-
-Albums are selected the way files are in a file manager: Ctrl and Shift with a click, Ctrl+A, the
-arrows, Home and End (a plain click on a cover opens it). The right button opens a menu of actions,
-and the selection goes to the trash, from where it can be restored.
-
-### Listening
-
-"Play" on an album's page starts it from the top; a click on a track's number, or a double click
-on its row, starts from that track, and the album is the queue. The bar at the bottom of the window
-shows the track, with shuffle, previous, pause, next and repeat (the whole queue, or one track), a
-position to drag, and the volume. Shuffled, each artist's tracks are spread evenly through the
-queue, so a band with many albums does not come back every few songs.
-
-While a track plays the next one is already loaded, and the next track of an album starts the
-moment the last one ends, so a live record plays as it does on the disc. Between records a
-crossfade can be set (Settings → Player, up to 12 seconds). The equalizer has ten bands and a few
-presets; the whole is lowered by its highest band, so it never clips. The file is streamed from the
-program itself, so nothing is copied.
-
-The queue (the list button, or Q) shows what has played and what comes next: drag a track to move
-it, the cross takes it out. A right click on a track plays it next, adds it to the end of the queue
-or to a playlist; on albums in the library it does the same for whole albums. On Windows the track,
-its artist and its cover show in the system's own media controls, the keyboard's media keys work,
-and so do the buttons under the window's picture on the taskbar.
-
-Playlists of your own are made in the library, filled with a right click, reordered by dragging,
-saved as `.m3u8` for other players, or opened from one. A playlist shows the cover of its first
-track that has one; a click on the cover on its page puts a picture of your own there (JPEG, PNG or
-WebP, up to 8 MB; a copy is kept beside the playlists), and a button beside the title takes it off.
-Two more playlists are made from what you listen to. A track counts once half of it, or four
-minutes, has played, as Last.fm counts it.
-
-Settings → Player can send what you listen to Last.fm (the program opens Last.fm's page, where you
-allow it) or to ListenBrainz (paste the token from your profile). A listen that could not be sent
-waits and goes with the next one. With "Show on Discord what plays" turned on, your Discord profile
-says "Listening to" the artist, with the track, the album's cover and a bar that moves with it. The
-program talks to the Discord app on the same computer, so no account or token is involved.
-
-Files with ReplayGain tags play at one level, whoever wrote them, in mp3, m4a, FLAC, Ogg or Opus.
-An album played in its order takes the album's gain, so a quiet interlude stays quiet; shuffled,
-each track takes its own. The player only turns tracks down to the reference level, never up past
-the file.
-
-**Now playing** fills the window: the cover large on the left with the title, the artist, the album
-and the year, and small labels for the format, bitrate and sample rate; the words on the right. The
-view takes the cover's colours. Synced lyrics, from the `.lrc` next to the file, scroll with the
-song: the line being sung sits a third of the way down, and a click on a line jumps there. A file
-with plain lyrics in its tags shows those, and one with none has its lyrics looked up in LRCLIB for
-the screen, without anything being written to it. The queue and the equalizer open over it. Keys:
-Space pauses, the left and right arrows move 5 seconds, the up and down arrows set the volume, M
-mutes, L opens the words and F makes the window full screen; Escape leaves the view.
-
-### Players and phones
-
-A player, an SD card or a phone plugged in as a removable drive shows up in the list on the Sync page (the arrows icon beside Settings)
-in the top bar; a phone or a share that does not can be added as a folder with "Choose a folder".
-Its page says how full it is, and what goes onto it: the whole library, or the playlists, artists
-and albums ticked there. Before anything is copied the line above the button says how many tracks
-will be added, how many removed and how much room is left afterwards; "Sync" does it. Covers and
-`.lrc` lyrics go along, playlists become `.m3u8` files in `Sonicache/Playlists`, and "Convert to
-MP3" makes MP3s of the opus and m4a files for a player that plays nothing else (the files in the
-library stay as they are). Everything the program writes goes into a `Sonicache` folder on the
-device, listed in `.sonicache-sync.json` beside it: only what that list names is ever removed, so
-music put on the device another way stays. A sync cut short by a pulled cable carries on from where
-it stopped the next time. What each device gets is remembered in `devices.json` beside the history.
-
-An Android phone plugged in by cable shows up there too, once it is unlocked and "File transfer" is
-chosen in the notification it shows (Windows reaches it over MTP, without a drive letter, through
-Windows Portable Devices). Each of its storages, the internal one and an SD card, is a device of its
-own, and the music goes into `Music/Sonicache` on it. A phone that is locked or only charging is
-listed with what to do about it. To check it with a phone: plug it in, unlock it, choose "File
-transfer", open the Sync page, pick the phone in its list, tick a playlist, press "Sync", and look
-for `Music/Sonicache` in the phone's file manager or its music player.
-
-A classic iPod in disk mode shows up on the Sync page as an iPod. Its own firmware plays only what its
-database (`iPod_Control/iTunes/iTunesDB`) lists, so the program writes that database as libgpod
-(gtkpod, Rhythmbox) does: the tracks go into the iPod's own `iPod_Control/Music/Fnn` folders under names of their own
-(`SNC…`), and appear in Music → Artists, Albums, Songs and Playlists on the iPod. What iTunes put
-there stays, with its playlists; play counts, ratings and On-The-Go playlists made on the iPod are
-carried over. The iPod plays only MP3 and AAC (`.m4a`): opus and FLAC are made MP3 with ffmpeg
-whether "Convert to MP3" is on or not (without ffmpeg they are left out and the preview says how
-many). The list of what is ours is `iPod_Control/iTunes/sonicache-sync.json`. Covers are not
-written: the iPod shows its own blank picture for these tracks.
-
-| Model | Works |
-|---|---|
-| iPod 1G–4G, photo/color, mini, video (5G, 5.5G), nano 1G and 2G | yes |
-| iPod Classic (6G, 6.5G, 7G), nano 3G and 4G | yes, signed with the iPod's FireWire ID (read from `SysInfo` or from Windows); not yet tried on a real Classic |
-| iPod nano 5G, 6G, 7G | no: their database needs a signature only iTunes makes |
-| iPod shuffle | no: no screen, a database of its own |
-| iPod touch | no: no disk mode; use "Phone over Wi-Fi" |
-
-An iPod with Rockbox (a `.rockbox` folder at its root) plays from folders and is synced like any
-player, into `Sonicache`. To check it with an iPod: plug it in and turn on disk mode if iTunes is not
-there to do it, open the Sync page, pick the iPod in its list, tick two albums and a playlist, press
-"Sync", eject it safely (Windows' "Safely remove hardware"), unplug it, and look for the albums
-under Music → Artists and the playlist under Music → Playlists; play a song. Then plug it in again,
-untick one album and sync: it is gone from the iPod's menus, the other one still plays. A Classic
-that answers "no music" or shows nothing after a sync is worth a line in an issue, with its model
-from Settings → About.
-
-An iPhone gives no program on the computer its files, by cable or otherwise, so phones over Wi-Fi
-work the other way round: "Phone over Wi-Fi" on the Sync page opens the library on the home network as
-a Subsonic server, the kind Navidrome and Airsonic are. A free player that speaks Subsonic plays it
-and downloads the albums and playlists you pick for when there is no network: Amperfy on an iPhone,
-Ultrasonic (or Symfonium) on Android. Add a Subsonic server in the player with the address, login
-and password the page shows (port 4533, or the next free one). The phone and the computer have to
-be on the same network and Sonicache has to be running (the tray is enough); the first time, Windows
-asks whether to let it through the firewall: allow private networks. Stars on albums in the player
-are the library's favourites, what is played to the end on the phone counts as played, and opus and
-m4a files are sent as MP3 to a player that asks for it. The switch, the port and the password are
-kept in `wifi.json` beside the history; "New password" makes phones sign in again.
-
-### Filling in tags
-
-Albums saved by an older version, or put in the folder by another program, may lack a genre, a
-year, a cover or lyrics. "Fill in tags" adds what is missing without fetching anything again: on
-the album's page and in the right-click menu it works on that album or the selection, and above the
-list, with nothing selected, on every album that needs it, after a question. It shows only where
-something is missing. An album tidied up once is not offered again until its files change.
-
-Each album is looked up again: by the link in its `.sonicache.json` when this program saved it,
-otherwise by the album and artist in its files' tags or, failing those, in its folder's name. Each
-file is matched to a track of the release by its title and length, or by its number and length when
-the title says nothing. A release found by name is taken only when most of the folder's files are
-its tracks, so a wrong guess changes nothing. A file then gets only the tags it does not have;
-whatever it already says stays as it is, including anything corrected by hand and the ID3 version
-of an mp3. The folder gets a `cover.jpg` if it has none.
-
-### Loudness
-
-Off by default; Settings → Sound and lyrics turns it on. Every file is measured with ffmpeg's EBU
-R128 meter and gets ReplayGain 2.0 tags: track gain and peak, plus one album gain shared by the
-tracks of an album. Opus gets the `R128_*` tags its specification asks for instead. The audio itself
-is not changed, so this helps in a player that reads the tags, such as this program's own,
-foobar2000, MusicBee, AIMP, VLC or Poweramp. A playlist gets no album gain, since its songs come
-from different records, and a file that already has the tags is never measured twice.
-
-### Lyrics
-
-On by default; Settings → Sound and lyrics turns it off. Each track's lyrics are looked up in
-[LRCLIB](https://lrclib.net), a free open database, by artist, title, album and length, so a live
-take or a remix of another length does not lend its words. The plain text goes into the tags
-(`USLT` in mp3, `©lyr` in m4a, `LYRICS` in opus), where phones and most players show it. When LRCLIB
-also has the timings, they go into an `.lrc` file under the track's name, which players with a
-lyrics pane scroll along with the song. An instrumental gets nothing, and a song LRCLIB does not
-know costs only its lyrics. Deleting a track from the library also deletes its `.lrc`.
-
-### Lists from a file
-
-"Download a list from a file…" under the arrow beside "Download" queues everything in a file;
-dropping the file on the window does the same. A `.txt` holds one link or name per line, and blank
-lines and lines starting with `#` are skipped. A `.csv` is read the way playlist exporters
-(Exportify, TuneMyMusic, Soundiiz) write it: from a link or URI column when there is one, otherwise
-from the track and artist columns. A row from such an export is always looked for as a single song.
-A file can hold up to 500 entries, and repeats are taken once.
-
-### Watching
-
-A finished album or playlist has an eye on its card. Press it, and the program opens that link again
-every 12 hours and fetches whatever was added since into the same folder, in the same format. Tracks
-already on disk are skipped, so a check that finds nothing leaves no card behind. Settings →
-Watching and background lists what is watched, when each was last checked and how many tracks it
-brought, with a button to check everything now.
-
-### In the background
-
-On Windows the program keeps an icon by the clock. While something is being saved, filled in or
-watched, closing the window only hides it there: runs finish and watched playlists keep their
-schedule. A click on the icon brings the window back; its menu also checks the watched ones at once
-and quits. With nothing left to do, closing the window ends the program. When a run finishes while
-the window is minimized or behind others, one notification says what came of it. Settings →
-Watching and background turns both off.
-
-### Profiles
-
-A folder, a format and the two naming rules can be saved under a name, and the button beside the
-folder in the Download toolbar switches between them: "Music, m4a" for everyday listening, "D drive,
-mp3" for the car. The button stays lit while the settings still match the profile.
-
-### Settings
-
-The settings are a card per subject: how the window looks, where music goes, saving, sound and
-lyrics, the library, watching and the background, profiles, the network, what to do when something
-does not work, and the program itself. Everything is saved as it changes.
-
-- **Look.** The theme (as in the system, light or dark), the font of the headings (Source Serif,
-  Comic Sans or the system's), and what the empty screens show: a crayon drawing, animated ASCII art
-  or nothing.
-- **Language.** Russian or English; the first run takes the system's, and any other system language
-  gets English.
-- **Saving.** The music folder, how many tracks at once, a speed limit, a proxy, cookies from a
-  browser, and the two naming rules, with an example of what an album and its first file will be
-  called.
-- **Troubleshooting.** The version of yt-dlp inside the build, a check that every component is in
-  place, the path to the log and a "Copy the report" button. The report holds the version, the
-  component paths, the settings and the end of the log, which is what a bug report needs.
-
-The program asks GitHub about new versions once per run, and announces one at the top of the
-settings. "Update the program" fetches that release's installer, checks it against the SHA-256 that
-GitHub publishes beside it, closes, and lets the installer replace the files and open the new
-version. Nothing is fetched until the button is pressed, and nothing is run if the hash disagrees.
-Settings live in `%USERPROFILE%\.sonicache.json`.
-
-YouTube serves age-restricted tracks only to a signed-in account. Usually the program takes such a
-song from another source, but if there is no other, choose in the settings the browser you are
-signed into YouTube with. Close that browser first, because it holds its cookie file open.
-Firefox's cookies are read the most reliably.
+The macOS and Linux builds do not update themselves. The settings tell you when a new version is out.
 
 ## Command line
 
-`Sonicache-cli.exe` is the same program for a terminal: it prints the progress and opens no window.
+`Sonicache-cli` is the same program without the window.
 
 ```bat
 Sonicache-cli.exe https://www.deezer.com/album/302127
-Sonicache-cli.exe "Daft Punk - Discovery"
-Sonicache-cli.exe LINK1 LINK2 -f mp3 -o D:\Music -t 4
+Sonicache-cli.exe "Daft Punk - Discovery" -f m4a -o D:\Music
 Sonicache-cli.exe --dry-run LINK
 ```
 
@@ -457,196 +113,66 @@ Sonicache-cli.exe --dry-run LINK
 | `--lang` | language of the messages: `system` (default), `ru`, `en` |
 | `--check` | version, paths to ffmpeg and Deno, the music folder |
 
-## Links it understands
+## Where the music comes from
 
-| Service | Which links | Where the audio comes from |
-|---|---|---|
-| Spotify | album, single, track, playlist, `spotify:…`, `spotify.link/…` | searched on YouTube Music and SoundCloud |
-| Apple Music | album, song, playlist | searched |
-| Deezer | album, track, playlist, `link.deezer.com/…` | searched |
-| YouTube, YouTube Music | video, album, playlist | from the link |
-| Artists on Deezer, YouTube Music, Spotify, Apple Music | the artist's page | their albums and EPs, each as above |
-| SoundCloud | track, set | from the link; DRM-protected tracks are searched elsewhere |
-| Last.fm | album, track | the album is found on YouTube Music or Apple Music, the audio comes from there or from a search |
-| Bandcamp and other sites yt-dlp understands | album, track | from the link |
+Each track is looked up first by its ISRC, the code every release of a recording carries, so YouTube Music
+returns that exact recording. Without a code, Sonicache searches YouTube Music, then SoundCloud, then ordinary
+YouTube videos, and skips live versions, remixes and covers unless the title asks for one. A track with no
+good match is reported as failed, and nothing random is saved in its place.
 
-For Spotify, Apple Music, Deezer and Last.fm the link tells the program what the release is. The
-audio never comes from them: it is looked for in open sources, as described in
-[How a track is chosen](#how-a-track-is-chosen). The titles, artists, track numbers, the year and
-the cover are read from the page behind the link. The genres come from
-[MusicBrainz](https://musicbrainz.org/); an album nobody has voted on there keeps the genre its
-service names (Deezer and Apple Music do), and for the others it is looked up by name in Apple's
-catalogue and then on Deezer. Playlists get no genre, since their songs come from many.
+| Format | What you get |
+|---|---|
+| `mp3` (default) | 320 kbit/s, plays anywhere |
+| `m4a` | AAC at 256 kbit/s |
+| `opus` | YouTube's Opus stream, not re-encoded |
 
-Spotify and Apple Music playlists are read off the page, and the page does not hand over the whole
-list: Spotify gives the first 100 tracks, Apple Music the first 50. When a playlist holds more, the
-program says so on the release line, and the rest have to be added separately. Deezer playlists
-come whole, through Deezer's public API. A playlist's tracks keep their own artists and are tagged
-as a compilation: the playlist's name as the album, "Various artists" as the album artist, and the
-compilation flag, so players group them the way they group a soundtrack. VK is not supported; it
-shows music only to a signed-in account.
+None of the free sources is lossless, so no format can sound better than the stream it came from.
 
-When a network keeps back Spotify's player page but still gives out the pages made for link
-previews, the release is read off those instead: an album or a track comes whole, a playlist with
-its first 30 tracks, and the release line says so. A longer playlist comes whole through a proxy
-(up to 100 tracks), or exported to CSV and opened with "Download a list from a file…". See
-[Proxies and the relay](#proxies-and-the-relay).
+Spotify playlists come with their first 100 tracks and Apple Music playlists with their first 50; Deezer
+playlists come whole.
 
 ## Where the files go
 
 ```
 Sonicache\
   Daft Punk - Discovery (2001)\
-    01. One More Time.m4a
-    02. Aerodynamic.m4a
+    01. One More Time.mp3
+    02. Aerodynamic.mp3
     cover.jpg
-    .sonicache.json
-  Rick Astley - Never Gonna Give You Up.m4a     (a link to a single track)
 ```
 
-Multi-disc albums are numbered `1-01`, `2-01`. A track credited to someone besides the album artist
-keeps those names in its file name. The settings change both layouts: file names as "01. Title"
-(guests named separately), "01. Artist - Title" or "01. Title"; album folders as "Artist - Album
-(Year)", "Artist → Album (Year)" (nested) or "Album (Year)". On the command line these are `--names`
-and `--folders`. Files that are already there are skipped, so an interrupted run can simply be
-started again.
+Files already on disk are skipped, so an interrupted run can simply be started again. The settings, or
+`--names` and `--folders`, change how files and folders are named.
 
-## Formats and quality
+## If a service is blocked
 
-YouTube keeps two versions of every track: AAC at 128 kbit/s, cut off above 16 kHz, and Opus at 130
-to 160 kbit/s, which reaches 20 kHz. Sonicache starts from the Opus for every format except a
-Premium account's AAC 256, which is kept as it is.
+Sonicache connects from your own computer, so it sees what your network lets through. Settings → Network →
+"Check" shows what opens and finds the local proxy of a VPN client such as v2rayN, Clash or Hiddify. Any
+other proxy goes into Settings → Network → Proxy, or `--proxy`. For Spotify there is also a one-file relay
+on Cloudflare Workers, described in [relay/README.md](relay/README.md).
 
-- `mp3`, the default, is a constant 320 kbit/s at 44.1 kHz. It plays anywhere, car stereos and DJ
-  software included.
-- `m4a` is the Opus turned into AAC at 256 kbit/s. Almost every player takes it.
-- `opus` is the Opus as it is, with no re-encoding. Not every player understands it.
+## Reporting a problem
 
-No format makes the sound better than the stream it came from, and none of the free sources is
-lossless. SoundCloud hands over AAC at 160 kbit/s. Without ffmpeg `m4a` falls back to YouTube's own
-AAC 128, and the other formats are not available.
+Settings → If something does not work → "Copy the report", then attach it to an
+[issue](https://github.com/mojave333/sonicache/issues). Errors from YouTube usually go away in the newest
+version, which carries a fresh yt-dlp.
 
-## How a track is chosen
+## From source
 
-First the recording itself is looked for by its ISRC, the international code every release of a song
-carries and every catalogue shares. Deezer names it for its own tracks; for a Spotify or Apple Music
-link the same album is found on Deezer by name, and a playlist's tracks are looked up one by one,
-only when title, version and length agree, so a live take or a remaster never lends its code to the
-original. YouTube Music then finds the official audio filed under that code: the very recording, not
-another one of the same name. The code is also written into the file's tags. Where Deezer does not
-answer, the lookups rest for five minutes and tracks are matched by name.
-
-Without a code, or when YouTube Music has nothing under it, the search runs on "artist + title" in
-this order:
-
-1. official audio on YouTube Music;
-2. SoundCloud, since smaller artists often skip YouTube Music;
-3. ordinary YouTube videos.
-
-Once a confident match is found, the remaining sources are not asked. Candidates are scored on title
-(transliterated Cyrillic included), artists, length and album. Live, remix, cover, demo and similar
-versions are dropped unless those words appear in the title on the source service. When the match
-refuses to be fetched (an age-gated video, say), the next candidate is tried, widening the search to
-the other sources if needed. With no suitable candidate the track is reported as failed, and nothing
-random is saved in its place. A file that turns out too short, such as a 30-second SoundCloud Go+
-preview, counts as a failure too.
-
-## Proxies and the relay
-
-The program talks to the services from your own computer, so it sees what your network lets through.
-Settings → Network → "Check" says what that is: whether Spotify's player opens or only its preview
-pages, whether YouTube and SoundCloud open, and whether a VPN client runs a proxy on this computer.
-`sonicache --check` prints the same.
-
-- **A VPN in TUN or "system proxy" mode** is used by the program by itself, with nothing to set.
-- **A VPN client that only opens a local proxy** (v2rayN, NekoBox, Clash, Hiddify, v2rayA,
-  Shadowsocks, on their default ports) is found by the check, and one click puts it to use.
-- **Any other proxy** goes into Settings → Network → Proxy, `http://…` or `socks5://…`. A SOCKS proxy
-  is asked to look names up itself.
-- **A relay** reads the pages a service keeps back from this network, from abroad, so albums, tracks
-  and playlists of up to 100 tracks come whole with no proxy at all. It is a free Cloudflare Worker,
-  one file; [relay/README.md](relay/README.md) says how to put it up and point the program at it
-  (Settings → Network → Spotify relay, `--relay`).
-- **Without a proxy or a relay**, an album or a track is still read off the preview pages where they
-  come, and a playlist gives its first 30 tracks. When YouTube does not answer, the search leaves it
-  out for five minutes at a time and goes to SoundCloud, which has much but not all.
-
-## When something breaks
-
-- **Errors from YouTube.** YouTube changes often, and yt-dlp with it. Update to the newest Sonicache;
-  running from source, run `install.bat` again. Settings → If something does not work shows how old
-  the bundled yt-dlp is.
-- **"Spotify changed the shape of its page".** The parsing in `sonicache/engine/spotify.py` needs
-  fixing.
-- **"Spotify did not hand over … and answered "Page not found"".** Spotify will not show the release
-  to this network, and its link-preview pages did not come either. A proxy helps, or a link to the
-  same release from Deezer, Apple Music or YouTube Music.
-- **`music.youtube.com` is unreachable on this network.** The program switches to `www.youtube.com`
-  by itself.
-- **A proxy is needed.** Settings → Network → "Check" finds a VPN client's proxy on this computer.
-  Otherwise write the address in Settings → Network → Proxy, or start with
-  `--proxy socks5://127.0.0.1:10808`. `HTTP_PROXY` and `HTTPS_PROXY` work too.
-- **Anything else.** Settings → If something does not work → "Copy the report", and attach it to an
-  [issue](https://github.com/mojave333/sonicache/issues).
-
-## macOS and Linux
-
-Each release also carries builds for macOS, one for Apple Silicon (M1 and newer) and one for Intel,
-and one for 64-bit Linux. All have ffmpeg and Deno inside, and the command line program sits beside
-the window in the same folder. They do not update themselves: when a new version is out, the settings
-show a line about it with a link to the release page.
-
-**macOS.** Open `Sonicache-vX.Y.Z-macos-arm64.dmg` on a Mac with Apple Silicon, or
-`Sonicache-vX.Y.Z-macos-x64.dmg` on one with an Intel processor (Apple menu → About This Mac says
-which), and drag Sonicache to Applications. The app is not signed with an Apple developer certificate,
-so the first launch is refused with "Apple could not verify…". Click "Done", open System Settings →
-Privacy & Security, scroll to the line about Sonicache and click "Open Anyway". The same can be done in
-a terminal:
-
-```sh
-xattr -dr com.apple.quarantine /Applications/Sonicache.app
-```
-
-The command line is `/Applications/Sonicache.app/Contents/MacOS/Sonicache-cli`. With
-[Homebrew](https://brew.sh) the right build for the Mac is chosen by itself, and `sonicache` becomes the
-command line (the first launch still needs the step above):
-
-```sh
-brew tap mojave333/sonicache https://github.com/mojave333/sonicache
-brew install --cask mojave333/sonicache/sonicache
-```
-
-**Linux.** Unpack `Sonicache-vX.Y.Z-linux-x64.tar.xz` anywhere and start `Sonicache` in the folder;
-`Sonicache-cli` is the command line. It needs glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36
-and later). The window is drawn by Qt WebEngine, which is inside, so nothing has to be installed. If
-the window does not open, start `./Sonicache` from a terminal: it names the library it could not find.
-
-```sh
-tar -xJf Sonicache-vX.Y.Z-linux-x64.tar.xz
-./Sonicache/Sonicache
-```
-
-On both, deleting from the library goes to the trash (Finder, `gio trash`, or `~/.local/share/Trash`
-per the freedesktop.org specification), "Show in the file manager" opens Finder or the desktop's file
-manager, and the theme follows the system. Settings live in `~/.sonicache.json`; the log and the
-history in `~/Library/Application Support/Sonicache` (macOS) or `$XDG_DATA_HOME/sonicache` (Linux).
-
-## Running from source
-
-Windows and Python 3.10+. ffmpeg and Deno are not included: put `ffmpeg.exe` and `deno.exe` into a
-`vendor\` folder next to the project (`powershell -ExecutionPolicy Bypass -File scripts\fetch-vendor.ps1`
-fetches them) or install them system-wide:
+You need Python 3.10 or newer, ffmpeg and Deno. On Windows:
 
 ```bat
 winget install Gyan.FFmpeg
 winget install DenoLand.Deno
+install.bat
+run.bat
 ```
 
-Then `install.bat` creates `.venv` and installs the dependencies, and `run.bat` opens the window. From
-source the command line is `.venv\Scripts\python.exe main.py LINK`.
+`install.bat` creates `.venv` with the dependencies and `run.bat` opens the window. The command line is
+`.venv\Scripts\python.exe main.py LINK`. Instead of winget, `scripts\fetch-vendor.ps1` puts `ffmpeg.exe` and
+`deno.exe` into `vendor\`.
 
-On macOS and Linux the window is drawn by WebKit (macOS) or GTK (Linux) through pywebview, and ffmpeg
-and Deno have to be installed separately:
+On macOS and Linux:
 
 ```sh
 brew install ffmpeg deno            # macOS
@@ -656,17 +182,11 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python main.py LINK       # the command line
 ```
 
-### Tests
+The tests run offline, on service pages saved in `tests/fixtures`:
 
 ```bat
 .venv\Scripts\python.exe -m pytest
 ```
-
-The tests are offline: the Spotify, Apple Music and Last.fm pages come from `tests/fixtures`, the Deezer
-answers are written into the tests, and no request leaves the machine. They cover what rots by itself:
-the parsing of other people's markup, the match scoring on YouTube Music and SoundCloud, file names and
-the settings. [`ci.yml`](.github/workflows/ci.yml) runs the same tests on every push, on Windows, Linux
-and macOS.
 
 ## Building
 
@@ -677,102 +197,27 @@ pyinstaller --noconfirm sonicache.spec
 powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
 ```
 
-The last line is optional: it wraps the finished folder into
-`dist\Sonicache-X.Y.Z-windows-x64-setup.exe`. [Inno Setup 6.3 or newer](https://jrsoftware.org/isdl.php)
-does the wrapping, following [`sonicache.iss`](sonicache.iss). When it is not installed, the script says
-which command installs it (`winget install --id JRSoftware.InnoSetup`). The version comes from
-`sonicache/__init__.py`, so there is nothing to keep in step by hand.
+This makes `dist\Sonicache` with `Sonicache.exe` and `Sonicache-cli.exe`. The last line wraps it into an
+installer and needs [Inno Setup](https://jrsoftware.org/isdl.php) 6.3 or newer. On macOS and Linux,
+`scripts/fetch-vendor.sh` and then `scripts/build-unix.sh v1.2.3` make a `.dmg` or a `.tar.xz`.
 
-The finished folder is `dist\Sonicache`, holding two exes (`Sonicache.exe` and `Sonicache-cli.exe`) built
-from the same code: the first has no console, the second has one. Everything else lives in `_internal`,
-including `bin\ffmpeg.exe` and `bin\deno.exe` from `vendor\`. The program looks there first and only then
-in `PATH`. Building without `vendor\` works too and produces a lighter variant that takes ffmpeg and Deno
-from the system.
+Releases are made on GitHub: Actions → Release → Run workflow, then type the version.
+[`release.yml`](.github/workflows/release.yml) tags the commit, builds for every system and publishes the
+files with their SHA-256.
 
-On macOS and Linux the same spec file makes `dist/Sonicache.app` or `dist/Sonicache`, and a script does
-the rest: it fetches ffmpeg and Deno, builds, checks that the command line and the window start, and packs
-a `.dmg` or a `.tar.xz`. The Linux build needs `pip install "pywebview[qt]"` (it is in
-`requirements-dev.txt`) and, for the check, `xvfb`.
-
-```sh
-pip install -r requirements.txt -r requirements-dev.txt
-scripts/fetch-vendor.sh
-scripts/build-unix.sh v1.2.3
-```
-
-### Releasing
-
-Releases are made on GitHub, with nothing to do locally. Open **Actions → Release → Run workflow** and
-type the version (`1.2.3`). [`release.yml`](.github/workflows/release.yml) writes it into
-`sonicache/__init__.py`, commits it, tags the commit, runs the tests, builds the exe and the installer, and
-publishes the release with both files and their SHA-256. The macOS and Linux builds are attached to the same
-release a few minutes later. Tagging by hand also works:
-`git tag v1.2.3 && git push origin v1.2.3` starts the same workflow, which then checks the tag against
-`__version__` and stops if they disagree. A version that has already been released is refused before anything
-is built.
-
-## How it is put together
-
-Everything that turns a link into tagged files lives in `sonicache/engine/`, which knows nothing about the
-window or the command line; `tests/test_engine.py` keeps it that way. The rest of `sonicache/` is the
-program built on top of it.
-
-| File | What it does |
-|---|---|
-| `sonicache/engine/__init__.py` | the engine's public interface, the part a script imports |
-| `sonicache/engine/sources.py` | parsing the links of every service, and finding a release by name |
-| `sonicache/engine/spotify.py` | Spotify metadata |
-| `sonicache/engine/models.py`, `sonicache/engine/net.py` | shared data structures and HTTP |
-| `sonicache/engine/matcher.py` | searching and picking a match on YouTube Music, SoundCloud and YouTube |
-| `sonicache/engine/downloader.py` | fetching (yt-dlp), converting (ffmpeg), tagging (mutagen) |
-| `sonicache/engine/loudness.py` | measuring the loudness and writing ReplayGain tags |
-| `sonicache/engine/lyrics.py` | looking up lyrics in LRCLIB |
-| `sonicache/engine/catalog.py` | the catalogue search and the first screen behind the Catalogue |
-| `sonicache/engine/folders.py` | which files and which picture belong to an album folder |
-| `sonicache/engine/tidy.py` | filling in the tags older files lack, without fetching them again |
-| `sonicache/engine/batch.py` | reading a list of links from a `.txt` or a playlist export |
-| `sonicache/engine/devices.py` | syncing to a player or a phone that shows up as a drive: what it lacks, what goes, the copying |
-| `sonicache/engine/mtp.py` | an Android phone over a cable: Windows Portable Devices through ctypes, and the sync's target on it |
-| `sonicache/engine/itunesdb.py` | the classic iPod's database, `iTunesDB`, read and written as libgpod does, and its hash58 signature |
-| `sonicache/engine/ipod.py` | a classic iPod: which model it is, and the sync's target on it |
-| `sonicache/subsonic.py` | the library over Wi-Fi as a Subsonic server, for phone players such as Amperfy and Ultrasonic |
-| `sonicache/engine/i18n.py`, `sonicache/i18n.py`, `sonicache/web/i18n.js` | the Russian and English text: the engine's, the program's, the window's |
-| `sonicache/logs.py` | the log file and the report |
-| `sonicache/watch.py` | the list of watched playlists |
-| `sonicache/gui.py` | the window (pywebview) and the bridge to the engine |
-| `sonicache/tray.py` | the icon by the clock and the notifications (Win32 through ctypes) |
-| `sonicache/thumbbar.py` | the player's buttons under the window's picture on the taskbar (Win32 through ctypes) |
-| `sonicache/presence.py` | what plays, on the Discord profile (Discord's local Rich Presence pipe) |
-| `sonicache/mediacontrols.py` | the track in Windows' own media controls, and the media keys (WinRT through ctypes) |
-| `sonicache/playlists.py` | playlists of one's own, their covers, `.m3u8` both ways, and the listens behind "Most played" |
-| `sonicache/scrobble.py` | listens sent to Last.fm and ListenBrainz, and kept while they cannot be |
-| `sonicache/web/` | the interface: `index.html`, `style.css`, `app.js`, `i18n.js`, `icon.ico` |
-| `sonicache/web/art/`, `sonicache/web/fonts/` | the logo and the drawings for empty screens, and the fonts the headings can be set in |
-| `sonicache/cli.py`, `main.py` | the command line and the entry point |
-| `tests/` | offline tests of the link parsing, the matching and the file names |
-| `sonicache.spec`, `scripts/fetch-vendor.ps1` | building the exe |
-| `scripts/fetch-vendor.sh`, `scripts/build-unix.sh` | building for macOS and Linux |
-| `sonicache.iss`, `scripts/build-installer.ps1` | building the installer |
+The engine that turns a link into tagged files is `sonicache/engine/`, and it knows nothing about the window.
+The window is `sonicache/gui.py` and `sonicache/web/`.
 
 ## Licence
 
-[GPL-2.0-or-later](LICENSE). The program imports mutagen (GPL-2.0-or-later), which counts as linking
-rather than mere aggregation, so the copyleft covers the whole project.
+[GPL-2.0-or-later](LICENSE), because the program links mutagen, which is under the same licence. yt-dlp is
+under the Unlicense, ytmusicapi under MIT and pywebview under BSD-3-Clause. The heading font, Source Serif 4,
+is under the SIL Open Font License, and the [Phosphor](https://phosphoricons.com) icons under MIT.
 
-Other dependencies: yt-dlp and yt-dlp-ejs are under the Unlicense, ytmusicapi under MIT, pywebview under
-BSD-3-Clause. The window sets its headings in Source Serif 4 unless you choose Comic Sans or the system
-font; it travels with the program in `sonicache/web/fonts/` under the SIL Open Font License, and the licence
-text sits beside the files. The icons are [Phosphor Icons](https://phosphoricons.com), under MIT; their
-licence text is `sonicache/web/LICENSE-phosphor-icons.txt`.
+The release builds also carry ffmpeg (GPL, sources at [ffmpeg.org](https://ffmpeg.org/download.html)) and
+Deno (MIT) as separate programs. ffmpeg comes from [BtbN's builds](https://github.com/BtbN/FFmpeg-Builds) on
+Windows and Linux and from [Martin Riedl's](https://ffmpeg.martin-riedl.de/) on macOS. The Linux build also
+contains Qt (LGPL-3.0) and PyQt6 (GPL-3.0), so that build as a whole is GPL-3.0.
 
-The release builds carry two separate programs, each under its own licence: ffmpeg (GPL, sources at
-[ffmpeg.org](https://ffmpeg.org/download.html)) and Deno from [denoland/deno](https://github.com/denoland/deno)
-(MIT). ffmpeg comes from the [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) builds on Windows and
-Linux and from [Martin Riedl's builds](https://ffmpeg.martin-riedl.de/) on macOS. Sonicache runs both as
-external processes. The Linux build also contains Qt (LGPL-3.0) and PyQt6 (GPL-3.0), which draw its window.
-Because PyQt6 is GPL-3.0 and Sonicache allows any later version of the GPL, the Linux build as a whole is
-distributed under GPL-3.0.
-
-> [!IMPORTANT]
-> Use the program for music you have the rights to, and respect copyright law and the terms of service of
-> the services involved.
+Use Sonicache for music you have the rights to, and respect copyright law and the terms of the services
+involved.
