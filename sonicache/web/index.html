@@ -754,11 +754,8 @@
                 <div class="setting-group">
                   <div class="setting stacked">
                     <span class="setting-label" id="theme-label">Тема</span>
+                    <!-- In each row of cards the default comes first -->
                     <div id="theme" class="theme-choices" role="radiogroup" aria-labelledby="theme-label">
-                      <button type="button" role="radio" class="theme-choice" data-theme-choice="system">
-                        <span class="theme-preview system" aria-hidden="true"><span class="half light"><i></i><b></b><b></b></span><span class="half dark"><i></i><b></b><b></b></span></span>
-                        <span class="theme-name">Как в системе</span>
-                      </button>
                       <button type="button" role="radio" class="theme-choice" data-theme-choice="light">
                         <span class="theme-preview light" aria-hidden="true"><i></i><b></b><b></b></span>
                         <span class="theme-name">Светлая</span>
@@ -766,6 +763,10 @@
                       <button type="button" role="radio" class="theme-choice" data-theme-choice="dark">
                         <span class="theme-preview dark" aria-hidden="true"><i></i><b></b><b></b></span>
                         <span class="theme-name">Тёмная</span>
+                      </button>
+                      <button type="button" role="radio" class="theme-choice" data-theme-choice="system">
+                        <span class="theme-preview system" aria-hidden="true"><span class="half light"><i></i><b></b><b></b></span><span class="half dark"><i></i><b></b><b></b></span></span>
+                        <span class="theme-name">Как в системе</span>
                       </button>
                     </div>
                   </div>
@@ -798,6 +799,10 @@
                       <p class="setting-desc">Что показывать, пока список пуст</p>
                     </div>
                     <div id="art" class="theme-choices" role="radiogroup" aria-labelledby="art-label">
+                      <button type="button" role="radio" class="theme-choice" data-art-choice="none">
+                        <span class="art-preview art-words" aria-hidden="true"><b>Музыки пока нет</b><i></i><i></i></span>
+                        <span class="theme-name">Только текст</span>
+                      </button>
                       <button type="button" role="radio" class="theme-choice" data-art-choice="crayon">
                         <span class="art-preview art-crayon" aria-hidden="true"></span>
                         <span class="theme-name">Рисунок мелком</span>
@@ -805,10 +810,6 @@
                       <button type="button" role="radio" class="theme-choice" data-art-choice="ascii">
                         <span class="art-preview" data-scene="turntable" aria-hidden="true"><span class="ascii"></span></span>
                         <span class="theme-name">ASCII-арт</span>
-                      </button>
-                      <button type="button" role="radio" class="theme-choice" data-art-choice="none">
-                        <span class="art-preview art-words" aria-hidden="true"><b>Музыки пока нет</b><i></i><i></i></span>
-                        <span class="theme-name">Только текст</span>
                       </button>
                     </div>
                   </div>
