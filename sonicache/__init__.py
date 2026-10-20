@@ -14,8 +14,9 @@ __version__ = "1.0.0"
 
 # The relay Spotify's pages are read through where Spotify refuses them to the
 # network, deployed from relay/worker.js and run in Frankfurt (see its README).
-# The settings and --relay can put another in its place.
-SPOTIFY_RELAY = "https://trackhound-relay.takmakov2006.workers.dev"
+# The settings and --relay can put another in its place. Builds made before the
+# rename ask trackhound-relay, the same worker under its former name, which stays up.
+SPOTIFY_RELAY = "https://sonicache-relay.takmakov2006.workers.dev"
 
 
 def relay_for(setting: str) -> str:

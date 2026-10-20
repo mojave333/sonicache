@@ -28,7 +28,7 @@ No command line is needed.
    A JSON with `"entity"` and Daft Punk's *Discovery* in it means it works.
 
 With Node.js the same takes one command in this folder, with [`wrangler.toml`](wrangler.toml)
-already set: `npx wrangler deploy`.
+already set, the placement in Frankfurt included: `npx wrangler deploy`.
 
 ## Pointing the program at it
 
