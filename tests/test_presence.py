@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from sonicache import gui, presence
+from sonicache import gui, prefs, presence
 
 TRACK = {"title": "Teen Age Riot", "artists": "Sonic Youth", "album": "Daydream Nation",
          "album_artist": "Sonic Youth", "start": 1000.0, "duration": 417.0}
@@ -123,7 +123,7 @@ class FakePresence:
 class TestApi:
     @pytest.fixture
     def api(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".sonicache.json")
+        monkeypatch.setattr(prefs, "SETTINGS_FILE", tmp_path / ".sonicache.json")
         # Saving the settings sets the proxy, the relay and the language for the
         # whole process, which the other tests must not inherit
         for name in ("use_proxy", "use_relay", "set_language"):
@@ -137,12 +137,12 @@ class TestApi:
     def test_what_plays_goes_to_discord_only_when_asked_for(self, api):
         api.now_playing({"title": "Song", "position": 30, "duration": 200})
         assert api._presence.shown == []
-        api.save_settings({**gui._normalize({}), "discord": True})
+        api.save_settings({**prefs._normalize({}), "discord": True})
         (track,) = api._presence.shown  # what already plays is shown at once
         assert track["title"] == "Song" and "position" not in track
         assert abs(track["start"] - (time.time() - 30)) < 5  # the moment it started, for the bar
         api.now_playing(None)
         assert api._presence.shown[-1] is None
         api.now_playing({"title": "Next", "position": 0, "duration": 100})
-        api.save_settings({**gui._normalize({}), "discord": False})
+        api.save_settings({**prefs._normalize({}), "discord": False})
         assert api._presence.shown[-1] is None  # turned off: taken down

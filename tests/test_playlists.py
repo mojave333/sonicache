@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from sonicache import gui, playlists
+from sonicache import gui, libraryscan, playlists, prefs
 
 
 def song(path, title="Song", artists="Band", album="Record", duration=200):
@@ -70,11 +70,11 @@ class TestPlaylists:
         made = playlists.save(None, "Road", [])
         data = b"\x89PNG\r\n\x1a\n" + b"0" * 20
         playlists.set_cover(made["id"], data)
-        assert gui._cover_bytes(playlists.cover_file(made["id"])) == data
+        assert libraryscan._cover_bytes(playlists.cover_file(made["id"])) == data
         # Any other picture on the disk is not served by this
         elsewhere = tmp_path / "elsewhere.png"
         elsewhere.write_bytes(data)
-        assert gui._cover_bytes(elsewhere) is None
+        assert libraryscan._cover_bytes(elsewhere) is None
 
     def test_a_broken_file_is_no_playlists(self):
         playlists.playlists_file().parent.mkdir(parents=True, exist_ok=True)
@@ -148,16 +148,16 @@ class TestListens:
 
 class TestPlayerSettings:
     def test_the_equaliser_is_kept_within_its_range(self):
-        eq = gui._normalize({"eq": {"on": 1, "bands": [20, -30, "x", 3.25], "preset": "rock"}})["eq"]
+        eq = prefs._normalize({"eq": {"on": 1, "bands": [20, -30, "x", 3.25], "preset": "rock"}})["eq"]
         assert eq == {"on": True, "bands": [12, -12, 0, 3.2, 0, 0, 0, 0, 0, 0], "preset": "rock"}
 
     @pytest.mark.parametrize("given, expected", [(None, 0), (-3, 0), (5, 5), (40, 12), ("x", 0)])
     def test_the_crossfade_is_whole_seconds_up_to_twelve(self, given, expected):
-        assert gui._normalize({"crossfade": given})["crossfade"] == expected
+        assert prefs._normalize({"crossfade": given})["crossfade"] == expected
 
     def test_albums_play_without_gaps_unless_told_otherwise(self):
-        assert gui._normalize({})["gapless"] is True
-        assert gui._normalize({"gapless": False})["gapless"] is False
+        assert prefs._normalize({})["gapless"] is True
+        assert prefs._normalize({"gapless": False})["gapless"] is False
 
 
 

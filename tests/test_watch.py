@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from sonicache import gui, watch
+from sonicache import gui, prefs, watch
+from sonicache.bridge import downloads as downloads_api
 
 SETTINGS = {"folder": "D:/Music", "format": "mp3", "track_name": "artist", "folder_name": "nested",
             "theme": "dark", "proxy": ""}
@@ -55,8 +56,8 @@ class TestChecks:
     @pytest.fixture
     def api(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch.logs, "data_dir", lambda: tmp_path)
-        monkeypatch.setattr(gui, "_save_history", lambda history: None)
-        monkeypatch.setattr(gui, "_load_settings", lambda: gui._normalize({"folder": "C:/Now"}))
+        monkeypatch.setattr(downloads_api, "_save_history", lambda history: None)
+        monkeypatch.setattr(prefs, "_load_settings", lambda: prefs._normalize({"folder": "C:/Now"}))
         api = gui.Api.__new__(gui.Api)
         api._events = queue.Queue()
         api._jobs = queue.Queue()

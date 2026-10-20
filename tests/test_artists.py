@@ -9,6 +9,7 @@ import urllib.parse
 import pytest
 
 from sonicache import gui, watch
+from sonicache.bridge import downloads as downloads_api
 from sonicache.engine import catalog
 from sonicache.engine.models import SourceError
 
@@ -90,17 +91,17 @@ class TestPage:
 
 class TestDownload:
     def test_an_artist_link_becomes_their_albums(self, monkeypatch):
-        monkeypatch.setattr(gui.catalog, "discography", lambda link: [{"link": "https://x.test/a"},
+        monkeypatch.setattr(catalog, "discography", lambda link: [{"link": "https://x.test/a"},
                                                                       {"link": "https://x.test/b"}])
-        assert gui._expand_artists(["https://x.test/r", "https://www.deezer.com/artist/399"]) == [
+        assert downloads_api._expand_artists(["https://x.test/r", "https://www.deezer.com/artist/399"]) == [
             "https://x.test/r", "https://x.test/a", "https://x.test/b"]
 
     def test_an_artist_that_does_not_open_stays_a_link_for_its_card_to_explain(self, monkeypatch):
         def refuse(link):
             raise SourceError("нет связи", "offline")
 
-        monkeypatch.setattr(gui.catalog, "discography", refuse)
-        assert gui._expand_artists(["https://www.deezer.com/artist/399"]) == ["https://www.deezer.com/artist/399"]
+        monkeypatch.setattr(catalog, "discography", refuse)
+        assert downloads_api._expand_artists(["https://www.deezer.com/artist/399"]) == ["https://www.deezer.com/artist/399"]
 
 
 def day(text):
@@ -134,7 +135,7 @@ class TestWatch:
         queued = []
         monkeypatch.setattr(api, "_enqueue", lambda link, settings: queued.append((link, settings["folder"]))
                             or {"job": len(queued), "link": link})
-        monkeypatch.setattr(gui.catalog, "artist", lambda link: {"releases": [
+        monkeypatch.setattr(catalog, "artist", lambda link: {"releases": [
             {"link": "https://x.test/new", "date": "2026-09-01"}, {"link": "https://x.test/old", "date": "2007-10-10"}]})
         api.check_watched(force=True)
         assert queued == [("https://x.test/new", "M")]
@@ -144,7 +145,7 @@ class TestWatch:
         api = gui.Api()
         api._watched = []
         monkeypatch.setattr(gui.watch, "save", lambda entries: None)
-        monkeypatch.setattr(gui.catalog, "artist", lambda link: {
+        monkeypatch.setattr(catalog, "artist", lambda link: {
             "link": link, "name": "Radiohead", "service": "Deezer", "releases": [{"link": "https://x.test/a"}]})
         listed = api.watch_artist("https://www.deezer.com/artist/399")
         assert listed[0]["title"] == "Radiohead" and api._watched[0]["known"] == ["https://x.test/a"]

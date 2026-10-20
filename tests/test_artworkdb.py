@@ -41,7 +41,6 @@ def pictures(root):
     found = []
     for item in datasets[1][1]:
         image_id, song_id = struct.unpack_from("<IQ", item, 16)
-        name = item.decode("utf-16-le", errors="replace")
         places = []
         offset = struct.unpack_from("<I", item, 4)[0]
         while offset < len(item):

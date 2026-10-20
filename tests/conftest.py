@@ -29,6 +29,16 @@ def own_data_dir(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def own_settings_file(tmp_path_factory, monkeypatch):
+    """The settings a test saves go to a file of its own, never to the real ~/.sonicache.json."""
+    from sonicache import prefs
+
+    folder = tmp_path_factory.mktemp("home")
+    monkeypatch.setattr(prefs, "SETTINGS_FILE", folder / ".sonicache.json")
+    monkeypatch.setattr(prefs, "FORMER_SETTINGS_FILE", folder / ".trackhound.json")
+
+
+@pytest.fixture(autouse=True)
 def no_phones_plugged_in(monkeypatch):
     """The tests see no phone over a cable, whatever is plugged into the computer they run on;
     the tests of the phones put in their own."""

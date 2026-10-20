@@ -5,6 +5,7 @@ import itertools
 
 import pytest
 
+from sonicache import prefs
 from sonicache.engine import devices, mtp
 from sonicache.engine.devices import PlaylistSpec, Source
 from sonicache.engine.mtp import Entry, MtpTarget
@@ -357,7 +358,7 @@ class TestPhonesAsDevices:
         def session(pnp_id):
             yield phone
         monkeypatch.setattr(mtp, "_session", session)
-        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        monkeypatch.setattr(prefs, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
         api = gui.Api()
         [device] = api.devices()
         api.save_device(device["id"], {"all": True})

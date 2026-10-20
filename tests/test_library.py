@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 from mutagen import File as MutagenFile
 
-from sonicache import gui
+from sonicache import gui, libraryscan, prefs
+from sonicache.bridge import catalogue as catalogue_api
+from sonicache.bridge import library as library_api
 from sonicache.engine import downloader, folders, sources
 from sonicache.engine.models import Album, SourceError, Track
 
@@ -34,7 +36,7 @@ def tagged(folder: Path, ext: str, number: int, title: str, cover: bytes | None 
 class TestTags:
     @pytest.mark.parametrize("ext", ["m4a", "mp3", "opus"])
     def test_what_the_downloader_wrote_is_read_back(self, tmp_path, ext):
-        info = gui._tags(tagged(tmp_path, ext, 2, "Bodysnatchers"))
+        info = libraryscan._tags(tagged(tmp_path, ext, 2, "Bodysnatchers"))
         assert (info["title"], info["artists"], info["album"], info["album_artist"]) == (
             "Bodysnatchers", "Radiohead, Guest", "In Rainbows", "Radiohead")
         assert (info["number"], info["disc"], info["year"], info["format"]) == (2, 1, "2007", ext)
@@ -44,13 +46,13 @@ class TestTags:
     def test_the_cover_inside_a_file_is_found(self, tmp_path, ext):
         path = tagged(tmp_path, ext, 1, "15 Step", cover=PNG)
         assert folders.embedded_cover(path) == PNG
-        assert gui._cover_bytes(path) == PNG  # what the cover's address serves for a single track
+        assert libraryscan._cover_bytes(path) == PNG  # what the cover's address serves for a single track
 
     def test_a_file_without_tags_is_named_after_itself(self, tmp_path):
         path = tmp_path / "Loose Song.mp3"
         subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
                         "-i", "sine=duration=1", "-map_metadata", "-1", *CODECS["mp3"], str(path)], check=True)
-        info = gui._tags(path)
+        info = libraryscan._tags(path)
         assert (info["title"], info["number"], info["artists"]) == ("Loose Song", 0, "")
         assert folders.embedded_cover(path) is None
 
@@ -91,7 +93,7 @@ class TestArtistPicture:
 
     def test_a_name_is_asked_about_once(self, data_dir, monkeypatch):
         asked = []
-        monkeypatch.setattr(gui.sources, "artist_picture",
+        monkeypatch.setattr(sources, "artist_picture",
                             lambda name: asked.append(name) or "https://img.test/r.jpg")
         api = gui.Api.__new__(gui.Api)
         assert api.artist_picture("Radiohead") == "https://img.test/r.jpg"
@@ -100,13 +102,13 @@ class TestArtistPicture:
 
     def test_an_unknown_artist_waits_a_week_before_the_next_question(self, data_dir, monkeypatch):
         asked = []
-        monkeypatch.setattr(gui.sources, "artist_picture", lambda name: asked.append(name) or "")
+        monkeypatch.setattr(sources, "artist_picture", lambda name: asked.append(name) or "")
         api = gui.Api.__new__(gui.Api)
         assert api.artist_picture("Nobody") == "" and api.artist_picture("Nobody") == ""
         assert asked == ["Nobody"]
-        stale = json.loads((data_dir / gui.ARTISTS_FILE).read_text(encoding="utf-8"))
-        stale["nobody"]["asked"] -= gui.ARTIST_RETRY + 1
-        (data_dir / gui.ARTISTS_FILE).write_text(json.dumps(stale), encoding="utf-8")
+        stale = json.loads((data_dir / catalogue_api.ARTISTS_FILE).read_text(encoding="utf-8"))
+        stale["nobody"]["asked"] -= catalogue_api.ARTIST_RETRY + 1
+        (data_dir / catalogue_api.ARTISTS_FILE).write_text(json.dumps(stale), encoding="utf-8")
         api.artist_picture("Nobody")
         assert asked == ["Nobody", "Nobody"]
 
@@ -114,9 +116,9 @@ class TestArtistPicture:
         def offline(name):
             raise SourceError("no network")
 
-        monkeypatch.setattr(gui.sources, "artist_picture", offline)
+        monkeypatch.setattr(sources, "artist_picture", offline)
         assert gui.Api.__new__(gui.Api).artist_picture("Radiohead") == ""
-        assert not (data_dir / gui.ARTISTS_FILE).exists()
+        assert not (data_dir / catalogue_api.ARTISTS_FILE).exists()
 
 
 class TestDeezerArtist:
@@ -141,18 +143,18 @@ class TestDeezerArtist:
 def test_the_player_keeps_its_volume_and_modes_between_runs():
     """The window's own storage belongs to the address it was opened from, and
     that is a new port on every start; the settings file outlives it."""
-    kept = gui._normalize({"volume": 0.35, "shuffle": True, "repeat": "one"})
+    kept = prefs._normalize({"volume": 0.35, "shuffle": True, "repeat": "one"})
     assert (kept["volume"], kept["shuffle"], kept["repeat"]) == (0.35, True, "one")
-    fresh = gui._normalize({})
+    fresh = prefs._normalize({})
     assert (fresh["volume"], fresh["shuffle"], fresh["repeat"]) == (0.8, False, "off")
-    odd = gui._normalize({"volume": "loud", "repeat": "twice"})
+    odd = prefs._normalize({"volume": "loud", "repeat": "twice"})
     assert (odd["volume"], odd["repeat"]) == (0.8, "off")
-    assert gui._normalize({"volume": 4})["volume"] == 1.0
+    assert prefs._normalize({"volume": 4})["volume"] == 1.0
 
 
 @pytest.mark.parametrize("given, expected", [("grid", "grid"), ("list", "list"), ("tiles", "grid"), (None, "grid")])
 def test_the_library_view_setting(given, expected):
-    assert gui._normalize({"library_view": given})["library_view"] == expected
+    assert prefs._normalize({"library_view": given})["library_view"] == expected
 
 
 @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
@@ -164,7 +166,7 @@ def test_the_genre_goes_into_every_format(tmp_path, ext):
     track = Track(id="1", title="Ebony", artists="Dean Blunt", duration=1, track_number=1)
     album = Album(id="a", name="Black is Beautiful", artist="Dean Blunt", tracks=[track], genre="Electronic")
     downloader._write_tags(path, album, track, None)
-    assert gui._tags(path)["genre"] == "Electronic"
+    assert libraryscan._tags(path)["genre"] == "Electronic"
 
 
 @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
@@ -182,10 +184,10 @@ def test_a_playlist_is_tagged_as_a_compilation(tmp_path, ext, kind):
     flag = {"m4a": lambda: tags.get("cpil"), "mp3": lambda: "TCMP" in tags and str(tags["TCMP"]),
             "opus": lambda: tags.get("compilation")}[ext]()
     if kind == "playlist":
-        assert gui._tags(path)["album_artist"] == "Разные исполнители"
+        assert libraryscan._tags(path)["album_artist"] == "Разные исполнители"
         assert flag in (True, "1", ["1"])
     else:
-        assert gui._tags(path)["album_artist"] == "808filth"
+        assert libraryscan._tags(path)["album_artist"] == "808filth"
         assert not flag
 
 
@@ -394,7 +396,7 @@ class TestLibraryScan:
 
         def walked(*args, **kwargs):
             raise AssertionError("the folders were walked again")
-        monkeypatch.setattr(gui, "_library_items", walked)
+        monkeypatch.setattr(library_api, "_library_items", walked)
         assert len(api.tracks(str(tmp_path))) == 3
 
     def test_the_tracks_tab_reads_the_folders_again_once_what_was_read_is_old(self, tmp_path, monkeypatch):
@@ -402,7 +404,7 @@ class TestLibraryScan:
         api = gui.Api.__new__(gui.Api)
         api.library(str(tmp_path))
         song(tmp_path / "Pixies - Doolittle (1989)", "01. Debaser")
-        monkeypatch.setattr(gui, "LIBRARY_FRESH", 0)
+        monkeypatch.setattr(libraryscan, "LIBRARY_FRESH", 0)
         assert len(api.tracks(str(tmp_path))) == 4
 
 
@@ -443,7 +445,7 @@ class TestCovers:
     def test_a_picture_under_any_usual_name_is_the_cover(self, tmp_path, name):
         (tmp_path / name).write_bytes(PNG)
         (tmp_path / "scan-back.jpg").write_bytes(b"not the cover")
-        assert gui._cover_bytes(tmp_path) == PNG
+        assert libraryscan._cover_bytes(tmp_path) == PNG
 
     @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
     def test_the_whole_library_asks_for_its_covers_in_one_call(self, tmp_path):
@@ -461,7 +463,7 @@ class TestCovers:
     @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
     def test_without_a_picture_the_one_inside_the_first_file_is_used(self, tmp_path):
         tagged(tmp_path, "mp3", 1, "Airbag", cover=PNG)
-        assert gui._cover_bytes(tmp_path) == PNG
+        assert libraryscan._cover_bytes(tmp_path) == PNG
         assert gui.Api.library(None, str(tmp_path.parent))[0]["cover"]
 
 
@@ -484,7 +486,7 @@ class TestOtherFolders:
         assert titles == ["Discovery", "Gruppa krovi"]  # the one inside the other is not counted twice
 
     def test_the_setting_keeps_other_folders_once_and_never_the_music_folder(self):
-        settings = gui._normalize({"folder": "D:/Music", "library_folders": ["E:/Old", "D:/Music", "E:/Old", "", 5]})
+        settings = prefs._normalize({"folder": "D:/Music", "library_folders": ["E:/Old", "D:/Music", "E:/Old", "", 5]})
         assert settings["library_folders"] == ["E:/Old", "5"]
 
 
@@ -534,14 +536,14 @@ class TestTagGaps:
         single = folder.parent / "Radiohead - Nude.mp3"
         single.write_bytes((folder / "01. 15 Step.mp3").read_bytes())
         assert set(api.tag_gaps([str(folder), str(single)], {"lyrics": True})) == {str(folder), str(single)}
-        gui._remember_downloaded({"folder": str(folder), "single": False}, [])
-        gui._remember_downloaded({"folder": str(folder.parent), "single": True}, [single])
+        libraryscan._remember_downloaded({"folder": str(folder), "single": False}, [])
+        libraryscan._remember_downloaded({"folder": str(folder.parent), "single": True}, [single])
         assert api.tag_gaps([str(folder), str(single)], {"lyrics": True}) == []
 
     @pytest.mark.skipif(not FFMPEG, reason="needs ffmpeg")
     def test_a_tidied_album_is_not_offered_again_until_it_changes(self, api, tmp_path):
         folder = self.album(tmp_path, genre="")  # a genre nobody knows: the tidy-up could not add it
-        gui._remember_tidied(folder)
+        libraryscan._remember_tidied(folder)
         assert api.tag_gaps([str(folder)], {"lyrics": True}) == []
         extra = folder / "02. New.mp3"
         extra.write_bytes((folder / "01. 15 Step.mp3").read_bytes())
@@ -556,10 +558,10 @@ class TestLibraryCache:
     def fresh_run(self, monkeypatch):
         """What a new start of the program remembers: only the cache file."""
         def start():
-            monkeypatch.setattr(gui, "_TAG_CACHE", {})
-            monkeypatch.setattr(gui, "_GAP_CACHE", {})
-            monkeypatch.setattr(gui.folders, "_TAGS", {})
-            monkeypatch.setattr(gui, "_LIBRARY_CACHE", {"loaded": False, "saved": -1, "items": {}})
+            monkeypatch.setattr(libraryscan, "_TAG_CACHE", {})
+            monkeypatch.setattr(libraryscan, "_GAP_CACHE", {})
+            monkeypatch.setattr(folders, "_TAGS", {})
+            monkeypatch.setattr(libraryscan, "_LIBRARY_CACHE", {"loaded": False, "saved": -1, "items": {}})
         start()
         return start
 
@@ -570,8 +572,8 @@ class TestLibraryCache:
 
         def unreadable(*args, **kwargs):
             raise AssertionError("read again")
-        monkeypatch.setattr(gui, "MP3", unreadable)
-        monkeypatch.setattr(gui.folders, "ID3", unreadable)
+        monkeypatch.setattr(libraryscan, "MP3", unreadable)
+        monkeypatch.setattr(folders, "ID3", unreadable)
         assert gui.Api.library(None, str(tmp_path)) == first
 
     def test_a_file_changed_since_is_read_again(self, tmp_path, fresh_run):
@@ -596,8 +598,8 @@ class TestLibraryCache:
         song(album, "Girl Afraid", album="Hatful of Hollow", artist="The Smiths")
         song(album / "Session 25" / "08", "83", album="Hatful of Hollow", artist="The Smiths")
         listed = []
-        real = gui.folders.os.scandir
-        monkeypatch.setattr(gui.folders.os, "scandir", lambda folder: listed.append(str(folder)) or real(folder))
+        real = folders.os.scandir
+        monkeypatch.setattr(folders.os, "scandir", lambda folder: listed.append(str(folder)) or real(folder))
         gui.Api.library(None, str(tmp_path))
         assert listed and len(listed) == len(set(listed))
 

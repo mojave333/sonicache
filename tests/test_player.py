@@ -8,7 +8,7 @@ import urllib.request
 import pytest
 
 from sonicache import gui
-from sonicache.engine import downloader
+from sonicache.engine import downloader, lyrics
 from sonicache.engine.lyrics import Lyrics
 from sonicache.engine.models import Album, Track
 
@@ -95,7 +95,7 @@ class TestLyrics:
 
     def test_a_file_without_any_asks_lrclib(self, song, monkeypatch):
         asked = []
-        monkeypatch.setattr(gui.lyrics, "find", lambda track, album: asked.append((track.title, album.name))
+        monkeypatch.setattr(lyrics, "find", lambda track, album: asked.append((track.title, album.name))
                             or Lyrics("Hello", SYNCED))
         assert gui.Api().lyrics(str(song)) == {"synced": SYNCED, "plain": "Hello", "source": "lrclib"}
         assert asked == [("Song", "Record")]

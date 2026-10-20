@@ -4,6 +4,7 @@ import re
 import ctypes
 import json
 import os
+import shutil
 import time
 import urllib.error
 import urllib.request
@@ -11,8 +12,14 @@ from pathlib import Path
 
 import pytest
 
-from sonicache import gui
+from sonicache import devicestate, gui, history, libraryscan, playlists, prefs, system
+from sonicache.bridge import devices as devices_api
+from sonicache.bridge import downloads as downloads_api
+from sonicache.bridge import library as library_api
+from sonicache.bridge import window as window_api
+from sonicache.engine import devices, folders
 from sonicache.engine.downloader import DEFAULT_OUTPUT_DIR
+from sonicache.i18n import resolve
 
 
 def page_script() -> str:
@@ -24,7 +31,7 @@ def page_script() -> str:
 
 class TestNormalize:
     def test_empty_settings_get_the_defaults(self):
-        settings = gui._normalize({})
+        settings = prefs._normalize({})
         assert settings == {
             "folder": str(DEFAULT_OUTPUT_DIR),
             "format": "mp3",
@@ -37,7 +44,7 @@ class TestNormalize:
             "rate_limit": 0,
             "proxy": "",
             "relay": "",  # the program's own
-            "language": gui.resolve("system"),  # settled on load, never left as "system"
+            "language": resolve("system"),  # settled on load, never left as "system"
             "track_name": "auto",
             "folder_name": "flat",
             "replaygain": False,
@@ -58,37 +65,37 @@ class TestNormalize:
 
     @pytest.mark.parametrize("given, expected", [(0, 1), (1, 1), (4, 4), (8, 8), (99, 8), ("5", 5)])
     def test_threads_stay_within_reach(self, given, expected):
-        assert gui._normalize({"threads": given})["threads"] == expected
+        assert prefs._normalize({"threads": given})["threads"] == expected
 
     @pytest.mark.parametrize("given", ["", None, "many", 3.5])
     def test_unreadable_threads_fall_back_to_three(self, given):
-        assert gui._normalize({"threads": given})["threads"] in (1, 3)
+        assert prefs._normalize({"threads": given})["threads"] in (1, 3)
 
     @pytest.mark.parametrize("given, expected", [("m4a", "m4a"), ("opus", "opus"),
                                                  ("flac", "mp3"), (None, "mp3")])
     def test_only_known_formats_survive(self, given, expected):
-        assert gui._normalize({"format": given})["format"] == expected
+        assert prefs._normalize({"format": given})["format"] == expected
 
     @pytest.mark.parametrize("given, expected", [("dark", "dark"), ("system", "system"),
                                                  ("neon", "light")])
     def test_only_known_themes_survive(self, given, expected):
-        assert gui._normalize({"theme": given})["theme"] == expected
+        assert prefs._normalize({"theme": given})["theme"] == expected
 
     # "system" was an option once; a settings file that still says so gets the default
     @pytest.mark.parametrize("given, expected", [("comic", "comic"), ("source-serif", "source-serif"),
                                                  ("system", "onest"), ("lora", "onest"), (None, "onest")])
     def test_only_known_fonts_survive(self, given, expected):
-        assert gui._normalize({"font": given})["font"] == expected
+        assert prefs._normalize({"font": given})["font"] == expected
 
     def test_every_font_on_offer_is_in_the_window(self):
         page = (gui.WEB_DIR / "index.html").read_text(encoding="utf-8")
         script = page_script()
         styles = (gui.WEB_DIR / "style.css").read_text(encoding="utf-8")
-        for font in gui.FONTS:
+        for font in prefs.FONTS:
             assert f'data-font-choice="{font}"' in page
             assert f'"{font}"' in script
         # The first is the one the stylesheet falls back to, so it needs no rule of its own
-        for font in gui.FONTS[1:]:
+        for font in prefs.FONTS[1:]:
             assert f':root[data-font="{font}"]' in styles
 
     def test_every_control_the_window_binds_at_start_is_on_the_page(self):
@@ -109,18 +116,18 @@ class TestNormalize:
 
     @pytest.mark.parametrize("given, expected", [("ascii", "ascii"), ("crayon", "crayon"), ("photo", "none"), (None, "none")])
     def test_only_known_pictures_survive(self, given, expected):
-        assert gui._normalize({"art": given})["art"] == expected
+        assert prefs._normalize({"art": given})["art"] == expected
 
     def test_every_picture_on_offer_is_in_the_window(self):
         page = (gui.WEB_DIR / "index.html").read_text(encoding="utf-8")
         script = page_script()
-        for art in gui.ARTS:
+        for art in prefs.ARTS:
             assert f'data-art-choice="{art}"' in page
             assert f'"{art}"' in script
 
     def test_only_supported_browsers_survive(self):
-        assert gui._normalize({"cookies_browser": "firefox"})["cookies_browser"] == "firefox"
-        assert gui._normalize({"cookies_browser": "netscape"})["cookies_browser"] == ""
+        assert prefs._normalize({"cookies_browser": "firefox"})["cookies_browser"] == "firefox"
+        assert prefs._normalize({"cookies_browser": "netscape"})["cookies_browser"] == ""
 
     def test_the_page_is_told_whether_to_draw_the_windows_buttons_and_edges(self):
         assert gui.Api().init()["frameless"] is gui.FRAMELESS
@@ -136,7 +143,7 @@ class TestNormalize:
         assert api.window_state() is False
 
     def test_a_width_left_by_the_old_side_panel_is_dropped(self):
-        assert "sidebar" not in gui._normalize({"sidebar": 208})
+        assert "sidebar" not in prefs._normalize({"sidebar": 208})
 
 
 class TestSpeedAndProxy:
@@ -147,7 +154,7 @@ class TestSpeedAndProxy:
         ("fast", 0), (None, 0),
     ])
     def test_only_the_offered_speeds_survive(self, given, expected):
-        assert gui._normalize({"rate_limit": given})["rate_limit"] == expected
+        assert prefs._normalize({"rate_limit": given})["rate_limit"] == expected
 
     @pytest.mark.parametrize("given, expected", [
         ("http://127.0.0.1:1080", "http://127.0.0.1:1080"),
@@ -160,7 +167,7 @@ class TestSpeedAndProxy:
         (None, ""),
     ])
     def test_a_proxy_has_to_look_like_an_address(self, given, expected):
-        assert gui._normalize({"proxy": given})["proxy"] == expected
+        assert prefs._normalize({"proxy": given})["proxy"] == expected
 
     @pytest.mark.parametrize("given, expected", [
         ("https://relay.example.workers.dev", "https://relay.example.workers.dev"),
@@ -169,7 +176,7 @@ class TestSpeedAndProxy:
         ("relay.test", ""), ("javascript:alert(1)", ""), (None, ""),
     ])
     def test_a_relay_is_an_address_or_off(self, given, expected):
-        assert gui._normalize({"relay": given})["relay"] == expected
+        assert prefs._normalize({"relay": given})["relay"] == expected
 
     def test_an_empty_relay_setting_means_the_programs_own(self, monkeypatch):
         import sonicache
@@ -182,13 +189,13 @@ class TestSpeedAndProxy:
 class TestLanguageSetting:
     @pytest.mark.parametrize("given", ["ru", "en"])
     def test_a_chosen_language_is_kept(self, given):
-        assert gui._normalize({"language": given})["language"] == given
+        assert prefs._normalize({"language": given})["language"] == given
 
     @pytest.mark.parametrize("given", ["system", "de", None, 7])
     def test_everything_else_is_settled_now(self, given):
         """The window offers two languages and no "as in the system" button, so
         anything else has to become one of the two before it is drawn."""
-        assert gui._normalize({"language": given})["language"] in ("ru", "en")
+        assert prefs._normalize({"language": given})["language"] in ("ru", "en")
 
 
 class TestNamingSettings:
@@ -196,13 +203,13 @@ class TestNamingSettings:
         ("auto", "auto"), ("artist", "artist"), ("title", "title"), ("fancy", "auto"), (None, "auto"),
     ])
     def test_track_names(self, given, expected):
-        assert gui._normalize({"track_name": given})["track_name"] == expected
+        assert prefs._normalize({"track_name": given})["track_name"] == expected
 
     @pytest.mark.parametrize("given, expected", [
         ("flat", "flat"), ("nested", "nested"), ("album", "album"), ("deep", "flat"), (7, "flat"),
     ])
     def test_folder_names(self, given, expected):
-        assert gui._normalize({"folder_name": given})["folder_name"] == expected
+        assert prefs._normalize({"folder_name": given})["folder_name"] == expected
 
 
 class TestProxyEnvironment:
@@ -226,22 +233,22 @@ class TestSettingsFile:
     def test_a_broken_file_does_not_stop_the_window(self, tmp_path, monkeypatch):
         broken = tmp_path / ".sonicache.json"
         broken.write_text("{ not json", encoding="utf-8")
-        monkeypatch.setattr(gui, "SETTINGS_FILE", broken)
-        assert gui._load_settings()["format"] == "mp3"
+        monkeypatch.setattr(prefs, "SETTINGS_FILE", broken)
+        assert prefs._load_settings()["format"] == "mp3"
 
     def test_check_only_is_never_remembered(self, tmp_path, monkeypatch):
         path = tmp_path / ".sonicache.json"
-        monkeypatch.setattr(gui, "SETTINGS_FILE", path)
-        gui._save_settings(gui._normalize({"dry_run": True, "format": "mp3"}))
+        monkeypatch.setattr(prefs, "SETTINGS_FILE", path)
+        prefs._save_settings(prefs._normalize({"dry_run": True, "format": "mp3"}))
         saved = json.loads(path.read_text(encoding="utf-8"))
         assert "dry_run" not in saved and saved["format"] == "mp3"
 
     def test_a_saved_file_is_read_back(self, tmp_path, monkeypatch):
         path = tmp_path / ".sonicache.json"
-        monkeypatch.setattr(gui, "SETTINGS_FILE", path)
-        gui._save_settings(gui._normalize({"threads": 6, "theme": "dark"}))
-        assert gui._load_settings()["threads"] == 6
-        assert gui._load_settings()["theme"] == "dark"
+        monkeypatch.setattr(prefs, "SETTINGS_FILE", path)
+        prefs._save_settings(prefs._normalize({"threads": 6, "theme": "dark"}))
+        assert prefs._load_settings()["threads"] == 6
+        assert prefs._load_settings()["theme"] == "dark"
 
 
 class TestFavourites:
@@ -255,8 +262,8 @@ class TestFavourites:
 
     def test_a_broken_file_is_no_favourites(self):
         (gui.logs.data_dir()).mkdir(parents=True, exist_ok=True)
-        (gui.logs.data_dir() / gui.FAVOURITES_FILE).write_text("{ not json", encoding="utf-8")
-        assert gui._favourites() == []
+        (gui.logs.data_dir() / libraryscan.FAVOURITES_FILE).write_text("{ not json", encoding="utf-8")
+        assert libraryscan._favourites() == []
 
 
 class TestSeen:
@@ -264,12 +271,12 @@ class TestSeen:
 
     def test_an_opened_album_is_remembered(self):
         gui.Api().mark_seen("C:/Music/A - B (2020)")
-        assert "C:/Music/A - B (2020)" in gui._seen()
+        assert "C:/Music/A - B (2020)" in libraryscan._seen()
         assert "C:/Music/A - B (2020)" in gui.Api().init()["seen"]
 
     def test_what_was_opened_long_ago_is_forgotten(self):
-        gui.logs.write_json(gui.logs.data_dir() / gui.SEEN_FILE, {"old": time.time() - gui.SEEN_FOR - 60, "bad": "x"})
-        assert gui._seen() == {}
+        gui.logs.write_json(gui.logs.data_dir() / libraryscan.SEEN_FILE, {"old": time.time() - libraryscan.SEEN_FOR - 60, "bad": "x"})
+        assert libraryscan._seen() == {}
 
 
 class TestFormerSettings:
@@ -277,27 +284,27 @@ class TestFormerSettings:
 
     @pytest.fixture
     def files(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".sonicache.json")
-        monkeypatch.setattr(gui, "FORMER_SETTINGS_FILE", tmp_path / ".trackhound.json")
+        monkeypatch.setattr(prefs, "SETTINGS_FILE", tmp_path / ".sonicache.json")
+        monkeypatch.setattr(prefs, "FORMER_SETTINGS_FILE", tmp_path / ".trackhound.json")
         return tmp_path / ".sonicache.json", tmp_path / ".trackhound.json"
 
     def test_the_first_start_takes_them_over(self, files):
         new, old = files
         old.write_text(json.dumps({"threads": 6, "theme": "dark"}), encoding="utf-8")
-        gui._adopt_former_settings()
-        assert gui._load_settings()["threads"] == 6 and gui._load_settings()["theme"] == "dark"
+        prefs._adopt_former_settings()
+        assert prefs._load_settings()["threads"] == 6 and prefs._load_settings()["theme"] == "dark"
         assert old.is_file()  # a copy: an older version beside this one still reads its own
 
     def test_settings_of_its_own_are_left_alone(self, files):
         new, old = files
         old.write_text(json.dumps({"threads": 6}), encoding="utf-8")
         new.write_text(json.dumps({"threads": 2}), encoding="utf-8")
-        gui._adopt_former_settings()
-        assert gui._load_settings()["threads"] == 2
+        prefs._adopt_former_settings()
+        assert prefs._load_settings()["threads"] == 2
 
     def test_with_none_to_take_over_the_program_is_still_new(self, files):
         new, _ = files
-        gui._adopt_former_settings()
+        prefs._adopt_former_settings()
         assert not new.exists()  # which is what shows the welcome
 
     def test_a_file_that_cannot_be_copied_does_not_stop_the_window(self, files, monkeypatch):
@@ -307,9 +314,9 @@ class TestFormerSettings:
         def refuse(*args, **kwargs):
             raise OSError("read-only")
 
-        monkeypatch.setattr(gui.shutil, "copyfile", refuse)
-        gui._adopt_former_settings()
-        assert gui._load_settings()["format"] == "mp3"
+        monkeypatch.setattr(shutil, "copyfile", refuse)
+        prefs._adopt_former_settings()
+        assert prefs._load_settings()["format"] == "mp3"
 
 
 class TestNewer:
@@ -323,13 +330,13 @@ class TestNewer:
         ("v1.3.0", "1.2.0", True),
     ])
     def test_version_comparison(self, candidate, current, expected):
-        assert gui._newer(candidate, current) is expected
+        assert system._newer(candidate, current) is expected
 
 
 class TestReleaseAge:
     @pytest.mark.parametrize("version", ["", "nightly", "2026.13.40", "master"])
     def test_an_unreadable_version_has_no_age(self, version):
-        assert gui._release_age(version) == -1
+        assert system._release_age(version) == -1
 
     def test_a_dated_version_is_measured_in_days(self, monkeypatch):
         import datetime
@@ -339,10 +346,10 @@ class TestReleaseAge:
             def today(cls):
                 return cls(2026, 9, 14)
 
-        monkeypatch.setattr(gui.datetime, "date", Today)
-        assert gui._release_age("2026.9.14") == 0
-        assert gui._release_age("2026.8.19") == 26
-        assert gui._release_age("2026.9.20") == 0  # a build from the future is not negative
+        monkeypatch.setattr(datetime, "date", Today)
+        assert system._release_age("2026.9.14") == 0
+        assert system._release_age("2026.8.19") == 26
+        assert system._release_age("2026.9.20") == 0  # a build from the future is not negative
 
 
 class TestHistory:
@@ -354,16 +361,16 @@ class TestHistory:
         return tmp_path
 
     def test_nothing_remembered_yet_reads_as_empty(self, data_dir):
-        assert gui._load_history() == []
+        assert history._load_history() == []
 
     def test_a_broken_file_is_not_fatal(self, data_dir):
         (data_dir / "history.json").write_text("{ not json", encoding="utf-8")
-        assert gui._load_history() == []
+        assert history._load_history() == []
 
     def test_an_entry_is_saved_and_read_back(self, data_dir):
         api = gui.Api()
         api._remember({"job": 1, "link": "https://x.test/a", "state": "queued"})
-        assert gui._load_history() == [{"job": 1, "link": "https://x.test/a", "state": "queued"}]
+        assert history._load_history() == [{"job": 1, "link": "https://x.test/a", "state": "queued"}]
 
     def test_download_does_not_deadlock_on_its_own_lock(self, data_dir, tmp_path, monkeypatch):
         """download() remembers the queued job while still holding self._lock;
@@ -372,7 +379,7 @@ class TestHistory:
         forever (it never gets back a reply to re-enable itself)."""
         import threading
 
-        monkeypatch.setattr(gui, "SETTINGS_FILE", tmp_path / ".sonicache.json")
+        monkeypatch.setattr(prefs, "SETTINGS_FILE", tmp_path / ".sonicache.json")
         api = gui.Api()
         monkeypatch.setattr(api, "_work", lambda: None)  # no real network search here
 
@@ -389,16 +396,16 @@ class TestHistory:
         api = gui.Api()
         api._remember({"job": 1, "link": "https://x.test/a", "state": "queued"})
         api._remember({"job": 1, "state": "done", "ok": 12})
-        assert gui._load_history() == [
+        assert history._load_history() == [
             {"job": 1, "link": "https://x.test/a", "state": "done", "ok": 12}]
 
     def test_only_the_last_hundred_are_kept(self, data_dir):
         api = gui.Api()
-        for number in range(gui.HISTORY_LIMIT + 20):
+        for number in range(history.HISTORY_LIMIT + 20):
             api._remember({"job": number, "state": "done"})
-        history = gui._load_history()
-        assert len(history) == gui.HISTORY_LIMIT
-        assert history[0]["job"] == 20
+        kept = history._load_history()
+        assert len(kept) == history.HISTORY_LIMIT
+        assert kept[0]["job"] == 20
 
     def test_job_numbering_carries_on_after_a_restart(self, data_dir):
         gui.Api()._remember({"job": 7, "state": "done"})
@@ -417,7 +424,7 @@ class TestHistory:
         api._remember({"job": 1, "state": "done"})
         api._remember({"job": 2, "state": "running"})
         api.forget_history()
-        assert [entry["job"] for entry in gui._load_history()] == [2]
+        assert [entry["job"] for entry in history._load_history()] == [2]
 
     def test_an_unwritable_folder_costs_the_history_not_the_download(self, monkeypatch, tmp_path):
         monkeypatch.setattr(gui.logs, "data_dir", lambda: tmp_path / "nope")
@@ -516,7 +523,7 @@ class TestLibrary:
     def test_what_counts_as_audio(self, tmp_path, name, audio):
         path = tmp_path / name
         path.write_bytes(b"x")
-        assert gui.folders.is_audio(path) is audio
+        assert folders.is_audio(path) is audio
 
 
 class TestClipboard:
@@ -539,8 +546,8 @@ class TestClipboard:
 
     def test_paste_answers_empty(self, without_tkinter, monkeypatch):
         monkeypatch.setattr(gui.sys, "platform", "linux")  # the win32 path never reaches Tk
-        monkeypatch.setattr(gui.shutil, "which", lambda name: None)  # nor do pbpaste, wl-paste, xclip, xsel
-        assert gui._clipboard_text() == ""
+        monkeypatch.setattr(shutil, "which", lambda name: None)  # nor do pbpaste, wl-paste, xclip, xsel
+        assert system._clipboard_text() == ""
 
     def test_windows_is_asked_without_tk(self, without_tkinter, monkeypatch):
         """The window asks each time it comes back into use, and Tk takes half
@@ -563,8 +570,8 @@ class TestClipboard:
         kernel32 = types.SimpleNamespace(GlobalLock=Call(ctypes.addressof(text)), GlobalUnlock=Call("unlocked"),
                                          GlobalAlloc=Call(None))
         monkeypatch.setattr(gui.sys, "platform", "win32")
-        monkeypatch.setattr(gui.ctypes, "windll", types.SimpleNamespace(user32=user32, kernel32=kernel32), raising=False)
-        assert gui._clipboard_text() == "https://open.spotify.com/album/x"
+        monkeypatch.setattr(ctypes, "windll", types.SimpleNamespace(user32=user32, kernel32=kernel32), raising=False)
+        assert system._clipboard_text() == "https://open.spotify.com/album/x"
         assert (4242, (13,)) in calls  # CF_UNICODETEXT
         assert [answer for answer, _ in calls][-2:] == ["unlocked", "closed"]  # handed back
 
@@ -572,8 +579,8 @@ class TestClipboard:
         monkeypatch.setattr(gui.sys, "platform", "linux")  # the win32 path never reaches Tk
         # A desktop with neither pbcopy, wl-copy, xclip nor xsel: the runner
         # this test lands on decides which of them exist, so none of them do.
-        monkeypatch.setattr(gui.shutil, "which", lambda name: None)
-        assert gui._copy_to_clipboard("https://open.spotify.com/album/x") is False
+        monkeypatch.setattr(shutil, "which", lambda name: None)
+        assert system._copy_to_clipboard("https://open.spotify.com/album/x") is False
 
 
 class TestProfiles:
@@ -584,32 +591,32 @@ class TestProfiles:
                 "track_name": "artist", "folder_name": "nested", **extra}
 
     def test_a_profile_keeps_only_the_keys_it_is_for(self):
-        saved = gui._normalize({"profiles": [self.profile(theme="light", proxy="http://x:1")]})
+        saved = prefs._normalize({"profiles": [self.profile(theme="light", proxy="http://x:1")]})
         assert saved["profiles"] == [{"name": "D drive, mp3", "folder": "D:/Audio",
                                       "format": "mp3", "track_name": "artist",
                                       "folder_name": "nested"}]
 
     def test_names_are_trimmed_and_unnamed_profiles_dropped(self):
         raw = [self.profile(name="  spaced  "), self.profile(name="   "), self.profile(name="")]
-        assert [p["name"] for p in gui._normalize({"profiles": raw})["profiles"]] == ["spaced"]
+        assert [p["name"] for p in prefs._normalize({"profiles": raw})["profiles"]] == ["spaced"]
 
     def test_a_name_is_taken_once_whatever_its_case(self):
         raw = [self.profile(name="Music"), self.profile(name="music", folder="E:/Other")]
-        kept = gui._normalize({"profiles": raw})["profiles"]
+        kept = prefs._normalize({"profiles": raw})["profiles"]
         assert len(kept) == 1 and kept[0]["folder"] == "D:/Audio"
 
     def test_values_are_checked_the_way_the_live_settings_are(self):
-        odd = gui._normalize({"profiles": [self.profile(format="flac", folder_name="sideways")]})
+        odd = prefs._normalize({"profiles": [self.profile(format="flac", folder_name="sideways")]})
         assert odd["profiles"][0]["format"] == "mp3"
         assert odd["profiles"][0]["folder_name"] == "flat"
 
     @pytest.mark.parametrize("raw", ["not a list", 7, None, [None, 5, "x"]])
     def test_nonsense_leaves_no_profiles(self, raw):
-        assert gui._normalize({"profiles": raw})["profiles"] == []
+        assert prefs._normalize({"profiles": raw})["profiles"] == []
 
     def test_there_is_a_limit(self):
-        many = [self.profile(name=f"profile {i}") for i in range(gui.PROFILE_LIMIT + 8)]
-        assert len(gui._normalize({"profiles": many})["profiles"]) == gui.PROFILE_LIMIT
+        many = [self.profile(name=f"profile {i}") for i in range(prefs.PROFILE_LIMIT + 8)]
+        assert len(prefs._normalize({"profiles": many})["profiles"]) == prefs.PROFILE_LIMIT
 
 
 class TestUpdateInstaller:
@@ -663,7 +670,7 @@ class TestUpdateInstaller:
     def test_a_release_without_a_hash_is_refused(self):
         api = self.api()
         api._install_update({
-            "installer": f"https://github.com/{gui.REPO}/releases/download/v9/x-setup.exe",
+            "installer": f"https://github.com/{window_api.REPO}/releases/download/v9/x-setup.exe",
             "digest": "",
         })
         assert [event["state"] for event in self.events(api)] == ["error"]
@@ -704,7 +711,7 @@ class TestUpdateInstaller:
         api = self.api()
         api._install_update({
             "version": "9.9.9", "size": len(payload),
-            "installer": f"https://github.com/{gui.REPO}/releases/download/v9.9.9/x-setup.exe",
+            "installer": f"https://github.com/{window_api.REPO}/releases/download/v9.9.9/x-setup.exe",
             "digest": f"sha256:{digest}",
         })
         states = [event["state"] for event in self.events(api)]
@@ -736,7 +743,7 @@ class TestUpdateInstaller:
         api = self.api()
         api._install_update({
             "version": "9.9.9", "size": 21,
-            "installer": f"https://github.com/{gui.REPO}/releases/download/v9.9.9/x-setup.exe",
+            "installer": f"https://github.com/{window_api.REPO}/releases/download/v9.9.9/x-setup.exe",
             "digest": "sha256:" + "0" * 64,
         })
         assert [event["state"] for event in self.events(api)][-1] == "error"
@@ -749,12 +756,12 @@ class TestInstallerCommand:
     window, decides when files are safe to replace."""
 
     def test_it_waits_for_this_process_and_reopens_the_program(self):
-        command = gui.installer_command(Path("C:/Temp/Sonicache-9.9.9-setup.exe"), 4321)
+        command = system.installer_command(Path("C:/Temp/Sonicache-9.9.9-setup.exe"), 4321)
         assert command[0].endswith("Sonicache-9.9.9-setup.exe")
         assert "/WAITPID=4321" in command and "/UPDATE=1" in command
 
     def test_it_runs_without_a_wizard_or_questions(self):
-        command = gui.installer_command(Path("setup.exe"), 1)
+        command = system.installer_command(Path("setup.exe"), 1)
         assert "/SILENT" in command and "/SUPPRESSMSGBOXES" in command and "/NORESTART" in command
 
 
@@ -799,7 +806,7 @@ class TestProgress:
         api = self.api(monkeypatch, "win32", lambda *args: calls.append(args))
         api.progress("paused", 0.5)
         api.progress("normal", 1.7)  # a count that ran over stays at the whole
-        assert calls == [(77, gui.TASKBAR_STATES["paused"], 50), (77, gui.TASKBAR_STATES["normal"], 100)]
+        assert calls == [(77, downloads_api.TASKBAR_STATES["paused"], 50), (77, downloads_api.TASKBAR_STATES["normal"], 100)]
 
     def test_a_taskbar_that_refuses_does_not_fail_the_call(self, monkeypatch):
         def refuse(*args):
@@ -860,7 +867,7 @@ class TestTidy:
                 raise outcome
             return outcome
 
-        monkeypatch.setattr(gui, "tidy_up", tidy_up)
+        monkeypatch.setattr(library_api, "tidy_up", tidy_up)
         entries = [{"path": f"C:/Music/{name}", "artist": "A", "title": name} for name in outcomes]
         assert api.tidy(entries, {"lyrics": False})
         for _ in range(1000):  # up to 20 s: a busy machine runs threads late
@@ -912,7 +919,7 @@ class TestBackground:
         api._tray = self.FakeTray()
         api._watched = list(watched)
         monkeypatch.setattr(gui.tray, "SUPPORTED", True)
-        monkeypatch.setattr(gui, "_load_settings", lambda: gui._normalize({"tray": tray_on}))
+        monkeypatch.setattr(prefs, "_load_settings", lambda: prefs._normalize({"tray": tray_on}))
         return api
 
     def test_closing_with_watched_playlists_only_hides_the_window(self, monkeypatch):
@@ -974,7 +981,7 @@ class TestBackground:
         assert api._finished == []
 
     def test_many_releases_make_one_notice(self):
-        title, text = gui._notice([
+        title, text = downloads_api._notice([
             {"title": "A", "state": "done", "ok": 3, "skipped": 1, "failed": 1},
             {"title": "B", "state": "done", "ok": 2, "skipped": 0, "failed": 0},
             {"title": "C", "state": "error", "message": "Spotify не отдал"},
@@ -983,9 +990,9 @@ class TestBackground:
         assert text == "скачано: 5, уже были: 1, не скачалось: 1, ссылок с ошибкой: 1"
 
     def test_a_release_not_all_downloaded_says_so(self):
-        assert gui._notice([{"title": "A", "state": "done", "ok": 3, "skipped": 0,
+        assert downloads_api._notice([{"title": "A", "state": "done", "ok": 3, "skipped": 0,
                              "failed": 2}])[0] == "Скачано не всё: A"
-        assert gui._notice([{"title": "A", "state": "error", "message": "нет сети"}]) == ("Не скачалось: A", "нет сети")
+        assert downloads_api._notice([{"title": "A", "state": "error", "message": "нет сети"}]) == ("Не скачалось: A", "нет сети")
 
 
 @pytest.mark.parametrize("executable, manager", [
@@ -995,7 +1002,7 @@ class TestBackground:
     ("/Applications/Sonicache.app/Contents/MacOS/Sonicache", ""),
 ])
 def test_a_package_managers_install_is_left_to_it_to_update(executable, manager):
-    assert gui._package_manager(executable) == manager
+    assert system._package_manager(executable) == manager
 
 
 class TestDeviceSync:
@@ -1013,7 +1020,7 @@ class TestDeviceSync:
 
     def chosen(self, music, **selection):
         items = gui.Api.library(None, str(music))
-        return gui._sync_sources({**gui.DEFAULT_SELECTION, **selection}, [str(music)], items)
+        return devicestate._sync_sources({**devicestate.DEFAULT_SELECTION, **selection}, [str(music)], items)
 
     def test_an_album_chosen_twice_is_synced_once(self, music):
         album = str(music / "R - First (2000)")
@@ -1026,7 +1033,7 @@ class TestDeviceSync:
         assert [source.rel for source in found] == ["S - Second (2001)/01. c.mp3"]
 
     def test_all_takes_every_entry_and_every_playlist(self, music):
-        gui.playlists.save(None, "Mix", [{"path": str(music / "X - Single.mp3"), "title": "x"}])
+        playlists.save(None, "Mix", [{"path": str(music / "X - Single.mp3"), "title": "x"}])
         found, specs, _ = self.chosen(music, all=True)
         assert len(found) == 4
         assert [spec.name for spec in specs] == ["Mix"]  # the smart lists are empty with nothing played
@@ -1035,28 +1042,28 @@ class TestDeviceSync:
         outside = tmp_path / "Elsewhere" / "z.mp3"
         outside.parent.mkdir()
         outside.write_bytes(b"music")
-        entry = gui.playlists.save(None, "Mix", [{"path": str(outside), "title": "z"}])
+        entry = playlists.save(None, "Mix", [{"path": str(outside), "title": "z"}])
         found, specs, _ = self.chosen(music, playlists=[entry["id"]])
         assert [source.rel for source in found] == ["Other/Elsewhere/z.mp3"]
         assert specs[0].sources == [outside]
 
     def test_a_missing_file_is_counted_not_synced(self, music, tmp_path):
-        entry = gui.playlists.save(None, "Mix", [{"path": str(tmp_path / "gone.mp3"), "title": "g"}])
+        entry = playlists.save(None, "Mix", [{"path": str(tmp_path / "gone.mp3"), "title": "g"}])
         found, _, missing = self.chosen(music, playlists=[entry["id"]])
         assert found == [] and missing == 1
 
     def test_save_device_keeps_only_known_keys(self):
         gui.Api.save_device(None, "vol:1", {"all": True, "bitrate": 999, "junk": 1, "artists": ["Radiohead"]})
-        kept = gui.logs.read_json(gui.logs.data_dir() / gui.DEVICES_FILE)["devices"]["vol:1"]["selection"]
-        assert kept == {**gui.DEFAULT_SELECTION, "all": True, "artists": ["radiohead"]}
+        kept = gui.logs.read_json(gui.logs.data_dir() / devicestate.DEVICES_FILE)["devices"]["vol:1"]["selection"]
+        assert kept == {**devicestate.DEFAULT_SELECTION, "all": True, "artists": ["radiohead"]}
 
     def test_sync_device_plans_and_runs(self, music, tmp_path, monkeypatch):
         phone = tmp_path / "Phone"
         phone.mkdir()
-        monkeypatch.setattr(gui.devices, "_drives", lambda: [])
-        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
-        gui.logs.write_json(gui.logs.data_dir() / gui.DEVICES_FILE, {"folders": [str(phone)], "devices": {}})
-        device_id = gui.devices.folder_id(str(phone))
+        monkeypatch.setattr(devices, "_drives", lambda: [])
+        monkeypatch.setattr(prefs, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        gui.logs.write_json(gui.logs.data_dir() / devicestate.DEVICES_FILE, {"folders": [str(phone)], "devices": {}})
+        device_id = devices.folder_id(str(phone))
         api = gui.Api()
         api.save_device(device_id, {"all": True})
         assert [device["id"] for device in api.devices()] == [device_id]
@@ -1072,18 +1079,18 @@ class TestDeviceSync:
     def test_the_preview_does_not_walk_the_folders_again(self, music, tmp_path, monkeypatch):
         phone = tmp_path / "Phone"
         phone.mkdir()
-        monkeypatch.setattr(gui.devices, "_drives", lambda: [])
-        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
-        gui.logs.write_json(gui.logs.data_dir() / gui.DEVICES_FILE, {"folders": [str(phone)], "devices": {}})
-        device_id = gui.devices.folder_id(str(phone))
+        monkeypatch.setattr(devices, "_drives", lambda: [])
+        monkeypatch.setattr(prefs, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        gui.logs.write_json(gui.logs.data_dir() / devicestate.DEVICES_FILE, {"folders": [str(phone)], "devices": {}})
+        device_id = devices.folder_id(str(phone))
         api = gui.Api()
         api.save_device(device_id, {"all": True})
         api.library([str(music)])  # what the window does on opening the library
 
         def walked(*args, **kwargs):
             raise AssertionError("the folders were walked again for a preview")
-        monkeypatch.setattr(gui, "LIBRARY_FRESH", 0)
-        monkeypatch.setattr(gui, "_library_items", walked)
+        monkeypatch.setattr(libraryscan, "LIBRARY_FRESH", 0)
+        monkeypatch.setattr(library_api, "_library_items", walked)
         assert api.device_plan(device_id)["tracks"] == 4
 
     def test_an_ipod_is_synced_from_the_window(self, music, tmp_path, monkeypatch):
@@ -1092,11 +1099,11 @@ class TestDeviceSync:
             (pod / folder).mkdir(parents=True)
         (pod / "iPod_Control/Device/SysInfo").write_text("ModelNumStr: xA002\n", encoding="ascii")
         (music / "Z - Odd.opus").write_bytes(b"music")
-        monkeypatch.setattr(gui.devices, "_drives", lambda: [(str(pod), "IPOD 5G", 0x5)])
-        monkeypatch.setattr(gui.devices, "_phones", lambda: [])
-        monkeypatch.setattr(gui, "find_tool", lambda name: None)  # no ffmpeg: the opus cannot go
-        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
-        gui.logs.write_json(gui.logs.data_dir() / gui.DEVICES_FILE, {"folders": [], "devices": {}})
+        monkeypatch.setattr(devices, "_drives", lambda: [(str(pod), "IPOD 5G", 0x5)])
+        monkeypatch.setattr(devices, "_phones", lambda: [])
+        monkeypatch.setattr(devices_api, "find_tool", lambda name: None)  # no ffmpeg: the opus cannot go
+        monkeypatch.setattr(prefs, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        gui.logs.write_json(gui.logs.data_dir() / devicestate.DEVICES_FILE, {"folders": [], "devices": {}})
         api = gui.Api()
         [device] = api.devices()
         assert (device["kind"], device["name"], device["synced"]) == ("ipod", "IPOD 5G", False)
@@ -1138,7 +1145,7 @@ class TestWifi:
     def test_wifi_is_off_until_switched_on(self, port):
         state = gui.Api().wifi()
         assert (state["on"], state["running"], state["user"]) == (False, False, "sonicache")
-        assert len(state["password"]) == 10 and set(state["password"]) <= set(gui.WIFI_ALPHABET)
+        assert len(state["password"]) == 10 and set(state["password"]) <= set(devicestate.WIFI_ALPHABET)
         assert gui.Api().wifi()["password"] == state["password"]  # kept in wifi.json
 
     def test_switching_wifi_on_starts_the_server_and_keeps_it(self, port):
@@ -1147,7 +1154,7 @@ class TestWifi:
         try:
             assert state["on"] and state["running"] and state["port"] == port
             assert self.ping(port, state["password"]) == "ok"
-            assert gui.logs.read_json(gui.logs.data_dir() / gui.WIFI_FILE)["on"] is True
+            assert gui.logs.read_json(gui.logs.data_dir() / devicestate.WIFI_FILE)["on"] is True
         finally:
             state = api.set_wifi(False)
         assert not state["on"] and not state["running"]
@@ -1179,7 +1186,7 @@ class TestWifi:
         music = tmp_path / "Music"
         (music / "Radiohead - In Rainbows (2007)").mkdir(parents=True)
         (music / "Radiohead - In Rainbows (2007)" / "01. 15 Step.mp3").write_bytes(b"ID3" + bytes(40))
-        monkeypatch.setattr(gui, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
+        monkeypatch.setattr(prefs, "_load_settings", lambda: {"folder": str(music), "library_folders": []})
         api = gui.Api()
         state = api.set_wifi(True)
         try:

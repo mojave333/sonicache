@@ -209,7 +209,8 @@ Releases are made on GitHub: Actions → Release → Run workflow, then type the
 files with their SHA-256.
 
 The engine that turns a link into tagged files is `sonicache/engine/`, and it knows nothing about the window.
-The window is `sonicache/gui.py` and `sonicache/web/`.
+The window is `sonicache/gui.py`, with the calls the page makes split by subject in `sonicache/bridge/`, and
+the page itself is `sonicache/web/`, its script in `web/js/`.
 
 ## Licence
 

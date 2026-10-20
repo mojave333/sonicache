@@ -4,13 +4,14 @@ import contextlib
 import datetime
 import io
 import json
+import time
 import urllib.error
 import urllib.parse
 
 import pytest
 
 from sonicache import gui
-from sonicache.engine import catalog
+from sonicache.engine import catalog, sources
 from sonicache.engine.models import Album, Release, SourceError, Track
 
 DEEZER = {
@@ -138,7 +139,7 @@ def test_a_found_album_lists_its_tracks_with_links_of_their_own(monkeypatch):
     tracks = [Track(id="138539971", title="Airbag", artists="Radiohead", duration=287.4, track_number=1)]
     album = Album(id="1", name="OK Computer", artist="Radiohead", release_date="1997-05-21", tracks=tracks,
                   service="Deezer", cover_url="https://cdn.test/c.jpg")
-    monkeypatch.setattr(gui.sources, "resolve", lambda link: Release(album, tracks))
+    monkeypatch.setattr(sources, "resolve", lambda link: Release(album, tracks))
     page = gui.Api.release(None, "https://www.deezer.com/album/1")
     assert (page["title"], page["year"], page["cover"]) == ("OK Computer", "1997", "https://cdn.test/c.jpg")
     assert page["tracks"] == [{"number": 1, "disc": 1, "title": "Airbag", "artists": "Radiohead", "duration": 287,
@@ -149,7 +150,7 @@ def test_an_album_that_does_not_open_says_why(monkeypatch):
     def refuse(link):
         raise SourceError("Deezer не нашёл альбом 1", "not_found")
 
-    monkeypatch.setattr(gui.sources, "resolve", refuse)
+    monkeypatch.setattr(sources, "resolve", refuse)
     assert gui.Api.release(None, "https://www.deezer.com/album/1") == {"error": "Deezer не нашёл альбом 1"}
 
 
@@ -262,14 +263,14 @@ class TestCatalogueHomeApi:
 
     def test_a_second_opening_within_hours_asks_nobody(self, api, monkeypatch):
         calls = []
-        monkeypatch.setattr(gui.catalog, "home", lambda names, known: calls.append(names) or
+        monkeypatch.setattr(catalog, "home", lambda names, known: calls.append(names) or
                             {"service": "Deezer", "popular": [{"title": "A"}], "fresh": []})
         first = api.catalogue_home(["Radiohead"])
         assert api.catalogue_home(["Radiohead"]) == first and len(calls) == 1
 
     def test_other_artists_or_a_refresh_ask_again(self, api, monkeypatch):
         calls = []
-        monkeypatch.setattr(gui.catalog, "home", lambda names, known: calls.append(names) or
+        monkeypatch.setattr(catalog, "home", lambda names, known: calls.append(names) or
                             {"service": "Deezer", "popular": [], "fresh": []})
         api.catalogue_home(["Radiohead"])
         api.catalogue_home(["Boris"])
@@ -277,25 +278,25 @@ class TestCatalogueHomeApi:
         assert len(calls) == 3
 
     def test_when_deezer_is_down_what_was_shown_last_is_shown_marked(self, api, monkeypatch):
-        monkeypatch.setattr(gui.catalog, "home", lambda names, known: {"service": "Deezer", "popular": [{"title": "A"}], "fresh": []})
+        monkeypatch.setattr(catalog, "home", lambda names, known: {"service": "Deezer", "popular": [{"title": "A"}], "fresh": []})
         api.catalogue_home(["Radiohead"])
-        monkeypatch.setattr(gui.time, "time", lambda: 10 ** 10)  # long after
-        monkeypatch.setattr(gui.catalog, "home", lambda names, known: (_ for _ in ()).throw(SourceError.of("offline", "x")))
+        monkeypatch.setattr(time, "time", lambda: 10 ** 10)  # long after
+        monkeypatch.setattr(catalog, "home", lambda names, known: (_ for _ in ()).throw(SourceError.of("offline", "x")))
         shown = api.catalogue_home(["Radiohead"])
         assert shown["stale"] is True and shown["popular"] == [{"title": "A"}]
 
     def test_with_nothing_kept_and_deezer_down_the_page_gets_an_error(self, api, monkeypatch):
-        monkeypatch.setattr(gui.catalog, "home", lambda names, known: (_ for _ in ()).throw(SourceError.of("offline", "x")))
+        monkeypatch.setattr(catalog, "home", lambda names, known: (_ for _ in ()).throw(SourceError.of("offline", "x")))
         assert api.catalogue_home([])["error"]
 
     def test_the_ids_found_are_kept_for_next_time(self, api, monkeypatch):
         def home(names, known):
             known["boris"] = "77"
             return {"service": "Deezer", "popular": [], "fresh": []}
-        monkeypatch.setattr(gui.catalog, "home", home)
+        monkeypatch.setattr(catalog, "home", home)
         api.catalogue_home(["Boris"])
         seen = {}
-        monkeypatch.setattr(gui.catalog, "home", lambda names, known: seen.update(known) or
+        monkeypatch.setattr(catalog, "home", lambda names, known: seen.update(known) or
                             {"service": "Deezer", "popular": [], "fresh": []})
         api.catalogue_home(["Boris"], refresh=True)
         assert seen == {"boris": "77"}
