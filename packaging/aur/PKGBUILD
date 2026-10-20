@@ -12,8 +12,8 @@ depends=('alsa-lib' 'libglvnd' 'libxcomposite' 'libxdamage' 'libxkbcommon-x11' '
 options=('!strip' '!debug')
 source=("Sonicache-v${pkgver}-linux-x64.tar.xz::${url}/releases/download/v${pkgver}/Sonicache-v${pkgver}-linux-x64.tar.xz"
         "sonicache.png::https://raw.githubusercontent.com/mojave333/sonicache/v${pkgver}/docs/logo.png")
-sha256sums=('835c88216e2502b87021577bfe096b085755d2758ffe8cc78c87d61f54b6e341'
-            'e60bc0f81f392448bd2961f393e47ed2b5e580021a8ff0cc61e51ad286edebeb')
+sha256sums=('9a9a25bbc052867553e5e02ee14d7e06966156a354e29d7d3beaee8404135d95'
+            '5232a5e86415b021d45483f8ea525929c82d50bfe850d67a164ac7b9b4a1cb1b')
 
 package() {
   install -d "$pkgdir/opt"

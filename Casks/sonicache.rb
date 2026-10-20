@@ -2,8 +2,8 @@ cask "sonicache" do
   arch arm: "arm64", intel: "x64"
 
   version "1.0.0"
-  sha256 arm:   "2a645cec2974d7e7a96b795870eddad39cb6a748cd27b4d1023a0f48032e322d",
-         intel: "c3b465c9c1cc6268a88ac93a448ad0649aba4ed9a51aaf2fcf8b412d25ab6b10"
+  sha256 arm:   "73e9ff6965afe13afdde953208d9b8cf57f518a5029473a3bd7375d84d90914f",
+         intel: "8c00734ac7a7b9ddc4f5da226a0996a0f4198d2d38324a378afec3adae8a5ade"
 
   url "https://github.com/mojave333/sonicache/releases/download/v#{version}/Sonicache-v#{version}-macos-#{arch}.dmg"
   name "Sonicache"

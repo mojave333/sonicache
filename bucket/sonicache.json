@@ -7,7 +7,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/mojave333/sonicache/releases/download/v1.0.0/Sonicache-v1.0.0-windows-x64.zip",
-            "hash": "1bc226b47a9bdeab67cc773f6cf02d2d3f81de6437887d5b5c3c1151e750dc69"
+            "hash": "cb2c8b28dcd9201663a7eaced76791a2e4d69b101a06fcd06474ec9437b63505"
         }
     },
     "bin": [
