@@ -1,6 +1,6 @@
 """Desktop window: an HTML/CSS interface rendered by Edge WebView2 via pywebview.
 
-web/app.js calls Api methods as window.pywebview.api.<name>() and polls for
+web/js/*.js call Api methods as window.pywebview.api.<name>() and poll for
 download events. Downloads run one link at a time in a background thread.
 """
 
@@ -105,7 +105,7 @@ CATALOGUE_FOR = 6 * 3600
 # where a genre or lyrics could not be found
 TIDIED_FILE = "tidied.json"
 # The albums opened or played since they arrived: their covers no longer say "New".
-# The mark lasts a week at most (web/app.js), so older entries are dropped
+# The mark lasts a week at most (web/js/pages.js), so older entries are dropped
 SEEN_FILE = "seen.json"
 # The albums marked with a heart: a list of their folders
 FAVOURITES_FILE = "favourites.json"

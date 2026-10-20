@@ -1391,7 +1391,7 @@ html.maximized .win-edge, html.window-full .win-edge, html.window-full .window-c
 .empty .icon { width: 26px; height: 26px; margin-bottom: 8px; --icon-weight: 0px; }
 /* An empty screen shows a picture, not only words */
 .empty .scene { display: grid; place-items: center; max-width: 100%; margin-bottom: 12px; }
-/* The picture typed: a thing in ASCII with a part that moves (app.js) */
+/* The picture typed: a thing in ASCII with a part that moves (js/core.js) */
 .ascii { display: none; margin: 0; color: var(--text-muted); font: var(--fs-sm)/1.18 "Cascadia Mono", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace; text-align: left; }
 .ascii b { color: var(--accent-fg); font-weight: 400; }
 [data-art="ascii"] .ascii { display: block; }

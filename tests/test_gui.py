@@ -15,6 +15,13 @@ from sonicache import gui
 from sonicache.engine.downloader import DEFAULT_OUTPUT_DIR
 
 
+def page_script() -> str:
+    """The window's script: every file the page loads, in its order."""
+    page = (gui.WEB_DIR / "index.html").read_text(encoding="utf-8")
+    return "\n".join((gui.WEB_DIR / name).read_text(encoding="utf-8")
+                     for name in re.findall(r'<script src="([^"]+)"', page))
+
+
 class TestNormalize:
     def test_empty_settings_get_the_defaults(self):
         settings = gui._normalize({})
@@ -75,7 +82,7 @@ class TestNormalize:
 
     def test_every_font_on_offer_is_in_the_window(self):
         page = (gui.WEB_DIR / "index.html").read_text(encoding="utf-8")
-        script = (gui.WEB_DIR / "app.js").read_text(encoding="utf-8")
+        script = page_script()
         styles = (gui.WEB_DIR / "style.css").read_text(encoding="utf-8")
         for font in gui.FONTS:
             assert f'data-font-choice="{font}"' in page
@@ -87,10 +94,18 @@ class TestNormalize:
     def test_every_control_the_window_binds_at_start_is_on_the_page(self):
         """One missing and the whole window fails to start."""
         page = (gui.WEB_DIR / "index.html").read_text(encoding="utf-8")
-        script = (gui.WEB_DIR / "app.js").read_text(encoding="utf-8")
+        script = page_script()
         bound = re.findall(r'(?:radioGroup|bindSwitch|syncSwitch|syncRadios)\(\$\("#([\w-]+)"\)', script)
         assert len(bound) > 10
         assert [name for name in bound if f'id="{name}"' not in page] == []
+
+    def test_every_script_is_loaded_and_the_start_comes_last(self):
+        """The files share one scope: one left out is a name missing, and init() wants them all in before it runs."""
+        page = (gui.WEB_DIR / "index.html").read_text(encoding="utf-8")
+        loaded = re.findall(r'<script src="([^"]+)"', page)
+        assert sorted(name for name in loaded if name.startswith("js/")) == sorted(
+            f"js/{path.name}" for path in (gui.WEB_DIR / "js").glob("*.js"))
+        assert loaded[-1] == "app.js"
 
     @pytest.mark.parametrize("given, expected", [("ascii", "ascii"), ("crayon", "crayon"), ("photo", "none"), (None, "none")])
     def test_only_known_pictures_survive(self, given, expected):
@@ -98,7 +113,7 @@ class TestNormalize:
 
     def test_every_picture_on_offer_is_in_the_window(self):
         page = (gui.WEB_DIR / "index.html").read_text(encoding="utf-8")
-        script = (gui.WEB_DIR / "app.js").read_text(encoding="utf-8")
+        script = page_script()
         for art in gui.ARTS:
             assert f'data-art-choice="{art}"' in page
             assert f'"{art}"' in script

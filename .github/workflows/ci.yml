@@ -136,7 +136,8 @@ jobs:
           $out = & ./dist/Sonicache/Sonicache-cli.exe --help
           if ($LASTEXITCODE -ne 0) { throw "Sonicache-cli.exe --help exited with $LASTEXITCODE" }
           foreach ($file in "dist/Sonicache/Sonicache.exe", "dist/Sonicache/_internal/sonicache/web/index.html",
-                            "dist/Sonicache/_internal/sonicache/web/app.js", "dist/Sonicache/_internal/sonicache/web/style.css") {
+                            "dist/Sonicache/_internal/sonicache/web/app.js", "dist/Sonicache/_internal/sonicache/web/js/core.js",
+                            "dist/Sonicache/_internal/sonicache/web/style.css") {
             if (-not (Test-Path $file)) { throw "missing from the build: $file" }
           }
 
