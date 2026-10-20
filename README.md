@@ -12,7 +12,6 @@
 [Command line](#command-line) &nbsp;·&nbsp;
 [Links](#links-it-understands) &nbsp;·&nbsp;
 [Files](#where-the-files-go) &nbsp;·&nbsp;
-[Package](#python-package) &nbsp;·&nbsp;
 [Build](#building) &nbsp;·&nbsp;
 [Licence](#licence)
 
@@ -632,37 +631,6 @@ per the freedesktop.org specification), "Show in the file manager" opens Finder 
 manager, and the theme follows the system. Settings live in `~/.sonicache.json`; the log and the
 history in `~/Library/Application Support/Sonicache` (macOS) or `$XDG_DATA_HOME/sonicache` (Linux).
 
-## Python package
-
-The engine and the command line are also a package for any system with Python 3.10 or newer. ffmpeg
-and Deno (or Node.js 22+) have to be installed separately and be on `PATH`.
-
-```sh
-pip install sonicache          # the engine and the `sonicache` command
-pip install "sonicache[gui]"   # adds the window, started with `sonicache-gui`
-```
-
-The `sonicache` command takes the same options as `Sonicache-cli.exe`. From Python:
-
-```python
-from pathlib import Path
-from sonicache.engine import Downloader, Options, resolve
-
-release = resolve("https://www.deezer.com/album/302127")
-print(release.album.name, [track.title for track in release.tracks])
-
-report = Downloader(Options(output_dir=Path("Music"))).download_link("https://www.deezer.com/album/302127")
-print(report.summary())
-```
-
-What `sonicache.engine` exports is the public interface and keeps working across minor versions; the
-modules behind it may change in any release. The engine writes to the `sonicache` logger without
-setting up handlers, and speaks the system's language, Russian or English, until `set_language()` says
-otherwise. Errors carry a code beside the sentence, for a program to act on: `SourceError` and
-`DownloaderError` have `.code` and `.details`, and `report.failures` lists each failed track with its
-code. The codes stay the same in either language and across minor versions; `ERROR_CODES` says what
-each one means.
-
 ## Running from source
 
 Windows and Python 3.10+. ffmpeg and Deno are not included: put `ffmpeg.exe` and `deno.exe` into a
@@ -738,7 +706,7 @@ Releases are made on GitHub, with nothing to do locally. Open **Actions → Rele
 type the version (`1.2.3`). [`release.yml`](.github/workflows/release.yml) writes it into
 `sonicache/__init__.py`, commits it, tags the commit, runs the tests, builds the exe and the installer, and
 publishes the release with both files and their SHA-256. The macOS and Linux builds are attached to the same
-release a few minutes later, and the Python package goes to PyPI. Tagging by hand also works:
+release a few minutes later. Tagging by hand also works:
 `git tag v1.2.3 && git push origin v1.2.3` starts the same workflow, which then checks the tag against
 `__version__` and stops if they disagree. A version that has already been released is refused before anything
 is built.
@@ -785,7 +753,6 @@ program built on top of it.
 | `sonicache.spec`, `scripts/fetch-vendor.ps1` | building the exe |
 | `scripts/fetch-vendor.sh`, `scripts/build-unix.sh` | building for macOS and Linux |
 | `sonicache.iss`, `scripts/build-installer.ps1` | building the installer |
-| `pyproject.toml`, `docs/pypi.md` | the Python package and its page on PyPI |
 
 ## Licence
 

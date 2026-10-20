@@ -3,7 +3,6 @@ name: Release
 # Releasing takes no local commands. Open Actions -> Release -> Run workflow,
 # type the version (1.1.0), and the job writes __version__, commits it, tags the
 # commit, builds the exe and the installer, and publishes the release with both.
-# The pypi job then puts the same version of the Python package on PyPI.
 #
 # Tagging by hand still works for anyone who prefers it:
 #
@@ -288,42 +287,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ needs.windows.outputs.tag }}" "$package" --clobber
-
-  # PyPI trusts this workflow through Trusted Publishing, so no token is stored
-  # anywhere. The publisher is set up once on pypi.org: project sonicache,
-  # owner mojave333, repository sonicache, workflow release.yml, environment pypi.
-  pypi:
-    needs: windows
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/sonicache/
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.windows.outputs.tag }}
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Build the package
-        run: |
-          pip install build twine
-          python -m build
-          twine check dist/*
-
-      # The version comes from sonicache/__init__.py; the tag already had to
-      # agree with it, so a mismatch here means the wrong commit was checked out.
-      - name: Check the version
-        run: |
-          tag="${{ needs.windows.outputs.tag }}"
-          ls "dist/sonicache-${tag#v}-py3-none-any.whl"
-
-      - uses: pypa/gh-action-pypi-publish@release/v1
 
   # Once every file is up, Scoop's bucket, Homebrew's cask and the AUR and
   # winget files in this repository are pointed at the new release, with the
