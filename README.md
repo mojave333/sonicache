@@ -34,9 +34,6 @@ accounts or API keys, and the interface is in Russian and English.
 
 ## Install
 
-> [!NOTE]
-> The Releases page has no builds at the moment. Until it does, run Sonicache [from source](#from-source).
-
 ### Windows
 
 Download `Sonicache-vX.Y.Z-windows-x64-setup.exe` from
