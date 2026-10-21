@@ -10,8 +10,8 @@ Paste a link or type an album's name, and it lands in your folder tagged,<br>
 with the cover, the genre and the lyrics.
 
 [![Build](https://img.shields.io/github/actions/workflow/status/mojave333/sonicache/ci.yml?label=build)](https://github.com/mojave333/sonicache/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/mojave333/sonicache?color=2EA043)](https://github.com/mojave333/sonicache/releases/latest)
-[![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-2EA043)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/mojave333/sonicache?color=brightgreen)](https://github.com/mojave333/sonicache/releases/latest)
+[![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-brightgreen)](LICENSE)
 
 [Download](#download) &nbsp;·&nbsp; [Player](#player) &nbsp;·&nbsp; [iPod](#ipods) &nbsp;·&nbsp; [When something breaks](#when-something-breaks)
 
