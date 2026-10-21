@@ -43,7 +43,7 @@ in Russian or English.
 <p align="center">
   <a href="docs/album.webp"><img src="docs/album.webp" width="100%" alt="The page of the album Rumspringa by ear: the cover, the Play button, the tracks with their times, and the player along the bottom with the first track"></a>
   <br>
-  <sub><b>Album</b> &nbsp;·&nbsp; Rumspringa by ear, its tracks, and the player along the bottom</sub>
+  <sub><b>Album</b> &nbsp;·&nbsp; play it, keep it among your favourites, open its folder or watch it for new tracks</sub>
 </p>
 
 <br>
