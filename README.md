@@ -13,7 +13,7 @@ with the cover, the genre and the lyrics.
 [![Release](https://img.shields.io/github/v/release/mojave333/sonicache?color=BE3237)](https://github.com/mojave333/sonicache/releases/latest)
 [![Licence](https://img.shields.io/badge/licence-GPL--2.0--or--later-BE3237)](LICENSE)
 
-[Download](#download) &nbsp;·&nbsp; [iPod](#ipods) &nbsp;·&nbsp; [When something breaks](#when-something-breaks)
+[Download](#download) &nbsp;·&nbsp; [Player](#player) &nbsp;·&nbsp; [iPod](#ipods) &nbsp;·&nbsp; [When something breaks](#when-something-breaks)
 
 </div>
 
@@ -36,6 +36,14 @@ in Russian or English.
   <a href="docs/library.webp"><img src="docs/library.webp" width="100%" alt="The library: albums as a grid of covers, with the sections and playlists on the left"></a>
   <br>
   <sub><b>Library</b> &nbsp;·&nbsp; everything in your music folders, newest first, with favourites, playlists and genres on the side</sub>
+</p>
+
+<br>
+
+<p align="center">
+  <a href="docs/album.webp"><img src="docs/album.webp" width="100%" alt="The page of the album Rumspringa by ear: the cover, the Play button, the tracks with their times, and the player along the bottom with the first track"></a>
+  <br>
+  <sub><b>Album</b> &nbsp;·&nbsp; Rumspringa by ear, its tracks, and the player along the bottom</sub>
 </p>
 
 <br>
@@ -65,11 +73,31 @@ in Russian or English.
 - Saves MP3 at 320 kbit/s by default, or M4A, or Opus as YouTube streams it.
 - Keeps a library of every music folder you add, including music it didn't download, and fills in the
   covers, genres and lyrics older albums lack.
-- Plays it all: gapless albums, crossfade, an equalizer, synced lyrics on screen.
+- Plays it all in a [player](#player) of its own, and can show on your Discord profile what is playing.
 - Searches a catalogue, shows new releases from the artists you have and checks watched playlists twice a
   day for new tracks.
 - Copies your music to a player, an SD card, an Android phone or a classic iPod, and lets a phone play the
   library over Wi-Fi in a Subsonic app such as Amperfy or Ultrasonic.
+
+## Player
+
+The library plays in Sonicache itself, so you don't need a second program.
+
+- Albums play without gaps, the way they sound on the record. Other tracks can crossfade into each other.
+- Tracks with ReplayGain tags play at the same volume, while an album played in order keeps its own quiet
+  and loud parts.
+- An equalizer with presets, a queue (press Q), playlists, and .m3u8 playlists to and from other players.
+- Now playing fills the window with the cover and the lyrics, which follow the song when they are synced.
+- What you listen to can go to Last.fm or ListenBrainz.
+- On Windows the keyboard's media keys work, the track shows in Windows' own media controls and on the lock
+  screen, and the window's picture on the taskbar has buttons for the previous track, play/pause and the next one.
+
+### Discord
+
+Turn on Settings → Player → "Show on Discord what plays", and your Discord profile shows "Listening to"
+with the track, the artist, the album's cover and how far into the song you are. While the music is paused,
+the status goes away. Discord's desktop app has to be running on the same computer; no account or token is
+needed.
 
 ## Download
 
