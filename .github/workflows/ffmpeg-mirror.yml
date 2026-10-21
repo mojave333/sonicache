@@ -1,0 +1,57 @@
+name: ffmpeg mirror for macOS
+
+# The macOS builds take a static ffmpeg from ffmpeg.martin-riedl.de. When that
+# server does not answer, scripts/fetch-vendor.sh takes the same build from this
+# repository's "ffmpeg-macos" release, which this workflow fills: from the server
+# when it answers, else from the ffmpeg inside the latest release's .dmg files,
+# which came from it. Run by hand: Actions -> ffmpeg mirror for macOS -> Run workflow.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect ffmpeg for Apple Silicon and Intel
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          for arch in arm64 amd64; do
+            src="src-$arch"
+            mkdir -p "$src"
+            if curl -fsSL --retry 2 -o "riedl-$arch.zip" \
+                "https://ffmpeg.martin-riedl.de/redirect/latest/macos/$arch/release/ffmpeg.zip"; then
+              unzip -q "riedl-$arch.zip" -d "$src"
+              echo "$arch: from ffmpeg.martin-riedl.de"
+            else
+              # The release names the Intel build x64
+              dmg_arch=$([ "$arch" = arm64 ] && echo arm64 || echo x64)
+              gh release download --pattern "*-macos-$dmg_arch.dmg" --dir "dmg-$arch"
+              hdiutil attach -nobrowse -readonly -mountpoint "/tmp/mnt-$arch" dmg-"$arch"/*.dmg
+              cp "$(find "/tmp/mnt-$arch" -type f -name ffmpeg | head -n 1)" "$src/ffmpeg"
+              hdiutil detach "/tmp/mnt-$arch"
+              echo "$arch: from the latest release's dmg"
+            fi
+            found="$(find "$src" -type f -name ffmpeg | head -n 1)"
+            chmod +x "$found"
+            file "$found"
+            (cd "$(dirname "$found")" && zip -q "$GITHUB_WORKSPACE/out/ffmpeg-macos-$arch.zip" ffmpeg)
+          done
+          ls -la out
+
+      # A prerelease that is never the latest: the program's update check and the
+      # package managers look at the latest release only
+      - name: Publish
+        run: |
+          if ! gh release view ffmpeg-macos >/dev/null 2>&1; then
+            gh release create ffmpeg-macos --prerelease --latest=false --title "ffmpeg for the macOS builds" \
+              --notes "Static ffmpeg builds for macOS by Martin Riedl (https://ffmpeg.martin-riedl.de), kept here so the macOS builds of Sonicache can be made when that server is down. ffmpeg is under the GPL; its sources are at https://ffmpeg.org/download.html. Not a release of Sonicache."
+          fi
+          gh release upload ffmpeg-macos out/*.zip --clobber

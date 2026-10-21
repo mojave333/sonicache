@@ -27,6 +27,8 @@ case "$(uname -s)" in
       ffmpeg_arch=amd64 deno_arch=x86_64
     fi
     ffmpeg_url="https://ffmpeg.martin-riedl.de/redirect/latest/macos/$ffmpeg_arch/release/ffmpeg.zip"
+    # The same build kept in this repository (.github/workflows/ffmpeg-mirror.yml), for when that server is down
+    ffmpeg_mirror="https://github.com/mojave333/sonicache/releases/download/ffmpeg-macos/ffmpeg-macos-$ffmpeg_arch.zip"
     deno_url="https://github.com/denoland/deno/releases/latest/download/deno-$deno_arch-apple-darwin.zip"
     ;;
   *)
@@ -36,14 +38,21 @@ case "$(uname -s)" in
 esac
 
 fetch() {
-  local name="$1" url="$2"
+  local name="$1" url="$2" mirror="${3:-}"
   if [ -x "$vendor/$name" ]; then
     echo "$name is already there, skipping"
     return
   fi
   echo "Downloading $name from $url"
   local archive="$temp/$name-archive"
-  curl -fsSL --retry 3 -o "$archive" "$url"
+  if ! curl -fsSL --retry 3 -o "$archive" "$url"; then
+    if [ -z "$mirror" ]; then
+      exit 1
+    fi
+    echo "  it did not answer; downloading from $mirror"
+    url="$mirror"
+    curl -fsSL --retry 3 -o "$archive" "$url"
+  fi
   mkdir -p "$temp/$name"
   case "$url" in
     *.tar.xz) tar -xJf "$archive" -C "$temp/$name" ;;
@@ -60,7 +69,7 @@ fetch() {
   echo "  $vendor/$name -> $(du -h "$vendor/$name" | cut -f1)"
 }
 
-fetch ffmpeg "$ffmpeg_url"
+fetch ffmpeg "$ffmpeg_url" "${ffmpeg_mirror:-}"
 fetch deno "$deno_url"
 "$vendor/ffmpeg" -hide_banner -version | head -n 1
 "$vendor/deno" --version | head -n 1
