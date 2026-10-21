@@ -113,9 +113,15 @@ An iPod running Rockbox is synced like any other player, as plain folders.
 ## If a service is blocked
 
 Sonicache connects from your computer, so it sees what your network lets through. Settings → Network →
-"Check" shows what opens and finds the proxy of a VPN app such as v2rayN, Clash or Hiddify, which you can
-switch on with one click. When Spotify won't show a release to your network, the program reads it through
-its own relay abroad, with nothing for you to set up.
+"Check" shows what opens.
+
+In Russia, where YouTube is slowed down and Spotify does not work, run [Zapret](https://github.com/bol-van/zapret)
+or a VPN. Zapret works for the whole computer, so Sonicache needs no setting for it. So does a VPN in TUN or
+"system proxy" mode. If your VPN app only opens a local proxy (v2rayN, Clash, Hiddify and the like), "Check"
+finds it, and one click puts it to use.
+
+When Spotify won't show a release to your network, the program reads it through its own relay abroad, with
+nothing for you to set up.
 
 ## When something breaks
 
