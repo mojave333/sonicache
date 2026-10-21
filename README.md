@@ -25,7 +25,7 @@ in Russian or English.
 <br>
 
 <p align="center">
-  <a href="docs/download.webp"><img src="docs/download.webp" width="100%" alt="&quot;ear - rumspringa&quot; typed into the Download field, and the album's ten tracks downloading one after another until all are done"></a>
+  <a href="docs/download.webp"><img src="docs/download.webp" width="100%" alt="&quot;ear - rumspringa&quot; typed into the Download field, the album picked from the suggestions under it, and its ten tracks downloading one after another until all are done"></a>
   <br>
   <sub><b>Download</b> &nbsp;·&nbsp; a name typed in, and the album arriving track by track; the download itself is sped up</sub>
 </p>
