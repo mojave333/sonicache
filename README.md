@@ -22,13 +22,31 @@ with the cover, the genre and the lyrics.
 Sonicache runs on your own computer, with no accounts and no API keys. It works on Windows, macOS and Linux,
 in Russian or English.
 
+<br>
+
 <p align="center">
-  <img src="docs/library.webp" width="100%" alt="The library: albums as a grid of covers, with the sections and playlists on the left">
+  <a href="docs/library.webp"><img src="docs/library.webp" width="100%" alt="The library: albums as a grid of covers, with the sections and playlists on the left"></a>
+  <br>
+  <sub><b>Library</b> &nbsp;·&nbsp; everything in your music folders, newest first, with favourites, playlists and genres on the side</sub>
 </p>
+
+<br>
+
 <p align="center">
-  <img src="docs/catalogue.webp" width="49%" alt="The Catalogue: new releases from your artists, the Deezer chart and editors' picks">
-  <img src="docs/search.webp" width="49%" alt="A search for Sonic Youth: the artist, the albums already in the library, and more artists">
+  <a href="docs/catalogue.webp"><img src="docs/catalogue.webp" width="100%" alt="The Catalogue: new releases from your artists, the Deezer chart and editors' picks"></a>
+  <br>
+  <sub><b>Catalogue</b> &nbsp;·&nbsp; new releases from the artists you have, the Deezer chart and editors' picks</sub>
 </p>
+
+<br>
+
+<p align="center">
+  <a href="docs/search.webp"><img src="docs/search.webp" width="100%" alt="A search for Sonic Youth: the artist, the albums already in the library, and more artists"></a>
+  <br>
+  <sub><b>Search</b> &nbsp;·&nbsp; Sonic Youth, and the five of their albums already in the library</sub>
+</p>
+
+<br>
 
 ## What it does
 
