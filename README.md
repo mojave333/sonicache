@@ -25,6 +25,14 @@ in Russian or English.
 <br>
 
 <p align="center">
+  <a href="docs/download.gif"><img src="docs/download.gif" width="100%" alt="&quot;ear - rumspringa&quot; typed into the Download field, and the album's ten tracks downloading one after another until all are done"></a>
+  <br>
+  <sub><b>Download</b> &nbsp;·&nbsp; a name typed in, and the album arriving track by track; the download itself is sped up</sub>
+</p>
+
+<br>
+
+<p align="center">
   <a href="docs/library.webp"><img src="docs/library.webp" width="100%" alt="The library: albums as a grid of covers, with the sections and playlists on the left"></a>
   <br>
   <sub><b>Library</b> &nbsp;·&nbsp; everything in your music folders, newest first, with favourites, playlists and genres on the side</sub>
