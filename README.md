@@ -22,6 +22,14 @@ with the cover, the genre and the lyrics.
 Sonicache runs on your own computer, with no accounts and no API keys. It works on Windows, macOS and Linux,
 in Russian or English.
 
+<p align="center">
+  <img src="docs/library.webp" width="100%" alt="The library: albums as a grid of covers, with the sections and playlists on the left">
+</p>
+<p align="center">
+  <img src="docs/catalogue.webp" width="49%" alt="The Catalogue: new releases from your artists, the Deezer chart and editors' picks">
+  <img src="docs/search.webp" width="49%" alt="A search for Sonic Youth: the artist, the albums already in the library, and more artists">
+</p>
+
 ## What it does
 
 - Takes links from Spotify, Apple Music, Deezer, Last.fm, YouTube, SoundCloud and Bandcamp, or just a name
