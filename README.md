@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/logo.png" width="112" alt="">
-
-# Sonicache
-
-**Your personal music archive.**
+<!-- A picture and not a heading: GitHub draws a rule under a heading, and the banner carries the name itself -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.png">
+  <img src="docs/banner-light.png" width="100%" alt="Sonicache. Your personal music archive.">
+</picture>
 
 Paste a link or type an album's name, and it lands in your folder tagged,<br>
 with the cover, the genre and the lyrics.
